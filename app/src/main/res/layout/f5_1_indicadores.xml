@@ -1,0 +1,744 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="20dp"
+    android:orientation="vertical"
+    android:background="#FFFFFF"
+    tools:context="B_FRAGMENTS.F5_1_Indicadores">
+
+   <!-- ENCABEZADO -->
+   <LinearLayout
+       android:layout_width="match_parent"
+       android:layout_height="40dp"
+       android:orientation="horizontal"
+       android:background="#673AB7"
+       android:gravity="center_vertical"
+       android:paddingLeft="8dp"
+       android:paddingRight="8dp">
+
+      <TextView
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:text="INDICADORES FINANCIEROS"
+          android:textColor="@android:color/white"
+          android:textSize="16sp"
+          android:textStyle="bold"
+          android:gravity="center"/>
+
+      <Button
+          android:id="@+id/calculadoraLibre_XBt"
+          android:layout_width="40dp"
+          android:layout_height="35dp"
+          android:background="?attr/selectableItemBackground"
+          android:text="🔢"
+          android:textAllCaps="false"
+          android:textColor="#1976D2"
+          android:textSize="24sp"
+          app:layout_column="3"
+          app:layout_row="0"
+          />
+
+      <ImageButton
+          android:id="@+id/salidaEsteFragment_XBt"
+          android:layout_width="30dp"
+          android:layout_height="30dp"
+          android:background="@drawable/ic_out"
+          android:contentDescription="Cerrar"/>
+   </LinearLayout>
+
+   <!-- CABECERA DE TABLA -->
+   <LinearLayout
+       android:layout_width="match_parent"
+       android:layout_height="wrap_content"
+       android:orientation="horizontal"
+       android:background="#9575CD"
+       android:padding="6dp">
+
+      <TextView
+          android:layout_width="40dp"
+          android:layout_height="wrap_content"
+          android:text="Item"
+          android:textColor="@android:color/white"
+          android:textSize="13sp"
+          android:textStyle="bold"
+          android:gravity="center"/>
+
+      <TextView
+          android:layout_width="120dp"
+          android:layout_height="wrap_content"
+          android:text="Concepto"
+          android:textColor="@android:color/white"
+          android:textSize="13sp"
+          android:textStyle="bold"
+          android:gravity="center"/>
+
+      <TextView
+          android:layout_width="45dp"
+          android:layout_height="wrap_content"
+          android:text="Días"
+          android:textColor="@android:color/white"
+          android:textSize="13sp"
+          android:textStyle="bold"
+          android:gravity="center"/>
+
+      <!-- COLUMNA 4 ahora es "Depurado" (antes col 5) -->
+      <LinearLayout
+          android:layout_width="100dp"
+          android:layout_height="wrap_content"
+          android:orientation="horizontal"
+          android:gravity="center">
+
+         <TextView
+             android:id="@+id/VerDetalleProrrateables_XTv"
+             android:layout_width="100dp"
+             android:layout_height="wrap_content"
+             android:layout_weight="1.2"
+             android:text="Depurado"
+             android:textColor="@android:color/white"
+             android:textSize="13sp"
+             android:textStyle="bold"
+             android:gravity="center"
+             android:background="@drawable/bg_green_square4"
+             />
+
+         <ImageButton
+             android:id="@+id/btnVerDetalleProrrateables_XBt"
+             android:layout_width="20dp"
+             android:layout_height="20dp"
+             android:background="@drawable/ic_ver_info"
+             android:scaleType="fitCenter"
+             android:contentDescription="Ver detalle"/>
+      </LinearLayout>
+
+      <!-- COLUMNA 5 ahora es "Contable" (antes col 4) -->
+      <TextView
+          android:id="@+id/irALaCuentaContable_XTv"
+          android:layout_width="75dp"
+          android:layout_height="wrap_content"
+          android:text="Contable"
+          android:textColor="@android:color/white"
+          android:textSize="13sp"
+          android:textStyle="bold"
+          android:gravity="center"
+          android:background="@drawable/bg_green_square4"
+          />
+
+   </LinearLayout>
+
+   <!-- SCROLL DE CONTENIDO -->
+   <ScrollView
+       android:layout_width="match_parent"
+       android:layout_height="500dp"
+       android:fillViewport="true">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+         <!-- FILA 1: Presupuesto -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="1"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Presupuesto"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasMes_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado (antes col 5) -->
+            <TextView
+                android:id="@+id/valorPresupuestoDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable (antes col 4) -->
+            <LinearLayout
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center">
+
+               <EditText
+                   android:id="@+id/editPresupuestoTotal_XEt"
+                   android:layout_width="match_parent"
+                   android:layout_height="28dp"
+                   android:background="#FFFFFF"
+                   android:textSize="14sp"
+                   android:gravity="center"
+                   android:inputType="number"
+                   android:hint="1050"/>
+
+               <ImageButton
+                   android:id="@+id/btnGuardarPresupuesto_XBt"
+                   android:layout_width="match_parent"
+                   android:layout_height="18dp"
+                   android:background="#4CAF50"
+                   android:scaleType="fitCenter"
+                   android:src="@android:drawable/ic_menu_save"
+                   android:contentDescription="Guardar"/>
+            </LinearLayout>
+
+         </LinearLayout>
+
+         <!-- FILA 2: Promedio diario base -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#E1BEE7"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="2"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Prom. diario"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasBase_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorPromDiarioBaseDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorPromDiarioBaseContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 3: Por Ejecutar -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#E1BEE7"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="3"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Por ejecutar"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasPorEjecutar_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorPorEjecutarDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorPorEjecutarContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 4: Por eje. diario -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="4"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Por eje. diario"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasPorEjec_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorPromDiaPorEjecDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorPromDiaPorEjecContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 5: Ejecutado -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="5"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Ejecutado"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasEjecutado_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorEjecutadoDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorEjecutadoContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 6: Diario eje. -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="6"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Diario eje."
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasAHoy_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorPromDiaHoyDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorPromDiaHoyContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 7: Proyectado desde hoy -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#E1BEE7"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="7"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Proyectado"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasProyHoy_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorProyHoyDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorProyHoyContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 8: Prom. día ayer -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="8"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Prom. día ayer"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasAyer_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorPromDiaAyerDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorPromDiaAyerContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 9: Proyectado desde ayer -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#E1BEE7"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="9"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Proyectado"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:id="@+id/valorDiasProyAyer_XTv"
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado -->
+            <TextView
+                android:id="@+id/valorProyAyerDepurado_XTv"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorProyAyerContable_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- SEPARADOR BALANCE GENERAL -->
+         <TextView
+             android:layout_width="match_parent"
+             android:layout_height="35dp"
+             android:text="BALANCE GENERAL"
+             android:background="#512DA8"
+             android:textColor="@android:color/white"
+             android:textSize="15sp"
+             android:textStyle="bold"
+             android:gravity="center"
+             android:layout_marginTop="8dp"/>
+
+         <!-- FILA 10: Suma Activo Exigible -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="1"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Suma Activo Exig."
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado (era "-") -->
+            <TextView
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorActivoExigible_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 11: Suma Pasivo Exigible -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#E1BEE7"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="2"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Suma Pasivo Exig."
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado (era "-") -->
+            <TextView
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorPasivoExigible_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA 12: Ahorro o deuda -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="3"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Ahorro o deuda"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 4: Depurado (era "-") -->
+            <TextView
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <!-- COL 5: Contable -->
+            <TextView
+                android:id="@+id/valorAhorroODeuda_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+      </LinearLayout>
+   </ScrollView>
+
+</LinearLayout>

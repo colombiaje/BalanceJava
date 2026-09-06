@@ -1,0 +1,5 @@
+<!-- res/drawable/background_transparent.xml -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Fondo transparente -->
+    <item android:drawable="@android:color/transparent" />
+</layer-list>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:layout_marginLeft="2dp"
+    android:layout_marginRight="2dp"
+    android:layout_marginTop="80dp"
+    android:layout_gravity="center_vertical"
+    tools:context="B_FRAGMENTS.zzzF3_4_VeTodasLasTransacciones">
+
+    <GridLayout
+        android:id="@+id/encabezadoXGL"
+        android:layout_width="350dp"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="4dp"
+        android:layout_marginRight="5dp"
+        android:background="#ffffff"
+        android:columnCount="4"
+        android:layout_gravity="center_horizontal"
+        android:useDefaultMargins="true"
+        >
+
+    <ImageButton
+        android:id="@+id/ordenTransacciones_XIb"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginLeft="70dp"
+        android:background="@drawable/ic_sort"
+        android:layout_row="0"
+        android:layout_column="0"
+        android:textSize="10dp"
+        />
+
+
+    <EditText
+        android:id="@+id/buscar_XTv"
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:background="#F4D7F5"
+        android:hint="Buscar"
+        android:layout_row="0"
+        android:layout_column="1"
+        android:textColorHint="@color/colorPrimary"
+        android:textSize="20dp"
+        android:textColor="@color/colorPrimary"
+        android:layout_marginBottom="6dp"
+        />
+
+        <ImageButton
+            android:id="@+id/salida_XBt"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_row="0"
+            android:layout_column="2"
+            android:layout_gravity="center_vertical"
+            android:text="Salir"
+            android:background="@drawable/ic_out"
+            android:layout_marginTop="2dp"
+            android:layout_marginRight="2dp"
+            android:layout_weight="1"/>
+
+        <!--
+        <Button
+            android:id="@+id/cleanPasteQueryAccount_XChB"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:background="@drawable/clean_paste"
+            android:gravity="center"
+            android:padding="0dp"
+            app:layout_column="0"
+            app:layout_gravity="center_vertical"
+            app:layout_row="3"
+
+            /> -->
+
+      </GridLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerId"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+
+</LinearLayout>

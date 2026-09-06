@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#A1EBE4"
+
+    >
+
+    <LinearLayout
+        android:id="@+id/relativeLayout1"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_white_square"
+        android:layout_marginTop="1dp"
+        android:layout_marginLeft="2dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:orientation="horizontal"
+        android:scrollbars="horizontal"
+        android:scrollbarSize="20dp"
+        >
+
+        <TextView
+            android:id="@+id/c1_documento_XTv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.3"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="Doc." />
+
+        <TextView
+            android:id="@+id/c2_ItemDoc_XTv"
+            android:layout_width="40dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="visible"
+            android:text="Item" />
+
+
+        <TextView
+            android:id="@+id/c3_Cuenta_XTv"
+            android:layout_width="120dp"
+            android:layout_height="match_parent"
+            android:layout_weight="4"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="false"
+            android:visibility="visible"
+            android:text="Cuenta"
+            />
+
+        <TextView
+            android:id="@+id/c4_Signo_XTv"
+            android:layout_width="30dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0.5"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="+-" />
+
+        <TextView
+            android:id="@+id/c5_Valor_XTv"
+            android:layout_width="70dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="visible"
+            android:text="Valor" />
+
+
+        <TextView
+            android:id="@+id/c6_Descripcion_XTv"
+            android:layout_width="130dp"
+            android:layout_height="match_parent"
+            android:layout_weight="4"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="false"
+            android:visibility="visible"
+            android:text="Descripcion" />
+
+        <TextView
+            android:id="@+id/c7_FechaYhora_XTv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="Fecha y Hora" />
+
+
+        <TextView
+            android:id="@+id/c8_FechaInicial_XTv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="Fecha Inicial" />
+
+        <TextView
+            android:id="@+id/c9_FechaModificacion_XTv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="Fecha Modificacion" />
+
+
+        <TextView
+            android:id="@+id/c10_Grupo1_XTv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="Nombre Codigo Grupo" />
+
+        <TextView
+            android:id="@+id/c11_Grupo2_XTv"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="5dp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="Nombre Cuenta Mayor" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

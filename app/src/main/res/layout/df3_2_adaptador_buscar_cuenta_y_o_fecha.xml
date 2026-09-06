@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#A1EBE4"
+    android:id="@+id/linearLayout1"
+    android:padding="2dp">
+
+    <LinearLayout
+        android:id="@+id/linearLayout2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FDFAFB"
+        android:layout_marginTop="2dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/c8_FechaInicial_XTv"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.25"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="3dp"
+            android:singleLine="true"
+            android:text="Fecha Inicial"
+            android:textColor="#0037FF"/>
+
+        <TextView
+            android:id="@+id/c1_documento_XTv"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.15"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="3dp"
+            android:singleLine="true"
+            android:text="Doc."
+            android:textColor="#0037FF"
+            android:textAlignment="center"
+            />
+
+        <TextView
+            android:id="@+id/c5_Valor_XTv"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.22"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:padding="3dp"
+            android:singleLine="true"
+            android:text="Valor"
+            android:textColor="#0037FF"/>
+
+        <!-- CHECK AQUÍ - ENTRE VALOR Y DESCRIPCIÓN -->
+        <ImageView
+            android:id="@+id/iconoCheck_XIv"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_circle_unchecked"
+            android:contentDescription="Verificar"
+            android:padding="4dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"/>
+
+        <TextView
+            android:id="@+id/c6_Descripcion_XTv"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.54"
+            android:background="@drawable/bg_green_square3"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:padding="3dp"
+            android:text="Descripcion"
+            android:textColor="#0037FF"/>
+
+    </LinearLayout>
+
+</LinearLayout>

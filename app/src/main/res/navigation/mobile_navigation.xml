@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navf1"
+    >
+
+    <fragment
+        android:id="@+id/navf1"
+        android:name="B_FRAGMENTS.F1_CrudDocumento"
+        android:label="@string/menuf1"
+        tools:layout="@layout/f1_1_crud_documento"/>
+
+
+    <fragment
+        android:id="@+id/navf2"
+        android:name="B_FRAGMENTS.F2_Cuentas"
+        android:label="@string/menuf2"
+        tools:layout="@layout/f2_cuentas" />
+
+    <fragment
+        android:id="@+id/navf3"
+        android:name="B_FRAGMENTS.F3_1_VerInformePrincipal"
+        android:label="@string/menuf3"
+        tools:layout="@layout/f3_2_informes_adaptador_transacciones" />
+
+    <!--<fragment
+        android:id="@+id/navf32"
+        android:name="B_FRAGMENTS.F1_3_MoficarDocumentosCRUD2"
+        android:label="@string/menuf3"
+        tools:layout="@layout/f1_3_editar_documento_crud" />-->
+
+    <fragment
+        android:id="@+id/navf5"
+        android:name="B_FRAGMENTS.F4_Cierres"
+        android:label="@string/menuf5"
+        tools:layout="@layout/f4_cierres" />
+
+    <fragment
+        android:id="@+id/navf99"
+        android:name="B_FRAGMENTS.G1_Prueba"
+        android:label="@string/menuf99"
+        tools:layout="@layout/g1_prueba" />
+
+
+</navigation>

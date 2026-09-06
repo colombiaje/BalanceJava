@@ -1,0 +1,40 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Fondo: Borde blanco -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/holo_green_light" />
+            <corners android:radius="5dp" />
+        </shape>
+    </item>
+    <!-- border -->
+    <item android:left="1.5dp" android:right="1.5dp" android:top="1.5dp" android:bottom="1.5dp">
+
+        <!--inicio del vector completo donde esta el vector del icono -->
+
+        <vector
+            android:width="170dp"
+            android:height="170dp"
+            android:viewportWidth="70"
+            android:viewportHeight="70"
+            android:tint="#8607C5">
+            <group android:scaleX="3.2625"
+                android:scaleY="3.2625"
+                android:translateX="-4.5"
+                android:translateY="-4.5">
+
+                <!--inicio icono propiamente dicho -->
+
+                <path android:fillColor="@android:color/white" android:pathData="M4,12l1.41,1.41L11,7.83V20h2V7.83l5.58,5.59L20,12l-8,-8 -8,8z"/>
+
+                <!--fin icono propiamente dicho -->
+
+
+            </group>
+            <solid android:color="@android:color/white" />
+            <stroke android:color="@android:color/black" android:width="1dp" />
+        </vector>
+
+        <!--fin vector original -->
+
+    </item>
+</layer-list>

@@ -1,0 +1,1621 @@
+<!--todo inicio-->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    android.id="@+id/layoutPrincipal_XCl"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    layout_height=""
+    >
+
+    <androidx.gridlayout.widget.GridLayout
+        android:id="@+id/transacciones_crud_XCL"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="#9FF1E9"
+        android:visibility="visible"
+        android:layout_marginTop="2dp"
+        tools:context="B_FRAGMENTS.F1_CrudDocumento"
+        app:rowCount="20"
+        app:columnCount="9" >
+
+        <!--views por revisar inicio -->
+        <TextView
+            android:id="@+id/contenidoCalculadora_XTv"
+            android:layout_width="22dp"
+            android:layout_height="6dp"
+            android:background="#1AA195"
+            />
+
+        <TextView
+            android:id="@+id/valorRecibidoResultadoCalculadora_XTv"
+            android:layout_width="90dp"
+            android:layout_height="27dp"
+            android:visibility="gone"
+            android:background="#FFEB3B"
+            app:layout_row="0"
+            app:layout_column="0"
+            />
+        <!--views por revisar fin -->
+
+        <!--area 1 Botones CRUD inicio -->
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/crudOptionsArea_XGl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:rowCount="3"
+            app:columnCount="4"
+            app:layout_row="0"
+            app:layout_column="0"
+            app:layout_gravity="center_horizontal"
+            android:background="#13E8D3"
+            android:visibility="visible"
+            android:layout_marginTop="3dp"
+            >
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="visible"
+                app:layout_row="0"
+                app:layout_column="0"
+                app:layout_columnSpan="4"
+                app:layout_gravity="center_horizontal"
+                >
+
+                <AutoCompleteTextView
+                    android:id="@+id/buscarCuentaParaTransaccionest_XAT"
+                    android:layout_width="180dp"
+                    android:layout_height="27dp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginEnd="5dp"
+                    android:background="@drawable/bg_white_square"
+                    android:hint="Escribir cuenta"
+                    android:text=""
+                    android:textAlignment="center"
+                    android:textColor="#1B3AE4"
+                    android:textSize="20dp"
+                    app:layout_gravity="center"
+                    app:layout_row="0"
+                    app:layout_column="0"
+                    android:completionThreshold="1"
+                    android:dropDownWidth="350dp"
+                    android:dropDownHeight="600dp"
+                    android:dropDownSelector="@color/design_default_color_primary"
+                    android:inputType="text"
+                    android:maxLength="35"
+
+                    />
+
+                <Button
+                    android:id="@+id/cleanPasteQueryAccount_XChB"
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
+                    android:background="@drawable/ic_clean_paste"
+                    android:gravity="center"
+                    android:padding="0dp"
+                    app:layout_column="1"
+                    app:layout_gravity="center_vertical"
+                    app:layout_row="0"
+
+                    />
+
+                <Spinner
+                    android:id="@+id/consultaPorCuentaYFechaEnOtroFragment_XSp"
+                    android:layout_width="75dp"
+                    android:layout_height="38dp"
+                    android:background="@drawable/ic_spinner_arrow_down"
+                    android:textColor="#425DF6"
+                    android:textSize="22dp"
+                    app:layout_row="0"
+                    app:layout_column="2"
+                    app:layout_gravity="center_vertical"
+                    android:layout_marginTop="4dp"
+                    />
+
+                <Button
+                    android:id="@+id/salir_XBt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Salir"
+                    android:textSize="12dp"
+                    android:backgroundTint="#E91E63"
+                    android:textColor="#FFFFFF"
+                    android:drawableLeft="@drawable/ic_out"
+                    app:layout_column="3"
+                    app:layout_row="0"
+                    />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/opcionesDeTrabajo_XTv"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:text="Opciones de trabajo"
+                android:textAlignment="center"
+                android:textColor="@color/colorPrimary"
+                android:textSize="20dp"
+                android:textStyle="bold"
+                app:layout_column="0"
+                app:layout_columnSpan="4"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="1"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/bg_green_square"
+                />
+
+            <RadioGroup
+                android:id="@+id/optionsDoc_XRg"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_row="2"
+                app:layout_column="0"
+                app:layout_gravity="center_horizontal"
+                android:layout_marginLeft="70dp"
+                android:layout_marginTop="4dp"
+                >
+
+                <RadioButton
+                    android:id="@+id/create_XRb"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:text="Adiciona"
+                    android:textSize="0dp"
+                    android:layout_marginLeft="1dp"
+                    android:background="@drawable/ic_add_document"
+                    android:button="@drawable/bg_yelow_square"
+                    />
+
+                <RadioButton
+                    android:id="@+id/template_XRb"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:text="Plantilla"
+                    android:textSize="0dp"
+                    android:layout_marginLeft="1dp"
+                    android:background="@drawable/ic_template_document"
+                    android:button="@drawable/bg_transparent"
+                    />
+
+                <RadioButton
+                    android:id="@+id/updateDelete_XRb"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:text="Modifica"
+                    android:textSize="0dp"
+                    android:layout_marginLeft="1dp"
+                    android:background="@drawable/ic_edit_document"
+                    android:button="@drawable/bg_transparent"
+                    />
+
+            </RadioGroup>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_turquoise_green_square"
+                android:orientation="horizontal"
+                android:visibility="visible"
+                app:layout_row="2"
+                app:layout_column="1"
+                app:layout_gravity="center_horizontal"
+                android:gravity="center_horizontal"
+                android:layout_marginLeft="50dp"
+                >
+
+                <Button
+                    android:id="@+id/calculadoraLibre_XBt"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:text="🔢"
+                    android:textAllCaps="false"
+                    android:textColor="#1976D2"
+                    android:textSize="24sp"
+
+                    />
+
+                <Button
+                    android:id="@+id/cacheBackup_XBt"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/ic_backup"
+                    android:textAllCaps="false"
+                    android:textColor="#1976D2"
+                    android:textSize="24sp"
+
+                    />
+
+
+            </LinearLayout>
+
+        </androidx.gridlayout.widget.GridLayout>
+        <!--area 1 Botones CRUD fin -->
+
+        <!--inicio area 2 CRUD adicionar -->
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/areaCreateNew_XGl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:rowCount="5"
+            app:columnCount="4"
+            app:useDefaultMargins="true"
+            app:layout_row="1"
+            app:layout_column="0"
+            app:layout_gravity="center_horizontal"
+            android:background="@drawable/bg_yelow_square"
+            android:visibility="gone"
+            android:layout_marginTop="3dp"
+            >
+            <!--subarea 1 inicio-->
+
+            <TextView
+                android:id="@+id/etiquetaConsecutivo_XTv"
+                android:layout_width="85dp"
+                android:layout_height="wrap_content"
+                android:background="#FAEF94"
+                android:text="Nuevo Numero"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="14dp"
+                app:layout_row="0"
+                app:layout_column="0"
+                app:layout_gravity="center_vertical"
+                android:layout_marginTop="3dp"
+                />
+
+            <TextView
+                android:id="@+id/numeroConsecutivoDoc_XTv"
+                android:layout_width="60dp"
+                android:layout_height="wrap_content"
+                android:background="#FDFDF9"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="14dp"
+                app:layout_column="1"
+                app:layout_gravity="center_vertical"
+                app:layout_row="0" />
+            <!--subarea 1 fin-->
+
+            <!--subarea 2 inicio -->
+            <TextView
+                android:id="@+id/etiquetaFechaInicial_XTv"
+                android:layout_width="60dp"
+                android:layout_height="wrap_content"
+                android:background="#FAEF94"
+                android:text="Fecha"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="20dp"
+                app:layout_row="1"
+                app:layout_column="0"
+                app:layout_gravity="center_vertical"
+                />
+
+            <TextView
+                android:id="@+id/dateInCreateNew_XTv"
+                android:layout_width="90dp"
+                android:layout_height="27dp"
+                android:background="#FDFDF9"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="17dp"
+                app:layout_column="1"
+                app:layout_gravity="center_vertical"
+                app:layout_row="1" />
+
+            <CheckBox
+                android:id="@+id/assignedOtherDateInCreateNew_XChB"
+                android:layout_width="105dp"
+                android:layout_height="wrap_content"
+                android:background="#A1CA26"
+                android:text="Otra fecha"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="17dp"
+                app:layout_row="0"
+                app:layout_column="2"
+                app:layout_gravity="center_vertical"
+                />
+
+            <TextView
+                android:id="@+id/otherDateInCreateNew_XTv"
+                android:layout_width="120dp"
+                android:layout_height="27dp"
+                android:background="#FDFDF9"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="17dp"
+                app:layout_row="1"
+                app:layout_column="2"
+                app:layout_gravity="center_vertical"
+                />
+
+            <Button
+                android:id="@+id/seeButtons_XB"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="@drawable/ic_clean_edit"
+                android:text=" "
+                app:layout_column="3"
+                app:layout_columnWeight="1"
+                app:layout_row="1"
+                />
+
+            <!--subarea 2 fin -->
+
+
+        </androidx.gridlayout.widget.GridLayout>
+        <!--subarea 3 fin -->
+        <!--area 2 fin -->
+
+        <!--area 3 adicionar con plantilla -->
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/areaTemplate_XGl"
+            android:background="@drawable/bg_template"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:rowCount="5"
+            app:columnCount="4"
+            app:layout_row="2"
+            app:layout_column="0"
+            android:visibility="gone"
+            app:layout_gravity="center_horizontal"
+            android:layout_marginTop="1dp"
+            >
+
+            <TextView
+                android:id="@+id/etiquetaTituloPlantilla_XTv"
+                android:layout_width="280dp"
+                android:layout_height="25dp"
+                android:text="Documento con plantilla"
+                android:textSize="20dp"
+                android:textAlignment="center"
+                android:textColor="#F9F9FB"
+                android:background="#425DF6"
+                app:layout_row="0"
+                app:layout_column="0"
+                app:layout_columnSpan="2"
+                app:layout_gravity="center"
+                android:layout_marginTop="2dp"
+                />
+
+            <TextView
+                android:id="@+id/consecutivoNuevoDocEnPLantilla_XTv"
+                android:layout_width="40dp"
+                android:layout_height="25dp"
+                android:layout_marginRight="5dp"
+                android:background="#425DF6"
+                android:inputType="number"
+                android:text=""
+                android:textColor="#F9F9FB"
+                android:textColorHint="#F9F9FB"
+                android:textSize="15dp"
+                app:layout_row="0"
+                app:layout_column="2"
+                app:layout_gravity="center_vertical"
+                />
+
+            <AutoCompleteTextView
+                android:id="@+id/descripcionABuscarEnPlantilla_XAtv"
+                android:layout_width="275dp"
+                android:layout_height="25dp"
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="5dp"
+                android:background="#F4D7F5"
+                android:completionThreshold="1"
+                android:dropDownWidth="350dp"
+                android:dropDownHeight="300dp"
+                android:dropDownSelector="@color/design_default_color_primary"
+                android:hint="Escriba la descripcion"
+                android:maxLength="48"
+                android:popupBackground="#92E0D8"
+                android:singleLine="true"
+                android:textColor="#1A1AFF"
+                android:textColorHint="#425DF6"
+                android:textSize="20dp"
+                android:textStyle="bold"
+                app:layout_column="0"
+                app:layout_columnSpan="2"
+                app:layout_row="1"
+                android:layout_marginTop="2dp"
+                />
+
+            <CheckBox
+                android:id="@+id/copyPasteDescriptionTemplate_XChb"
+                android:layout_width="40dp"
+                android:layout_height="25dp"
+                android:layout_marginTop="2dp"
+                android:button="@null"
+                android:textSize="25dp"
+                android:textStyle="bold"
+                app:layout_gravity="center_horizontal"
+                android:layout_marginLeft="2dp"
+                android:background="@drawable/ic_clean_paste"
+                app:layout_row="1"
+                app:layout_column="2"
+
+                />
+
+            <TextView
+                android:id="@+id/documentoYFechaInicialBaseDeLaPLantilla_XTv"
+                android:layout_width="250dp"
+                android:layout_height="25dp"
+                android:background="#FA94B7"
+                android:inputType="number"
+                android:text=""
+                android:textColor="#425DF6"
+                android:textColorHint="#F9F9FB"
+                android:textSize="15dp"
+                android:textStyle="bold"
+                app:layout_column="0"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="2"
+                app:layout_columnSpan="3"
+                android:layout_marginTop="2dp"
+                />
+
+            <androidx.gridlayout.widget.GridLayout
+                android:background="#FA94B7"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                app:rowCount="3"
+                app:columnCount="4"
+                app:layout_row="3"
+                app:layout_column="0"
+                android:visibility="visible"
+                app:layout_gravity="center_horizontal"
+                android:layout_marginEnd="5dp"
+                app:layout_columnSpan="2"
+                >
+
+                <CheckBox
+                    android:id="@+id/assignedDateInTemplate_XChB"
+                    android:layout_width="125dp"
+                    android:layout_height="25dp"
+                    android:background="#A1CA26"
+                    android:text="Fecha"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="17dp"
+                    app:layout_row="0"
+                    app:layout_column="0"
+                    app:layout_gravity="center_vertical"
+                    android:layout_marginTop="2dp"
+                    />
+
+                <TextView
+                    android:id="@+id/dateInTemplate_XTv"
+                    android:layout_width="90dp"
+                    android:layout_height="25dp"
+                    android:background="#FA94B7"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    app:layout_column="1"
+                    app:layout_gravity="center"
+                    app:layout_row="0"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp"
+                    />
+
+
+            </androidx.gridlayout.widget.GridLayout>
+
+
+        </androidx.gridlayout.widget.GridLayout>
+        <!--area 3 adicionar con plantilla fin -->
+
+        <!--area 4 update & delete inicio -->
+
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/areaUpdateAndDelete_XGl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:background="@drawable/bg_lilac_square"
+            android:visibility="visible"
+            app:columnCount="5"
+            app:layout_column="0"
+            app:layout_gravity="center_horizontal"
+            app:layout_row="3"
+            app:rowCount="5"
+            app:useDefaultMargins="true">
+
+            <TextView
+                android:id="@+id/etiquetaEditarDocumento"
+                android:layout_width="130dp"
+                android:layout_height="25dp"
+                android:layout_marginRight="2dp"
+                android:background="#FDFDF9"
+                android:text="Editar Doc. #: "
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="18dp"
+                app:layout_gravity="center_vertical"
+                app:layout_row="0"
+
+                />
+
+            <AutoCompleteTextView
+                android:id="@+id/documentoABuscarParaEditar_XATv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="2dp"
+                android:background="#FDFDF9"
+                android:completionThreshold="1"
+                android:dropDownWidth="100dp"
+                android:dropDownHeight="250dp"
+                android:dropDownSelector="@color/design_default_color_primary"
+                android:hint="Escriba"
+                android:inputType="number"
+                android:maxLength="28"
+                android:popupBackground="#92E0D8"
+                android:singleLine="true"
+                android:textAlignment="center"
+                android:textColor="#E122F6"
+                android:textColorHint="#425DF6"
+                android:textSize="20dp"
+                app:layout_column="1"
+                app:layout_gravity="center"
+                app:layout_row="0" />
+
+            <CheckBox
+                android:id="@+id/limpiarDocumentoModificar_XChB"
+                android:layout_width="40dp"
+                android:layout_height="25dp"
+                android:background="@drawable/ic_clean_paste"
+                android:button="@null"
+                android:textAlignment="center"
+                android:textColor="#FCFFFC"
+                android:textSize="25dp"
+                android:textStyle="bold"
+                app:layout_column="2"
+                app:layout_gravity="center"
+                app:layout_row="0" />
+
+            <Button
+                android:id="@+id/eliminaDocumento_XBt"
+                android:layout_width="30dp"
+                android:layout_height="23dp"
+                android:background="@drawable/ic_delete"
+                android:text=""
+                android:textSize="15sp"
+                android:visibility="visible"
+                app:layout_column="3"
+                app:layout_row="0"
+
+                />
+
+            <TextView
+
+                android:id="@+id/etiquetadateInUpdate_XTv"
+                android:layout_width="90dp"
+                android:layout_height="27dp"
+                android:layout_marginRight="5dp"
+                android:background="#FDFDF9"
+                android:text="Fecha incial"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textColorHint="#F9F9FB"
+                android:textSize="15dp"
+                app:layout_column="0"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="1"
+                android:visibility="invisible"
+
+                />
+
+            <TextView
+                android:id="@+id/dateInUpdate_XTv"
+                android:layout_width="70dp"
+                android:layout_height="25dp"
+                android:background="#FDFDF9"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="15dp"
+                app:layout_column="1"
+                app:layout_gravity="center"
+                app:layout_row="1"
+                android:visibility="invisible"
+                />
+
+            <CheckBox
+
+                android:id="@+id/assignedOtherDateInUpdate_XChB"
+                android:layout_width="150dp"
+                android:layout_height="27dp"
+                android:background="#A1CA26"
+                android:text="Modificar fecha"
+                android:textAlignment="center"
+                android:textColor="@android:color/black"
+                android:textColorHint="#F9F9FB"
+                android:textSize="19dp"
+                app:layout_column="2"
+                app:layout_gravity="center_vertical"
+                app:layout_row="1"
+                app:layout_columnSpan="2"
+                />
+
+            <TextView
+                android:id="@+id/EtiquetaFechaNueva_XTv"
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:background="#FDFDF9"
+                android:text="Nueva"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="14dp"
+                app:layout_column="0"
+                app:layout_gravity="center"
+                app:layout_row="2"
+                android:visibility="invisible"
+                />
+
+            <TextView
+                android:id="@+id/changeOfDateInUpdate_XTv"
+                android:layout_width="70dp"
+                android:layout_height="wrap_content"
+                android:background="#FDFDF9"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="15dp"
+                app:layout_column="1"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="2"
+                android:visibility="invisible"
+                />
+
+            <TextView
+                android:id="@+id/EtiquetaDocumentoConsecutivo_XTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#FDFDF9"
+                android:text="Ultimo D."
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="20dp"
+                app:layout_row="2"
+                app:layout_column="2"
+                app:layout_gravity="left"
+                />
+
+            <TextView
+                android:id="@+id/numeroConsecutivoDocEnEdicion_XTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#A1CA26"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="20dp"
+                app:layout_column="3"
+                app:layout_gravity="left"
+                app:layout_row="2" />
+
+            <!-- ⭐ CANAL D — Botón verde intercambiador slot 3 ↔ slot 4 -->
+            <!-- Solo visible cuando slot 4 tiene datos. -->
+            <!-- NO tocar desde Canal A, B ni C. -->
+            <Button
+                android:id="@+id/botonVerde_CanalD_XBt"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#4CAF50"
+                android:text="⇄ En espera"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:visibility="gone"
+                app:layout_column="0"
+                app:layout_columnSpan="5"
+                app:layout_gravity="fill_horizontal"
+                app:layout_row="3" />
+
+            />
+
+        </androidx.gridlayout.widget.GridLayout>
+
+        <!--area 5 buttons inicio -->
+
+        <LinearLayout
+            android:id="@+id/areaButtons_XLL"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            app:layout_row="4"
+            app:layout_column="0"
+            android:visibility="visible"
+            app:layout_gravity="center_horizontal"
+            >
+
+            <Button
+                android:id="@+id/guardarCambiosALaBD"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Guardar"
+                app:layout_column="0"
+                app:layout_columnWeight="1"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="4"
+                app:layout_rowSpan="1" />
+
+            <Button
+                android:id="@+id/cleanSinCambiosInBD_XBt"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Limpiar"
+                app:layout_column="1"
+                app:layout_columnSpan="1"
+                app:layout_columnWeight="1"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="4"
+                app:layout_rowSpan="1" />
+
+            <Button
+                android:id="@+id/salidaEsteFragment_XBt"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Salir"
+                app:layout_column="2"
+                app:layout_columnSpan="1"
+                app:layout_columnWeight="1"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="4" />
+
+        </LinearLayout>
+
+        <!--area 6 registro a documento inicio-->
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/areaConciliacionYRegistro_XGl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_white_square"
+            android:visibility="visible"
+            app:layout_row="5"
+            app:layout_column="0"
+            app:layout_gravity="center_horizontal"
+            app:rowCount="11"
+            app:columnCount="2"
+            android:layout_marginTop="2dp"
+            android:layout_marginLeft="5dp"
+            android:layout_marginEnd="3dp"
+            >
+
+            <!--subarea 1 conciliacion -->
+            <androidx.gridlayout.widget.GridLayout
+                android:id="@+id/areaConciliacion_XGl"
+                android:layout_width="400dp"
+                android:layout_height="wrap_content"
+                app:rowCount="11"
+                app:columnCount="2"
+                app:useDefaultMargins="true"
+                app:layout_row="0"
+                app:layout_column="0"
+                app:layout_gravity="center_horizontal"
+                android:background="@drawable/bg_white_square"
+                android:visibility="visible"
+                android:layout_marginTop="0dp"
+                >
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_white_square"
+                    android:text="A conciliar:"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="18dp"
+                    android:layout_marginRight="2dp"
+                    app:layout_row="0"
+                    app:layout_column="0"
+                    android:gravity="center"
+                    tools:ignore="RtlCompat"
+                    android:layout_marginLeft="2dp"
+                    />
+
+                <Spinner
+                    android:id="@+id/cuentaConciliacion_XSp"
+                    android:layout_width="270dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_pink_square"
+                    android:dropDownWidth="350dp"
+                    android:dropDownHeight="300dp"
+                    android:inputType="number"
+                    android:textColor="#425DF6"
+                    android:textSize="6dp"
+                    app:layout_column="1"
+                    app:layout_gravity="center"
+                    app:layout_row="0" />
+
+            </androidx.gridlayout.widget.GridLayout>
+            <!--subarea 1 conciliacion fin -->
+
+            <!--subarea 2 registro valores, etc inicio-->
+            <androidx.gridlayout.widget.GridLayout
+                android:id="@+id/seccion1HaceRegistrosItemsLista_XGl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#FBFAFA"
+                app:rowCount="11"
+                app:columnCount="9"
+                app:layout_gravity="center_horizontal"
+                app:layout_row="1"
+                app:layout_column="0"
+                app:useDefaultMargins="true"
+                android:layout_marginTop="2dp"
+                >
+
+                <TextView
+                    android:id="@+id/saldoCuentaAconciliar_XTv"
+                    android:layout_width="60dp"
+                    android:layout_height="35dp"
+                    android:background="#425DF6"
+                    android:gravity="center"
+                    android:hint="$"
+                    android:textAlignment="center"
+                    android:textColor="#FCFCFD"
+                    android:textColorHint="@android:color/white"
+                    android:textSize="15dp"
+                    app:layout_column="0"
+                    app:layout_gravity="center_vertical"
+                    app:layout_row="1"
+                    tools:ignore="RtlCompat"
+
+                    />
+
+                <EditText
+                    android:id="@+id/inputPhysicalVsAccounting_XEt"
+                    android:layout_width="50dp"
+                    android:layout_height="35dp"
+                    android:background="#F4D7F5"
+                    android:gravity="center"
+                    android:hint="Fisico"
+                    android:inputType="number"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textColorHint="#425DF6"
+                    android:textSize="15dp"
+                    app:layout_row="1"
+                    app:layout_column="1"
+                    app:layout_gravity="center_vertical"
+                    tools:ignore="RtlCompat"
+                    />
+
+
+                <TextView
+                    android:id="@+id/diferenciaAConciliar_XTv"
+                    android:layout_width="56dp"
+                    android:layout_height="35dp"
+                    android:background="#425DF6"
+                    android:hint="$"
+                    android:textAlignment="center"
+                    android:textColor="#FCFCFD"
+                    android:textColorHint="@android:color/white"
+                    android:textSize="15dp"
+                    app:layout_row="1"
+                    app:layout_column="2"
+                    tools:ignore="RtlCompat"
+                    android:gravity="center"
+                    app:layout_gravity="center_vertical"
+
+                    />
+
+                <TextView
+                    android:id="@+id/consecutivoItemRegistro_XTv"
+                    android:layout_width="56dp"
+                    android:layout_height="35dp"
+                    android:background="#425DF6"
+                    android:textColor="#FCFCFD"
+                    android:textSize="15dp"
+                    android:textAlignment="center"
+                    app:layout_column="3"
+                    app:layout_row="1"
+                    tools:ignore="RtlCompat"
+                    android:gravity="center"
+                    app:layout_gravity="center_vertical"
+
+                    />
+
+                <Button
+                    android:id="@+id/pegarValor_XChB"
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
+                    android:background="@drawable/ic_clean_paste"
+                    android:padding="0dp"
+                    app:layout_row="1"
+                    app:layout_column="5"
+                    android:gravity="center"
+                    app:layout_gravity="center_vertical"
+
+                    />
+
+                <EditText
+                    android:id="@+id/valor_XEt"
+                    android:layout_width="66dp"
+                    android:layout_height="27dp"
+                    android:background="#F4D7F5"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:gravity="center"
+                    android:hint="$"
+                    android:inputType="phone"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textColorHint="#425DF6"
+                    android:textSize="25dp"
+                    app:layout_column="4"
+                    app:layout_gravity="center_vertical"
+                    app:layout_row="1"
+
+                    />
+
+                <Button
+                    android:id="@+id/pegarValorAnterior_XChB"
+                    android:layout_width="35dp"
+                    android:layout_height="27dp"
+                    android:background="@drawable/ic_close_menu"
+                    android:padding="0dp"
+                    app:layout_row="1"
+                    app:layout_column="6"
+                    android:gravity="center"
+                    app:layout_gravity="center_vertical"
+                    android:visibility="visible"
+                    />
+
+
+            </androidx.gridlayout.widget.GridLayout>
+            <!--subarea 2 registro valores, etc fin-->
+
+            <!--subarea 3 registro descripcion, cuenta, etc. inicio-->
+            <androidx.gridlayout.widget.GridLayout
+                android:id="@+id/seccion2HaceRegistroItemLista_XGl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#FDFDFC"
+                app:layout_row="2"
+                app:layout_column="0"
+                app:layout_gravity="center"
+                app:rowCount="11"
+                app:columnCount="4"
+                app:useDefaultMargins="true"
+                android:layout_marginLeft="2dp"
+                android:layout_marginTop="2dp"
+                android:layout_marginRight="2dp"
+                >
+
+                <AutoCompleteTextView
+                    android:id="@+id/descripcion_XAtv"
+                    android:layout_width="260dp"
+                    android:layout_height="27dp"
+                    android:background="#F4D7F5"
+                    android:completionThreshold="1"
+                    android:dropDownWidth="350dp"
+                    android:dropDownHeight="300dp"
+                    android:dropDownSelector="@color/design_default_color_primary"
+                    android:hint="Descripcion"
+                    android:inputType="text"
+                    android:maxLength="35"
+                    android:popupBackground="#92E0D8"
+                    android:singleLine="true"
+                    android:textColor="#425DF6"
+                    android:textColorHint="#425DF6"
+                    android:textSize="25dp"
+                    app:layout_row="2"
+                    app:layout_column="0"
+                    app:layout_gravity="center_vertical"
+                    android:lines="2"
+                    />
+
+                <!-- Tu AutoCompleteTextView existente -->
+
+                <!-- ✅ Tooltip flotante CON ELEVACIÓN -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cardTooltipValidacion_XCv"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="-4dp"
+                    android:visibility="gone"
+                    app:cardElevation="8dp"
+                    app:cardCornerRadius="8dp"
+                    app:cardUseCompatPadding="true">
+
+                    <TextView
+                        android:id="@+id/tvAyudaFormato_XTv"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="12dp"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:lineSpacingExtra="2dp"/>
+                </androidx.cardview.widget.CardView>
+
+                <Button
+                    android:id="@+id/pegarDescripcionAnterior_XChB"
+                    android:layout_width="35dp"
+                    android:layout_height="27dp"
+                    android:background="@drawable/ic_close_menu"
+                    android:padding="0dp"
+                    app:layout_row="2"
+                    app:layout_column="2"
+                    android:gravity="center"
+                    app:layout_gravity="center_vertical"
+                    android:visibility="visible"
+                    />
+
+                <Button
+                    android:id="@+id/pegarDescripcion_XChB"
+                    android:layout_width="35dp"
+                    android:layout_height="27dp"
+                    app:layout_row="2"
+                    app:layout_column="1"
+                    android:background="@drawable/ic_clean_paste"
+                    android:padding="0dp"
+                    />
+
+                <Spinner
+                    android:id="@+id/signo_XSp"
+                    android:layout_width="60dp"
+                    android:layout_height="27dp"
+                    android:layout_marginLeft="5dp"
+                    android:background="#F4D7F5"
+                    android:gravity="center_vertical"
+                    android:inputType="number"
+                    android:textColor="#425DF6"
+                    android:textSize="20dp"
+                    app:layout_row="2"
+                    app:layout_column="3"
+                    app:layout_gravity="center"
+                    android:visibility="visible"
+
+                    />
+
+                <androidx.gridlayout.widget.GridLayout
+                    android:id="@+id/cuenta_XGL"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_row="3"
+                    app:layout_column="0"
+                    app:layout_gravity="center"
+                    app:layout_columnSpan="4"
+                    app:useDefaultMargins="true"
+                    app:rowCount="2"
+                    app:columnCount="4"
+                    android:visibility="visible"
+
+                    >
+
+                    <AutoCompleteTextView
+
+                        android:id="@+id/cuenta_XAtv"
+                        android:layout_width="245dp"
+                        android:layout_height="27dp"
+                        android:background="#F4D7F5"
+                        android:completionThreshold="1"
+                        android:dropDownWidth="350dp"
+                        android:dropDownHeight="300dp"
+                        android:dropDownSelector="@color/design_default_color_primary"
+                        android:hint="Cuenta"
+                        android:maxLength="40"
+                        android:popupBackground="#F886AD"
+                        android:singleLine="true"
+                        android:textColor="#425DF6"
+                        android:textColorHint="#425DF6"
+                        android:textSize="25dp"
+                        app:layout_column="0"
+                        app:layout_gravity="center_horizontal"
+                        app:layout_row="1" />
+
+                    <Button
+                        android:id="@+id/pegarCuetaAnterior_XChB"
+                        android:layout_width="35dp"
+                        android:layout_height="35dp"
+                        android:background="@drawable/ic_clean_paste"
+                        android:padding="0dp"
+                        app:layout_row="1"
+                        app:layout_column="1"
+                        android:gravity="center"
+                        app:layout_gravity="center_horizontal"
+                        android:visibility="gone"
+                        />
+
+                    <Button
+                        android:id="@+id/pegarCuentaSpinner_XChB"
+                        android:layout_width="35dp"
+                        android:layout_height="27dp"
+                        app:layout_row="1"
+                        app:layout_column="2"
+                        app:layout_gravity="center_horizontal"
+                        android:background="@drawable/ic_clean_paste"
+                        android:padding="0dp"
+                        />
+
+                    <Spinner
+                        android:id="@+id/cuenta_XSp"
+                        android:layout_width="60dp"
+                        android:layout_height="27dp"
+                        android:background="#F4D7F5"
+                        android:inputType="number"
+                        android:textColor="#425DF6"
+                        android:textSize="25dp"
+                        android:visibility="visible"
+                        app:layout_row="1"
+                        app:layout_column="3"
+                        app:layout_gravity="center_horizontal"
+                        />
+
+                </androidx.gridlayout.widget.GridLayout>
+                <!--subarea 3 registro descripcion, cuenta, etc. fin-->
+
+            </androidx.gridlayout.widget.GridLayout>
+
+            <!--subarea 4 registro demas controles inicio-->
+            <androidx.gridlayout.widget.GridLayout
+                android:id="@+id/seccion3HaceRegistroItemLista_XGl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:background="#FFFFFF"
+                app:columnCount="6"
+                app:layout_row="3"
+                app:layout_column="0"
+                app:rowCount="11"
+                app:useDefaultMargins="true"
+                android:layout_marginEnd="10dp"
+                app:layout_gravity="center_horizontal"
+                >
+
+                <CheckBox
+                    android:id="@+id/seeAccountsXChB"
+                    android:layout_width="wrap_content"
+                    android:layout_height="35dp"
+                    android:background="#A1CA26"
+                    android:text="Cuentas"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    android:textAlignment="center"
+                    android:layout_marginRight="2dp"
+                    app:layout_row="1"
+                    app:layout_column="0"
+                    />
+
+                <!--
+                <Button
+                    android:id="@+id/modificarRegistro_XBt"
+                    android:layout_width="30dp"
+                    android:layout_height="35dp"
+                    android:background="@drawable/ic_check"
+                    app:layout_row="1"
+                    app:layout_column="1"
+                    app:layout_gravity="center_vertical"
+                    />-->
+
+                <Button
+                    android:id="@+id/limpiarCamposRegistro_XBt"
+                    android:layout_width="30dp"
+                    android:layout_height="35dp"
+                    android:background="@drawable/ic_clean"
+                    android:textSize="13dp"
+                    app:layout_row="1"
+                    app:layout_column="2"
+                    app:layout_gravity="center_vertical"
+
+                    />
+
+                <TextView
+                    android:id="@+id/sumaPositivos_XTv"
+                    android:layout_width="55dp"
+                    android:layout_height="35dp"
+                    android:background="#425DF6"
+                    android:text="$"
+                    android:textColor="#FCFCFD"
+                    android:textSize="15dp"
+                    app:layout_row="1"
+                    app:layout_column="3"
+                    android:gravity="center"
+                    app:layout_gravity="center_vertical"
+
+                    />
+
+                <TextView
+                    android:id="@+id/sumaNegativos_XTv"
+                    android:layout_width="55dp"
+                    android:layout_height="35dp"
+                    android:background="#425DF6"
+                    android:text="$"
+                    android:textAlignment="center"
+                    android:textColor="#FCFCFD"
+                    android:textSize="15dp"
+                    app:layout_row="1"
+                    app:layout_column="4"
+                    android:gravity="center"
+                    app:layout_gravity="center_vertical"
+
+                    />
+
+                <TextView
+                    android:id="@+id/controlACeroTotales_XTv"
+                    android:layout_width="44dp"
+                    android:layout_height="35dp"
+                    android:background="#425DF6"
+                    android:gravity="center"
+                    android:text="$"
+                    android:textAlignment="center"
+                    android:textColor="#FAFAFD"
+                    android:textSize="15dp"
+                    app:layout_column="5"
+                    app:layout_row="1"
+                    app:layout_gravity="center_vertical"
+                    />
+
+
+            </androidx.gridlayout.widget.GridLayout>
+            <!--subarea 4 registro demas controles fin-->
+
+        </androidx.gridlayout.widget.GridLayout>
+        <!--area 6 conciliacion y registro fin-->
+
+        <!--area 7 calendario inicio -->
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/areaCalendario_XGl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:rowCount="1"
+            app:columnCount="1"
+            app:useDefaultMargins="true"
+            app:layout_row="6"
+            app:layout_column="0"
+            app:layout_gravity="center_horizontal"
+            android:background="#9FF1E9"
+            android:visibility="gone"
+            >
+
+            <CalendarView
+                android:id="@+id/calendarView_XCv"
+                android:layout_width="wrap_content"
+                android:layout_height="400dp"
+                android:dateTextAppearance="@style/CalendarDateText"
+                android:weekDayTextAppearance="@style/WeekTextStyle"
+                />
+
+
+            <ImageButton
+                android:id="@+id/cerrarCalendario_XBt"
+                android:layout_width="30dp"
+                android:layout_height="25dp"
+                android:layout_marginTop="2dp"
+                android:layout_marginRight="40dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_out"
+                android:text="Salir"
+                app:layout_column="0"
+                app:layout_row="0"
+                />
+
+
+        </androidx.gridlayout.widget.GridLayout>
+        <!--area 7 calendario fin -->
+
+        <!--area 8 lista registros documentos inicio -->
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/areaDocumento_XGl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:rowCount="11"
+            app:columnCount="2"
+            app:useDefaultMargins="true"
+            app:layout_row="7"
+            app:layout_column="0"
+            app:layout_gravity="fill"
+            android:background="#9FF1E9"
+            android:visibility="visible"
+            android:layout_marginTop="3dp"
+            >
+
+            <!--subarea encabezado lista inicio -->
+            <LinearLayout
+                android:id="@+id/envolventeEncabezadoItemLista_XLl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_turquoise_green_square"
+                android:orientation="horizontal"
+                android:visibility="visible"
+                app:layout_row="1"
+                app:layout_column="0"
+                app:layout_constraintTop_toBottomOf="@+id/crudOptionsArea_XGl"
+                app:layout_gravity="center_horizontal"
+                android:gravity="center_horizontal"
+                >
+
+                <TextView
+                    android:layout_width="40dp"
+                    android:layout_height="29dp"
+                    android:layout_weight="0"
+                    android:gravity="left"
+                    android:padding="5dp"
+                    android:text="Item"
+                    android:textColor="#425DF6"
+                    android:textSize="12dp" />
+
+                <TextView
+                    android:layout_width="140dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0"
+                    android:gravity="left"
+                    android:padding="5dp"
+                    android:text="Cuenta"
+                    android:textColor="#425DF6" />
+
+                <TextView
+                    android:id="@+id/c4_Signo_XTv"
+                    android:layout_width="30dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0"
+                    android:background="@drawable/bg_green_square3"
+                    android:ellipsize="end"
+                    android:padding="5dp"
+                    android:singleLine="true"
+                    android:text="+ -"
+                    android:textColor="#425DF6"
+                    android:visibility="visible" />
+
+                <TextView
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0"
+                    android:gravity="left"
+                    android:padding="5dp"
+                    android:text="Valor"
+                    android:textColor="#425DF6" />
+
+                <TextView
+                    android:id="@+id/c6_Descripcion_XTv"
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.2"
+                    android:background="@drawable/bg_green_square3"
+                    android:ellipsize="end"
+                    android:padding="5dp"
+                    android:singleLine="true"
+                    android:text="Descripcion"
+                    android:textColor="#425DF6" />
+
+            </LinearLayout>
+            <!--subarea 1 encabezado lista fin -->
+
+            <ListView
+                android:id="@+id/listaDocumento_XLv"
+                android:layout_width="wrap_content"
+                android:layout_height="150dp"
+                android:layout_marginTop="2dp"
+                android:background="#9FF1E9"
+                android:clipToPadding="false"
+                android:fadeScrollbars="false"
+                android:fastScrollEnabled="true"
+                android:listSelector="#F13F7C"
+                android:padding="0dp"
+                android:scrollbarSize="20dp"
+                android:scrollbarStyle="outsideOverlay"
+                android:scrollbarThumbVertical="@drawable/ic_scrollbar_custom"
+                android:scrollbars="vertical"
+                android:verticalScrollbarPosition="right"
+                app:layout_column="0"
+                app:layout_gravity="fill"
+                app:layout_row="2"
+                android:layout_marginLeft="15dp"
+                android:visibility="visible"
+                />
+
+        </androidx.gridlayout.widget.GridLayout>
+        <!--area 8 lista registros documentos fin -->
+
+        <!--area 9 lista de revision inicio -->
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/areaListaRevisarCuentas_XGl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_lilac_square"
+            android:visibility="visible"
+            app:rowCount="11"
+            app:columnCount="6"
+            app:layout_column="0"
+            app:layout_gravity="center"
+            app:layout_row="8"
+            app:useDefaultMargins="true"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="3dp"
+            >
+
+            <!--subarea 1 encabezados de area 9 inicio -->
+            <LinearLayout
+                android:id="@+id/envolventeEncabezadoItemListaRevisar_XLl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_white_square"
+                android:orientation="horizontal"
+                android:visibility="invisible"
+                app:layout_row="1"
+                app:layout_column="0"
+                app:layout_constraintTop_toBottomOf="@+id/crudOptionsArea_XGl"
+                app:layout_gravity="center_horizontal"
+
+                >
+                <!-- encabezado-->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="left"
+                    android:padding="5dp"
+                    android:text="Item"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="12dp"
+                    android:visibility="visible" />
+
+                <TextView
+                    android:layout_width="150dp"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_green_square3"
+                    android:ellipsize="end"
+                    android:padding="5dp"
+                    android:singleLine="true"
+                    android:text="Cuenta"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="12dp"
+
+                    />
+
+                <TextView
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_green_square3"
+                    android:ellipsize="end"
+                    android:padding="5dp"
+                    android:singleLine="true"
+                    android:text="Saldo 1"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:visibility="visible"
+                    android:textSize="12dp"
+                    />
+
+                <TextView
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_green_square3"
+                    android:ellipsize="end"
+                    android:padding="5dp"
+                    android:singleLine="true"
+                    android:text="Mov."
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="12dp"
+                    />
+
+                <TextView
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_green_square3"
+                    android:ellipsize="end"
+                    android:padding="5dp"
+                    android:singleLine="true"
+                    android:text="Saldo 2"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="12dp"
+                    />
+
+
+            </LinearLayout>
+            <!--subarea 1 encabezados de area 9 fin -->
+
+            <!--subarea 2 valores de area 9 inicio -->
+            <LinearLayout
+                android:id="@+id/embolventeItemsListaRevisar_XLl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_row="2"
+                app:layout_column="0"
+                android:background="@drawable/bg_white_square"
+                android:visibility="visible"
+                app:layout_gravity="center_horizontal"
+                android:layout_marginEnd="2dp"
+                >
+
+                <Spinner
+                    android:id="@+id/listaCuentasDeRevision_XSp"
+                    android:layout_width="180dp"
+                    android:layout_height="40dp"
+                    android:layout_marginLeft="2dp"
+                    android:background="#F4D7F5"
+                    android:inputType="number"
+                    android:textColor="#425DF6"
+                    android:textSize="25dp"
+                    android:visibility="visible"
+                    app:layout_gravity="center_vertical"
+                    />
+
+                <TextView
+                    android:id="@+id/saldoInicialeListaCuentasRevisar_XTv"
+                    android:layout_width="60dp"
+                    android:layout_height="27dp"
+                    android:layout_marginTop="4dp"
+                    android:background="#F8F6FA"
+                    android:hint="$"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    app:layout_row="2"
+                    app:layout_column="0"
+                    app:layout_gravity="center"
+
+                    />
+
+                <TextView
+                    android:id="@+id/movimientoListaCuentasRevisar_XTv"
+                    android:layout_width="60dp"
+                    android:layout_height="27dp"
+                    android:layout_marginTop="4dp"
+                    android:background="#F8F6FA"
+                    android:hint="$"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    app:layout_row="2"
+                    app:layout_column="1"
+                    app:layout_gravity="center"
+
+                    />
+
+                <TextView
+                    android:id="@+id/saldoFinalListaCuentasRevisar_XTv"
+                    android:layout_width="60dp"
+                    android:layout_height="27dp"
+                    android:layout_marginTop="4dp"
+                    android:background="#F8F6FA"
+                    android:hint="$"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    app:layout_row="2"
+                    app:layout_column="1"
+                    app:layout_gravity="center"
+
+                    />
+
+            </LinearLayout>
+
+            <!--subarea 2 valores de area 9 fin -->
+
+        </androidx.gridlayout.widget.GridLayout>
+        <!--area 9 lista de revision fin -->
+
+    </androidx.gridlayout.widget.GridLayout>
+
+    <!--todo fin-->
+
+    <!-- Botón flotante para modo modificación -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabModificar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="💾 GUARDAR CAMBIOS"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:icon="@android:drawable/ic_menu_save"
+        app:iconTint="@android:color/white"
+        android:backgroundTint="#FF5722"
+        android:visibility="gone"
+        app:elevation="12dp"
+        app:layout_constraintTop_toBottomOf="@id/limpiarDocumentoModificar_XChB"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="250dp"/>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,102 @@
+<resources xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Base application theme. -->
+    <!-- style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar" -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+    <style name="AppTheme.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+
+    <style name="AppTheme.NavigationView">
+        <item name="android:textColor">#2196F3</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">15dp</item>
+    </style>
+
+    <style name="CalendarDateText">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">#000000</item> <!-- Color Negro -->
+    </style>
+
+    <style name="WeekTextStyle">
+        <item name="android:textSize">20sp</item>
+    </style>
+
+    <!-- Caluladora -->
+
+    <!--
+        Estilos para la calculadora F91
+        Copia estos estilos DENTRO de tu archivo styles.xml existente,
+        dentro del tag <resources>
+
+        Ubicación: res/values/styles.xml
+    -->
+        <!-- ==================== ESTILO BASE ==================== -->
+        <!-- Propiedades compartidas por todos los botones -->
+        <style name="CalculadoraBotonBase">
+            <item name="android:layout_width">0dp</item>
+            <item name="android:layout_height">40dp</item>
+            <item name="android:layout_margin">4dp</item>
+            <item name="android:textSize">28sp</item>
+            <item name="android:textAllCaps">false</item>
+            <item name="android:stateListAnimator">@null</item>
+            <item name="android:elevation">2dp</item>
+            <item name="android:clickable">true</item>
+            <item name="android:focusable">true</item>
+            <item name="android:fontFamily">sans-serif</item>
+        </style>
+
+        <!-- ==================== BOTONES NUMÉRICOS ==================== -->
+        <!-- Números 0-9 y punto decimal -->
+        <style name="CalculadoraBotonNumero" parent="CalculadoraBotonBase">
+            <item name="android:background">#FAFAFA</item>
+            <item name="android:textColor">#212121</item>
+            <item name="android:textSize">28sp</item>
+            <item name="android:layout_height">40dp</item>
+        </style>
+
+        <!-- ==================== BOTONES OPERADORES ==================== -->
+        <!-- Suma, resta, multiplicación, división -->
+        <style name="CalculadoraBotonOperador" parent="CalculadoraBotonBase">
+            <item name="android:background">#E3F2FD</item>
+            <item name="android:textColor">#1976D2</item>
+            <item name="android:fontFamily">sans-serif-medium</item>
+            <item name="android:textSize">28sp</item>
+            <item name="android:layout_height">40dp</item>
+        </style>
+
+        <!-- ==================== BOTONES DE FUNCIÓN ==================== -->
+        <!-- AC, retroceso, porcentaje, más/menos -->
+        <style name="CalculadoraBotonFuncion" parent="CalculadoraBotonBase">
+            <item name="android:background">#F5F5F5</item>
+            <item name="android:textColor">#616161</item>
+            <item name="android:textSize">28sp</item>
+            <item name="android:layout_height">40dp</item>
+        </style>
+
+        <!-- ==================== BOTÓN IGUAL ==================== -->
+        <!-- Botón de resultado (=) -->
+        <style name="CalculadoraBotonIgual" parent="CalculadoraBotonBase">
+            <item name="android:background">#1976D2</item>
+            <item name="android:textColor">@android:color/white</item>
+            <item name="android:fontFamily">sans-serif-medium</item>
+            <item name="android:textSize">28sp</item>
+            <item name="android:layout_height">40dp</item>
+            <item name="android:layout_margin">4dp</item>
+        </style>
+
+    <style name="CustomDialogTheme" parent="Theme.AppCompat.Light.Dialog">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+    </style>
+
+</resources>

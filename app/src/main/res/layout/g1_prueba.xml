@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="80dp"
+    android:layout_marginLeft="5dp"
+    android:layout_marginRight="3dp"
+    android:orientation="vertical"
+    android:background="#A1EBE4"
+    tools:context="B_FRAGMENTS.G1_Prueba">
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#FFEB3B">
+
+        <TextView
+            android:id="@+id/etiquetaCuenta_XBt"
+            android:layout_width="180dp"
+            android:layout_height="30dp"
+            android:textSize="15sp"
+            android:text="Cuenta"
+            android:background="#FFEB3B"
+            android:textColor="#E7316E" />
+
+        <TextView
+            android:id="@+id/etiquetaMovimiento_XBt"
+            android:layout_width="100dp"
+            android:layout_height="30dp"
+            android:textSize="15sp"
+            android:text="Movimiento"
+            android:background="#FFEB3B"
+            android:textColor="#E7316E"
+            android:textAlignment="center" />
+
+        <TextView
+            android:layout_width="100dp"
+            android:layout_height="30dp"
+            android:textSize="15sp"
+            android:text="Saldo"
+            android:background="#FFEB3B"
+            android:textColor="#E7316E"
+            android:textAlignment="center" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/barraSuperiorId"
+        android:layout_width="match_parent"
+        android:layout_height="25dp"
+        android:orientation="horizontal"
+        android:background="#FFEB3B">
+
+        <TextView
+            android:id="@+id/c3_Cuenta_XTv"
+            android:layout_width="180dp"
+            android:layout_height="30dp"
+            android:textSize="15sp"
+            android:hint="Seleccione una cuenta de la lista"
+            android:background="#FFEB3B"
+            android:textColor="#E7316E" />
+
+        <TextView
+            android:id="@+id/c5_0_Valor_XTv"
+            android:layout_width="100dp"
+            android:layout_height="30dp"
+            android:textSize="15sp"
+            android:hint=""
+            android:background="#FFEB3B"
+            android:textColor="#E7316E"
+            android:textAlignment="center" />
+
+        <TextView
+            android:id="@+id/c5_Valor_XTv"
+            android:layout_width="100dp"
+            android:layout_height="30dp"
+            android:textSize="15sp"
+            android:hint=""
+            android:background="#FFEB3B"
+            android:textColor="#E7316E"
+            android:textAlignment="center" />
+    </LinearLayout>
+
+    <!-- ÁREA DE CONSULTAS - REDISEÑADA CON LinearLayout -->
+    <LinearLayout
+        android:id="@+id/consultasPorCuentaYFecha_XLl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="5dp"
+        android:background="#FBF193">
+
+        <!-- Primera fila: Fechas -->
+
+    </LinearLayout>
+
+    <!-- Segunda fila: Buscador -->
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Encabezado fijo -->
+        <TableLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#FDFDFD">
+
+            <TableRow>
+                <TextView
+                    android:layout_weight="0.05"
+                    android:text="  Fecha"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:padding="4dp"
+                    android:textColor="#E49115" />
+
+                <TextView
+                    android:layout_weight="0.05"
+                    android:text="Documento"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:padding="4dp"
+                    android:textColor="#E49115" />
+
+                <TextView
+                    android:layout_weight="0.05"
+                    android:text=" Valor"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:padding="4dp"
+                    android:textColor="#E49115" />
+
+                <TextView
+                    android:layout_weight="0.8"
+                    android:text="Descripción"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:padding="4dp"
+                    android:textColor="#E49115" />
+
+
+            </TableRow>
+        </TableLayout>
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewTransacciones_XRv"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:nestedScrollingEnabled="false" />
+
+</LinearLayout>

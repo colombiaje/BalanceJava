@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Fila par -->
+    <item android:drawable="@color/color_row_even"/>
+    <!-- Fila impar -->
+    <item android:drawable="@color/color_row_odd"/>
+</selector>

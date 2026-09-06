@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+
+        <item
+            android:id="@+id/navf1"
+            android:icon="@drawable/ic_add_menu"
+            android:title="@string/menuf1" />
+
+
+        <item
+            android:id="@+id/navf2"
+            android:icon="@drawable/ic_add_menu"
+            android:title="@string/menuf2" />
+
+
+        <item
+            android:id="@+id/navf3"
+            android:icon="@drawable/ic_add_menu"
+            android:title="@string/menuf3" />
+
+        <!--<item
+            android:id="@+id/navf32"
+            android:icon="@drawable/ic_menu_agregar"
+            android:title="@string/menuf32" />-->
+
+
+        <item
+            android:id="@+id/navf5"
+            android:icon="@drawable/ic_cierre_cuentas"
+            android:title="@string/menuf5" />
+
+        <item
+            android:id="@+id/navf99"
+            android:icon="@drawable/ic_close_menu"
+            android:title="@string/menuf99" />
+
+    </group>
+</menu>

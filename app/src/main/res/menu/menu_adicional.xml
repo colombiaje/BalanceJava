@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/eliminarDocumentos"
+        android:title="Eliminar Documentos"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/calculadora"
+        android:title="Calculadora"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/todasLasTransacciones"
+        android:title="Todas las transacciones"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/indicadores"
+        android:title="Indicadores"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/cuentas"
+        android:title="Cuentas"
+        app:showAsAction="never"/>
+
+</menu>

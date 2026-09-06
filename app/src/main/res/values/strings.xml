@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">appbalancev31</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Android Studio</string>
+    <string name="nav_header_subtitle">android.studio@android.com</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string name="action_settings">Settings</string>
+    <string name="menuf1">Transacciones</string>
+    <string name="menuf2">Cuentas</string>
+    <string name="menuf3">Informes</string>
+    <string name="menuf32">Modificaciones</string>
+    <string name="menuf5">Cierres</string>
+    <string name="menuf6">Indicadores</string>
+    <string name="menuf7">SubirArchivoADrive</string>
+    <string name="menuf9">Calculadora</string>
+    <string name="menuf99">Prueba</string>
+    <string name="home_second">Ver4</string>
+    <string name="login">Iniciar sesión</string>
+    <string name="password">Entrada</string>
+    <string name="e_mail">Usuario</string>
+    <string name="tag1">Balance</string>
+    <string name="tag2">Esperamos sea de utilidad para tus finanzas esta App</string>
+    <string name="re_type_password">Vuelva a escriba la contraseña</string>
+    <string name="your_name">Nombre completo</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+
+</resources>

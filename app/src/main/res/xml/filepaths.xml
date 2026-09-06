@@ -1,0 +1,19 @@
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+
+
+    <!--rutas mas importantes para localizar en el dispositivo, los objetos (archivo_Files, imagenes, etc.)
+        utilizados con la class FileProvider-->
+    <external-path name="external" path="." />
+    <external-files-path name="external_files" path="." />
+    <cache-path name="cache" path="." />
+    <external-cache-path name="external_cache" path="." />
+    <files-path name="files" path="." />
+
+    <!--menos importantes -->
+    <files-path name="app_directory" path="directory/"/>
+    <files-path name="my_images" path="images/"/>
+    <external-files-path name="my_images" path="/" />
+
+
+
+</paths>

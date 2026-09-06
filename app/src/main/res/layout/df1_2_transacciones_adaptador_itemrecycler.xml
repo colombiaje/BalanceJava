@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal" android:layout_width="wrap_content"
+    android:background="#FFFFFF"
+    android:layout_height="match_parent"
+    >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:orientation="vertical"
+        android:layout_marginLeft="2dp"
+        android:id="@+id/linearLayout"
+        android:background="@drawable/bg_white_square"
+
+        android:layout_marginBottom="10dp">
+
+
+        <GridLayout
+            android:id="@+id/encabezadoXGL"
+            android:layout_width="match_parent"
+            android:layout_height="109dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginLeft="6dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginRight="6dp"
+            android:background="#A8E0F9"
+            android:columnCount="4"
+            android:orientation="vertical"
+            android:useDefaultMargins="true">
+
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="0"
+                android:layout_column="0"
+                android:background="#65EF6A"
+                android:text="Documento"
+                android:textColor="@color/colorPrimary"
+                android:textSize="17dp"
+                android:textStyle="bold"
+
+                />
+
+
+            <TextView
+                android:id="@+id/documento_XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="0"
+                android:layout_column="1"
+                android:layout_marginLeft="10dp"
+                android:text="# Doc"
+                android:textColor="#ED0EE1"
+                android:textSize="17dp" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="1"
+                android:layout_column="0"
+                android:text="Item"
+                android:textColor="@color/colorPrimary"
+                android:textSize="17dp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ITD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="1"
+                android:layout_column="1"
+                android:layout_marginLeft="10dp"
+                android:text="# Item"
+                android:textColor="#ED0EE1"
+                android:textSize="17dp"
+                android:visibility="gone" />
+
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="1"
+                android:layout_column="0"
+                android:text="Valor $"
+                android:textColor="@color/colorPrimary"
+                android:textSize="17dp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/VTD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="1"
+                android:layout_column="1"
+                android:layout_marginLeft="10dp"
+                android:text="$"
+                android:textColor="#ED0EE1"
+                android:textSize="18dp" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="3"
+                android:layout_column="0"
+                android:text="Signo"
+                android:textColor="@color/colorPrimary"
+                android:textSize="18dp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+
+            <TextView
+                android:id="@+id/sumaORestaTransacciones_XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="3"
+                android:layout_column="1"
+                android:layout_marginLeft="10dp"
+                android:text="Signo x"
+                android:textColor="#ED0EE1"
+                android:textSize="18dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="2"
+                android:layout_column="0"
+                android:text="Cuenta:"
+                android:textColor="@color/colorPrimary"
+                android:textSize="18dp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="0"
+                android:layout_column="2"
+                android:text="Grupo 1:"
+                android:textColor="@color/colorPrimary"
+                android:textSize="18dp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="6"
+                android:layout_column="0"
+                android:text="Grupo 2"
+                android:textColor="@color/colorPrimary"
+                android:textSize="18dp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/CTD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="2"
+                android:layout_column="1"
+
+                android:layout_marginLeft="10dp"
+                android:text="Cuenta x"
+                android:textColor="#ED0EE1"
+                android:textSize="18dp" />
+
+
+            <TextView
+                android:id="@+id/NGTD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="0"
+                android:layout_column="3"
+                android:layout_marginLeft="10dp"
+                android:text="n G1"
+                android:textColor="#ED0EE1"
+                android:textSize="18dp"
+
+                />
+
+            <TextView
+                android:id="@+id/NCMTD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="6"
+                android:layout_column="1"
+                android:layout_marginLeft="10dp"
+                android:text="n G2"
+                android:textColor="#ED0EE1"
+                android:textSize="18dp"
+                android:visibility="gone" />
+
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="1"
+                android:layout_column="2"
+                android:text="Descripcion"
+                android:textColor="@color/colorPrimary"
+                android:textSize="18dp"
+                android:textStyle="bold" />
+
+
+            <TextView
+                android:id="@+id/DesTD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="1"
+                android:layout_column="3"
+                android:layout_marginLeft="10dp"
+                android:text="Descripcion"
+                android:textColor="#ED0EE1"
+                android:textSize="17dp" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="8"
+                android:layout_column="0"
+                android:text="Dia y Hora"
+                android:textColor="@color/colorPrimary"
+                android:textSize="17dp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="2"
+                android:layout_column="2"
+                android:text="No aplica"
+                android:textColor="@color/colorPrimary"
+                android:textSize="17dp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_row="10"
+                android:layout_column="0"
+                android:text="Modificacion"
+                android:textColor="@color/colorPrimary"
+                android:textSize="17dp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+
+            <TextView
+                android:id="@+id/FyHTD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="8"
+                android:layout_column="1"
+                android:layout_marginLeft="10dp"
+                android:text="Fecha y hora x"
+                android:textColor="#ED0EE1"
+                android:textSize="17dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/FITD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="2"
+                android:layout_column="3"
+                android:layout_marginLeft="10dp"
+                android:text="FI x"
+                android:textColor="#ED0EE1"
+                android:textSize="17dp" />
+
+
+            <TextView
+                android:id="@+id/FMTD__XTv"
+                android:layout_width="205dp"
+                android:layout_height="wrap_content"
+                android:layout_row="10"
+                android:layout_column="1"
+                android:layout_marginLeft="10dp"
+                android:text="FM x"
+                android:textColor="#ED0EE1"
+                android:textSize="17dp"
+                android:visibility="gone" />
+
+        </GridLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginLeft="6dp"
+            android:layout_marginRight="6dp"
+            android:layout_marginBottom="6dp"
+            android:background="#FFFFFF"
+            android:outlineAmbientShadowColor="#9C27B0"
+            android:outlineSpotShadowColor="#00BCD4"
+            android:scrollbarSize="20dp"
+            android:scrollbars="vertical">
+
+         </ScrollView>
+
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/imageFlecha"
+        android:layout_width="30dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/ic_arrow_rigth"
+        android:layout_alignBottom="@+id/linearLayout"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginBottom="10dp"/>
+
+</androidx.cardview.widget.CardView>

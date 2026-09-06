@@ -1,0 +1,8 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="10dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#A1CA26" /> <!-- Color de la barra -->
+            <corners android:radius="15dp" />  <!-- Bordes redondeados -->
+        </shape>
+    </item>
+</layer-list>
