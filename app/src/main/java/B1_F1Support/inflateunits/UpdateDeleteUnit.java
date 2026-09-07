@@ -207,8 +207,15 @@ public class UpdateDeleteUnit {
             f1.documentoABuscarParaEditar_XATv.setText(
                     f1.numeroConsecutivoDocEnEdicion_XTv.getText());
             Log.d("foco","aqui");
-            // NOTE: llamado dos veces — comportamiento original preservado
+            // FIX: llamada duplicada real (antes solo se ejecutaba una vez pese a
+            // que el comentario original decía "llamado dos veces") — se emula la
+            // secuencia de setupDocumentSearchItemClick(), que sí calcula bien
+            // Saldo 1 / Mov / Saldo 2.
             f1.colocarDocConsultadoEnListaItemDoc();
+            f1.colocarDocConsultadoEnListaItemDoc();
+            f1.sumarItemListaDocumento();
+            f1.actualizarSumasListado();
+            f1.controlACeroTotales_XTv.setText("" + f1.$netoT);
 
             // ✅ .equals() para comparar contenido, no referencia
             if (f1.documentoABuscarParaEditar_XATv.getText().toString()
