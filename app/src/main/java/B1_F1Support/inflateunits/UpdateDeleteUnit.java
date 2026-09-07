@@ -221,7 +221,7 @@ public class UpdateDeleteUnit {
             if (f1.documentoABuscarParaEditar_XATv.getText().toString()
                     .equals(f1.numeroConsecutivoDocEnEdicion_XTv.getText().toString())) {
                 f1.documentoABuscarParaEditar_XATv
-                        .setBackgroundColor(Color.parseColor("#90E0D8"));
+                             .setBackgroundColor(Color.parseColor("#90E0D8"));
             }
 
             // ✅ Cerrar lista desplegable
