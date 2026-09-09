@@ -1,18 +1,12 @@
 package C_ACTIVITYS;
 
 import static android.content.ContentValues.TAG;
-import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
-import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
-
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.database.DatabaseUtils;
-import android.database.sqlite.SQLiteDatabase;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkInfo;
-import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -23,7 +17,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -35,7 +28,6 @@ import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
-
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
@@ -43,38 +35,18 @@ import com.google.android.gms.common.api.Scope;
 import com.google.android.material.navigation.NavigationView;
 import com.google.api.services.drive.DriveScopes;
 import com.jj.appbalancev31.R;
-
 import java.io.InputStream;
-
-import A1BASES.A1_1_AyudanteBD;
-import B_FRAGMENTS.F1_CrudDocumento;
 import B_FRAGMENTS.F2_Cuentas;
-import B_FRAGMENTS.F4_Cierres;
 import B_FRAGMENTS.F5_1_Indicadores;
 import B_FRAGMENTS.F6_Calculadora;
-//import a4.balance.R;
 
 public class C2_ActivityMenu extends AppCompatActivity {
 
     private AppBarConfiguration mAppBarConfiguration;
-    public NavigationView navigationView;
-
     F6_Calculadora llamarF9;
-    F1_CrudDocumento f1_1_transacciones_Fragment;
-    int menu_id;
+
     FragmentManager fm = getSupportFragmentManager();
-
     Boolean isUserClickedBackButton = false;
-
-    F1_CrudDocumento f1_1_transacciones;
-    F4_Cierres f5_1_cierres;
-
-    String directorio_String = Environment.getExternalStorageDirectory().getPath() + "/Balance/";
-
-    //private static final String CLIENT_ID = "947251576983-2mgthn1emm7qihr3dftmr0g2u69279cl.apps.googleusercontent.com";
-
-    // Cargar el archivo de credenciales
-    //InputStream inputStream = getResources().openRawResource(R.raw.credentials);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,7 +95,6 @@ public class C2_ActivityMenu extends AppCompatActivity {
         }, 4000); // 5 segundos
 
     }
-
     public void _123_solicitudIniciarSesiónEnDrive () {
         GoogleSignInOptions signInOptions = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestEmail()
@@ -135,40 +106,13 @@ public class C2_ActivityMenu extends AppCompatActivity {
         Log.d("instalar", "101: : "+"solicitud iniciar sesion en drive");
     }
 
-
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_adicional, menu);
         return true;
     }
-
-    WifiManager wifiManager;
     boolean isWifiConn = false;
-
-    public void _111_activarRedlWiFiSihayRedDisponible () {
-
-        Toast.makeText(getApplicationContext(), "Esperando Wifi disponible " + isWifiConn, Toast.LENGTH_SHORT).show();
-
-        wifiManager = (WifiManager) getApplication().getSystemService(Context.WIFI_SERVICE);
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            if (!wifiManager.isWifiEnabled()) {
-                wifiManager.setWifiEnabled(true);
-                //Toast.makeText(getApplication(), "Onn", Toast.LENGTH_SHORT).show();
-
-            } else {
-                wifiManager.setWifiEnabled(false);
-                //Toast.makeText(getApplication(), "Off", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            Intent panelIntent = new Intent(Settings.Panel.ACTION_WIFI);
-            startActivityForResult(panelIntent, 1);
-        }
-
-    }
-
     boolean isMobileConn = false;
     public void _112_comprobarSeñalDeRedesWifiOMovil () {
 
@@ -213,7 +157,6 @@ public class C2_ActivityMenu extends AppCompatActivity {
         if (isWifiConn == true) {
             //...
         }
-        //21
         //activar la red mobil cuando la wifi y la red mobil no esten activas
         if (isWifiConn == false && isMobileConn == false) {
             try {
@@ -292,18 +235,6 @@ public class C2_ActivityMenu extends AppCompatActivity {
             }
         }
     }
-
-    /*public void cambiarElFragmentPredeterminado () {
-
-        //Cambiar el fragment predeterminado
-        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.contenedor_fragments_f0_Xf);  // Hostfragment
-        NavInflater inflater = navHostFragment.getNavController().getNavInflater();
-        NavGraph graph = inflater.inflate(R.navigation.mobile_navigation);
-        graph.setStartDestination(R.id.navf1);
-        navHostFragment.getNavController().setGraph(graph);
-
-    }*/
-
     public void cambiarElFragmentPredeterminado() {
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.contenedor_fragments_f0_Xf);
@@ -314,8 +245,6 @@ public class C2_ActivityMenu extends AppCompatActivity {
             navController.navigate(R.id.navf1); // Va directamente al fragmento inicial
         }
     }
-
-
 
     @Override
     public void onBackPressed() {
@@ -336,14 +265,10 @@ public class C2_ActivityMenu extends AppCompatActivity {
                         }
                     }).show();
         }
-
-
         else {
             super.onBackPressed();
-
         }
     }
-
     @Override
     public boolean onSupportNavigateUp() {
         NavController navController = Navigation.findNavController(this, R.id.contenedor_fragments_f0_Xf);
@@ -352,7 +277,6 @@ public class C2_ActivityMenu extends AppCompatActivity {
     }
 
     //Este es el menu de la Action Bar
-
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item == null || item.getTitle() == null) {
@@ -389,49 +313,6 @@ public class C2_ActivityMenu extends AppCompatActivity {
             default:
                 return super.onOptionsItemSelected(item);
         }
-    }
-
-    /*@Override
-    protected void onResume() {
-        super.onResume();
-
-        // Verificar si la condición se cumple antes de ejecutar
-        if (cumpleCondicion()) {
-            ejecutarBackupDesdeFragment();
-            Toast.makeText(getApplicationContext(), "Se ejecuto el backup", Toast.LENGTH_SHORT).show();
-            Log.d("cuentas", "onResume 101: "+numeroDeRegistros_Long);
-        }
-    }*/
-
-    private void ejecutarBackupDesdeFragment() {
-        // Obtener la instancia del fragmento
-        F2_Cuentas fragment = (F2_Cuentas) getSupportFragmentManager().findFragmentByTag("F21_Cuentas");
-
-        if (fragment != null) {
-            fragment._3_backupAndRestoreDialog();
-        }
-    }
-
-    // Método de condición (ajústalo según tu lógica)
-    private boolean cumpleCondicion() {
-        // Aquí debes colocar la lógica real de tu condición
-        verNumeroDeRegistrosCuentas();
-        if (numeroDeRegistros_Long == 0) {
-        }
-        return true; // Cambia esto según lo que necesites
-    }
-
-    long numeroDeRegistros_Long;
-    private long verNumeroDeRegistrosCuentas () {
-
-        A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getApplicationContext(), balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
-
-        SQLiteDatabase sqLiteDataBase_Abstracta = ayudanteBD_Class.getReadableDatabase();
-        numeroDeRegistros_Long= DatabaseUtils.queryNumEntries(sqLiteDataBase_Abstracta,"cuentas");
-        sqLiteDataBase_Abstracta.close();
-
-        return  numeroDeRegistros_Long;
-
     }
 
     @Override

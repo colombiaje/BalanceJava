@@ -25,12 +25,6 @@
         android:label="@string/menuf3"
         tools:layout="@layout/f3_2_informes_adaptador_transacciones" />
 
-    <!--<fragment
-        android:id="@+id/navf32"
-        android:name="B_FRAGMENTS.F1_3_MoficarDocumentosCRUD2"
-        android:label="@string/menuf3"
-        tools:layout="@layout/f1_3_editar_documento_crud" />-->
-
     <fragment
         android:id="@+id/navf5"
         android:name="B_FRAGMENTS.F4_Cierres"
