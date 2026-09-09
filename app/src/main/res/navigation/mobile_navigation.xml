@@ -37,5 +37,4 @@
         android:label="@string/menuf99"
         tools:layout="@layout/g1_prueba" />
 
-
 </navigation>

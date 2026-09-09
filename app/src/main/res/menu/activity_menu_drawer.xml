@@ -22,12 +22,6 @@
             android:icon="@drawable/ic_add_menu"
             android:title="@string/menuf3" />
 
-        <!--<item
-            android:id="@+id/navf32"
-            android:icon="@drawable/ic_menu_agregar"
-            android:title="@string/menuf32" />-->
-
-
         <item
             android:id="@+id/navf5"
             android:icon="@drawable/ic_cierre_cuentas"

@@ -20,6 +20,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -64,7 +65,36 @@ public class C2_ActivityMenu extends AppCompatActivity {
                 .build();
         NavController navController = Navigation.findNavController(this, R.id.contenedor_fragments_f0_Xf);
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-        NavigationUI.setupWithNavController(navigationView, navController);
+
+        // FIX (bug navf1->navf3 del menu lateral): no usar
+        // NavigationUI.setupWithNavController(navigationView, navController), porque esa
+        // llamada cachea para siempre la referencia de "navController" resuelta arriba,
+        // dentro del listener del NavigationView. Otras pantallas de la app (Calculadora,
+        // Indicadores, Cuentas desde este mismo menu de Action Bar, y F3_2_VerItemTransaccion
+        // desde F1_CrudDocumento) reemplazan temporalmente el contenedor del NavHostFragment
+        // (R.id.contenedor_fragments_f0_Xf) con FragmentTransactions manuales, lo que puede
+        // dejar esa referencia cacheada en un estado transitorio invalido y provocar que un
+        // clic en el drawer (p.ej. hacia navf3) no haga nada de forma intermitente.
+        // Aqui se resuelve el NavController de nuevo en cada clic, y se protege con
+        // try/catch para avisar al usuario en vez de fallar en silencio si el contenedor
+        // esta momentaneamente ocupado por otra pantalla.
+        navigationView.setNavigationItemSelectedListener(item -> {
+            try {
+                NavController navControllerActual =
+                        Navigation.findNavController(this, R.id.contenedor_fragments_f0_Xf);
+                boolean manejado = NavigationUI.onNavDestinationSelected(item, navControllerActual);
+                if (manejado) {
+                    drawer.closeDrawer(GravityCompat.START);
+                }
+                return manejado;
+            } catch (IllegalStateException e) {
+                Toast.makeText(this,
+                        "Cierra la pantalla actual antes de usar el menú",
+                        Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "onNavigationItemSelected: NavController no disponible", e);
+                return false;
+            }
+        });
 
         navigationView.setItemIconTintList(null);
 
