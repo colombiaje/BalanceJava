@@ -17,7 +17,6 @@ import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A5_CacheManager;
 import B_FRAGMENTS.F1_CrudDocumento;
-import D_ADAPTERS.D_F1_AdaptadorCrudDocumento;
 
 /**
  * NavigationManager — gestión de canales de navegación y restauración de F1.
@@ -75,39 +74,22 @@ public class B13_NavigationManager {
 
     }
 
+    /**
+     * Escenario B — ya no se pregunta con un AlertDialog: si hay backup para
+     * el área, se restaura directo (reutilizando f1.restoreBackups(), el
+     * mismo camino ya probado que usaba Canal C) y se avisa con un Snackbar
+     * liviano ("Borrador recuperado"). Borrar un backup ahora se hace desde
+     * el panel de auditoría de caché (A9_VisorTablasDialogo), no aquí.
+     * Firma sin cambios — el llamador (ejecutarCanalA / ejecutarCanalInicio)
+     * no necesita saber que esto dejó de ser un diálogo.
+     */
     public void mostrarDialogoCanalA(int radioButtonId, int areaId) {
         if (f1.getActivity() == null || !f1.isAdded()) return;
-        f1.optionsDoc_XRg.setOnCheckedChangeListener(null);
-
-        new AlertDialog.Builder(f1.getActivity())
-                .setTitle("Documento pendiente")
-                .setMessage("Hay un borrador guardado en esta área. ¿Desea recuperarlo o empezar de cero?")
-                .setCancelable(false)
-                .setPositiveButton("RESTAURAR", (dialog, which) -> {
-                    f1.limpiarListaYAdaptador();
-                    A5_CacheManager.Encabezado enc =
-                            A5_CacheManager.restaurarEncabezado(f1.getContext(), areaId);
-                    f1.listaDocumento_ArrayLTT =
-                            A5_CacheManager.restaurarRegistros(f1.getContext(), areaId);
-                    conectarAdaptador();
-                    if (enc != null) f1.aplicarEncabezadoAVistas(enc);
-                    actualizarContador();
-                    f1.pasarItemListaTodoResumidoAItemListaRevision();
-                    f1.sumarItemListaDocumento();
-                    f1.actualizarSumasListado();
-                    f1.mostrarAreaCorrespondiente(radioButtonId);
-                    f1.restaurarListenerRadioGroup();
-                    f1.estaRestaurandoCanalA = false; // ← reset aquí, backup ya cargado
-                })
-                .setNegativeButton("BORRAR", (dialog, which) -> {
-                    A5_CacheManager.eliminar(f1.getContext(), areaId);
-                    f1.clearViewsValuesForInitializeCRUD();
-                    f1.limpiarListaYAdaptador();
-                    mostrarAreaLimpia(radioButtonId);
-                    f1.restaurarListenerRadioGroup();
-                    f1.estaRestaurandoCanalA = false; // ← reset también en borrar
-                })
-                .show();
+        f1.restoreBackups(radioButtonId);
+        f1.mostrarAreaCorrespondiente(radioButtonId);
+        f1.restaurarListenerRadioGroup();
+        f1.estaRestaurandoCanalA = false; // ← reset aquí, backup ya cargado
+        mostrarSnackbarBorradorRecuperado();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -143,39 +125,14 @@ public class B13_NavigationManager {
         }
     }
 
+    /** Escenario B — igual que mostrarDialogoCanalA: restauración silenciosa + Snackbar. */
     public void mostrarDialogoCanalB(int radioButtonId, int areaId) {
         if (f1.getActivity() == null || !f1.isAdded()) return;
-        f1.optionsDoc_XRg.setOnCheckedChangeListener(null);
-
-        new AlertDialog.Builder(f1.getActivity())
-                .setTitle("Documento pendiente")
-                .setMessage("Hay un borrador guardado. ¿Desea recuperarlo o empezar de cero?")
-                .setCancelable(false)
-                .setPositiveButton("RESTAURAR", (dialog, which) -> {
-                    Log.d("canal B","aqui B");
-                    f1.setVisibilityGoneTodo();
-                    f1.limpiarListaYAdaptador();
-                    A5_CacheManager.Encabezado enc =
-                            A5_CacheManager.restaurarEncabezado(f1.getContext(), areaId);
-                    f1.listaDocumento_ArrayLTT =
-                            A5_CacheManager.restaurarRegistros(f1.getContext(), areaId);
-                    conectarAdaptador();
-                    if (enc != null) f1.aplicarEncabezadoAVistas(enc);
-                    actualizarContador();
-                    f1.pasarItemListaTodoResumidoAItemListaRevision();
-                    f1.sumarItemListaDocumento();
-                    f1.actualizarSumasListado();
-                    f1.mostrarAreaCorrespondiente(radioButtonId);
-                    f1.restaurarListenerRadioGroup();
-                })
-                .setNegativeButton("BORRAR", (dialog, which) -> {
-                    A5_CacheManager.eliminar(f1.getContext(), areaId);
-                    f1.clearViewsValuesForInitializeCRUD();
-                    f1.limpiarListaYAdaptador();
-                    mostrarAreaLimpia(radioButtonId);
-                    f1.restaurarListenerRadioGroup();
-                })
-                .show();
+        f1.setVisibilityGoneTodo();
+        f1.restoreBackups(radioButtonId);
+        f1.mostrarAreaCorrespondiente(radioButtonId);
+        f1.restaurarListenerRadioGroup();
+        mostrarSnackbarBorradorRecuperado();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -201,37 +158,21 @@ public class B13_NavigationManager {
         }
     }
 
+    /**
+     * Escenario B — Canal C (cambio de RadioButton) también pasa a
+     * restauración silenciosa. `esDesdeOnResume` queda sin uso funcional
+     * (antes solo controlaba si el diálogo era cancelable); se conserva en
+     * la firma porque F1_CrudDocumento.mostrarDialogoRestauracionUnificado()
+     * y CrudOptionsUnit siguen llamando con esa forma.
+     */
     public void mostrarDialogoRestauracionUnificado(int radioButtonIdDestino,
                                                     boolean esDesdeOnResume) {
         if (f1.getActivity() == null || !f1.isAdded()) return;
-        f1.optionsDoc_XRg.setOnCheckedChangeListener(null);
-
-        new AlertDialog.Builder(f1.getActivity())
-                .setTitle("Documento pendiente")
-                .setMessage("Se detectó un borrador en curso para esta área. ¿Desea recuperarlo o empezar de cero?")
-                .setCancelable(!esDesdeOnResume)
-                .setPositiveButton("CONTINUAR", (dialog, which) -> {
-                    f1.currentRadioButtonId = radioButtonIdDestino;
-                    f1.limpiarListaYAdaptador();
-                    f1.restoreBackups(radioButtonIdDestino);
-                    f1.estaRestaurando = false;
-                    f1.mostrarAreaCorrespondiente(radioButtonIdDestino);
-                    f1.restaurarListenerRadioGroup();
-                })
-                .setNegativeButton("BORRAR", (dialog, which) -> {
-                    f1.eliminarBackups(radioButtonIdDestino);
-                    f1.currentRadioButtonId = radioButtonIdDestino;
-                    f1.estaRestaurando = false;
-                    f1.clearViewsValuesForInitializeCRUD();
-                    f1.limpiarListaYAdaptador();
-                    mostrarAreaLimpia(radioButtonIdDestino);
-                    f1.restaurarListenerRadioGroup();
-                })
-                .setOnCancelListener(dialog -> {
-                    f1.estaRestaurando = false;
-                    f1.restaurarListenerRadioGroup();
-                })
-                .show();
+        f1.currentRadioButtonId = radioButtonIdDestino;
+        f1.restoreBackups(radioButtonIdDestino);
+        f1.mostrarAreaCorrespondiente(radioButtonIdDestino);
+        f1.restaurarListenerRadioGroup();
+        mostrarSnackbarBorradorRecuperado();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -443,31 +384,50 @@ public class B13_NavigationManager {
         }
     }
 
-    private void conectarAdaptador() {
-        if (f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT == null) {
-            f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
-                    new D_F1_AdaptadorCrudDocumento(
-                            f1.getActivity(), f1.listaDocumento_ArrayLTT, null);
-            f1.listaDocumento_XLv.setAdapter(
-                    f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT);
-        } else {
-            f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT.clear();
-            f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT
-                    .addAll(f1.listaDocumento_ArrayLTT);
-            f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT
-                    .notifyDataSetChanged();
+    /** Snackbar compartido por las 3 rutas de restauración silenciosa (Escenario B). */
+    private void mostrarSnackbarBorradorRecuperado() {
+        View root = f1.getView();
+        if (root != null) {
+            Snackbar.make(root, "Borrador recuperado", Snackbar.LENGTH_SHORT).show();
         }
     }
 
-    private void actualizarContador() {
-        if (f1.listaDocumento_ArrayLTT != null
-                && f1.listaDocumento_ArrayLTT.size() > 0) {
-            f1.consecutivoItemRegistro_XTv.setText("Item:\n" +
-                    f1.listaDocumento_ArrayLTT.size() + "/" +
-                    f1.listaDocumento_ArrayLTT.size());
-        } else {
-            f1.consecutivoItemRegistro_XTv.setText("0/0");
+    // ═══════════════════════════════════════════════════════════════
+    // Escenario C — entrada desde A9_VisorTablasDialogo ("✏️ Editar
+    // esta área"). Solo aplica a Crear/Plantilla/Editar (tienen
+    // RadioButton propio); "En Espera" no tiene destino directo, se
+    // gestiona con el botón verde de intercambio (Canal D).
+    // ═══════════════════════════════════════════════════════════════
+    public void irAAreaYRestaurarDesdeVisor(int areaId) {
+        int radioButtonIdDestino = areaIdToRadioButtonId(areaId);
+        if (radioButtonIdDestino == 0) return; // área sin RadioButton (Espera)
+
+        // Si hay algo sin guardar en el área actual, se respeta el mismo
+        // resguardo que ya usa el cambio de RadioButton normal (Canal C).
+        if (f1.currentRadioButtonId != radioButtonIdDestino && f1.hayDatosEnAreaActual()) {
+            f1.actualizarSnapshot();
+            f1.hacerBackupSilencioso(f1.currentRadioButtonId);
         }
+
+        f1.listaDocumento_ArrayLTT = new ArrayList<>();
+        f1.limpiarListaYAdaptador();
+        f1.clearViewsValuesForInitializeCRUD();
+        f1.clearArrayListsCRUD();
+        f1.optionsDoc_XRg.setOnCheckedChangeListener(null);
+        f1.optionsDoc_XRg.check(radioButtonIdDestino);
+        f1.currentRadioButtonId = radioButtonIdDestino;
+
+        f1.restoreBackups(radioButtonIdDestino);
+        f1.mostrarAreaCorrespondiente(radioButtonIdDestino);
+        f1.restaurarListenerRadioGroup();
+        mostrarSnackbarBorradorRecuperado();
+    }
+
+    private int areaIdToRadioButtonId(int areaId) {
+        if (areaId == A1_1_AyudanteBD.AREA_CREATE)   return R.id.create_XRb;
+        if (areaId == A1_1_AyudanteBD.AREA_TEMPLATE) return R.id.template_XRb;
+        if (areaId == A1_1_AyudanteBD.AREA_UPDATE)   return R.id.updateDelete_XRb;
+        return 0;
     }
 
     public void ejecutarCanalInicio() {

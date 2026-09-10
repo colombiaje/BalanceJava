@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -20,7 +21,11 @@ import android.widget.TableRow;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
+
+import B_FRAGMENTS.F1_CrudDocumento;
 
 /**
  * A9_VisorTablasDialogo — VERSIÓN 3
@@ -328,8 +333,76 @@ public class A9_VisorTablasDialogo extends DialogFragment {
                     area, idx);
         }
 
+        inner.addView(spacer());
+        inner.addView(construirBarraAcciones(area, idx));
+
         scroll.addView(inner);
         contenidoLayout.addView(scroll);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  ACCIONES (Escenario C) — "Editar esta área" y "Borrar backup"
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private LinearLayout construirBarraAcciones(int area, int idx) {
+        LinearLayout fila = new LinearLayout(getContext());
+        fila.setOrientation(LinearLayout.HORIZONTAL);
+        fila.setPadding(8, 4, 8, 12);
+
+        boolean hayBackup = A5_CacheManager.existeCache(getContext(), area);
+
+        // "Editar" solo aplica a Crear/Plantilla/Editar — "En Espera" no tiene
+        // RadioButton propio, se gestiona con el botón verde de intercambio.
+        if (area != AREA_ESPERA) {
+            Button btEditar = new Button(getContext());
+            btEditar.setText("✏️ Editar esta área");
+            btEditar.setEnabled(hayBackup);
+            LinearLayout.LayoutParams lpE = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+            lpE.setMargins(4, 0, 4, 0);
+            btEditar.setLayoutParams(lpE);
+            btEditar.setOnClickListener(v -> editarArea(area));
+            fila.addView(btEditar);
+        }
+
+        Button btBorrar = new Button(getContext());
+        btBorrar.setText("🗑️ Borrar backup");
+        btBorrar.setEnabled(hayBackup);
+        LinearLayout.LayoutParams lpB = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+        lpB.setMargins(4, 0, 4, 0);
+        btBorrar.setLayoutParams(lpB);
+        btBorrar.setOnClickListener(v -> confirmarBorrarArea(area));
+        fila.addView(btBorrar);
+
+        return fila;
+    }
+
+    private void editarArea(int area) {
+        Fragment padre = getParentFragment();
+        if (padre instanceof F1_CrudDocumento) {
+            ((F1_CrudDocumento) padre).irAAreaYRestaurarDesdeVisor(area);
+        }
+        dismiss();
+    }
+
+    private void confirmarBorrarArea(int area) {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Borrar backup")
+                .setMessage("El backup de \"" + nombreArea(area) +
+                        "\" se eliminará y no se podrá recuperar. ¿Deseas continuar?")
+                .setPositiveButton("BORRAR", (dialog, which) -> {
+                    A5_CacheManager.eliminar(getContext(), area);
+                    if (area == AREA_ESPERA) {
+                        Fragment padre = getParentFragment();
+                        if (padre instanceof F1_CrudDocumento) {
+                            ((F1_CrudDocumento) padre).actualizarVisibilidadBotonVerde();
+                        }
+                    }
+                    actualizarContenido(area); // refresca para mostrar "sin caché"
+                })
+                .setNegativeButton("CANCELAR", null)
+                .show();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -2177,6 +2177,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public void mostrarDialogoRestauracionUnificado(int radioButtonIdDestino, boolean esDesdeOnResume) {
         navManager.mostrarDialogoRestauracionUnificado(radioButtonIdDestino, esDesdeOnResume);
     }
+
+    /** Escenario C — "✏️ Editar esta área" desde A9_VisorTablasDialogo. */
+    public void irAAreaYRestaurarDesdeVisor(int areaId) {
+        navManager.irAAreaYRestaurarDesdeVisor(areaId);
+    }
     private void mostrarDialogoCanalD(String documentoRecibido) {
         navManager.mostrarDialogoCanalD(documentoRecibido);
     }
