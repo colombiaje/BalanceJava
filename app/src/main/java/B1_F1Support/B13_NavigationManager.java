@@ -16,6 +16,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.gridlayout.widget.GridLayout;
 
 import com.google.android.material.snackbar.Snackbar;
@@ -414,6 +415,10 @@ public class B13_NavigationManager {
         View root = f1.getView();
         if (root == null) return;
 
+        // 20s a pedido de Jorge (antes 3.2s) — misma duración que el
+        // resaltado del área, ver resaltarAreaRestaurada().
+        final long duracionAviso = 20000;
+
         Snackbar snackbar = Snackbar.make(root, "📥 Borrador recuperado", Snackbar.LENGTH_INDEFINITE);
         View snackView = snackbar.getView();
 
@@ -432,36 +437,46 @@ public class B13_NavigationManager {
 
         // Reubicar arriba-izquierda DESPUÉS de show(): Material reacomoda sus
         // propios LayoutParams como parte de la animación de aparición, así
-        // que si se cambia el gravity ANTES de show() (como se hizo en la
-        // primera versión), Material lo vuelve a pisar y termina abajo de
-        // nuevo. Haciéndolo en un post() se aplica cuando Material ya terminó
-        // su propio acomodo.
+        // que si se cambia el gravity ANTES de show() Material lo vuelve a
+        // pisar. Además esta pantalla vive dentro de un CoordinatorLayout
+        // (heredado de la Activity, usado ahí para el FAB) — Snackbar.make()
+        // lo detecta como "parent adecuado" y en ese caso el snackbar usa
+        // CoordinatorLayout.LayoutParams, NO FrameLayout.LayoutParams. La
+        // versión anterior solo contemplaba FrameLayout.LayoutParams, así
+        // que el cambio de gravity nunca se llegaba a aplicar y el aviso
+        // seguía abajo pase lo que pase. Ahora se contemplan los dos tipos.
         snackView.post(() -> {
             ViewGroup.LayoutParams params = snackView.getLayoutParams();
-            if (params instanceof FrameLayout.LayoutParams) {
+            float densidad = snackView.getResources().getDisplayMetrics().density;
+            int margenSuperior = (int) (24 * densidad);
+            int margenIzquierdo = (int) (12 * densidad);
+
+            if (params instanceof CoordinatorLayout.LayoutParams) {
+                CoordinatorLayout.LayoutParams clp = (CoordinatorLayout.LayoutParams) params;
+                clp.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
+                clp.topMargin = margenSuperior;
+                clp.leftMargin = margenIzquierdo;
+                snackView.setLayoutParams(clp);
+            } else if (params instanceof FrameLayout.LayoutParams) {
                 FrameLayout.LayoutParams flp = (FrameLayout.LayoutParams) params;
                 flp.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
-                float densidad = snackView.getResources().getDisplayMetrics().density;
-                flp.topMargin = (int) (24 * densidad);
-                flp.leftMargin = (int) (12 * densidad);
+                flp.topMargin = margenSuperior;
+                flp.leftMargin = margenIzquierdo;
                 snackView.setLayoutParams(flp);
             }
         });
 
-        // Parpadeo suave mientras dura, luego se cierra sola.
-        // Nota: el cierre es por tiempo (≈3.2s), no al primer toque del
-        // usuario en el área — detectar "primer toque dentro del área" de
-        // forma confiable sin interferir con los campos (EditText/Spinner)
-        // que ya están ahí requiere interceptar el touch a nivel del
-        // GridLayout, algo que preferí no arriesgar sin poder probarlo en
-        // un dispositivo real. Si el tiempo fijo no se siente bien, lo
-        // cambiamos a un cierre por toque en una siguiente vuelta.
+        // Parpadeo intermitente durante toda la duración del aviso (20s);
+        // se cancela junto con el cierre para no dejarlo corriendo de más.
         ObjectAnimator parpadeo = ObjectAnimator.ofFloat(snackView, "alpha", 1f, 0.35f, 1f);
         parpadeo.setDuration(700);
-        parpadeo.setRepeatCount(3);
+        parpadeo.setRepeatCount(ValueAnimator.INFINITE);
         parpadeo.start();
 
-        snackView.postDelayed(snackbar::dismiss, 3200);
+        snackView.postDelayed(() -> {
+            parpadeo.cancel();
+            snackbar.dismiss();
+        }, duracionAviso);
     }
 
     /**
@@ -473,24 +488,49 @@ public class B13_NavigationManager {
      * se veía. Esta versión usa setForeground(): un velo semitransparente
      * dibujado ENCIMA de los campos, que se desvanece hasta desaparecer. El
      * fondo real del área nunca se toca.
+     *
+     * El velo se aplica también a f1.areaButtons_XLL (fila Guardar/Limpiar/
+     * Salir): en el layout esa fila es HERMANA del GridLayout del área
+     * (compartida entre las 3 áreas, fuera de cada GridLayout), no hija —
+     * por eso la primera versión, que solo tocaba el GridLayout, dejaba el
+     * resaltado incompleto ("aplicó a una parte"). El resto de la pantalla
+     * (menú superior, opciones de navegación) queda fuera a propósito.
      */
     private void resaltarAreaRestaurada(int radioButtonId) {
         GridLayout area = obtenerGridLayoutDeArea(radioButtonId);
         if (area == null) return;
 
+        // 20s a pedido de Jorge (antes ~2.7s) — misma duración que el
+        // Snackbar, ver mostrarSnackbarBorradorRecuperado().
+        final long duracionResaltado = 20000;
         final int alphaInicial = 140; // semi-transparente — no tapa los campos
-        ColorDrawable velo = new ColorDrawable(Color.parseColor("#FFEB3B")); // amarillo "recién llegado"
-        velo.setAlpha(alphaInicial);
-        area.setForeground(velo);
+
+        ColorDrawable veloArea = new ColorDrawable(Color.parseColor("#FFEB3B")); // amarillo "recién llegado"
+        veloArea.setAlpha(alphaInicial);
+        area.setForeground(veloArea);
+
+        final ColorDrawable veloBotones;
+        if (f1.areaButtons_XLL != null) {
+            veloBotones = new ColorDrawable(Color.parseColor("#FFEB3B"));
+            veloBotones.setAlpha(alphaInicial);
+            f1.areaButtons_XLL.setForeground(veloBotones);
+        } else {
+            veloBotones = null;
+        }
 
         ValueAnimator desvanecer = ValueAnimator.ofInt(alphaInicial, 0);
-        desvanecer.setStartDelay(500);
-        desvanecer.setDuration(2200);
-        desvanecer.addUpdateListener(a -> velo.setAlpha((int) a.getAnimatedValue()));
+        desvanecer.setStartDelay(2000);
+        desvanecer.setDuration(duracionResaltado - 2000);
+        desvanecer.addUpdateListener(a -> {
+            int alpha = (int) a.getAnimatedValue();
+            veloArea.setAlpha(alpha);
+            if (veloBotones != null) veloBotones.setAlpha(alpha);
+        });
         desvanecer.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
                 area.setForeground(null); // el fondo real nunca se tocó, no hay nada que restaurar
+                if (f1.areaButtons_XLL != null) f1.areaButtons_XLL.setForeground(null);
             }
         });
         desvanecer.start();
