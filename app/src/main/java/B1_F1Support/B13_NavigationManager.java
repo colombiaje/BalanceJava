@@ -2,14 +2,13 @@ package B1_F1Support;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -429,14 +428,25 @@ public class B13_NavigationManager {
             tvTexto.setTextSize(14);
         }
 
-        // Reubicar arriba (Snackbar nace pegado abajo por diseño de Material).
-        ViewGroup.LayoutParams params = snackView.getLayoutParams();
-        if (params instanceof FrameLayout.LayoutParams) {
-            ((FrameLayout.LayoutParams) params).gravity = android.view.Gravity.TOP;
-            snackView.setLayoutParams(params);
-        }
-
         snackbar.show();
+
+        // Reubicar arriba-izquierda DESPUÉS de show(): Material reacomoda sus
+        // propios LayoutParams como parte de la animación de aparición, así
+        // que si se cambia el gravity ANTES de show() (como se hizo en la
+        // primera versión), Material lo vuelve a pisar y termina abajo de
+        // nuevo. Haciéndolo en un post() se aplica cuando Material ya terminó
+        // su propio acomodo.
+        snackView.post(() -> {
+            ViewGroup.LayoutParams params = snackView.getLayoutParams();
+            if (params instanceof FrameLayout.LayoutParams) {
+                FrameLayout.LayoutParams flp = (FrameLayout.LayoutParams) params;
+                flp.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
+                float densidad = snackView.getResources().getDisplayMetrics().density;
+                flp.topMargin = (int) (24 * densidad);
+                flp.leftMargin = (int) (12 * densidad);
+                snackView.setLayoutParams(flp);
+            }
+        });
 
         // Parpadeo suave mientras dura, luego se cierra sola.
         // Nota: el cierre es por tiempo (≈3.2s), no al primer toque del
@@ -454,34 +464,36 @@ public class B13_NavigationManager {
         snackView.postDelayed(snackbar::dismiss, 3200);
     }
 
-    /** Resalta el área recién restaurada con un color degradado hacia su color original. */
+    /**
+     * Resalta el área recién restaurada, sin tocar su fondo real.
+     *
+     * La primera versión pintaba el BACKGROUND del GridLayout, pero ese
+     * fondo queda detrás de todos los campos (EditText, Spinner, labels…),
+     * que suelen cubrir casi toda el área visible — por eso el degradado no
+     * se veía. Esta versión usa setForeground(): un velo semitransparente
+     * dibujado ENCIMA de los campos, que se desvanece hasta desaparecer. El
+     * fondo real del área nunca se toca.
+     */
     private void resaltarAreaRestaurada(int radioButtonId) {
         GridLayout area = obtenerGridLayoutDeArea(radioButtonId);
         if (area == null) return;
 
-        final int colorOriginal = colorOriginalDeArea(radioButtonId);
-        final int colorResaltado = Color.parseColor("#FFF59D"); // amarillo suave, "recién llegado"
-        float densidad = area.getResources().getDisplayMetrics().density;
+        final int alphaInicial = 140; // semi-transparente — no tapa los campos
+        ColorDrawable velo = new ColorDrawable(Color.parseColor("#FFEB3B")); // amarillo "recién llegado"
+        velo.setAlpha(alphaInicial);
+        area.setForeground(velo);
 
-        GradientDrawable fondoTemporal = new GradientDrawable();
-        fondoTemporal.setShape(GradientDrawable.RECTANGLE);
-        fondoTemporal.setCornerRadius(19 * densidad);
-        fondoTemporal.setStroke((int) (3 * densidad), colorResaltado);
-        fondoTemporal.setColor(colorResaltado);
-        area.setBackground(fondoTemporal);
-
-        ValueAnimator degradado = ValueAnimator.ofObject(new ArgbEvaluator(), colorResaltado, colorOriginal);
-        degradado.setStartDelay(600);
-        degradado.setDuration(2600);
-        degradado.addUpdateListener(a -> fondoTemporal.setColor((int) a.getAnimatedValue()));
-        degradado.addListener(new AnimatorListenerAdapter() {
+        ValueAnimator desvanecer = ValueAnimator.ofInt(alphaInicial, 0);
+        desvanecer.setStartDelay(500);
+        desvanecer.setDuration(2200);
+        desvanecer.addUpdateListener(a -> velo.setAlpha((int) a.getAnimatedValue()));
+        desvanecer.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                // Al terminar, vuelve al drawable real del área (mismo look de siempre).
-                area.setBackgroundResource(drawableDeArea(radioButtonId));
+                area.setForeground(null); // el fondo real nunca se tocó, no hay nada que restaurar
             }
         });
-        degradado.start();
+        desvanecer.start();
     }
 
     private GridLayout obtenerGridLayoutDeArea(int radioButtonId) {
@@ -489,20 +501,6 @@ public class B13_NavigationManager {
         if (radioButtonId == R.id.template_XRb)       return f1.areaTemplate_XGl;
         if (radioButtonId == R.id.updateDelete_XRb)   return f1.areaUpdateAndDelete_XGl;
         return null;
-    }
-
-    private int colorOriginalDeArea(int radioButtonId) {
-        if (radioButtonId == R.id.create_XRb)        return Color.parseColor("#FAEF94"); // bg_yelow_square
-        if (radioButtonId == R.id.template_XRb)       return Color.parseColor("#FA94B7"); // bg_template
-        if (radioButtonId == R.id.updateDelete_XRb)   return Color.parseColor("#AF87F6"); // bg_lilac_square
-        return Color.WHITE;
-    }
-
-    private int drawableDeArea(int radioButtonId) {
-        if (radioButtonId == R.id.create_XRb)        return R.drawable.bg_yelow_square;
-        if (radioButtonId == R.id.template_XRb)       return R.drawable.bg_template;
-        if (radioButtonId == R.id.updateDelete_XRb)   return R.drawable.bg_lilac_square;
-        return 0;
     }
 
     // ═══════════════════════════════════════════════════════════════
