@@ -351,8 +351,9 @@ public class A9_VisorTablasDialogo extends DialogFragment {
 
         boolean hayBackup = A5_CacheManager.existeCache(getContext(), area);
 
-        // "Editar" solo aplica a Crear/Plantilla/Editar — "En Espera" no tiene
-        // RadioButton propio, se gestiona con el botón verde de intercambio.
+        // "Editar" en Crear/Plantilla/Editar salta directo a esa área.
+        // "En Espera" no tiene RadioButton propio — en su lugar ofrece el
+        // mismo intercambio slot 3 ↔ slot 4 que ya hace el botón verde.
         if (area != AREA_ESPERA) {
             Button btEditar = new Button(getContext());
             btEditar.setText("✏️ Editar esta área");
@@ -363,6 +364,16 @@ public class A9_VisorTablasDialogo extends DialogFragment {
             btEditar.setLayoutParams(lpE);
             btEditar.setOnClickListener(v -> editarArea(area));
             fila.addView(btEditar);
+        } else {
+            Button btIntercambiar = new Button(getContext());
+            btIntercambiar.setText("🔄 Enviar a Área 3");
+            btIntercambiar.setEnabled(hayBackup);
+            LinearLayout.LayoutParams lpI = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+            lpI.setMargins(4, 0, 4, 0);
+            btIntercambiar.setLayoutParams(lpI);
+            btIntercambiar.setOnClickListener(v -> enviarEsperaAArea3());
+            fila.addView(btIntercambiar);
         }
 
         Button btBorrar = new Button(getContext());
@@ -382,6 +393,14 @@ public class A9_VisorTablasDialogo extends DialogFragment {
         Fragment padre = getParentFragment();
         if (padre instanceof F1_CrudDocumento) {
             ((F1_CrudDocumento) padre).irAAreaYRestaurarDesdeVisor(area);
+        }
+        dismiss();
+    }
+
+    private void enviarEsperaAArea3() {
+        Fragment padre = getParentFragment();
+        if (padre instanceof F1_CrudDocumento) {
+            ((F1_CrudDocumento) padre).irAEsperaYIntercambiarDesdeVisor();
         }
         dismiss();
     }

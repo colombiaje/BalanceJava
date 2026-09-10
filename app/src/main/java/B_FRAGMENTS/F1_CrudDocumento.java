@@ -2183,6 +2183,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         navManager.irAAreaYRestaurarDesdeVisor(areaId);
     }
 
+    /** Escenario C — "🔄 Enviar a Área 3" desde la pestaña "Espera" del panel de auditoría. */
+    public void irAEsperaYIntercambiarDesdeVisor() {
+        navManager.irAEsperaYIntercambiarDesdeVisor();
+    }
+
     /**
      * Escenario C — "🗑️ Borrar backup" desde A9_VisorTablasDialogo. Si el
      * área que se acaba de borrar en el panel es la que está visible ahora

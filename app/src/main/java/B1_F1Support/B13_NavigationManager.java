@@ -515,6 +515,31 @@ public class B13_NavigationManager {
         int radioButtonIdDestino = areaIdToRadioButtonId(areaId);
         if (radioButtonIdDestino == 0) return; // área sin RadioButton (Espera)
 
+        sincronizarYMostrarArea(radioButtonIdDestino);
+        mostrarFeedbackRestauracion(radioButtonIdDestino);
+    }
+
+    /**
+     * Escenario C — "🔄 Enviar a Área 3" desde la pestaña "Espera" del panel
+     * de auditoría. Hace lo mismo que el botón verde de Canal D
+     * (intercambiarSlot3YSlot4CanalD), pero puede dispararse desde cualquier
+     * área en la que esté el usuario en ese momento.
+     *
+     * Importante: antes de intercambiar, Área 3 debe quedar visible Y con
+     * sus campos sincronizados desde su propia caché (no solo "en blanco").
+     * intercambiarSlot3YSlot4CanalD() empieza respaldando lo que esté EN
+     * PANTALLA en Área 3 como si fuera su estado real — si solo la
+     * hubiéramos limpiado sin restaurarla primero, ese respaldo guardaría
+     * campos vacíos y borraría sin querer el backup real de Área 3.
+     */
+    public void irAEsperaYIntercambiarDesdeVisor() {
+        sincronizarYMostrarArea(R.id.updateDelete_XRb);
+        intercambiarSlot3YSlot4CanalD(); // hace el intercambio real + refresca + actualiza botón verde
+        mostrarFeedbackRestauracion(R.id.updateDelete_XRb);
+    }
+
+    /** Cambia el RadioButton visible a radioButtonIdDestino y sincroniza sus campos con su caché. */
+    private void sincronizarYMostrarArea(int radioButtonIdDestino) {
         // Si hay algo sin guardar en el área actual, se respeta el mismo
         // resguardo que ya usa el cambio de RadioButton normal (Canal C).
         if (f1.currentRadioButtonId != radioButtonIdDestino && f1.hayDatosEnAreaActual()) {
@@ -533,7 +558,6 @@ public class B13_NavigationManager {
         f1.restoreBackups(radioButtonIdDestino);
         f1.mostrarAreaCorrespondiente(radioButtonIdDestino);
         f1.restaurarListenerRadioGroup();
-        mostrarFeedbackRestauracion(radioButtonIdDestino);
     }
 
     private int areaIdToRadioButtonId(int areaId) {
