@@ -2182,6 +2182,21 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public void irAAreaYRestaurarDesdeVisor(int areaId) {
         navManager.irAAreaYRestaurarDesdeVisor(areaId);
     }
+
+    /**
+     * Escenario C — "🗑️ Borrar backup" desde A9_VisorTablasDialogo. Si el
+     * área que se acaba de borrar en el panel es la que está visible ahora
+     * mismo en esta pantalla, también se limpia visualmente (si no, el
+     * usuario seguía viendo en pantalla datos que ya no existen en caché).
+     */
+    public void limpiarAreaVisibleSiCoincide(int areaId) {
+        int areaVisible = A5_CacheManager.radioButtonToAreaId(
+                currentRadioButtonId,
+                R.id.create_XRb, R.id.template_XRb, R.id.updateDelete_XRb);
+        if (areaVisible == areaId) {
+            ejecutarLimpiezaDeInterfaz();
+        }
+    }
     private void mostrarDialogoCanalD(String documentoRecibido) {
         navManager.mostrarDialogoCanalD(documentoRecibido);
     }

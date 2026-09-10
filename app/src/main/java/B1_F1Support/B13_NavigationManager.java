@@ -1,12 +1,23 @@
 package B1_F1Support;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ArgbEvaluator;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.gridlayout.widget.GridLayout;
 
 import com.google.android.material.snackbar.Snackbar;
 import com.jj.appbalancev31.R;
@@ -89,7 +100,7 @@ public class B13_NavigationManager {
         f1.mostrarAreaCorrespondiente(radioButtonId);
         f1.restaurarListenerRadioGroup();
         f1.estaRestaurandoCanalA = false; // ← reset aquí, backup ya cargado
-        mostrarSnackbarBorradorRecuperado();
+        mostrarFeedbackRestauracion(radioButtonId);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -132,7 +143,7 @@ public class B13_NavigationManager {
         f1.restoreBackups(radioButtonId);
         f1.mostrarAreaCorrespondiente(radioButtonId);
         f1.restaurarListenerRadioGroup();
-        mostrarSnackbarBorradorRecuperado();
+        mostrarFeedbackRestauracion(radioButtonId);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -172,7 +183,7 @@ public class B13_NavigationManager {
         f1.restoreBackups(radioButtonIdDestino);
         f1.mostrarAreaCorrespondiente(radioButtonIdDestino);
         f1.restaurarListenerRadioGroup();
-        mostrarSnackbarBorradorRecuperado();
+        mostrarFeedbackRestauracion(radioButtonIdDestino);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -384,12 +395,114 @@ public class B13_NavigationManager {
         }
     }
 
-    /** Snackbar compartido por las 3 rutas de restauración silenciosa (Escenario B). */
+    // ═══════════════════════════════════════════════════════════════
+    // Feedback compartido por las 4 rutas de restauración silenciosa
+    // (Canales A/B/C y "Editar esta área" desde el visor) — Escenarios B y C.
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Aviso "Borrador recuperado" arriba de la pantalla, con color de
+     * tránsito (distinto de los colores propios de cada área) y un
+     * parpadeo suave antes de cerrarse solo; + resalta el área que se
+     * acaba de restaurar con un color degradado hacia su color original.
+     */
+    private void mostrarFeedbackRestauracion(int radioButtonId) {
+        mostrarSnackbarBorradorRecuperado();
+        resaltarAreaRestaurada(radioButtonId);
+    }
+
     private void mostrarSnackbarBorradorRecuperado() {
         View root = f1.getView();
-        if (root != null) {
-            Snackbar.make(root, "Borrador recuperado", Snackbar.LENGTH_SHORT).show();
+        if (root == null) return;
+
+        Snackbar snackbar = Snackbar.make(root, "📥 Borrador recuperado", Snackbar.LENGTH_INDEFINITE);
+        View snackView = snackbar.getView();
+
+        // Color "de paso" — ámbar, deliberadamente distinto de los 3 colores
+        // propios de cada área para que se lea como aviso temporal, no como
+        // parte fija de la interfaz.
+        snackView.setBackgroundColor(Color.parseColor("#FFA000"));
+        TextView tvTexto = snackView.findViewById(com.google.android.material.R.id.snackbar_text);
+        if (tvTexto != null) {
+            tvTexto.setTextColor(Color.WHITE);
+            tvTexto.setTypeface(tvTexto.getTypeface(), Typeface.BOLD);
+            tvTexto.setTextSize(14);
         }
+
+        // Reubicar arriba (Snackbar nace pegado abajo por diseño de Material).
+        ViewGroup.LayoutParams params = snackView.getLayoutParams();
+        if (params instanceof FrameLayout.LayoutParams) {
+            ((FrameLayout.LayoutParams) params).gravity = android.view.Gravity.TOP;
+            snackView.setLayoutParams(params);
+        }
+
+        snackbar.show();
+
+        // Parpadeo suave mientras dura, luego se cierra sola.
+        // Nota: el cierre es por tiempo (≈3.2s), no al primer toque del
+        // usuario en el área — detectar "primer toque dentro del área" de
+        // forma confiable sin interferir con los campos (EditText/Spinner)
+        // que ya están ahí requiere interceptar el touch a nivel del
+        // GridLayout, algo que preferí no arriesgar sin poder probarlo en
+        // un dispositivo real. Si el tiempo fijo no se siente bien, lo
+        // cambiamos a un cierre por toque en una siguiente vuelta.
+        ObjectAnimator parpadeo = ObjectAnimator.ofFloat(snackView, "alpha", 1f, 0.35f, 1f);
+        parpadeo.setDuration(700);
+        parpadeo.setRepeatCount(3);
+        parpadeo.start();
+
+        snackView.postDelayed(snackbar::dismiss, 3200);
+    }
+
+    /** Resalta el área recién restaurada con un color degradado hacia su color original. */
+    private void resaltarAreaRestaurada(int radioButtonId) {
+        GridLayout area = obtenerGridLayoutDeArea(radioButtonId);
+        if (area == null) return;
+
+        final int colorOriginal = colorOriginalDeArea(radioButtonId);
+        final int colorResaltado = Color.parseColor("#FFF59D"); // amarillo suave, "recién llegado"
+        float densidad = area.getResources().getDisplayMetrics().density;
+
+        GradientDrawable fondoTemporal = new GradientDrawable();
+        fondoTemporal.setShape(GradientDrawable.RECTANGLE);
+        fondoTemporal.setCornerRadius(19 * densidad);
+        fondoTemporal.setStroke((int) (3 * densidad), colorResaltado);
+        fondoTemporal.setColor(colorResaltado);
+        area.setBackground(fondoTemporal);
+
+        ValueAnimator degradado = ValueAnimator.ofObject(new ArgbEvaluator(), colorResaltado, colorOriginal);
+        degradado.setStartDelay(600);
+        degradado.setDuration(2600);
+        degradado.addUpdateListener(a -> fondoTemporal.setColor((int) a.getAnimatedValue()));
+        degradado.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                // Al terminar, vuelve al drawable real del área (mismo look de siempre).
+                area.setBackgroundResource(drawableDeArea(radioButtonId));
+            }
+        });
+        degradado.start();
+    }
+
+    private GridLayout obtenerGridLayoutDeArea(int radioButtonId) {
+        if (radioButtonId == R.id.create_XRb)        return f1.areaCreateNew_XGl;
+        if (radioButtonId == R.id.template_XRb)       return f1.areaTemplate_XGl;
+        if (radioButtonId == R.id.updateDelete_XRb)   return f1.areaUpdateAndDelete_XGl;
+        return null;
+    }
+
+    private int colorOriginalDeArea(int radioButtonId) {
+        if (radioButtonId == R.id.create_XRb)        return Color.parseColor("#FAEF94"); // bg_yelow_square
+        if (radioButtonId == R.id.template_XRb)       return Color.parseColor("#FA94B7"); // bg_template
+        if (radioButtonId == R.id.updateDelete_XRb)   return Color.parseColor("#AF87F6"); // bg_lilac_square
+        return Color.WHITE;
+    }
+
+    private int drawableDeArea(int radioButtonId) {
+        if (radioButtonId == R.id.create_XRb)        return R.drawable.bg_yelow_square;
+        if (radioButtonId == R.id.template_XRb)       return R.drawable.bg_template;
+        if (radioButtonId == R.id.updateDelete_XRb)   return R.drawable.bg_lilac_square;
+        return 0;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -420,7 +533,7 @@ public class B13_NavigationManager {
         f1.restoreBackups(radioButtonIdDestino);
         f1.mostrarAreaCorrespondiente(radioButtonIdDestino);
         f1.restaurarListenerRadioGroup();
-        mostrarSnackbarBorradorRecuperado();
+        mostrarFeedbackRestauracion(radioButtonIdDestino);
     }
 
     private int areaIdToRadioButtonId(int areaId) {

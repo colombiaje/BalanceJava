@@ -393,10 +393,15 @@ public class A9_VisorTablasDialogo extends DialogFragment {
                         "\" se eliminará y no se podrá recuperar. ¿Deseas continuar?")
                 .setPositiveButton("BORRAR", (dialog, which) -> {
                     A5_CacheManager.eliminar(getContext(), area);
-                    if (area == AREA_ESPERA) {
-                        Fragment padre = getParentFragment();
-                        if (padre instanceof F1_CrudDocumento) {
-                            ((F1_CrudDocumento) padre).actualizarVisibilidadBotonVerde();
+
+                    Fragment padre = getParentFragment();
+                    if (padre instanceof F1_CrudDocumento) {
+                        F1_CrudDocumento f1 = (F1_CrudDocumento) padre;
+                        // Si esa misma área está visible ahora mismo en F1, se limpia
+                        // también en pantalla — no solo en la caché.
+                        f1.limpiarAreaVisibleSiCoincide(area);
+                        if (area == AREA_ESPERA) {
+                            f1.actualizarVisibilidadBotonVerde();
                         }
                     }
                     actualizarContenido(area); // refresca para mostrar "sin caché"
