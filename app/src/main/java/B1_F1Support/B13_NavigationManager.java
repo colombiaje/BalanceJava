@@ -417,7 +417,7 @@ public class B13_NavigationManager {
 
         // 20s a pedido de Jorge (antes 3.2s) — misma duración que el
         // resaltado del área, ver resaltarAreaRestaurada().
-        final long duracionAviso = 10000;
+        final long duracionAviso = 5000;
 
         Snackbar snackbar = Snackbar.make(root, "📥 Borrador recuperado", Snackbar.LENGTH_INDEFINITE);
         View snackView = snackbar.getView();
@@ -456,12 +456,14 @@ public class B13_NavigationManager {
                 clp.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
                 clp.topMargin = margenSuperior;
                 clp.leftMargin = margenIzquierdo;
+                clp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
                 snackView.setLayoutParams(clp);
             } else if (params instanceof FrameLayout.LayoutParams) {
                 FrameLayout.LayoutParams flp = (FrameLayout.LayoutParams) params;
                 flp.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
                 flp.topMargin = margenSuperior;
                 flp.leftMargin = margenIzquierdo;
+                flp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
                 snackView.setLayoutParams(flp);
             }
         });
@@ -502,7 +504,7 @@ public class B13_NavigationManager {
 
         // 20s a pedido de Jorge (antes ~2.7s) — misma duración que el
         // Snackbar, ver mostrarSnackbarBorradorRecuperado().
-        final long duracionResaltado = 10000;
+        final long duracionResaltado = 15000;
         final int alphaInicial = 140; // semi-transparente — no tapa los campos
 
         ColorDrawable veloArea = new ColorDrawable(Color.parseColor("#FFEB3B")); // amarillo "recién llegado"
@@ -519,8 +521,8 @@ public class B13_NavigationManager {
         }
 
         ValueAnimator desvanecer = ValueAnimator.ofInt(alphaInicial, 0);
-        desvanecer.setStartDelay(2000);
-        desvanecer.setDuration(duracionResaltado - 2000);
+        desvanecer.setStartDelay(15000);
+        desvanecer.setDuration(duracionResaltado - 10000);
         desvanecer.addUpdateListener(a -> {
             int alpha = (int) a.getAnimatedValue();
             veloArea.setAlpha(alpha);
