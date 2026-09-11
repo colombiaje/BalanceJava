@@ -188,9 +188,18 @@ public class A21_OptimizedQuery {
         Cursor cursor = null;
         try {
             openDB();
-            // Consulta SQL para agrupar por cuenta, signo, grupo1 y grupo2
-            String query = "SELECT DISTINCT c3_Cuenta, c4_Signo, SUM(c5_Valor) AS suma, c10_Grupo1, c11_Grupo2 " +
-                    "FROM transacciones GROUP BY c3_Cuenta, c10_Grupo1, c11_Grupo2";
+            // Agrupar SOLO por cuenta: antes se agrupaba también por
+            // c10_Grupo1/c11_Grupo2, así que si una misma cuenta tenía
+            // transacciones con Grupo1/Grupo2 no idénticos entre sí (p.ej.
+            // por una modificación que cambió de cuenta sin refrescar su
+            // clasificación — ver guardarModificacion() en
+            // B12_DocumentPersistence), esa cuenta aparecía partida en
+            // varias filas en vez de una sola consolidada. MAX() sobre
+            // Grupo1/Grupo2 conserva una clasificación única y visible por
+            // fila aunque existan inconsistencias históricas de fondo.
+            String query = "SELECT c3_Cuenta, c4_Signo, SUM(c5_Valor) AS suma, " +
+                    "MAX(c10_Grupo1) AS c10_Grupo1, MAX(c11_Grupo2) AS c11_Grupo2 " +
+                    "FROM transacciones GROUP BY c3_Cuenta";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {

@@ -362,12 +362,30 @@ public class B12_DocumentPersistence {
             String signoNuevo = f1.signo_XSp.getSelectedItem().toString();
             if ("-".equals(signoNuevo)) valorNuevo = valorNuevo * -1;
 
+            String cuentaNueva = f1.cuenta_XSp.getSelectedItem().toString();
+
             f1.listaDocumento_ArrayLTT.get(posicion).tipoT_5Value_Integer   = valorNuevo;
             f1.listaDocumento_ArrayLTT.get(posicion).tipoT_4Sign_String      = signoNuevo;
-            f1.listaDocumento_ArrayLTT.get(posicion).tipoT_3Accout_String    =
-                    f1.cuenta_XSp.getSelectedItem().toString();
+            f1.listaDocumento_ArrayLTT.get(posicion).tipoT_3Accout_String    = cuentaNueva;
             f1.listaDocumento_ArrayLTT.get(posicion).tipoT_6Description_String =
                     f1.descripcion_XAtv.getText().toString().trim();
+
+            // Refrescar Grupo1/Grupo2 para la cuenta NUEVA — si no se hace,
+            // el registro se queda con la clasificación de la cuenta
+            // ORIGINAL con la que se creó, y con el tiempo una misma cuenta
+            // termina con transacciones clasificadas de forma inconsistente
+            // (causa raíz de la duplicación vista en el informe de cuentas).
+            A23_QueryResult<String[]> atributosCuentaNueva =
+                    f1.a22QueryManager.queryAttributesByAccount(cuentaNueva);
+            if (atributosCuentaNueva != null
+                    && atributosCuentaNueva.getAtributosCuenta() != null
+                    && atributosCuentaNueva.getAtributosCuenta().length >= 4) {
+                String[] atributos = atributosCuentaNueva.getAtributosCuenta();
+                f1.listaDocumento_ArrayLTT.get(posicion)
+                        .tipoTset_10Grupo1MetodoEnA5(atributos[2]);
+                f1.listaDocumento_ArrayLTT.get(posicion)
+                        .tipoTset_11Grupo2MetodoEnA5(atributos[3]);
+            }
 
             f1.valor_XEt.setText("");
             f1.descripcion_XAtv.setText("");
