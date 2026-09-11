@@ -9,10 +9,25 @@
     layout_height=""
     >
 
+    <!--
+        Envuelve el GridLayout raíz en scroll: sin esto, en horizontal (menos
+        alto disponible) el contenido no cabe y no hay forma de desplazarse
+        para verlo — nunca existió scroll de página, solo el de la lista de
+        ítems más abajo (que tiene altura fija de 150dp, por eso convive bien
+        con este scroll exterior). El FAB "GUARDAR CAMBIOS" se deja FUERA de
+        este NestedScrollView, como hermano directo del CoordinatorLayout,
+        para que siga flotando fijo sobre el contenido en vez de desplazarse
+        con él.
+    -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
     <androidx.gridlayout.widget.GridLayout
         android:id="@+id/transacciones_crud_XCL"
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:background="#9FF1E9"
         android:visibility="visible"
         android:layout_marginTop="2dp"
@@ -1596,6 +1611,8 @@
         <!--area 9 lista de revision fin -->
 
     </androidx.gridlayout.widget.GridLayout>
+
+    </androidx.core.widget.NestedScrollView>
 
     <!--todo fin-->
 
