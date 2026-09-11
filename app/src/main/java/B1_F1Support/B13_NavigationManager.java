@@ -417,7 +417,7 @@ public class B13_NavigationManager {
 
         // 20s a pedido de Jorge (antes 3.2s) — misma duración que el
         // resaltado del área, ver resaltarAreaRestaurada().
-        final long duracionAviso = 20000;
+        final long duracionAviso = 10000;
 
         Snackbar snackbar = Snackbar.make(root, "📥 Borrador recuperado", Snackbar.LENGTH_INDEFINITE);
         View snackView = snackbar.getView();
@@ -502,7 +502,7 @@ public class B13_NavigationManager {
 
         // 20s a pedido de Jorge (antes ~2.7s) — misma duración que el
         // Snackbar, ver mostrarSnackbarBorradorRecuperado().
-        final long duracionResaltado = 20000;
+        final long duracionResaltado = 10000;
         final int alphaInicial = 140; // semi-transparente — no tapa los campos
 
         ColorDrawable veloArea = new ColorDrawable(Color.parseColor("#FFEB3B")); // amarillo "recién llegado"
