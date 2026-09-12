@@ -169,6 +169,12 @@ public class A22_QueryManager {
         return a3_2_consultas_para_queryManager.obtenerSumaNetoCuentaPorCuenta();
     }
 
+    // Auditoría: transacciones cuyo Grupo1/Grupo2 guardado no coincide hoy
+    // con el valor autoritativo en "cuentas" (ver A11_AuditoriaClasificacionDialogo)
+    public ArrayList<String[]> queryTransaccionesDesalineadas() {
+        return a3_2_consultas_para_queryManager.obtenerTransaccionesDesalineadas();
+    }
+
     // Método para sumar transacciones por cuenta específica
     public A23_QueryResult<Void> querySumTransactionsByAccount(String cuentaDeConsulta) {
         String whereClause = "c3_Cuenta = ?";

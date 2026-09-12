@@ -245,6 +245,17 @@
 
                     />
 
+                <Button
+                    android:id="@+id/auditoriaClasificacion_XBt"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/ic_check"
+                    android:textAllCaps="false"
+                    android:textColor="#1976D2"
+                    android:textSize="24sp"
+
+                    />
+
 
             </LinearLayout>
 

@@ -74,6 +74,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import A1BASES.A10_3_ValidadorProrrateable;
+import A1BASES.A11_AuditoriaClasificacionDialogo;
 import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A1_2_OperacionesBD;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
@@ -420,6 +421,14 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             A9_VisorTablasDialogo.newInstance()
                     .show(getChildFragmentManager(), "visor_debug");
         });
+
+        Button btAuditoriaClasificacion = inflarViews_View.findViewById(R.id.auditoriaClasificacion_XBt);
+        if (btAuditoriaClasificacion != null) {
+            btAuditoriaClasificacion.setOnClickListener(v -> {
+                A11_AuditoriaClasificacionDialogo.newInstance()
+                        .show(getChildFragmentManager(), "auditoria_clasificacion");
+            });
+        }
 
         calculadora_Fragment = new F6_Calculadora();
 

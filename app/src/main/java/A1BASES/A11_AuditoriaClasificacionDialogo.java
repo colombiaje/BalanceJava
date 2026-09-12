@@ -1,0 +1,197 @@
+package A1BASES;
+
+import android.content.Context;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TableLayout;
+import android.widget.TableRow;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.DialogFragment;
+
+import java.util.ArrayList;
+
+import A2QueryBD.A22_QueryManager;
+
+/**
+ * A11_AuditoriaClasificacionDialogo
+ *
+ * Muestra las transacciones cuyo Grupo1/Grupo2 guardado (copia interna en
+ * "transacciones") ya no coincide con el valor actual y autoritativo de
+ * "cuentas". Esta era la causa raíz de que una misma cuenta apareciera
+ * partida en varias filas en el Informe (Informes).
+ *
+ * Desde que obtenerSumaNetoCuentaPorCuenta() lee Grupo1/Grupo2 siempre
+ * desde "cuentas" (LEFT JOIN), el Informe ya no se parte visualmente por
+ * esta causa — pero el dato viejo/desalineado sigue existiendo en
+ * "transacciones" hasta que se corrige el registro puntual. Este diálogo
+ * es la señal de alerta (a propósito, NO oculta el problema) para que se
+ * pueda ubicar y corregir cada caso.
+ *
+ * Se abre igual desde F3_1_VerInformePrincipal (Informes) y desde
+ * F1_CrudDocumento (botón junto al de respaldo de caché, cacheBackup_XBt).
+ */
+public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
+
+    public static A11_AuditoriaClasificacionDialogo newInstance() {
+        return new A11_AuditoriaClasificacionDialogo();
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setStyle(DialogFragment.STYLE_NO_TITLE, 0);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Window w = getDialog() != null ? getDialog().getWindow() : null;
+        if (w == null) return;
+
+        WindowManager.LayoutParams lp = w.getAttributes();
+        lp.width  = (int) (getResources().getDisplayMetrics().widthPixels  * 0.92f);
+        lp.height = (int) (getResources().getDisplayMetrics().heightPixels * 0.80f);
+        lp.gravity = Gravity.CENTER;
+        w.setAttributes(lp);
+        w.setBackgroundDrawableResource(android.R.drawable.dialog_holo_light_frame);
+    }
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                              @Nullable ViewGroup container,
+                              @Nullable Bundle savedInstanceState) {
+
+        Context context = getContext();
+
+        LinearLayout root = new LinearLayout(context);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(Color.WHITE);
+
+        root.addView(construirBarraTitulo(context));
+
+        TextView tvNota = new TextView(context);
+        tvNota.setText("Estas transacciones tienen guardada una clasificación (Grupo1/Grupo2) " +
+                "distinta a la que hoy tiene su cuenta en \"Cuentas\". Las dos últimas columnas " +
+                "(\"Cuentas\") son el valor correcto — corrige la transacción para que quede igual.");
+        tvNota.setTextSize(12);
+        tvNota.setTextColor(Color.parseColor("#546E7A"));
+        tvNota.setPadding(20, 12, 20, 6);
+        root.addView(tvNota);
+
+        ArrayList<String[]> desalineadas = new ArrayList<>();
+        if (context != null) {
+            desalineadas = new A22_QueryManager(context).queryTransaccionesDesalineadas();
+        }
+
+        if (desalineadas.isEmpty()) {
+            TextView tvOk = new TextView(context);
+            tvOk.setText("✅ Sin inconsistencias: todas las transacciones coinciden con \"Cuentas\".");
+            tvOk.setTextSize(14);
+            tvOk.setTypeface(null, Typeface.BOLD);
+            tvOk.setTextColor(Color.parseColor("#2E7D32"));
+            tvOk.setPadding(20, 30, 20, 30);
+            tvOk.setGravity(Gravity.CENTER);
+            root.addView(tvOk);
+        } else {
+            TextView tvCount = new TextView(context);
+            tvCount.setText("⚠️  " + desalineadas.size() + " transacción(es) desalineada(s):");
+            tvCount.setTextSize(13);
+            tvCount.setTypeface(null, Typeface.BOLD);
+            tvCount.setTextColor(Color.parseColor("#D84315"));
+            tvCount.setPadding(20, 4, 20, 8);
+            root.addView(tvCount);
+
+            ScrollView scrollVertical = new ScrollView(context);
+            scrollVertical.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
+
+            HorizontalScrollView scrollHorizontal = new HorizontalScrollView(context);
+
+            TableLayout tabla = new TableLayout(context);
+            tabla.setLayoutParams(new TableLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+
+            String[] encabezados = {
+                    "Doc.", "Item", "Cuenta",
+                    "G1\n(transacción)", "G2\n(transacción)",
+                    "G1\n(Cuentas)", "G2\n(Cuentas)"
+            };
+            TableRow filaEncabezado = new TableRow(context);
+            filaEncabezado.setBackgroundColor(Color.parseColor("#FFCCBC"));
+            for (String h : encabezados) {
+                filaEncabezado.addView(crearCelda(context, h, true));
+            }
+            tabla.addView(filaEncabezado);
+
+            for (String[] fila : desalineadas) {
+                TableRow row = new TableRow(context);
+                for (String valor : fila) {
+                    row.addView(crearCelda(context, valor, false));
+                }
+                tabla.addView(row);
+            }
+
+            scrollHorizontal.addView(tabla);
+            scrollVertical.addView(scrollHorizontal);
+            root.addView(scrollVertical);
+        }
+
+        return root;
+    }
+
+    private LinearLayout construirBarraTitulo(Context context) {
+        LinearLayout bar = new LinearLayout(context);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setBackgroundColor(Color.parseColor("#263238"));
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(24, 10, 16, 10);
+
+        TextView tvTitulo = new TextView(context);
+        tvTitulo.setText("✅ Auditoría de Clasificación (Grupo1/Grupo2)");
+        tvTitulo.setTextSize(15);
+        tvTitulo.setTextColor(Color.WHITE);
+        tvTitulo.setTypeface(null, Typeface.BOLD);
+        tvTitulo.setLayoutParams(new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+
+        ImageButton btnClose = new ImageButton(context);
+        btnClose.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        btnClose.setBackgroundColor(Color.TRANSPARENT);
+        btnClose.setColorFilter(Color.WHITE);
+        btnClose.setOnClickListener(v -> dismiss());
+
+        bar.addView(tvTitulo);
+        bar.addView(btnClose);
+        return bar;
+    }
+
+    private TextView crearCelda(Context context, String texto, boolean esCabecera) {
+        TextView tv = new TextView(context);
+        tv.setText(texto != null ? texto : "—");
+        tv.setPadding(16, 12, 16, 12);
+        tv.setGravity(Gravity.CENTER);
+        tv.setTextColor(Color.BLACK);
+        tv.setBackgroundResource(android.R.drawable.editbox_background);
+        tv.setTextSize(12);
+        if (esCabecera) {
+            tv.setTypeface(null, Typeface.BOLD);
+        }
+        return tv;
+    }
+}

@@ -25,7 +25,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:rowCount="2"
-            app:columnCount="5"
+            app:columnCount="6"
             app:layout_row="1"
             app:layout_column="0"
             app:layout_gravity="center_horizontal"
@@ -107,6 +107,17 @@
                 android:textSize="24sp"
                 app:layout_row="1"
                 app:layout_column="4"
+                android:layout_marginTop="2dp"
+                />
+
+            <Button
+                android:id="@+id/auditoriaClasificacion_XBt"
+                android:layout_width="40dp"
+                android:layout_height="35dp"
+                android:background="@drawable/ic_check"
+                android:textAllCaps="false"
+                app:layout_row="1"
+                app:layout_column="5"
                 android:layout_marginTop="2dp"
                 />
 

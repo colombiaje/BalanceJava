@@ -188,18 +188,39 @@ public class A21_OptimizedQuery {
         Cursor cursor = null;
         try {
             openDB();
-            // Agrupar SOLO por cuenta: antes se agrupaba también por
-            // c10_Grupo1/c11_Grupo2, así que si una misma cuenta tenía
-            // transacciones con Grupo1/Grupo2 no idénticos entre sí (p.ej.
-            // por una modificación que cambió de cuenta sin refrescar su
-            // clasificación — ver guardarModificacion() en
-            // B12_DocumentPersistence), esa cuenta aparecía partida en
-            // varias filas en vez de una sola consolidada. MAX() sobre
-            // Grupo1/Grupo2 conserva una clasificación única y visible por
-            // fila aunque existan inconsistencias históricas de fondo.
-            String query = "SELECT c3_Cuenta, c4_Signo, SUM(c5_Valor) AS suma, " +
-                    "MAX(c10_Grupo1) AS c10_Grupo1, MAX(c11_Grupo2) AS c11_Grupo2 " +
-                    "FROM transacciones GROUP BY c3_Cuenta";
+            // La agregación (SUM) sigue siendo SOLO por cuenta: una fila por
+            // cuenta, siempre — eso es lo que evita que una misma cuenta
+            // aparezca partida en el Informe.
+            //
+            // La clasificación (Grupo1/Grupo2) YA NO se lee de la copia
+            // guardada en "transacciones" (que puede quedar desactualizada
+            // si algún registro no se refrescó al modificar la cuenta — ver
+            // guardarModificacion() en B12_DocumentPersistence). Se trae con
+            // un LEFT JOIN a "cuentas", la tabla autoritativa que
+            // históricamente no se ha visto con atributos corruptos. Así:
+            //   a) cada cuenta muestra SIEMPRE una única clasificación
+            //      confiable, sin necesidad de "adivinar" con MAX() cuál de
+            //      varios valores en conflicto mostrar;
+            //   b) la posibilidad de agrupar/leer el Informe por Grupo1 y
+            //      Grupo2 como un balance financiero (activo/pasivo y luego
+            //      categoría) queda intacta, porque estos campos se siguen
+            //      entregando en cada fila — solo que ahora desde una
+            //      fuente única y correcta en vez de un snapshot que puede
+            //      desalinearse;
+            //   c) se usa LEFT JOIN (no INNER JOIN) para que una cuenta que
+            //      por alguna razón no aparezca en "cuentas" (p.ej. un
+            //      nombre que no calza exactamente) siga siendo VISIBLE en
+            //      el Informe con Grupo1/Grupo2 en blanco, en vez de
+            //      desaparecer silenciosamente — eso también es una señal
+            //      de auditoría.
+            // Las transacciones cuya copia interna quedó desalineada frente
+            // a "cuentas" se pueden revisar en detalle con el botón de
+            // Auditoría de Clasificación (ver A11_AuditoriaClasificacionDialogo).
+            String query = "SELECT t.c3_Cuenta AS c3_Cuenta, t.c4_Signo AS c4_Signo, " +
+                    "SUM(t.c5_Valor) AS suma, c.Grupo1 AS c10_Grupo1, c.Grupo2 AS c11_Grupo2 " +
+                    "FROM transacciones t " +
+                    "LEFT JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
+                    "GROUP BY t.c3_Cuenta";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
@@ -219,6 +240,50 @@ public class A21_OptimizedQuery {
             closeDB();
         }
         return cuentasSumadas;
+    }
+
+    /**
+     * Auditoría de clasificación: devuelve cada transacción cuyo Grupo1 o
+     * Grupo2 guardado (snapshot en "transacciones") ya NO coincide con el
+     * valor actual en "cuentas" — la causa raíz de la duplicación que se
+     * veía antes en el Informe. Cada fila trae ambos valores (el guardado
+     * en la transacción y el correcto según "cuentas") para poder
+     * corregir el registro puntual desde la app.
+     *
+     * Se usa "IS NOT" (en vez de "!=") para que también se detecten los
+     * casos donde uno de los dos valores quedó vacío/nulo — con "!=" una
+     * comparación contra NULL no se marca como diferente y el caso pasaría
+     * desapercibido.
+     */
+    public ArrayList<String[]> obtenerTransaccionesDesalineadas() {
+        ArrayList<String[]> desalineadas = new ArrayList<>();
+        Cursor cursor = null;
+        try {
+            openDB();
+            String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, t.c3_Cuenta, " +
+                    "t.c10_Grupo1, t.c11_Grupo2, c.Grupo1, c.Grupo2 " +
+                    "FROM transacciones t " +
+                    "JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
+                    "WHERE t.c10_Grupo1 IS NOT c.Grupo1 OR t.c11_Grupo2 IS NOT c.Grupo2 " +
+                    "ORDER BY t.c3_Cuenta, t.c1_Documento, t.c2_ItemDoc";
+            cursor = db.rawQuery(query, null);
+
+            while (cursor.moveToNext()) {
+                desalineadas.add(new String[]{
+                        cursor.getString(0), // c1_Documento
+                        cursor.getString(1), // c2_ItemDoc
+                        cursor.getString(2), // c3_Cuenta
+                        cursor.getString(3), // Grupo1 guardado en la transacción
+                        cursor.getString(4), // Grupo2 guardado en la transacción
+                        cursor.getString(5), // Grupo1 correcto (según cuentas)
+                        cursor.getString(6)  // Grupo2 correcto (según cuentas)
+                });
+            }
+        } finally {
+            if (cursor != null) cursor.close();
+            closeDB();
+        }
+        return desalineadas;
     }
 
     // Clases auxiliares

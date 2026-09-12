@@ -32,6 +32,7 @@ import org.apache.http.util.TextUtils;
 
 import java.util.ArrayList;
 
+import A1BASES.A11_AuditoriaClasificacionDialogo;
 import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A2QueryBD.A22_QueryManager;
@@ -214,6 +215,11 @@ public class F3_1_VerInformePrincipal extends Fragment {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());
         }
 
+        Button auditoriaClasificacion_XBt = inflarViews_View.findViewById(R.id.auditoriaClasificacion_XBt);
+        if (auditoriaClasificacion_XBt != null) {
+            auditoriaClasificacion_XBt.setOnClickListener(v -> mostrarAuditoriaClasificacion());
+        }
+
         return inflarViews_View;
 
     }
@@ -363,6 +369,13 @@ public class F3_1_VerInformePrincipal extends Fragment {
         // Usar factory method sin callback
         F6_Calculadora calculadora = F6_Calculadora.newInstanceLibre();
         calculadora.show(getFragmentManager(), "calculadora_libre");
+    }
+
+    private void mostrarAuditoriaClasificacion() {
+        if (getFragmentManager() == null) return;
+
+        A11_AuditoriaClasificacionDialogo.newInstance()
+                .show(getFragmentManager(), "auditoria_clasificacion");
     }
 
 }
