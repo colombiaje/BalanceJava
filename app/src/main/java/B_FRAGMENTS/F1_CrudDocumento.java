@@ -607,6 +607,28 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
         listaDocumento_XLv.setOnTouchListener((v, event) -> {
             gestureDetector.onTouchEvent(event);
+            // Al envolver toda la pantalla en un NestedScrollView (para que
+            // funcionara el scroll de página en horizontal — ver el
+            // comentario en f1_1_crud_documento.xml) ese scroll exterior
+            // empezó a "robarse" el arrastre vertical dentro de esta lista,
+            // en vez de dejarla desplazarse ella misma. Mientras el dedo
+            // esté sobre listaDocumento_XLv le pedimos al padre que NO
+            // intercepte el gesto, para que sea la lista la que haga scroll;
+            // se libera al soltar el dedo para no bloquear el scroll de
+            // página en el resto de la pantalla.
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    if (v.getParent() != null) {
+                        v.getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (v.getParent() != null) {
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                    }
+                    break;
+            }
             return false; // false = no bloquea touch ni long press existentes
         });
 

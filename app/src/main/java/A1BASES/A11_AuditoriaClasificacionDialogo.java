@@ -143,7 +143,7 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
                     ViewGroup.LayoutParams.WRAP_CONTENT));
 
             String[] encabezados = {
-                    "Doc.", "Item", "Cuenta",
+                    "Doc.", "Item", "Cuenta", "Valor",
                     "G1\n(transacción)", "G2\n(transacción)",
                     "G1\n(Cuentas)", "G2\n(Cuentas)"
             };
@@ -204,9 +204,10 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
      * funcionando igual para cuando el usuario elige un documento a mano).
      *
      * fila[0] es c1_Documento y fila[1] es c2_ItemDoc (ver
-     * A21_OptimizedQuery.obtenerTransaccionesDesalineadas()) — con ambos se
-     * puede aterrizar directo en el registro con el error, no solo en el
-     * documento.
+     * A21_OptimizedQuery.obtenerTransaccionesDesalineadas(), que también
+     * trae c3_Cuenta y c5_Valor en fila[2]/fila[3] solo para mostrarlos en
+     * la tabla) — con documento+item se puede aterrizar directo en el
+     * registro con el error, no solo en el documento.
      *
      * Dos casos, según de dónde se abrió este diálogo:
      *  a) Ya estamos DENTRO de F1_CrudDocumento (se abrió desde su propio

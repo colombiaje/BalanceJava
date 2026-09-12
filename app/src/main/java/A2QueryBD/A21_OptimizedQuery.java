@@ -260,7 +260,7 @@ public class A21_OptimizedQuery {
         Cursor cursor = null;
         try {
             openDB();
-            String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, t.c3_Cuenta, " +
+            String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, t.c3_Cuenta, t.c5_Valor, " +
                     "t.c10_Grupo1, t.c11_Grupo2, c.Grupo1, c.Grupo2 " +
                     "FROM transacciones t " +
                     "JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
@@ -273,10 +273,11 @@ public class A21_OptimizedQuery {
                         cursor.getString(0), // c1_Documento
                         cursor.getString(1), // c2_ItemDoc
                         cursor.getString(2), // c3_Cuenta
-                        cursor.getString(3), // Grupo1 guardado en la transacción
-                        cursor.getString(4), // Grupo2 guardado en la transacción
-                        cursor.getString(5), // Grupo1 correcto (según cuentas)
-                        cursor.getString(6)  // Grupo2 correcto (según cuentas)
+                        cursor.getString(3), // c5_Valor
+                        cursor.getString(4), // Grupo1 guardado en la transacción
+                        cursor.getString(5), // Grupo2 guardado en la transacción
+                        cursor.getString(6), // Grupo1 correcto (según cuentas)
+                        cursor.getString(7)  // Grupo2 correcto (según cuentas)
                 });
             }
         } finally {
