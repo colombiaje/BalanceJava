@@ -569,6 +569,21 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         if (bundle != null && bundle.getBoolean("fromVerItemTransaccion", false)) {
             vieneDeVerItemTransaccion = true; // ⭐ Activar bandera ANTES de procesar
 
+            // CORRECCIÓN (bug reportado 2026-09-12): cuando esta instancia se
+            // crea NUEVA desde A11_AuditoriaClasificacionDialogo (caso "se
+            // abrió desde Informes", no desde dentro de F1_CrudDocumento), el
+            // bundle puede traer también el ítem puntual con el error
+            // ("keyItemNumber") — hay que guardarlo en
+            // itemPendienteDeAuditoria_String ANTES de procesar el bundle de
+            // Canal D, igual que ya hace cargarDocumentoDesdeAuditoria() para
+            // cuando se reutiliza la instancia existente. Sin esto, el campo
+            // se quedaba en null en toda instancia nueva y el auto-abrir del
+            // ítem nunca ocurría viniendo de Informes.
+            String itemPendienteDesdeArgumentos = bundle.getString("keyItemNumber");
+            if (itemPendienteDesdeArgumentos != null && !itemPendienteDesdeArgumentos.isEmpty()) {
+                itemPendienteDeAuditoria_String = itemPendienteDesdeArgumentos;
+            }
+
             // Procesar el bundle en el siguiente frame para asegurar que las vistas estén listas
             inflarViews_View.post(() -> {
                 recibirBundleDeVerItemTransaction(bundle);

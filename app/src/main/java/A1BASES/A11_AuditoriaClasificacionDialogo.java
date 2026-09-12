@@ -247,6 +247,17 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
         Bundle bundle = new Bundle();
         bundle.putString("keyDocumentNumber", numeroDocumento);
         bundle.putBoolean("fromVerItemTransaccion", true);
+        // CORRECCIÓN (bug reportado 2026-09-12): a esta instancia NUEVA de
+        // F1_CrudDocumento (caso "se abrió desde Informes") le faltaba el
+        // número de ítem — solo se le pasaba el documento. Por eso el
+        // auto-abrir del ítem puntual nunca funcionaba desde Informes: el
+        // campo itemPendienteDeAuditoria_String (ver F1_CrudDocumento)
+        // arranca null en toda instancia nueva y nada lo llenaba aquí. Ahora
+        // se manda también el ítem en el bundle para que F1_CrudDocumento lo
+        // recupere al leer sus argumentos.
+        if (numeroItem != null && !numeroItem.isEmpty()) {
+            bundle.putString("keyItemNumber", numeroItem);
+        }
 
         Fragment fragment = new F1_CrudDocumento();
         fragment.setArguments(bundle);
