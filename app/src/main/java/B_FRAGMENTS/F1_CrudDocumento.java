@@ -1141,6 +1141,26 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         }
     }
 
+    /**
+     * Punto de entrada para cargar un documento directamente en Área 3
+     * (updateDelete) SIN pasar por el autocomplete
+     * documentoABuscarParaEditar_XATv — usado desde
+     * A11_AuditoriaClasificacionDialogo cuando el usuario toca una fila y
+     * F1_CrudDocumento ya está abierto (el diálogo se abrió desde el botón
+     * de este mismo fragmento).
+     *
+     * Reutiliza tal cual recibirBundleDeVerItemTransaction() — la misma
+     * lógica de Canal D que ya maneja el caso "hay backup pendiente en
+     * Área 3" cuando se llega desde F3_2_VerItemTransaccion — sin tocarla.
+     */
+    public void cargarDocumentoDesdeAuditoria(String numeroDocumento) {
+        if (numeroDocumento == null || numeroDocumento.isEmpty()) return;
+        Bundle bundle = new Bundle();
+        bundle.putString("keyDocumentNumber", numeroDocumento);
+        bundle.putBoolean("fromVerItemTransaccion", true);
+        recibirBundleDeVerItemTransaction(bundle);
+    }
+
     // En cualquier método de F1_CrudDocumento donde quieras cerrar F3_2_VerItemTransaccion
     public void cerrarVerItemTransaccion() {
         if (getActivity() != null) {

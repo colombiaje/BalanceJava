@@ -21,10 +21,12 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
 
 import java.util.ArrayList;
 
 import A2QueryBD.A22_QueryManager;
+import B_FRAGMENTS.F1_CrudDocumento;
 
 /**
  * A11_AuditoriaClasificacionDialogo
@@ -43,6 +45,11 @@ import A2QueryBD.A22_QueryManager;
  *
  * Se abre igual desde F3_1_VerInformePrincipal (Informes) y desde
  * F1_CrudDocumento (botón junto al de respaldo de caché, cacheBackup_XBt).
+ *
+ * Cada fila es "clickable": lleva directo a corregir ese documento en
+ * F1_CrudDocumento / Área 3 (updateDelete), SIN pasar por el autocomplete
+ * documentoABuscarParaEditar_XATv (ese sigue igual para su uso normal —
+ * ver abrirDocumentoParaCorregir()).
  */
 public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
 
@@ -116,6 +123,14 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
             tvCount.setPadding(20, 4, 20, 8);
             root.addView(tvCount);
 
+            TextView tvAyuda = new TextView(context);
+            tvAyuda.setText("Toca una fila para corregir ese documento.");
+            tvAyuda.setTextSize(11);
+            tvAyuda.setTypeface(null, Typeface.ITALIC);
+            tvAyuda.setTextColor(Color.parseColor("#78909C"));
+            tvAyuda.setPadding(20, 0, 20, 6);
+            root.addView(tvAyuda);
+
             ScrollView scrollVertical = new ScrollView(context);
             scrollVertical.setLayoutParams(new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
@@ -144,6 +159,8 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
                 for (String valor : fila) {
                     row.addView(crearCelda(context, valor, false));
                 }
+                row.setClickable(true);
+                row.setOnClickListener(v -> abrirDocumentoParaCorregir(fila));
                 tabla.addView(row);
             }
 
@@ -179,6 +196,58 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
         bar.addView(tvTitulo);
         bar.addView(btnClose);
         return bar;
+    }
+
+    /**
+     * Lleva directo a corregir el documento de la fila tocada, sin pasar
+     * por el autocomplete documentoABuscarParaEditar_XATv (ese sigue
+     * funcionando igual para cuando el usuario elige un documento a mano).
+     *
+     * fila[0] es c1_Documento (ver A21_OptimizedQuery.obtenerTransaccionesDesalineadas()).
+     *
+     * Dos casos, según de dónde se abrió este diálogo:
+     *  a) Ya estamos DENTRO de F1_CrudDocumento (se abrió desde su propio
+     *     botón) — se le pide a esa misma instancia que cargue el
+     *     documento en Área 3, sin cerrar/reabrir el fragmento.
+     *  b) Se abrió desde F3_1_VerInformePrincipal (Informes) — no hay
+     *     ningún F1_CrudDocumento en pantalla todavía, así que se abre uno
+     *     nuevo con el documento ya indicado, igual que hace
+     *     F3_2_VerItemTransaccion.abrirFragmentoConDocumento().
+     *
+     * En ambos casos se reutiliza tal cual la lógica de Canal D
+     * (F1_CrudDocumento.recibirBundleDeVerItemTransaction) que YA sabe
+     * cargar un documento directo en Área 3 y manejar el caso "hay backup
+     * pendiente" — por eso el bundle usa la misma bandera
+     * "fromVerItemTransaccion" con la que ya se probó ese camino; no se
+     * tocó esa lógica protegida (Canal D) para nada de esto.
+     */
+    private void abrirDocumentoParaCorregir(String[] fila) {
+        if (fila == null || fila.length == 0) return;
+        String numeroDocumento = fila[0];
+        if (numeroDocumento == null || numeroDocumento.isEmpty()) return;
+
+        Fragment padre = getParentFragment();
+        if (padre instanceof F1_CrudDocumento) {
+            ((F1_CrudDocumento) padre).cargarDocumentoDesdeAuditoria(numeroDocumento);
+            dismiss();
+            return;
+        }
+
+        if (getActivity() == null) return;
+
+        Bundle bundle = new Bundle();
+        bundle.putString("keyDocumentNumber", numeroDocumento);
+        bundle.putBoolean("fromVerItemTransaccion", true);
+
+        Fragment fragment = new F1_CrudDocumento();
+        fragment.setArguments(bundle);
+
+        getActivity().getSupportFragmentManager().beginTransaction()
+                .replace(com.jj.appbalancev31.R.id.contenedor_fragments_f0_Xf, fragment)
+                .addToBackStack(null)
+                .commit();
+
+        dismiss();
     }
 
     private TextView crearCelda(Context context, String texto, boolean esCabecera) {
