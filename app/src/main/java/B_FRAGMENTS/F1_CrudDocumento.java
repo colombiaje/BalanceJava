@@ -116,6 +116,13 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public int     areaGuardadaCanalA   = 0;
     public int     currentRadioButtonId;
 
+    // Item puntual a abrir automáticamente (detalle) apenas termine de
+    // cargarse el documento por Canal D — usado desde
+    // A11_AuditoriaClasificacionDialogo (cargarDocumentoDesdeAuditoria) para
+    // aterrizar directo en el registro con el error, no solo en el
+    // documento. Se consume una sola vez (ver abrirItemPendienteDeAuditoriaSiExiste()).
+    private String itemPendienteDeAuditoria_String;
+
     // =========================================================
     // SECTION 2 — UI state flags
     // Controls modes, dialogs and copy/paste behavior
@@ -1154,11 +1161,50 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      * Área 3" cuando se llega desde F3_2_VerItemTransaccion — sin tocarla.
      */
     public void cargarDocumentoDesdeAuditoria(String numeroDocumento) {
+        cargarDocumentoDesdeAuditoria(numeroDocumento, null);
+    }
+
+    /**
+     * Igual que cargarDocumentoDesdeAuditoria(String), pero además, si se
+     * indica numeroItem, abre automáticamente el detalle de ESE ítem
+     * puntual (mostrarCamposItem) apenas termine de cargarse el documento
+     * — así el usuario aterriza directo en el registro con el error, sin
+     * tener que buscarlo a mano en la lista del documento completo.
+     *
+     * Solo se abre automático en el camino más común (Escenario A de
+     * recibirBundleDeVerItemTransaction — Área 3 vacía, carga directa; ver
+     * abrirItemPendienteDeAuditoriaSiExiste()). Si Área 3 tiene trabajo
+     * pendiente y aparece el diálogo de dos botones, el usuario decide
+     * igual que siempre — ahí no se fuerza nada.
+     */
+    public void cargarDocumentoDesdeAuditoria(String numeroDocumento, String numeroItem) {
         if (numeroDocumento == null || numeroDocumento.isEmpty()) return;
+        itemPendienteDeAuditoria_String = numeroItem;
         Bundle bundle = new Bundle();
         bundle.putString("keyDocumentNumber", numeroDocumento);
         bundle.putBoolean("fromVerItemTransaccion", true);
         recibirBundleDeVerItemTransaction(bundle);
+    }
+
+    /**
+     * Consume (una sola vez) el ítem pendiente dejado por
+     * cargarDocumentoDesdeAuditoria(documento, item) y, si lo encuentra ya
+     * cargado en listaDocumento_ArrayLTT, abre su detalle automáticamente.
+     */
+    private void abrirItemPendienteDeAuditoriaSiExiste() {
+        if (itemPendienteDeAuditoria_String == null || itemPendienteDeAuditoria_String.isEmpty()) {
+            return;
+        }
+        String itemBuscado = itemPendienteDeAuditoria_String;
+        itemPendienteDeAuditoria_String = null; // se usa una sola vez
+
+        if (listaDocumento_ArrayLTT == null) return;
+        for (A3_2_TipoTransaccionesGetsYSets item : listaDocumento_ArrayLTT) {
+            if (itemBuscado.equals(item.tipoT_2DocumentItems_String)) {
+                mostrarCamposItem(item);
+                return;
+            }
+        }
     }
 
     // En cualquier método de F1_CrudDocumento donde quieras cerrar F3_2_VerItemTransaccion
@@ -2237,6 +2283,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     private void cargarDocumentoEnArea3CanalD(String documentoRecibido) {
         navManager.cargarDocumentoEnArea3CanalD(documentoRecibido);
+        abrirItemPendienteDeAuditoriaSiExiste();
     }
 
     public void intercambiarSlot3YSlot4CanalD() {

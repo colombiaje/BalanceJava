@@ -203,16 +203,23 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
      * por el autocomplete documentoABuscarParaEditar_XATv (ese sigue
      * funcionando igual para cuando el usuario elige un documento a mano).
      *
-     * fila[0] es c1_Documento (ver A21_OptimizedQuery.obtenerTransaccionesDesalineadas()).
+     * fila[0] es c1_Documento y fila[1] es c2_ItemDoc (ver
+     * A21_OptimizedQuery.obtenerTransaccionesDesalineadas()) — con ambos se
+     * puede aterrizar directo en el registro con el error, no solo en el
+     * documento.
      *
      * Dos casos, según de dónde se abrió este diálogo:
      *  a) Ya estamos DENTRO de F1_CrudDocumento (se abrió desde su propio
      *     botón) — se le pide a esa misma instancia que cargue el
-     *     documento en Área 3, sin cerrar/reabrir el fragmento.
+     *     documento (y abra el ítem) en Área 3, sin cerrar/reabrir el
+     *     fragmento.
      *  b) Se abrió desde F3_1_VerInformePrincipal (Informes) — no hay
      *     ningún F1_CrudDocumento en pantalla todavía, así que se abre uno
      *     nuevo con el documento ya indicado, igual que hace
-     *     F3_2_VerItemTransaccion.abrirFragmentoConDocumento().
+     *     F3_2_VerItemTransaccion.abrirFragmentoConDocumento(). En este
+     *     caso solo se pasa el documento (el bundle de Canal D no lleva
+     *     ítem); el detalle del ítem puntual se ve mejor abriendo primero
+     *     el diálogo desde dentro de F1_CrudDocumento.
      *
      * En ambos casos se reutiliza tal cual la lógica de Canal D
      * (F1_CrudDocumento.recibirBundleDeVerItemTransaction) que YA sabe
@@ -224,11 +231,12 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
     private void abrirDocumentoParaCorregir(String[] fila) {
         if (fila == null || fila.length == 0) return;
         String numeroDocumento = fila[0];
+        String numeroItem = fila.length > 1 ? fila[1] : null;
         if (numeroDocumento == null || numeroDocumento.isEmpty()) return;
 
         Fragment padre = getParentFragment();
         if (padre instanceof F1_CrudDocumento) {
-            ((F1_CrudDocumento) padre).cargarDocumentoDesdeAuditoria(numeroDocumento);
+            ((F1_CrudDocumento) padre).cargarDocumentoDesdeAuditoria(numeroDocumento, numeroItem);
             dismiss();
             return;
         }
