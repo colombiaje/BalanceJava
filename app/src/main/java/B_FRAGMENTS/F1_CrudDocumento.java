@@ -671,45 +671,32 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         agregarFila(layout, "c13 Disponible", item.tipoT_13ColumnaDisponible_String);
 
         // ─────────────────────────────────────────────────────────────────
-        // "Corregir y volver a registrar" — automatiza el proceso que ya
-        // usa el usuario a mano cuando un registro quedó con un atributo
-        // (Grupo1/Grupo2 u otro) mal asociado: en vez de habilitar edición
-        // libre de estos campos (riesgo: se podría cambiar la cuenta u
-        // otro atributo sin refrescar su clasificación — el mismo bug que
-        // ya corregimos en guardarModificacion(), reabierto por otra
-        // puerta), se quita el registro de la lista igual que la opción
-        // "Eliminar" del long-press (ver SeeDocumentUnit.handleItemAction,
-        // case 1) y se precargan los campos de registro con sus mismos
-        // datos — el usuario solo confirma con el paso normal de registrar
-        // (elegir la cuenta en el autocomplete), que sí toma Grupo1/Grupo2
-        // frescos de "cuentas". No se automatiza ese último paso, A PROPÓSITO,
-        // para que el usuario siempre tenga el control final.
+        // "Modificar este registro" — antes (hasta el commit anterior) este
+        // botón quitaba el ítem de la lista y precargaba los campos de
+        // REGISTRO NUEVO (cuenta_XAtv), para que el usuario lo agregara de
+        // nuevo. Jorge notó (2026-09-12) que eso usaba un mecanismo distinto
+        // al de "Modificar" del long-press (que usa cuenta_XSp) — dos caminos
+        // para lo mismo, y el nuevo (agregar) fue el que tuvo el bug de la
+        // cuenta equivocada.
         //
-        // CORRECCIÓN (bug reportado 2026-09-12): la primera versión de este
-        // botón precargaba la cuenta con cuenta_XSp.setSelection(...). Eso
-        // estaba mal por DOS razones, encontradas leyendo
-        // RecordDocumentUnit.setupCuentaSpinner() y
-        // B12_DocumentPersistence.losDemasRegistrosAListaDocumento():
-        //   a) Seleccionar cuenta_XSp (con !enModoModificacion, que es el
-        //      caso aquí) DISPARA de inmediato losDemasRegistrosAListaDocumento()
-        //      — o sea, ya registraba el nuevo item ahí mismo, sin darle al
-        //      usuario ninguna oportunidad de revisar antes ("no hay control
-        //      alguno en la modificación").
-        //   b) Peor: losDemasRegistrosAListaDocumento(), cuando NO se está en
-        //      modo modificación, lee la cuenta de cuenta_XAtv (el campo de
-        //      texto autocomplete) — NO de cuenta_XSp. Como este botón nunca
-        //      tocaba cuenta_XAtv, el registro automático (de a) usaba
-        //      cualquier texto que hubiera quedado ahí de antes — una cuenta
-        //      distinta a la del registro que se estaba corrigiendo. Por eso
-        //      "cambia dos campos y ninguno es correcto": la cuenta salía
-        //      mal, y con ella Grupo1/Grupo2 (que se consultan frescos, pero
-        //      para la cuenta equivocada).
-        // Ahora solo se precarga cuenta_XAtv (el campo de texto) — sin tocar
-        // cuenta_XSp — así no se dispara ningún registro automático: el
-        // usuario ve la cuenta ya escrita, revisa todo, y toca la sugerencia
-        // del autocomplete (su gesto de siempre) para confirmar y registrar.
+        // Al revisar de nuevo: la razón original para NO reusar "Modificar"
+        // (evitar reabrir el bug de Grupo1/Grupo2 no refrescado) ya no aplica
+        // — ese bug se corrigió hace varios commits directamente en
+        // guardarModificacion() (ver B12_DocumentPersistence, sección 6): ahí
+        // SIEMPRE se re-consulta Grupo1/Grupo2 frescos de "cuentas" para la
+        // cuenta seleccionada al guardar. Y "Modificar" solo permite cambiar
+        // valor/signo/cuenta/descripcion — nunca Grupo1/Grupo2 a mano — así
+        // que no reabre el riesgo de edición libre que preocupaba a Jorge.
+        //
+        // Por eso ahora este botón simplemente entra al mismo "modo
+        // modificación" que usa el long-press → "Modificar" (ver
+        // SeeDocumentUnit.handleItemAction, case 0), pre-cargado con este
+        // ítem — es un atajo directo desde el detalle/auditoría a ese mismo
+        // camino ya probado, con una sola cuenta_XSp / un solo botón de
+        // confirmar (el FAB, que llama guardarModificacion()) para toda la
+        // app. El ítem NO se quita de la lista; se edita en su lugar.
         Button btCorregirYVolverARegistrar = new Button(getContext());
-        btCorregirYVolverARegistrar.setText("🔁 Corregir y volver a registrar");
+        btCorregirYVolverARegistrar.setText("✏️ Modificar este registro");
         btCorregirYVolverARegistrar.setOnClickListener(v -> {
             int posicion = listaDocumento_ArrayLTT.indexOf(item);
             if (posicion < 0) {
@@ -720,27 +707,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 return;
             }
 
-            // 1) Quitar el registro erróneo de la lista en memoria.
-            listaDocumento_ArrayLTT.remove(posicion);
-            renumerarItemsListaDocumento();
-            procesarActualizacionCompleta();
-
-            // 2) Precargar los campos de registro con los mismos datos.
-            //    NOTA: cuenta_XAtv (texto), NUNCA cuenta_XSp aquí — ver
-            //    explicación arriba. El usuario debe tocar la sugerencia del
-            //    autocomplete para confirmar la cuenta y registrar.
-            int valorAbsoluto = item.tipoT_5Value_Integer;
-            valor_XEt.setText("" + (valorAbsoluto < 0 ? valorAbsoluto * -1 : valorAbsoluto));
-            if (signos_ListString != null) {
-                int idxSigno = signos_ListString.indexOf(item.tipoT_4Sign_String);
-                if (idxSigno >= 0) signo_XSp.setSelection(idxSigno);
-            }
-            descripcion_XAtv.setText(item.tipoT_6Description_String);
-            cuenta_XAtv.setText(item.tipoT_3Accout_String);
+            entrarModoModificacionDesdeItem(posicion);
 
             Toast.makeText(getActivity(),
-                    "Registro quitado — revisa los campos, confirma la cuenta " +
-                            "tocando la sugerencia y vuelve a registrarlo",
+                    "Modo modificación — revisa los campos y confirma con el botón flotante",
                     Toast.LENGTH_LONG).show();
 
             dialog.dismiss();
@@ -918,6 +888,60 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         cuenta_XAtv.setText(""); // Limpiar
         pegarCuetaAnterior_XChB.setVisibility(View.VISIBLE);
         pegarCuentaSpinner_XChB.setVisibility(View.VISIBLE);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Reutiliza EXACTAMENTE la secuencia de
+    // SeeDocumentUnit.handleItemAction(0, posicion) ("Modificar" del
+    // long-press sobre listaDocumento_XLv) para poder entrar al mismo modo
+    // modificación desde otro punto de entrada (el botón "Modificar este
+    // registro" del detalle de un ítem — mostrarCamposItem()). No se tocó
+    // SeeDocumentUnit porque su método es privado y no vale la pena exponerlo
+    // solo para esto; los campos que usa ya son todos de este mismo fragment.
+    //
+    // OJO con el orden: cuenta_XSp.setSelection(...) se llama ANTES de
+    // iniciarModoModificacion(posicion) (que recién ahí pone
+    // enModoModificacion = true) — igual que en el original. Esto es a
+    // propósito: Spinner difiere el aviso onItemSelected (lo publica, no lo
+    // llama de inmediato), así que para cuando esa notificación realmente se
+    // dispara, enModoModificacion ya es true y se entra por la rama segura
+    // de RecordDocumentUnit.setupCuentaSpinner() (la que NO auto-registra).
+    // Si se invierte el orden, se reabre el bug que ya se corrigió en el
+    // botón "Corregir y volver a registrar".
+    private void entrarModoModificacionDesdeItem(int posicion) {
+        if (!listaDocumento_ArrayLTT.isEmpty()) {
+            consecutivoItemRegistro_XTv.setText(
+                    "Item:\n" + listaDocumento_ArrayLTT.get(posicion).tipoT_2DocumentItems_String
+                            + "/" + listaDocumento_ArrayLTT.size());
+        } else {
+            consecutivoItemRegistro_XTv.setText("0/0");
+        }
+        consecutivoRegistroAModificar_StringStatic =
+                listaDocumento_ArrayLTT.get(posicion).tipoT_2DocumentItems_String;
+
+        int valor = listaDocumento_ArrayLTT.get(posicion).tipoT_5Value_Integer;
+        valor_XEt.setText("" + (valor < 0 ? valor * -1 : valor));
+        signo_XSp.setSelection(
+                signos_ListString.indexOf(
+                        listaDocumento_ArrayLTT.get(posicion).tipoT_4Sign_String));
+        descripcion_XAtv.setText(
+                listaDocumento_ArrayLTT.get(posicion).tipoT_6Description_String);
+        cuenta_XSp.setSelection(
+                accountAllAz_List.indexOf(
+                        listaDocumento_ArrayLTT.get(posicion).tipoT_3Accout_String));
+
+        iniciarModoModificacion(posicion);
+        digitarFisicoVsSaldoConciliacion();
+        actualizarTotales();
+        actualizarListView();
+
+        fabModificar.post(() -> {
+            if (enModoModificacion && fabModificar.getVisibility() != View.VISIBLE) {
+                fabModificar.setVisibility(View.VISIBLE);
+                fabModificar.show();
+                animarBotonModificar();
+            }
+        });
     }
 
     private void setupCampoConCalculadora(final EditText campo) {
@@ -1274,11 +1298,19 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      * — así el usuario aterriza directo en el registro con el error, sin
      * tener que buscarlo a mano en la lista del documento completo.
      *
-     * Solo se abre automático en el camino más común (Escenario A de
-     * recibirBundleDeVerItemTransaction — Área 3 vacía, carga directa; ver
-     * abrirItemPendienteDeAuditoriaSiExiste()). Si Área 3 tiene trabajo
-     * pendiente y aparece el diálogo de dos botones, el usuario decide
-     * igual que siempre — ahí no se fuerza nada.
+     * Se abre automático tanto en el camino más común (Escenario A de
+     * recibirBundleDeVerItemTransaction — Área 3 vacía, carga directa) como
+     * cuando Área 3 tiene trabajo pendiente y el usuario elige
+     * "EDITAR NUEVO O SOBREESCRIBIR" en el diálogo de dos botones — en ambos
+     * casos el documento con el error termina cargado en Área 3, así que en
+     * ambos tiene sentido aterrizar directo en el ítem (ver
+     * B13_NavigationManager.mostrarDialogoCanalD()).
+     *
+     * La única excepción sigue siendo "GUARDAR AMBOS DOCUMENTOS": ahí el
+     * documento de la auditoría NO se carga ahora (queda "en espera" y sigue
+     * viéndose el documento que ya se estaba editando), así que no hay nada
+     * que abrir todavía — el usuario debe ubicar el ítem a mano cuando más
+     * tarde entre a ese documento en espera.
      */
     public void cargarDocumentoDesdeAuditoria(String numeroDocumento, String numeroItem) {
         if (numeroDocumento == null || numeroDocumento.isEmpty()) return;
@@ -1293,8 +1325,13 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      * Consume (una sola vez) el ítem pendiente dejado por
      * cargarDocumentoDesdeAuditoria(documento, item) y, si lo encuentra ya
      * cargado en listaDocumento_ArrayLTT, abre su detalle automáticamente.
+     *
+     * Público porque B13_NavigationManager.mostrarDialogoCanalD() también la
+     * llama (rama "EDITAR NUEVO O SOBREESCRIBIR" del diálogo de Área 3 con
+     * trabajo pendiente) — ahí el documento sí termina cargado igual que en
+     * el camino directo, así que también corresponde abrir el ítem.
      */
-    private void abrirItemPendienteDeAuditoriaSiExiste() {
+    public void abrirItemPendienteDeAuditoriaSiExiste() {
         if (itemPendienteDeAuditoria_String == null || itemPendienteDeAuditoria_String.isEmpty()) {
             return;
         }

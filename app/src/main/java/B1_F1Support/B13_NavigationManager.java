@@ -238,6 +238,11 @@ public class B13_NavigationManager {
                     A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
                     Log.d("canal D","aqui D");
                     cargarDocumentoEnArea3CanalD(documentoRecibido);
+                    // El documento de la auditoría sí queda cargado en Área 3
+                    // por esta rama (igual que por el camino directo de
+                    // Escenario A) — abrir el ítem puntual si hay uno
+                    // pendiente (ver F1_CrudDocumento.abrirItemPendienteDeAuditoriaSiExiste()).
+                    f1.abrirItemPendienteDeAuditoriaSiExiste();
                 })
                 .setNegativeButton("GUARDAR AMBOS DOCUMENTOS", (dialog, which) -> {
                     f1.documentoABuscarParaEditar_XATv.setText(documentoRecibido);
