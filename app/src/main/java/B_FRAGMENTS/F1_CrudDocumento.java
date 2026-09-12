@@ -670,6 +670,61 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         agregarFila(layout, "c12 Flag",       item.tipoT_12AccountWhitFlag_String);
         agregarFila(layout, "c13 Disponible", item.tipoT_13ColumnaDisponible_String);
 
+        // ─────────────────────────────────────────────────────────────────
+        // "Corregir y volver a registrar" — automatiza el proceso que ya
+        // usa el usuario a mano cuando un registro quedó con un atributo
+        // (Grupo1/Grupo2 u otro) mal asociado: en vez de habilitar edición
+        // libre de estos campos (riesgo: se podría cambiar la cuenta u
+        // otro atributo sin refrescar su clasificación — el mismo bug que
+        // ya corregimos en guardarModificacion(), reabierto por otra
+        // puerta), se quita el registro de la lista igual que la opción
+        // "Eliminar" del long-press (ver SeeDocumentUnit.handleItemAction,
+        // case 1) y se precargan los campos de registro con sus mismos
+        // datos — el usuario solo confirma con el botón de agregar que ya
+        // usa normalmente, que sí toma Grupo1/Grupo2 frescos de "cuentas".
+        // No se automatiza ese último paso para no tocar esa lógica.
+        Button btCorregirYVolverARegistrar = new Button(getContext());
+        btCorregirYVolverARegistrar.setText("🔁 Corregir y volver a registrar");
+        btCorregirYVolverARegistrar.setOnClickListener(v -> {
+            int posicion = listaDocumento_ArrayLTT.indexOf(item);
+            if (posicion < 0) {
+                Toast.makeText(getActivity(),
+                        "No se encontró el registro en la lista (¿ya se corrigió?)",
+                        Toast.LENGTH_LONG).show();
+                dialog.dismiss();
+                return;
+            }
+
+            // 1) Quitar el registro erróneo de la lista en memoria.
+            listaDocumento_ArrayLTT.remove(posicion);
+            renumerarItemsListaDocumento();
+            procesarActualizacionCompleta();
+
+            // 2) Precargar los campos de registro con los mismos datos.
+            int valorAbsoluto = item.tipoT_5Value_Integer;
+            valor_XEt.setText("" + (valorAbsoluto < 0 ? valorAbsoluto * -1 : valorAbsoluto));
+            if (signos_ListString != null) {
+                int idxSigno = signos_ListString.indexOf(item.tipoT_4Sign_String);
+                if (idxSigno >= 0) signo_XSp.setSelection(idxSigno);
+            }
+            descripcion_XAtv.setText(item.tipoT_6Description_String);
+            if (accountAllAz_List != null) {
+                int idxCuenta = accountAllAz_List.indexOf(item.tipoT_3Accout_String);
+                if (idxCuenta >= 0) cuenta_XSp.setSelection(idxCuenta);
+            }
+
+            Toast.makeText(getActivity(),
+                    "Registro quitado — revisa los campos y agrégalo de nuevo",
+                    Toast.LENGTH_LONG).show();
+
+            dialog.dismiss();
+        });
+        LinearLayout.LayoutParams lpBoton = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpBoton.setMargins(0, 32, 0, 0);
+        btCorregirYVolverARegistrar.setLayoutParams(lpBoton);
+        layout.addView(btCorregirYVolverARegistrar);
+
         scroll.addView(layout);
         dialog.setContentView(scroll);
         dialog.show();
