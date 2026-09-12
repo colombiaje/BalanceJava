@@ -680,9 +680,34 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // puerta), se quita el registro de la lista igual que la opción
         // "Eliminar" del long-press (ver SeeDocumentUnit.handleItemAction,
         // case 1) y se precargan los campos de registro con sus mismos
-        // datos — el usuario solo confirma con el botón de agregar que ya
-        // usa normalmente, que sí toma Grupo1/Grupo2 frescos de "cuentas".
-        // No se automatiza ese último paso para no tocar esa lógica.
+        // datos — el usuario solo confirma con el paso normal de registrar
+        // (elegir la cuenta en el autocomplete), que sí toma Grupo1/Grupo2
+        // frescos de "cuentas". No se automatiza ese último paso, A PROPÓSITO,
+        // para que el usuario siempre tenga el control final.
+        //
+        // CORRECCIÓN (bug reportado 2026-09-12): la primera versión de este
+        // botón precargaba la cuenta con cuenta_XSp.setSelection(...). Eso
+        // estaba mal por DOS razones, encontradas leyendo
+        // RecordDocumentUnit.setupCuentaSpinner() y
+        // B12_DocumentPersistence.losDemasRegistrosAListaDocumento():
+        //   a) Seleccionar cuenta_XSp (con !enModoModificacion, que es el
+        //      caso aquí) DISPARA de inmediato losDemasRegistrosAListaDocumento()
+        //      — o sea, ya registraba el nuevo item ahí mismo, sin darle al
+        //      usuario ninguna oportunidad de revisar antes ("no hay control
+        //      alguno en la modificación").
+        //   b) Peor: losDemasRegistrosAListaDocumento(), cuando NO se está en
+        //      modo modificación, lee la cuenta de cuenta_XAtv (el campo de
+        //      texto autocomplete) — NO de cuenta_XSp. Como este botón nunca
+        //      tocaba cuenta_XAtv, el registro automático (de a) usaba
+        //      cualquier texto que hubiera quedado ahí de antes — una cuenta
+        //      distinta a la del registro que se estaba corrigiendo. Por eso
+        //      "cambia dos campos y ninguno es correcto": la cuenta salía
+        //      mal, y con ella Grupo1/Grupo2 (que se consultan frescos, pero
+        //      para la cuenta equivocada).
+        // Ahora solo se precarga cuenta_XAtv (el campo de texto) — sin tocar
+        // cuenta_XSp — así no se dispara ningún registro automático: el
+        // usuario ve la cuenta ya escrita, revisa todo, y toca la sugerencia
+        // del autocomplete (su gesto de siempre) para confirmar y registrar.
         Button btCorregirYVolverARegistrar = new Button(getContext());
         btCorregirYVolverARegistrar.setText("🔁 Corregir y volver a registrar");
         btCorregirYVolverARegistrar.setOnClickListener(v -> {
@@ -701,6 +726,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             procesarActualizacionCompleta();
 
             // 2) Precargar los campos de registro con los mismos datos.
+            //    NOTA: cuenta_XAtv (texto), NUNCA cuenta_XSp aquí — ver
+            //    explicación arriba. El usuario debe tocar la sugerencia del
+            //    autocomplete para confirmar la cuenta y registrar.
             int valorAbsoluto = item.tipoT_5Value_Integer;
             valor_XEt.setText("" + (valorAbsoluto < 0 ? valorAbsoluto * -1 : valorAbsoluto));
             if (signos_ListString != null) {
@@ -708,13 +736,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 if (idxSigno >= 0) signo_XSp.setSelection(idxSigno);
             }
             descripcion_XAtv.setText(item.tipoT_6Description_String);
-            if (accountAllAz_List != null) {
-                int idxCuenta = accountAllAz_List.indexOf(item.tipoT_3Accout_String);
-                if (idxCuenta >= 0) cuenta_XSp.setSelection(idxCuenta);
-            }
+            cuenta_XAtv.setText(item.tipoT_3Accout_String);
 
             Toast.makeText(getActivity(),
-                    "Registro quitado — revisa los campos y agrégalo de nuevo",
+                    "Registro quitado — revisa los campos, confirma la cuenta " +
+                            "tocando la sugerencia y vuelve a registrarlo",
                     Toast.LENGTH_LONG).show();
 
             dialog.dismiss();
