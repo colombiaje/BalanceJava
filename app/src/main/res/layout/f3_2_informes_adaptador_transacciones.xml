@@ -110,16 +110,44 @@
                 android:layout_marginTop="2dp"
                 />
 
-            <Button
-                android:id="@+id/auditoriaClasificacion_XBt"
+            <FrameLayout
                 android:layout_width="40dp"
                 android:layout_height="35dp"
-                android:background="@drawable/ic_check"
-                android:textAllCaps="false"
                 app:layout_row="1"
                 app:layout_column="5"
-                android:layout_marginTop="2dp"
-                />
+                android:layout_marginTop="2dp">
+
+                <Button
+                    android:id="@+id/auditoriaClasificacion_XBt"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/ic_check"
+                    android:textAllCaps="false"
+                    />
+
+                <!-- Badge numérico tipo WhatsApp: cuántas transacciones
+                     desalineadas hay ahora mismo. Oculto por defecto;
+                     F3_1_VerInformePrincipal.actualizarBadgeAuditoria() lo llena. -->
+                <TextView
+                    android:id="@+id/auditoriaClasificacionBadge_XTv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="-2dp"
+                    android:layout_marginEnd="-2dp"
+                    android:minWidth="16dp"
+                    android:minHeight="16dp"
+                    android:paddingLeft="3dp"
+                    android:paddingRight="3dp"
+                    android:background="@drawable/bg_badge_notificacion"
+                    android:gravity="center"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    />
+
+            </FrameLayout>
 
 
         </androidx.gridlayout.widget.GridLayout>

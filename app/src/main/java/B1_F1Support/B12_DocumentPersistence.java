@@ -397,6 +397,13 @@ public class B12_DocumentPersistence {
             f1.finalizarModoModificacion();
             f1.procesarActualizacionCompleta();
 
+            // La cuenta pudo haber cambiado (o su Grupo1/Grupo2 recién se
+            // refrescó arriba) — es el punto más probable donde una
+            // transacción desalineada se corrige, así que el badge del
+            // botón ✔️ de Auditoría debe reflejarlo de inmediato, sin
+            // esperar a que el usuario salga y vuelva a entrar.
+            f1.actualizarBadgeAuditoria();
+
             Toast.makeText(f1.getActivity(),
                     "✅ Registro modificado exitosamente", Toast.LENGTH_SHORT).show();
 

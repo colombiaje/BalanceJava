@@ -3,6 +3,8 @@ package A1BASES;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.view.View;
+import android.widget.TextView;
 
 import androidx.fragment.app.FragmentActivity;
 
@@ -16,6 +18,27 @@ public class A99_MetodosVarios {
     //declaracion de variables
 
     public static String stringFechaYHora = null;
+
+    /**
+     * Llena un "badge" numérico tipo WhatsApp (fondo circular/píldora rojo,
+     * número blanco) — usado en el botón ✔️ de Auditoría de Clasificación,
+     * tanto en F1_CrudDocumento como en F3_1_VerInformePrincipal, para que
+     * el usuario vea de un vistazo cuántas transacciones desalineadas hay,
+     * sin tener que abrir el diálogo para enterarse.
+     *
+     * cantidad <= 0 → oculta el badge (sin inconsistencias).
+     * cantidad > 99 → muestra "99+" en vez del número exacto, igual que
+     * hacen la mayoría de apps de mensajería con sus contadores.
+     */
+    public static void actualizarBadgeNumerico(TextView badge, int cantidad) {
+        if (badge == null) return;
+        if (cantidad <= 0) {
+            badge.setVisibility(View.GONE);
+            return;
+        }
+        badge.setText(cantidad > 99 ? "99+" : String.valueOf(cantidad));
+        badge.setVisibility(View.VISIBLE);
+    }
 
 
     public A99_MetodosVarios(FragmentActivity activity) {

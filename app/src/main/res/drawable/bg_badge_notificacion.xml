@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Fondo del "badge" numérico tipo WhatsApp para el botón ✔️ de Auditoría
+    de Clasificación. Radio grande a propósito: con un solo dígito se ve
+    como círculo, con dos o más se ve como píldora — ambos casos correctos
+    sin necesitar dos drawables distintos.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#E53935" />
+    <corners android:radius="20dp" />
+    <stroke
+        android:width="1dp"
+        android:color="#FFFFFF" />
+</shape>

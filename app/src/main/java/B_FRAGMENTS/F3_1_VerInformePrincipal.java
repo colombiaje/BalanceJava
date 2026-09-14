@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import A1BASES.A11_AuditoriaClasificacionDialogo;
 import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
+import A1BASES.A99_MetodosVarios;
 import A2QueryBD.A22_QueryManager;
 import A2QueryBD.A23_QueryResult;
 import D_ADAPTERS.D_F3_1_AdaptadorTransaccionesInformes;
@@ -86,6 +87,10 @@ public class F3_1_VerInformePrincipal extends Fragment {
     }
 
     Button calculadoraLibre_XBt;
+
+    // Badge numérico (tipo WhatsApp) sobre el botón ✔️ de Auditoría de
+    // Clasificación — ver actualizarBadgeAuditoria().
+    private TextView auditoriaClasificacionBadge_XTv;
 
     //Seccion 2 onCreateView
     @Override
@@ -219,9 +224,35 @@ public class F3_1_VerInformePrincipal extends Fragment {
         if (auditoriaClasificacion_XBt != null) {
             auditoriaClasificacion_XBt.setOnClickListener(v -> mostrarAuditoriaClasificacion());
         }
+        auditoriaClasificacionBadge_XTv = inflarViews_View.findViewById(R.id.auditoriaClasificacionBadge_XTv);
+        actualizarBadgeAuditoria();
 
         return inflarViews_View;
 
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Refresca el badge del botón ✔️ cada vez que se vuelve a esta
+        // pantalla — por ejemplo al regresar de corregir un documento en
+        // F1_CrudDocumento (ver F1_CrudDocumento.actualizarBadgeAuditoria()
+        // para el mismo badge en esa otra pantalla).
+        actualizarBadgeAuditoria();
+    }
+
+    /**
+     * Actualiza el badge numérico (tipo WhatsApp) del botón ✔️ de Auditoría
+     * de Clasificación con la cantidad actual de transacciones desalineadas.
+     * Crea su propia instancia de A22_QueryManager, igual que hace
+     * A11_AuditoriaClasificacionDialogo, para no depender del orden de
+     * inicialización del campo a22QueryManager de este fragment.
+     */
+    private void actualizarBadgeAuditoria() {
+        if (auditoriaClasificacionBadge_XTv == null || getContext() == null) return;
+        int cantidad = new A22_QueryManager(getContext())
+                .queryTransaccionesDesalineadas().size();
+        A99_MetodosVarios.actualizarBadgeNumerico(auditoriaClasificacionBadge_XTv, cantidad);
     }
 
     public void dynamicCrudUpdate() {

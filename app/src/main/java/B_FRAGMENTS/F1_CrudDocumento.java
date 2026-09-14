@@ -123,6 +123,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // documento. Se consume una sola vez (ver abrirItemPendienteDeAuditoriaSiExiste()).
     private String itemPendienteDeAuditoria_String;
 
+    // Badge numérico (tipo WhatsApp) sobre el botón ✔️ de Auditoría de
+    // Clasificación — ver actualizarBadgeAuditoria().
+    private TextView auditoriaClasificacionBadge_XTv;
+
     // =========================================================
     // SECTION 2 — UI state flags
     // Controls modes, dialogs and copy/paste behavior
@@ -436,6 +440,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                         .show(getChildFragmentManager(), "auditoria_clasificacion");
             });
         }
+        auditoriaClasificacionBadge_XTv = inflarViews_View.findViewById(R.id.auditoriaClasificacionBadge_XTv);
+        actualizarBadgeAuditoria();
 
         calculadora_Fragment = new F6_Calculadora();
 
@@ -1360,6 +1366,26 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 return;
             }
         }
+    }
+
+    /**
+     * Actualiza el badge numérico (tipo WhatsApp) del botón ✔️ de Auditoría
+     * de Clasificación con la cantidad actual de transacciones desalineadas
+     * — para que el usuario vea de un vistazo que hay algo pendiente, sin
+     * tener que abrir el diálogo. Se llama al crear la vista, cada vez que
+     * el fragmento vuelve a primer plano (onResume) y justo después de
+     * guardar una corrección (ver B12_DocumentPersistence.guardarModificacion()).
+     *
+     * Crea su propia instancia de A22_QueryManager (igual que hace
+     * A11_AuditoriaClasificacionDialogo) en vez de depender de
+     * a22QueryManager, porque este método se llama antes de que ese campo
+     * quede inicializado en onCreateView().
+     */
+    public void actualizarBadgeAuditoria() {
+        if (auditoriaClasificacionBadge_XTv == null || getContext() == null) return;
+        int cantidad = new A22_QueryManager(getContext())
+                .queryTransaccionesDesalineadas().size();
+        A99_MetodosVarios.actualizarBadgeNumerico(auditoriaClasificacionBadge_XTv, cantidad);
     }
 
     // En cualquier método de F1_CrudDocumento donde quieras cerrar F3_2_VerItemTransaccion
@@ -2378,7 +2404,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     @Override
     public void onResume() {
         super.onResume();
-        // Intentionally empty — restoration logic runs in onStart()
+        // Intentionally empty (aparte del badge) — restoration logic runs in onStart()
+        actualizarBadgeAuditoria();
     }
 
     // ═══════════════════════════════════════════════════════════════
