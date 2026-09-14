@@ -50,7 +50,45 @@
           android:contentDescription="Cerrar"/>
    </LinearLayout>
 
-   <!-- CABECERA DE TABLA -->
+   <!-- PRESUPUESTO MENSUAL: único valor editable; todo lo demás se deriva de él -->
+   <LinearLayout
+       android:layout_width="match_parent"
+       android:layout_height="wrap_content"
+       android:orientation="horizontal"
+       android:background="#EDE7F6"
+       android:gravity="center_vertical"
+       android:padding="6dp">
+
+      <TextView
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:text="Presupuesto mensual"
+          android:textSize="13sp"
+          android:textStyle="bold"/>
+
+      <EditText
+          android:id="@+id/editPresupuestoTotal_XEt"
+          android:layout_width="90dp"
+          android:layout_height="34dp"
+          android:background="#FFFFFF"
+          android:textSize="14sp"
+          android:gravity="center"
+          android:inputType="number"
+          android:hint="1150"/>
+
+      <ImageButton
+          android:id="@+id/btnGuardarPresupuesto_XBt"
+          android:layout_width="34dp"
+          android:layout_height="34dp"
+          android:layout_marginStart="4dp"
+          android:background="#4CAF50"
+          android:scaleType="fitCenter"
+          android:src="@android:drawable/ic_menu_save"
+          android:contentDescription="Guardar"/>
+   </LinearLayout>
+
+   <!-- CABECERA DE TABLA — 4 columnas de $ compartidas por las 3 filas de dato -->
    <LinearLayout
        android:layout_width="match_parent"
        android:layout_height="wrap_content"
@@ -59,80 +97,55 @@
        android:padding="6dp">
 
       <TextView
-          android:layout_width="40dp"
+          android:layout_width="0dp"
           android:layout_height="wrap_content"
-          android:text="Item"
+          android:layout_weight="1"
+          android:text=" "
+          android:textSize="10sp"/>
+
+      <TextView
+          android:layout_width="62dp"
+          android:layout_height="wrap_content"
+          android:text="Transcur."
           android:textColor="@android:color/white"
-          android:textSize="13sp"
+          android:textSize="10sp"
           android:textStyle="bold"
           android:gravity="center"/>
 
       <TextView
-          android:layout_width="120dp"
+          android:layout_width="62dp"
           android:layout_height="wrap_content"
-          android:text="Concepto"
+          android:text="Diario"
           android:textColor="@android:color/white"
-          android:textSize="13sp"
+          android:textSize="10sp"
           android:textStyle="bold"
           android:gravity="center"/>
 
       <TextView
-          android:layout_width="45dp"
+          android:layout_width="62dp"
           android:layout_height="wrap_content"
-          android:text="Días"
+          android:text="Por transc."
           android:textColor="@android:color/white"
-          android:textSize="13sp"
+          android:textSize="10sp"
           android:textStyle="bold"
           android:gravity="center"/>
 
-      <!-- COLUMNA 4 ahora es "Depurado" (antes col 5) -->
-      <LinearLayout
-          android:layout_width="100dp"
-          android:layout_height="wrap_content"
-          android:orientation="horizontal"
-          android:gravity="center">
-
-         <TextView
-             android:id="@+id/VerDetalleProrrateables_XTv"
-             android:layout_width="100dp"
-             android:layout_height="wrap_content"
-             android:layout_weight="1.2"
-             android:text="Depurado"
-             android:textColor="@android:color/white"
-             android:textSize="13sp"
-             android:textStyle="bold"
-             android:gravity="center"
-             android:background="@drawable/bg_green_square4"
-             />
-
-         <ImageButton
-             android:id="@+id/btnVerDetalleProrrateables_XBt"
-             android:layout_width="20dp"
-             android:layout_height="20dp"
-             android:background="@drawable/ic_ver_info"
-             android:scaleType="fitCenter"
-             android:contentDescription="Ver detalle"/>
-      </LinearLayout>
-
-      <!-- COLUMNA 5 ahora es "Contable" (antes col 4) -->
       <TextView
-          android:id="@+id/irALaCuentaContable_XTv"
-          android:layout_width="75dp"
+          android:layout_width="62dp"
           android:layout_height="wrap_content"
-          android:text="Contable"
+          android:text="Mes proy."
           android:textColor="@android:color/white"
-          android:textSize="13sp"
+          android:textSize="10sp"
           android:textStyle="bold"
-          android:gravity="center"
-          android:background="@drawable/bg_green_square4"
-          />
+          android:gravity="center"/>
 
    </LinearLayout>
 
    <!-- SCROLL DE CONTENIDO -->
    <ScrollView
        android:layout_width="match_parent"
-       android:layout_height="500dp"
+       android:layout_height="wrap_content"
+       android:layout_weight="0"
        android:fillViewport="true">
 
       <LinearLayout
@@ -140,7 +153,53 @@
           android:layout_height="wrap_content"
           android:orientation="vertical">
 
-         <!-- FILA 1: Presupuesto -->
+         <!-- FILA "Días": cuántos días de calendario representa cada columna -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#D1C4E9"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Días"
+                android:textSize="13sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/valorDiasTranscurrido_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorDiasDiario_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorDiasPorTranscurrir_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorDiasMesTotal_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA "Presupuesto": la meta, prorrateada al día -->
          <LinearLayout
              android:layout_width="match_parent"
              android:layout_height="wrap_content"
@@ -149,253 +208,158 @@
              android:padding="6dp">
 
             <TextView
-                android:layout_width="40dp"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="1"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <TextView
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="Presupuesto"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
+                android:textSize="13sp"/>
 
             <TextView
-                android:id="@+id/valorDiasMes_XTv"
-                android:layout_width="45dp"
+                android:id="@+id/valorPresupuestoTranscurrido_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:gravity="center"/>
 
-            <!-- COL 4: Depurado (antes col 5) -->
             <TextView
-                android:id="@+id/valorPresupuestoDepurado_XTv"
-                android:layout_width="80dp"
+                android:id="@+id/valorPresupuestoDiario_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:gravity="center"/>
 
-            <!-- COL 5: Contable (antes col 4) -->
+            <TextView
+                android:id="@+id/valorPresupuestoPorTranscurrir_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorPresupuestoMesTotal_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA "Depurado" — tocar el nombre abre el detalle de prorrateables -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#F3E5F5"
+             android:padding="6dp">
+
             <LinearLayout
-                android:layout_width="75dp"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center">
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-               <EditText
-                   android:id="@+id/editPresupuestoTotal_XEt"
-                   android:layout_width="match_parent"
-                   android:layout_height="28dp"
-                   android:background="#FFFFFF"
-                   android:textSize="14sp"
-                   android:gravity="center"
-                   android:inputType="number"
-                   android:hint="1050"/>
+               <TextView
+                   android:id="@+id/VerDetalleProrrateables_XTv"
+                   android:layout_width="wrap_content"
+                   android:layout_height="wrap_content"
+                   android:text="Depurado"
+                   android:textSize="13sp"
+                   android:textStyle="bold"
+                   android:textColor="#4A148C"/>
 
                <ImageButton
-                   android:id="@+id/btnGuardarPresupuesto_XBt"
-                   android:layout_width="match_parent"
+                   android:id="@+id/btnVerDetalleProrrateables_XBt"
+                   android:layout_width="18dp"
                    android:layout_height="18dp"
-                   android:background="#4CAF50"
+                   android:layout_marginStart="4dp"
+                   android:background="@drawable/ic_ver_info"
                    android:scaleType="fitCenter"
-                   android:src="@android:drawable/ic_menu_save"
-                   android:contentDescription="Guardar"/>
+                   android:contentDescription="Ver detalle"/>
             </LinearLayout>
 
-         </LinearLayout>
-
-         <!-- FILA 2: Promedio diario base -->
-         <LinearLayout
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:background="#E1BEE7"
-             android:padding="6dp">
-
             <TextView
-                android:layout_width="40dp"
+                android:id="@+id/valorDepuradoTranscurrido_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:text="2"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <TextView
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:text="Prom. diario"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasBase_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 4: Depurado -->
-            <TextView
-                android:id="@+id/valorPromDiarioBaseDepurado_XTv"
-                android:layout_width="80dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 5: Contable -->
-            <TextView
-                android:id="@+id/valorPromDiarioBaseContable_XTv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-         </LinearLayout>
-
-         <!-- FILA 3: Por Ejecutar -->
-         <LinearLayout
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:background="#E1BEE7"
-             android:padding="6dp">
-
-            <TextView
-                android:layout_width="40dp"
-                android:layout_height="wrap_content"
-                android:text="3"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <TextView
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:text="Por ejecutar"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasPorEjecutar_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 4: Depurado -->
-            <TextView
-                android:id="@+id/valorPorEjecutarDepurado_XTv"
-                android:layout_width="80dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 5: Contable -->
-            <TextView
-                android:id="@+id/valorPorEjecutarContable_XTv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-         </LinearLayout>
-
-         <!-- FILA 4: Por eje. diario -->
-         <LinearLayout
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:background="#F3E5F5"
-             android:padding="6dp">
-
-            <TextView
-                android:layout_width="40dp"
-                android:layout_height="wrap_content"
-                android:text="4"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <TextView
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:text="Por eje. diario"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasPorEjec_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 4: Depurado -->
-            <TextView
-                android:id="@+id/valorPromDiaPorEjecDepurado_XTv"
-                android:layout_width="80dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 5: Contable -->
-            <TextView
-                android:id="@+id/valorPromDiaPorEjecContable_XTv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-         </LinearLayout>
-
-         <!-- FILA 5: Ejecutado -->
-         <LinearLayout
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:background="#F3E5F5"
-             android:padding="6dp">
-
-            <TextView
-                android:layout_width="40dp"
-                android:layout_height="wrap_content"
-                android:text="5"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <TextView
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:text="Ejecutado"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasEjecutado_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 4: Depurado -->
-            <TextView
-                android:id="@+id/valorEjecutadoDepurado_XTv"
-                android:layout_width="80dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
                 android:gravity="center"/>
 
-            <!-- COL 5: Contable -->
             <TextView
-                android:id="@+id/valorEjecutadoContable_XTv"
-                android:layout_width="75dp"
+                android:id="@+id/valorDepuradoDiario_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorDepuradoPorTranscurrir_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorDepuradoMesProyectado_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
                 android:gravity="center"/>
 
          </LinearLayout>
 
-         <!-- FILA 6: Diario eje. -->
+         <!-- FILA "Vs Presupuesto" (Depurado) — el color YA dice si excede o no -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#EDE7F6"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Vs Presupuesto"
+                android:textSize="12sp"
+                android:textStyle="italic"/>
+
+            <TextView
+                android:id="@+id/valorVsDepuradoTranscurrido_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorVsDepuradoDiario_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorVsDepuradoPorTranscurrir_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorVsDepuradoMesProyectado_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
+         <!-- FILA "Contable" — tocar el nombre lleva a las transacciones de la cuenta -->
          <LinearLayout
              android:layout_width="match_parent"
              android:layout_height="wrap_content"
@@ -404,181 +368,92 @@
              android:padding="6dp">
 
             <TextView
-                android:layout_width="40dp"
+                android:id="@+id/irALaCuentaContable_XTv"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="6"
-                android:textSize="14sp"
+                android:layout_weight="1"
+                android:text="Contable"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#4A148C"/>
+
+            <TextView
+                android:id="@+id/valorContableTranscurrido_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
                 android:gravity="center"/>
 
             <TextView
-                android:layout_width="120dp"
+                android:id="@+id/valorContableDiario_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:text="Diario eje."
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasAHoy_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 4: Depurado -->
-            <TextView
-                android:id="@+id/valorPromDiaHoyDepurado_XTv"
-                android:layout_width="80dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 5: Contable -->
-            <TextView
-                android:id="@+id/valorPromDiaHoyContable_XTv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-         </LinearLayout>
-
-         <!-- FILA 7: Proyectado desde hoy -->
-         <LinearLayout
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:background="#E1BEE7"
-             android:padding="6dp">
-
-            <TextView
-                android:layout_width="40dp"
-                android:layout_height="wrap_content"
-                android:text="7"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:gravity="center"/>
 
             <TextView
-                android:layout_width="120dp"
+                android:id="@+id/valorContablePorTranscurrir_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:text="Proyectado"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasProyHoy_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:gravity="center"/>
 
-            <!-- COL 4: Depurado -->
             <TextView
-                android:id="@+id/valorProyHoyDepurado_XTv"
-                android:layout_width="80dp"
+                android:id="@+id/valorContableMesProyectado_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 5: Contable -->
-            <TextView
-                android:id="@+id/valorProyHoyContable_XTv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:gravity="center"/>
 
          </LinearLayout>
 
-         <!-- FILA 8: Prom. día ayer -->
+         <!-- FILA "Vs Presupuesto" (Contable) -->
          <LinearLayout
              android:layout_width="match_parent"
              android:layout_height="wrap_content"
              android:orientation="horizontal"
-             android:background="#F3E5F5"
+             android:background="#EDE7F6"
              android:padding="6dp">
 
             <TextView
-                android:layout_width="40dp"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="8"
-                android:textSize="14sp"
+                android:layout_weight="1"
+                android:text="Vs Presupuesto"
+                android:textSize="12sp"
+                android:textStyle="italic"/>
+
+            <TextView
+                android:id="@+id/valorVsContableTranscurrido_XTv"
+                android:layout_width="62dp"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
                 android:gravity="center"/>
 
             <TextView
-                android:layout_width="120dp"
+                android:id="@+id/valorVsContableDiario_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:text="Prom. día ayer"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasAyer_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 4: Depurado -->
-            <TextView
-                android:id="@+id/valorPromDiaAyerDepurado_XTv"
-                android:layout_width="80dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 5: Contable -->
-            <TextView
-                android:id="@+id/valorPromDiaAyerContable_XTv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-         </LinearLayout>
-
-         <!-- FILA 9: Proyectado desde ayer -->
-         <LinearLayout
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:background="#E1BEE7"
-             android:padding="6dp">
-
-            <TextView
-                android:layout_width="40dp"
-                android:layout_height="wrap_content"
-                android:text="9"
-                android:textSize="14sp"
+                android:textSize="13sp"
+                android:textStyle="bold"
                 android:gravity="center"/>
 
             <TextView
-                android:layout_width="120dp"
+                android:id="@+id/valorVsContablePorTranscurrir_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:text="Proyectado"
-                android:textSize="14sp"
-                android:paddingLeft="4dp"/>
-
-            <TextView
-                android:id="@+id/valorDiasProyAyer_XTv"
-                android:layout_width="45dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
+                android:textStyle="bold"
                 android:gravity="center"/>
 
-            <!-- COL 4: Depurado -->
             <TextView
-                android:id="@+id/valorProyAyerDepurado_XTv"
-                android:layout_width="80dp"
+                android:id="@+id/valorVsContableMesProyectado_XTv"
+                android:layout_width="62dp"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
-                android:gravity="center"/>
-
-            <!-- COL 5: Contable -->
-            <TextView
-                android:id="@+id/valorProyAyerContable_XTv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="13sp"
+                android:textStyle="bold"
                 android:gravity="center"/>
 
          </LinearLayout>

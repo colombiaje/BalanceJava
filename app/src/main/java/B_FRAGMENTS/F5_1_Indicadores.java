@@ -56,15 +56,13 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
     }
 
     // Views
-    TextView valorDiasMes_XTv, valorPresupuestoDepurado_XTv;
-    TextView valorDiasBase_XTv, valorPromDiarioBaseContable_XTv, valorPromDiarioBaseDepurado_XTv;
-    TextView valorDiasPorEjecutar_XTv, valorPorEjecutarContable_XTv, valorPorEjecutarDepurado_XTv;
-    TextView valorDiasPorEjec_XTv, valorPromDiaPorEjecContable_XTv, valorPromDiaPorEjecDepurado_XTv;
-    TextView valorDiasEjecutado_XTv, valorEjecutadoContable_XTv, valorEjecutadoDepurado_XTv;
-    TextView valorDiasAHoy_XTv, valorPromDiaHoyContable_XTv, valorPromDiaHoyDepurado_XTv;
-    TextView valorDiasProyHoy_XTv, valorProyHoyContable_XTv, valorProyHoyDepurado_XTv;
-    TextView valorDiasAyer_XTv, valorPromDiaAyerContable_XTv, valorPromDiaAyerDepurado_XTv;
-    TextView valorDiasProyAyer_XTv, valorProyAyerContable_XTv, valorProyAyerDepurado_XTv;
+    TextView valorDiasTranscurrido_XTv, valorDiasDiario_XTv, valorDiasPorTranscurrir_XTv, valorDiasMesTotal_XTv;
+    TextView valorPresupuestoTranscurrido_XTv, valorPresupuestoDiario_XTv, valorPresupuestoPorTranscurrir_XTv, valorPresupuestoMesTotal_XTv;
+    TextView valorDepuradoTranscurrido_XTv, valorDepuradoDiario_XTv, valorDepuradoPorTranscurrir_XTv, valorDepuradoMesProyectado_XTv;
+    TextView valorVsDepuradoTranscurrido_XTv, valorVsDepuradoDiario_XTv, valorVsDepuradoPorTranscurrir_XTv, valorVsDepuradoMesProyectado_XTv;
+    TextView valorContableTranscurrido_XTv, valorContableDiario_XTv, valorContablePorTranscurrir_XTv, valorContableMesProyectado_XTv;
+    TextView valorVsContableTranscurrido_XTv, valorVsContableDiario_XTv, valorVsContablePorTranscurrir_XTv, valorVsContableMesProyectado_XTv;
+    ImageButton btnVerDetalleProrrateables_XBt;
     TextView valorActivoExigible_XTv, valorPasivoExigible_XTv, valorAhorroODeuda_XTv;
 
     EditText editPresupuestoTotal_XEt;
@@ -78,7 +76,7 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
 
     // Variables de cálculo
     int sumaActivo, sumaPasivo, saldoEnrique, presupuestoTotal;
-    int diasMes, diaHoy, diasRestantes;
+    int diasMes, diaHoy, diasRestantes, diasTranscurridosReales;
     A10_1_CalculoDepuradoIndicadores a101CalculoDepuradoIndicadores;
 
     private static final String PREFS_NAME = "IndicadoresPrefs";
@@ -146,6 +144,9 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         btnGuardarPresupuesto_XBt.setOnClickListener(v -> guardarPresupuesto());
 
         VerDetalleProrrateables_XTv.setOnClickListener(v -> mostrarDetalleProrrateables());
+        if (btnVerDetalleProrrateables_XBt != null) {
+            btnVerDetalleProrrateables_XBt.setOnClickListener(v -> mostrarDetalleProrrateables());
+        }
 
         irALaCuentaContable_XTv.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -174,40 +175,36 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         btnGuardarPresupuesto_XBt = view.findViewById(R.id.btnGuardarPresupuesto_XBt);
         VerDetalleProrrateables_XTv = view.findViewById(R.id.VerDetalleProrrateables_XTv);
 
-        valorDiasMes_XTv = view.findViewById(R.id.valorDiasMes_XTv);
-        valorPresupuestoDepurado_XTv = view.findViewById(R.id.valorPresupuestoDepurado_XTv);
+        valorDiasTranscurrido_XTv = view.findViewById(R.id.valorDiasTranscurrido_XTv);
+        valorDiasDiario_XTv = view.findViewById(R.id.valorDiasDiario_XTv);
+        valorDiasPorTranscurrir_XTv = view.findViewById(R.id.valorDiasPorTranscurrir_XTv);
+        valorDiasMesTotal_XTv = view.findViewById(R.id.valorDiasMesTotal_XTv);
 
-        valorDiasBase_XTv = view.findViewById(R.id.valorDiasBase_XTv);
-        valorPromDiarioBaseContable_XTv = view.findViewById(R.id.valorPromDiarioBaseContable_XTv);
-        valorPromDiarioBaseDepurado_XTv = view.findViewById(R.id.valorPromDiarioBaseDepurado_XTv);
+        valorPresupuestoTranscurrido_XTv = view.findViewById(R.id.valorPresupuestoTranscurrido_XTv);
+        valorPresupuestoDiario_XTv = view.findViewById(R.id.valorPresupuestoDiario_XTv);
+        valorPresupuestoPorTranscurrir_XTv = view.findViewById(R.id.valorPresupuestoPorTranscurrir_XTv);
+        valorPresupuestoMesTotal_XTv = view.findViewById(R.id.valorPresupuestoMesTotal_XTv);
 
-        valorDiasPorEjecutar_XTv = view.findViewById(R.id.valorDiasPorEjecutar_XTv);
-        valorPorEjecutarContable_XTv = view.findViewById(R.id.valorPorEjecutarContable_XTv);
-        valorPorEjecutarDepurado_XTv = view.findViewById(R.id.valorPorEjecutarDepurado_XTv);
+        btnVerDetalleProrrateables_XBt = view.findViewById(R.id.btnVerDetalleProrrateables_XBt);
+        valorDepuradoTranscurrido_XTv = view.findViewById(R.id.valorDepuradoTranscurrido_XTv);
+        valorDepuradoDiario_XTv = view.findViewById(R.id.valorDepuradoDiario_XTv);
+        valorDepuradoPorTranscurrir_XTv = view.findViewById(R.id.valorDepuradoPorTranscurrir_XTv);
+        valorDepuradoMesProyectado_XTv = view.findViewById(R.id.valorDepuradoMesProyectado_XTv);
 
-        valorDiasPorEjec_XTv = view.findViewById(R.id.valorDiasPorEjec_XTv);
-        valorPromDiaPorEjecContable_XTv = view.findViewById(R.id.valorPromDiaPorEjecContable_XTv);
-        valorPromDiaPorEjecDepurado_XTv = view.findViewById(R.id.valorPromDiaPorEjecDepurado_XTv);
+        valorVsDepuradoTranscurrido_XTv = view.findViewById(R.id.valorVsDepuradoTranscurrido_XTv);
+        valorVsDepuradoDiario_XTv = view.findViewById(R.id.valorVsDepuradoDiario_XTv);
+        valorVsDepuradoPorTranscurrir_XTv = view.findViewById(R.id.valorVsDepuradoPorTranscurrir_XTv);
+        valorVsDepuradoMesProyectado_XTv = view.findViewById(R.id.valorVsDepuradoMesProyectado_XTv);
 
-        valorDiasEjecutado_XTv = view.findViewById(R.id.valorDiasEjecutado_XTv);
-        valorEjecutadoContable_XTv = view.findViewById(R.id.valorEjecutadoContable_XTv);
-        valorEjecutadoDepurado_XTv = view.findViewById(R.id.valorEjecutadoDepurado_XTv);
+        valorContableTranscurrido_XTv = view.findViewById(R.id.valorContableTranscurrido_XTv);
+        valorContableDiario_XTv = view.findViewById(R.id.valorContableDiario_XTv);
+        valorContablePorTranscurrir_XTv = view.findViewById(R.id.valorContablePorTranscurrir_XTv);
+        valorContableMesProyectado_XTv = view.findViewById(R.id.valorContableMesProyectado_XTv);
 
-        valorDiasAHoy_XTv = view.findViewById(R.id.valorDiasAHoy_XTv);
-        valorPromDiaHoyContable_XTv = view.findViewById(R.id.valorPromDiaHoyContable_XTv);
-        valorPromDiaHoyDepurado_XTv = view.findViewById(R.id.valorPromDiaHoyDepurado_XTv);
-
-        valorDiasProyHoy_XTv = view.findViewById(R.id.valorDiasProyHoy_XTv);
-        valorProyHoyContable_XTv = view.findViewById(R.id.valorProyHoyContable_XTv);
-        valorProyHoyDepurado_XTv = view.findViewById(R.id.valorProyHoyDepurado_XTv);
-
-        valorDiasAyer_XTv = view.findViewById(R.id.valorDiasAyer_XTv);
-        valorPromDiaAyerContable_XTv = view.findViewById(R.id.valorPromDiaAyerContable_XTv);
-        valorPromDiaAyerDepurado_XTv = view.findViewById(R.id.valorPromDiaAyerDepurado_XTv);
-
-        valorDiasProyAyer_XTv = view.findViewById(R.id.valorDiasProyAyer_XTv);
-        valorProyAyerContable_XTv = view.findViewById(R.id.valorProyAyerContable_XTv);
-        valorProyAyerDepurado_XTv = view.findViewById(R.id.valorProyAyerDepurado_XTv);
+        valorVsContableTranscurrido_XTv = view.findViewById(R.id.valorVsContableTranscurrido_XTv);
+        valorVsContableDiario_XTv = view.findViewById(R.id.valorVsContableDiario_XTv);
+        valorVsContablePorTranscurrir_XTv = view.findViewById(R.id.valorVsContablePorTranscurrir_XTv);
+        valorVsContableMesProyectado_XTv = view.findViewById(R.id.valorVsContableMesProyectado_XTv);
 
         valorActivoExigible_XTv = view.findViewById(R.id.valorActivoExigible_XTv);
         valorPasivoExigible_XTv = view.findViewById(R.id.valorPasivoExigible_XTv);
@@ -271,7 +268,6 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         diasMes = dateCurrent_ArrayInteger[6];
         Log.d("dias","#: "+diasMes);
         diaHoy = dateCurrent_ArrayInteger[2];
-        diasRestantes = diasMes - diaHoy;
 
         calcularGastosDepurados(dateCurrent_ArrayInteger[0], dateCurrent_ArrayInteger[1]);
     }
@@ -288,9 +284,15 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
 
             ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = resultado.getDatos();
 
+            // Aproximación "hoy/ayer": si ya hay una transacción registrada exactamente
+            // con fecha de hoy, se asume que el día de hoy ya quedó contabilizado y se
+            // usa diaHoy; si no, el día de hoy aún no cierra y se usa diaHoy - 1 (mínimo 1).
+            boolean hoyYaRegistrado = false;
+
             if (transacciones != null) {
                 int fechaInicio = año * 10000 + mes * 100 + 1;
                 int fechaFin = año * 10000 + mes * 100 + diasMes;
+                int fechaHoyExacta = año * 10000 + mes * 100 + diaHoy;
 
                 for (A3_2_TipoTransaccionesGetsYSets transaccion : transacciones) {
                     int fecha = transaccion.tipoTget_8FechaInicialMetodoEnA5();
@@ -300,6 +302,10 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
                             ", desc=" + desc +
                             ", fechaInicio=" + fechaInicio +
                             ", fechaFin=" + fechaFin);
+
+                    if (fecha == fechaHoyExacta) {
+                        hoyYaRegistrado = true;
+                    }
 
                     if (fecha >= fechaInicio && fecha <= fechaFin) {
                         String documento  = transaccion.tipoTget_1DocumentoMetodoEnA5();
@@ -319,11 +325,12 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
                 }
 
                 verificarConsistenciaProrrateables(transacciones);
-
-                a101CalculoDepuradoIndicadores.calcular(saldoEnrique, diaHoy, diasMes);
             }
 
-            a101CalculoDepuradoIndicadores.calcular(saldoEnrique, diaHoy, diasMes);
+            diasTranscurridosReales = hoyYaRegistrado ? diaHoy : Math.max(1, diaHoy - 1);
+            diasRestantes = diasMes - diasTranscurridosReales;
+
+            a101CalculoDepuradoIndicadores.calcular(saldoEnrique, diasTranscurridosReales, diasMes);
 
         } catch (Exception e) {
             Log.e("F5_Indicadores", "Error al calcular gastos depurados: " + e.getMessage());
@@ -339,7 +346,7 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
             symbols.setGroupingSeparator('.');
             df.setDecimalFormatSymbols(symbols);
 
-            // Colores
+            // Colores: azul = dentro de presupuesto / a favor, rojo = excedido
             int colorAzul = Color.parseColor("#2196F3");
             int colorRojo = Color.parseColor("#E57373");
 
@@ -347,85 +354,61 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
             int vrSaldoContable = saldoEnrique;
             int vrSaldoDepurado = (a101CalculoDepuradoIndicadores != null) ? a101CalculoDepuradoIndicadores.getGastoDepurado() : saldoEnrique;
 
-            // Fila 1: Presupuesto
-            valorDiasMes_XTv.setText(String.valueOf(diasMes));
-            valorPresupuestoDepurado_XTv.setText(String.valueOf(presupuestoTotal));
+            // ───────── Fila "Días" ─────────
+            valorDiasTranscurrido_XTv.setText(String.valueOf(diasTranscurridosReales));
+            valorDiasDiario_XTv.setText("1");
+            valorDiasPorTranscurrir_XTv.setText(String.valueOf(diasRestantes));
+            valorDiasMesTotal_XTv.setText(String.valueOf(diasMes));
 
-            // Fila 2: Promedio diario base
+            // ───────── Fila "Presupuesto" ─────────
             float promDiarioBase = (float) presupuestoTotal / diasMes;
-            valorDiasBase_XTv.setText(String.valueOf(diasMes));
-            valorPromDiarioBaseContable_XTv.setText(df.format(promDiarioBase));
-            valorPromDiarioBaseDepurado_XTv.setText(df.format(promDiarioBase));
+            float presupuestoTranscurrido = promDiarioBase * diasTranscurridosReales;
+            float presupuestoPorTranscurrir = promDiarioBase * diasRestantes;
 
-            // Fila 3: Por ejecutar
-            int porEjecutarContable = presupuestoTotal - vrSaldoContable;
-            int porEjecutarDepurado = presupuestoTotal - vrSaldoDepurado;
-            valorDiasPorEjecutar_XTv.setText(String.valueOf(diasRestantes));
-            valorPorEjecutarContable_XTv.setText(String.valueOf(porEjecutarContable));
-            valorPorEjecutarDepurado_XTv.setText(String.valueOf(porEjecutarDepurado));
+            valorPresupuestoTranscurrido_XTv.setText(df.format(presupuestoTranscurrido));
+            valorPresupuestoDiario_XTv.setText(df.format(promDiarioBase));
+            valorPresupuestoPorTranscurrir_XTv.setText(df.format(presupuestoPorTranscurrir));
+            valorPresupuestoMesTotal_XTv.setText(String.valueOf(presupuestoTotal));
 
-            valorPorEjecutarContable_XTv.setTextColor(porEjecutarContable >= 0 ? colorAzul : colorRojo);
-            valorPorEjecutarDepurado_XTv.setTextColor(porEjecutarDepurado >= 0 ? colorAzul : colorRojo);
+            // ───────── Fila "Depurado" ─────────
+            float depuradoDiario = (diasTranscurridosReales > 0) ? (float) vrSaldoDepurado / diasTranscurridosReales : 0;
+            float depuradoPorTranscurrir = depuradoDiario * diasRestantes;
+            float depuradoMesProyectado = vrSaldoDepurado + depuradoPorTranscurrir;
 
-            // Fila 4: Promedio día por ejecutar
-            float promDiaPorEjecContable = (diasRestantes > 0) ? (float) porEjecutarContable / diasRestantes : 0;
-            float promDiaPorEjecDepurado = (diasRestantes > 0) ? (float) porEjecutarDepurado / diasRestantes : 0;
-            valorDiasPorEjec_XTv.setText(String.valueOf(diasRestantes));
-            valorPromDiaPorEjecContable_XTv.setText(df.format(promDiaPorEjecContable));
-            valorPromDiaPorEjecDepurado_XTv.setText(df.format(promDiaPorEjecDepurado));
+            valorDepuradoTranscurrido_XTv.setText(String.valueOf(vrSaldoDepurado));
+            valorDepuradoDiario_XTv.setText(df.format(depuradoDiario));
+            valorDepuradoPorTranscurrir_XTv.setText(df.format(depuradoPorTranscurrir));
+            valorDepuradoMesProyectado_XTv.setText(String.valueOf(Math.round(depuradoMesProyectado)));
 
-            valorPromDiaPorEjecContable_XTv.setTextColor(promDiaPorEjecContable >= 0 ? colorAzul : colorRojo);
-            valorPromDiaPorEjecDepurado_XTv.setTextColor(promDiaPorEjecDepurado >= 0 ? colorAzul : colorRojo);
+            // ───────── Fila "Vs Presupuesto" (Depurado) — color-only, sin texto de Estado ─────────
+            asignarValorConColor(valorVsDepuradoTranscurrido_XTv,
+                    Math.round(vrSaldoDepurado - presupuestoTranscurrido), colorAzul, colorRojo);
+            asignarValorConColor(valorVsDepuradoDiario_XTv, df,
+                    depuradoDiario - promDiarioBase, colorAzul, colorRojo);
+            asignarValorConColor(valorVsDepuradoPorTranscurrir_XTv,
+                    Math.round(depuradoPorTranscurrir - presupuestoPorTranscurrir), colorAzul, colorRojo);
+            asignarValorConColor(valorVsDepuradoMesProyectado_XTv,
+                    Math.round(depuradoMesProyectado - presupuestoTotal), colorAzul, colorRojo);
 
-            // Fila 5: Ejecutado
-            valorDiasEjecutado_XTv.setText(String.valueOf(diaHoy));
-            valorEjecutadoContable_XTv.setText(String.valueOf(vrSaldoContable));
-            valorEjecutadoDepurado_XTv.setText(String.valueOf(vrSaldoDepurado));
+            // ───────── Fila "Contable" ─────────
+            float contableDiario = (diasTranscurridosReales > 0) ? (float) vrSaldoContable / diasTranscurridosReales : 0;
+            float contablePorTranscurrir = contableDiario * diasRestantes;
+            float contableMesProyectado = vrSaldoContable + contablePorTranscurrir;
 
-            valorEjecutadoContable_XTv.setTextColor(vrSaldoContable <= presupuestoTotal ? colorAzul : colorRojo);
-            valorEjecutadoDepurado_XTv.setTextColor(vrSaldoDepurado <= presupuestoTotal ? colorAzul : colorRojo);
+            valorContableTranscurrido_XTv.setText(String.valueOf(vrSaldoContable));
+            valorContableDiario_XTv.setText(df.format(contableDiario));
+            valorContablePorTranscurrir_XTv.setText(df.format(contablePorTranscurrir));
+            valorContableMesProyectado_XTv.setText(String.valueOf(Math.round(contableMesProyectado)));
 
-            // Fila 6: Promedio día a hoy
-            float promHoyContable = (diaHoy > 0) ? (float) vrSaldoContable / diaHoy : 0;
-            float promHoyDepurado = (diaHoy > 0) ? (float) vrSaldoDepurado / diaHoy : 0;
-            valorDiasAHoy_XTv.setText(String.valueOf(diaHoy));
-            valorPromDiaHoyContable_XTv.setText(df.format(promHoyContable));
-            valorPromDiaHoyDepurado_XTv.setText(df.format(promHoyDepurado));
-
-            valorPromDiaHoyContable_XTv.setTextColor(promHoyContable <= promDiarioBase ? colorAzul : colorRojo);
-            valorPromDiaHoyDepurado_XTv.setTextColor(promHoyDepurado <= promDiarioBase ? colorAzul : colorRojo);
-
-            // Fila 7: Proyectado desde hoy
-            float proyHoyContable = promHoyContable * diasMes;
-            float proyHoyDepurado = promHoyDepurado * diasMes;
-            valorDiasProyHoy_XTv.setText(String.valueOf(diasMes));
-            Log.d("dias","#: "+diasMes);
-            valorProyHoyContable_XTv.setText(String.valueOf(Math.round(proyHoyContable)));
-            valorProyHoyDepurado_XTv.setText(String.valueOf(Math.round(proyHoyDepurado)));
-
-            valorProyHoyContable_XTv.setTextColor(proyHoyContable <= presupuestoTotal ? colorAzul : colorRojo);
-            valorProyHoyDepurado_XTv.setTextColor(proyHoyDepurado <= presupuestoTotal ? colorAzul : colorRojo);
-
-            // Fila 8: Promedio día ayer
-            int diasAyer = (diaHoy > 1) ? (diaHoy - 1) : 1;
-            float promAyerContable = (float) vrSaldoContable / diasAyer;
-            float promAyerDepurado = (float) vrSaldoDepurado / diasAyer;
-            valorDiasAyer_XTv.setText(String.valueOf(diasAyer));
-            valorPromDiaAyerContable_XTv.setText(df.format(promAyerContable));
-            valorPromDiaAyerDepurado_XTv.setText(df.format(promAyerDepurado));
-
-            valorPromDiaAyerContable_XTv.setTextColor(promAyerContable <= promDiarioBase ? colorAzul : colorRojo);
-            valorPromDiaAyerDepurado_XTv.setTextColor(promAyerDepurado <= promDiarioBase ? colorAzul : colorRojo);
-
-            // Fila 9: Proyectado desde ayer
-            float proyAyerContable = promAyerContable * diasMes;
-            float proyAyerDepurado = promAyerDepurado * diasMes;
-            valorDiasProyAyer_XTv.setText(String.valueOf(diasMes));
-            valorProyAyerContable_XTv.setText(String.valueOf(Math.round(proyAyerContable)));
-            valorProyAyerDepurado_XTv.setText(String.valueOf(Math.round(proyAyerDepurado)));
-
-            valorProyAyerContable_XTv.setTextColor(proyAyerContable <= presupuestoTotal ? colorAzul : colorRojo);
-            valorProyAyerDepurado_XTv.setTextColor(proyAyerDepurado <= presupuestoTotal ? colorAzul : colorRojo);
+            // ───────── Fila "Vs Presupuesto" (Contable) — color-only, sin texto de Estado ─────────
+            asignarValorConColor(valorVsContableTranscurrido_XTv,
+                    Math.round(vrSaldoContable - presupuestoTranscurrido), colorAzul, colorRojo);
+            asignarValorConColor(valorVsContableDiario_XTv, df,
+                    contableDiario - promDiarioBase, colorAzul, colorRojo);
+            asignarValorConColor(valorVsContablePorTranscurrir_XTv,
+                    Math.round(contablePorTranscurrir - presupuestoPorTranscurrir), colorAzul, colorRojo);
+            asignarValorConColor(valorVsContableMesProyectado_XTv,
+                    Math.round(contableMesProyectado - presupuestoTotal), colorAzul, colorRojo);
 
             // Balance General
             valorActivoExigible_XTv.setText(String.valueOf(sumaActivo));
@@ -445,6 +428,23 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         }
     }
 
+    /**
+     * Colorea un valor "Vs Presupuesto" (ya redondeado) de rojo si está excedido (> 0)
+     * o azul si está dentro de presupuesto (<= 0). Reemplaza la antigua fila de "Estado".
+     */
+    private void asignarValorConColor(TextView tv, int valorRedondeado, int colorAzul, int colorRojo) {
+        tv.setText(String.valueOf(valorRedondeado));
+        tv.setTextColor(valorRedondeado > 0 ? colorRojo : colorAzul);
+    }
+
+    /**
+     * Igual que el anterior, pero para valores diarios formateados con decimales.
+     */
+    private void asignarValorConColor(TextView tv, DecimalFormat df, float valorParaColor, int colorAzul, int colorRojo) {
+        tv.setText(df.format(valorParaColor));
+        tv.setTextColor(valorParaColor > 0 ? colorRojo : colorAzul);
+    }
+
     private void mostrarDetalleProrrateables() {
         if (a101CalculoDepuradoIndicadores == null || a101CalculoDepuradoIndicadores.getCantidadProrrateables() == 0) {
             Toast.makeText(getActivity(),
@@ -455,7 +455,7 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         }
 
         F5_2_DetalleProrrateables dialogoDetalle = F5_2_DetalleProrrateables.newInstance(
-                a101CalculoDepuradoIndicadores, diaHoy);
+                a101CalculoDepuradoIndicadores, diasTranscurridosReales);
         dialogoDetalle.show(getFragmentManager(), "detalle_prorrateables");
     }
 
