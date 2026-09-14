@@ -213,6 +213,30 @@ public class A5_CacheManager {
         return existe;
     }
 
+    /**
+     * Cuenta, de las 4 áreas de caché (Crear, Plantilla, Editar/Modificar y
+     * En Espera), cuántas tienen ahora mismo un backup guardado — es decir,
+     * pendiente de restaurar o de terminar. Usado por el badge numérico tipo
+     * WhatsApp del botón 💾 (F1_CrudDocumento.actualizarBadgeCache()).
+     *
+     * @return de 0 a 4.
+     */
+    public static int contarAreasConCache(Context context) {
+        int[] areas = {
+                A1_1_AyudanteBD.AREA_CREATE,
+                A1_1_AyudanteBD.AREA_TEMPLATE,
+                A1_1_AyudanteBD.AREA_UPDATE,
+                A1_1_AyudanteBD.AREA_UPDATE_ESPERA
+        };
+        int cantidad = 0;
+        for (int areaId : areas) {
+            if (existeCache(context, areaId)) {
+                cantidad++;
+            }
+        }
+        return cantidad;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     //  RESTAURAR ENCABEZADO  (reemplaza origenRestoreCRUDBackupCsvViewsValues)
     // ─────────────────────────────────────────────────────────────────────────

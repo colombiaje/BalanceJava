@@ -1,5 +1,6 @@
 package A1BASES;
 
+import android.content.DialogInterface;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
@@ -158,6 +159,22 @@ public class A9_VisorTablasDialogo extends DialogFragment {
         lp.y = 40;  // margen inferior en px
         w.setAttributes(lp);
         w.setBackgroundDrawableResource(android.R.drawable.dialog_holo_light_frame);
+    }
+
+    /**
+     * Se llama al cerrar este diálogo, sea por el botón X, tocar afuera, el
+     * botón atrás, o el dismiss() automático de editarArea()/enviarEsperaAArea3().
+     * Cubre así CUALQUIER acción de aquí adentro que haya cambiado la caché
+     * (Enviar a área 3, Borrar backup, Editar) sin tener que engancharse a
+     * cada botón por separado — refresca el badge 💾 de F1_CrudDocumento.
+     */
+    @Override
+    public void onDismiss(@NonNull DialogInterface dialog) {
+        super.onDismiss(dialog);
+        Fragment padre = getParentFragment();
+        if (padre instanceof F1_CrudDocumento) {
+            ((F1_CrudDocumento) padre).actualizarBadgeCache();
+        }
     }
 
     @Nullable

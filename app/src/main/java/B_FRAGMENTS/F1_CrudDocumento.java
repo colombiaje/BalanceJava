@@ -127,6 +127,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // Clasificación — ver actualizarBadgeAuditoria().
     private TextView auditoriaClasificacionBadge_XTv;
 
+    // Badge numérico (tipo WhatsApp) sobre el botón 💾 de caché — ver
+    // actualizarBadgeCache().
+    private TextView cacheBackupBadge_XTv;
+
     // =========================================================
     // SECTION 2 — UI state flags
     // Controls modes, dialogs and copy/paste behavior
@@ -432,6 +436,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             A9_VisorTablasDialogo.newInstance()
                     .show(getChildFragmentManager(), "visor_debug");
         });
+        cacheBackupBadge_XTv = inflarViews_View.findViewById(R.id.cacheBackupBadge_XTv);
+        actualizarBadgeCache();
 
         Button btAuditoriaClasificacion = inflarViews_View.findViewById(R.id.auditoriaClasificacion_XBt);
         if (btAuditoriaClasificacion != null) {
@@ -1381,6 +1387,25 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      * a22QueryManager, porque este método se llama antes de que ese campo
      * quede inicializado en onCreateView().
      */
+    /**
+     * Actualiza el badge numérico (tipo WhatsApp) del botón 💾 de caché con
+     * cuántas de las 4 áreas (Crear, Plantilla, Editar, En Espera) tienen
+     * ahora mismo un backup guardado — pendiente de restaurar o de terminar
+     * — para que el usuario vea de un vistazo si hay trabajo suelto, sin
+     * tener que abrir el visor. Se llama al crear la vista, en onResume(),
+     * justo después de guardar/eliminar un backup en este mismo fragmento
+     * (hacerBackupSilencioso(), hacerBackupSilenciosoCanalD(),
+     * eliminarBackups()) y al cerrar el diálogo A9_VisorTablasDialogo (ver
+     * su onDismiss()), que es donde viven "Enviar a área 3" y "Borrar
+     * backup" — así queda cubierta cualquier acción que cambie la caché,
+     * sin tener que enganchar cada botón suyo uno por uno.
+     */
+    public void actualizarBadgeCache() {
+        if (cacheBackupBadge_XTv == null || getContext() == null) return;
+        int cantidad = A5_CacheManager.contarAreasConCache(getContext());
+        A99_MetodosVarios.actualizarBadgeNumerico(cacheBackupBadge_XTv, cantidad);
+    }
+
     public void actualizarBadgeAuditoria() {
         if (auditoriaClasificacionBadge_XTv == null || getContext() == null) return;
         int cantidad = new A22_QueryManager(getContext())
@@ -2103,6 +2128,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         A5_CacheManager.guardarEncabezado(getContext(), areaId, buildEncabezado());
         Log.d("hacer_backup","aqui 14 F1");
 
+        actualizarBadgeCache();
     }
 
     /**
@@ -2165,6 +2191,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 R.id.create_XRb, R.id.template_XRb, R.id.updateDelete_XRb);
 
         A5_CacheManager.eliminar(getContext(), areaId);
+        actualizarBadgeCache();
     }
 
     //
@@ -2406,6 +2433,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         super.onResume();
         // Intentionally empty (aparte del badge) — restoration logic runs in onStart()
         actualizarBadgeAuditoria();
+        actualizarBadgeCache();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2605,6 +2633,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // ✅ Encabezado después — emula CSV_HEADER
         A5_CacheManager.guardarEncabezado(getContext(), areaId, buildEncabezado());
         Log.d("hacer_backup","aqui 22 F1");
+
+        actualizarBadgeCache();
     }
 
     void mostrarTooltipValidacion(String icono, String mensaje, int colorTexto, int colorFondo) {

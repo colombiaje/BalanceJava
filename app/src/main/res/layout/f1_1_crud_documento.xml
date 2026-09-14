@@ -234,16 +234,52 @@
 
                     />
 
-                <Button
-                    android:id="@+id/cacheBackup_XBt"
+                <FrameLayout
                     android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="@drawable/ic_backup"
-                    android:textAllCaps="false"
-                    android:textColor="#1976D2"
-                    android:textSize="24sp"
+                    android:layout_height="40dp">
 
-                    />
+                    <Button
+                        android:id="@+id/cacheBackup_XBt"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/ic_backup"
+                        android:textAllCaps="false"
+                        android:textColor="#1976D2"
+                        android:textSize="24sp"
+                        android:elevation="0dp"
+                        android:stateListAnimator="@null"
+
+                        />
+
+                    <!-- Badge numérico tipo WhatsApp: de las 4 áreas de caché
+                         (Crear, Plantilla, Editar, En Espera), cuántas tienen
+                         ahora mismo un backup guardado pendiente de restaurar
+                         o terminar (0 a 4). Oculto por defecto;
+                         F1_CrudDocumento.actualizarBadgeCache() lo llena.
+
+                         Mismo tamaño que le diste al badge de Auditoría al
+                         agrandarlo (20dp/20dp/11sp) — si tú usaste otro
+                         número, dime cuál para igualar este también. -->
+                    <TextView
+                        android:id="@+id/cacheBackupBadge_XTv"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="-2dp"
+                        android:layout_marginEnd="-2dp"
+                        android:minWidth="20dp"
+                        android:minHeight="20dp"
+                        android:paddingLeft="3dp"
+                        android:paddingRight="3dp"
+                        android:background="@drawable/bg_badge_notificacion"
+                        android:gravity="center"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        />
+
+                </FrameLayout>
 
                 <FrameLayout
                     android:layout_width="40dp"
