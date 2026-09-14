@@ -123,11 +123,23 @@
                     android:layout_height="match_parent"
                     android:background="@drawable/ic_check"
                     android:textAllCaps="false"
+                    android:elevation="0dp"
+                    android:stateListAnimator="@null"
                     />
 
                 <!-- Badge numérico tipo WhatsApp: cuántas transacciones
                      desalineadas hay ahora mismo. Oculto por defecto;
-                     F3_1_VerInformePrincipal.actualizarBadgeAuditoria() lo llena. -->
+                     F3_1_VerInformePrincipal.actualizarBadgeAuditoria() lo llena.
+
+                     android:elevation="0dp" + stateListAnimator="@null" arriba,
+                     en el Button, son la parte importante de este cambio: el
+                     Button estándar de Android trae elevación (sombra) propia
+                     del tema Material incluso con background personalizado, y
+                     un ViewGroup dibuja a los hijos con más elevación por
+                     ENCIMA de los que tienen menos — sin importar el orden en
+                     el XML. Por eso el badge (elevación 0 por defecto) quedaba
+                     totalmente tapado por el botón, invisible aunque el código
+                     sí lo estuviera llenando y mostrando correctamente. -->
                 <TextView
                     android:id="@+id/auditoriaClasificacionBadge_XTv"
                     android:layout_width="wrap_content"
