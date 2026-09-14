@@ -41,6 +41,8 @@ import androidx.core.content.FileProvider;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -329,13 +331,31 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             bundle.putString("keyDocumentNumber", documento);
             bundle.putBoolean("fromVerItemTransaccion", true); // 🔑 MARCADOR de origen
 
-            Fragment fragment = new F1_CrudDocumento();
-            fragment.setArguments(bundle);
-
-            requireActivity().getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.contenedor_fragments_f0_Xf, fragment)
-                    .addToBackStack(null)
-                    .commit();
+            // 🛡️ CORRECCIÓN (menú lateral se "pegaba" en Informes al volver):
+            // Antes esto hacía un FragmentTransaction manual directo sobre
+            // R.id.contenedor_fragments_f0_Xf. El problema es que ese MISMO id
+            // es el contenedor del NavHostFragment (ver mobile_navigation.xml)
+            // — reemplazarlo a mano saca de ahí al NavHostFragment, y el
+            // NavController pierde la noción real de qué pantalla se está
+            // viendo. Por eso luego, al volver a F1_CrudDocumento y abrir el
+            // menú lateral, "Informes" seguía apareciendo como seleccionado
+            // (el NavController seguía pensando que ahí se había quedado) y
+            // tocarlo no hacía nada — solo se resincronizaba tras tocar otro
+            // ítem primero. El intento anterior (re-resolver el NavController
+            // en cada clic del menú, en C2_ActivityMenu) evitó un choque en
+            // ese caso, pero no corrige este desajuste de raíz.
+            //
+            // F1_CrudDocumento YA es un destino normal del grafo de
+            // navegación (navf1 — el mismo "Transacciones" del menú lateral),
+            // así que navegar por el propio NavController hacia navf1, en vez
+            // de reemplazar el contenedor a mano, mantiene el grafo
+            // sincronizado con lo que se ve en pantalla. El bundle llega
+            // igual: Navigation lo entrega como getArguments() del fragment
+            // nuevo, exactamente como hacía fragment.setArguments(bundle) —
+            // por eso F1_CrudDocumento no necesita ningún cambio.
+            NavController navController = Navigation.findNavController(
+                    requireActivity(), R.id.contenedor_fragments_f0_Xf);
+            navController.navigate(R.id.navf1, bundle);
         } catch (Exception e) {
             Toast.makeText(getActivity(), "No se puede ver la vista", Toast.LENGTH_SHORT).show();
         }
