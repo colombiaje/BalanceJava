@@ -509,7 +509,7 @@ public class B13_NavigationManager {
 
         // 20s a pedido de Jorge (antes ~2.7s) — misma duración que el
         // Snackbar, ver mostrarSnackbarBorradorRecuperado().
-        final long duracionResaltado = 15000;
+        final long duracionResaltado = 9000;
         final int alphaInicial = 140; // semi-transparente — no tapa los campos
 
         ColorDrawable veloArea = new ColorDrawable(Color.parseColor("#FFEB3B")); // amarillo "recién llegado"
@@ -526,8 +526,8 @@ public class B13_NavigationManager {
         }
 
         ValueAnimator desvanecer = ValueAnimator.ofInt(alphaInicial, 0);
-        desvanecer.setStartDelay(15000);
-        desvanecer.setDuration(duracionResaltado - 10000);
+        desvanecer.setStartDelay(9000);
+        desvanecer.setDuration(duracionResaltado - 8000);
         desvanecer.addUpdateListener(a -> {
             int alpha = (int) a.getAnimatedValue();
             veloArea.setAlpha(alpha);
