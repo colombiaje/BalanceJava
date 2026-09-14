@@ -2,7 +2,10 @@ package A1BASES;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.widget.TextView;
 
@@ -20,24 +23,41 @@ public class A99_MetodosVarios {
     public static String stringFechaYHora = null;
 
     /**
-     * Llena un "badge" numérico tipo WhatsApp (fondo circular/píldora rojo,
+     * Llena un "badge" numérico tipo WhatsApp (fondo circular/píldora,
      * número blanco) — usado en el botón ✔️ de Auditoría de Clasificación,
      * tanto en F1_CrudDocumento como en F3_1_VerInformePrincipal, para que
      * el usuario vea de un vistazo cuántas transacciones desalineadas hay,
      * sin tener que abrir el diálogo para enterarse.
      *
-     * cantidad <= 0 → oculta el badge (sin inconsistencias).
+     * Siempre visible, incluyendo el "0" — a propósito (petición explícita
+     * de Jorge, 2026-09-14): un botón ✔️ sin ningún número es ambiguo (¿no
+     * hay errores, o el badge simplemente no cargó?), mientras que un "0"
+     * confirma activamente que se revisó y no hay inconsistencias.
+     *
+     * Para que "0" no se lea como una alerta, el fondo cambia de color según
+     * el caso: verde cuando cantidad es 0 (todo en orden), rojo cuando hay
+     * una o más desalineaciones. El drawable (bg_badge_notificacion.xml) es
+     * un GradientDrawable — se recolorea en tiempo de ejecución en vez de
+     * necesitar dos recursos .xml separados.
+     *
      * cantidad > 99 → muestra "99+" en vez del número exacto, igual que
      * hacen la mayoría de apps de mensajería con sus contadores.
      */
     public static void actualizarBadgeNumerico(TextView badge, int cantidad) {
         if (badge == null) return;
-        if (cantidad <= 0) {
-            badge.setVisibility(View.GONE);
-            return;
-        }
-        badge.setText(cantidad > 99 ? "99+" : String.valueOf(cantidad));
+
+        int cantidadMostrada = Math.max(cantidad, 0);
+        badge.setText(cantidadMostrada > 99 ? "99+" : String.valueOf(cantidadMostrada));
         badge.setVisibility(View.VISIBLE);
+
+        int colorBadge = cantidadMostrada > 0
+                ? Color.parseColor("#E53935")  // rojo — hay desalineamientos
+                : Color.parseColor("#2E7D32"); // verde — sin inconsistencias
+
+        Drawable fondo = badge.getBackground();
+        if (fondo instanceof GradientDrawable) {
+            ((GradientDrawable) fondo.mutate()).setColor(colorBadge);
+        }
     }
 
 
