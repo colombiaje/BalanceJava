@@ -158,6 +158,9 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     private F6_Calculadora                 calculadora_Fragment;
     Button calculadoraLibre_XBt;
 
+    // Atajo a F5_3_GraficasIndicadores: solo visible cuando la cuenta consultada es "CxC Enrique"
+    Button graficasIndicadores_XBt;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -210,6 +213,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
 
         calculadora_Fragment = new F6_Calculadora();
         calculadoraLibre_XBt = inflarViews_View.findViewById(R.id.calculadoraLibre_XBt);
+        graficasIndicadores_XBt = inflarViews_View.findViewById(R.id.graficasIndicadores_XBt);
 
         // TODO TU CASTING EXISTENTE (sin cambios)
         limpiarChecks_XBt = inflarViews_View.findViewById(R.id.limpiarChecks_XBt);
@@ -280,6 +284,10 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
 
         if (calculadoraLibre_XBt != null) {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());
+        }
+
+        if (graficasIndicadores_XBt != null) {
+            graficasIndicadores_XBt.setOnClickListener(v -> mostrarGraficasIndicadores());
         }
 
         return inflarViews_View;
@@ -858,6 +866,12 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                     c3_Cuenta_XTv.setText(receivedAccount);
                 }
 
+                // Atajo a las gráficas de Indicadores: solo para la cuenta "CxC Enrique"
+                if (graficasIndicadores_XBt != null) {
+                    graficasIndicadores_XBt.setVisibility(
+                            "CxC Enrique".equals(receivedAccount) ? View.VISIBLE : View.GONE);
+                }
+
                 Log.d("BundleRecibido", "Cuenta: " + receivedAccount +
                         ", Año: " + anioRecibido +
                         ", Mes: " + mesRecibido +
@@ -1395,6 +1409,12 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
         // Usar factory method sin callback
         F6_Calculadora calculadora = F6_Calculadora.newInstanceLibre();
         calculadora.show(getFragmentManager(), "calculadora_libre");
+    }
+
+    private void mostrarGraficasIndicadores() {
+        if (getFragmentManager() == null) return;
+
+        new F5_3_GraficasIndicadores().show(getFragmentManager(), "graficas_indicadores");
     }
 
 }

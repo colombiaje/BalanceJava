@@ -57,6 +57,18 @@
 
             />
 
+        <!-- Solo visible cuando la cuenta consultada es "CxC Enrique": atajo a las gráficas de Indicadores -->
+        <Button
+            android:id="@+id/graficasIndicadores_XBt"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackground"
+            android:text="📊"
+            android:textAllCaps="false"
+            android:textSize="24sp"
+            android:visibility="gone"
+            android:contentDescription="Ver gráficas de Indicadores"/>
+
     </LinearLayout>
 
     <LinearLayout

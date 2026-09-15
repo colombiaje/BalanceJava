@@ -30,6 +30,16 @@
           android:gravity="center"/>
 
       <Button
+          android:id="@+id/graficasIndicadores_XBt"
+          android:layout_width="40dp"
+          android:layout_height="35dp"
+          android:background="?attr/selectableItemBackground"
+          android:text="📊"
+          android:textAllCaps="false"
+          android:textSize="20sp"
+          android:contentDescription="Ver gráficas"/>
+
+      <Button
           android:id="@+id/calculadoraLibre_XBt"
           android:layout_width="40dp"
           android:layout_height="35dp"
@@ -611,148 +621,6 @@
                 android:textStyle="bold"
                 android:gravity="center"/>
 
-         </LinearLayout>
-
-         <!-- SEPARADOR GRÁFICAS -->
-         <TextView
-             android:layout_width="match_parent"
-             android:layout_height="35dp"
-             android:text="GRÁFICAS"
-             android:background="#512DA8"
-             android:textColor="@android:color/white"
-             android:textSize="15sp"
-             android:textStyle="bold"
-             android:gravity="center"
-             android:layout_marginTop="8dp"/>
-
-         <!-- GRÁFICA A: comparación Presupuesto/Depurado/Contable del mes proyectado, cada barra dividida en Transcurrido (sólido) / Por transcurrir (claro, proyección) -->
-         <TextView
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:text="Mes proyectado: Presupuesto vs Depurado vs Contable"
-             android:textSize="12sp"
-             android:textStyle="italic"
-             android:gravity="center"
-             android:paddingTop="6dp"
-             android:paddingBottom="2dp"/>
-
-         <com.github.mikephil.charting.charts.BarChart
-             android:id="@+id/graficaComparacion_XBc"
-             android:layout_width="match_parent"
-             android:layout_height="260dp"
-             android:layout_marginTop="4dp"/>
-
-         <!-- Delta vs presupuesto de Depurado y Contable (Presupuesto siempre es 0, no se muestra) -->
-         <LinearLayout
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:gravity="center"
-             android:paddingTop="2dp">
-
-            <TextView
-                android:id="@+id/deltaGraficaDepurado_XTv"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:gravity="center"/>
-
-            <TextView
-                android:id="@+id/deltaGraficaContable_XTv"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:gravity="center"/>
-         </LinearLayout>
-
-         <!-- Leyenda del matiz claro/oscuro (aplica a las 3 barras por igual) -->
-         <LinearLayout
-             android:layout_width="wrap_content"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:gravity="center_vertical"
-             android:layout_gravity="center_horizontal"
-             android:paddingTop="6dp">
-
-            <View
-                android:layout_width="10dp"
-                android:layout_height="10dp"
-                android:background="#616161"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="  Ya transcurrido    "
-                android:textSize="10sp"
-                android:textColor="#616161"/>
-
-            <View
-                android:layout_width="10dp"
-                android:layout_height="10dp"
-                android:background="#BDBDBD"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="  Proyectado (restante)"
-                android:textSize="10sp"
-                android:textColor="#616161"/>
-         </LinearLayout>
-
-         <!-- GRÁFICA B: tendencia diaria del Depurado en el mes en curso (solo CxC Enrique), con línea de referencia del presupuesto -->
-         <TextView
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:text="Tendencia del mes — Depurado (CxC Enrique)"
-             android:textSize="12sp"
-             android:textStyle="italic"
-             android:gravity="center"
-             android:paddingTop="12dp"
-             android:paddingBottom="2dp"/>
-
-         <com.github.mikephil.charting.charts.LineChart
-             android:id="@+id/graficaTendencia_XLc"
-             android:layout_width="match_parent"
-             android:layout_height="220dp"
-             android:layout_marginTop="4dp"/>
-
-         <!-- Leyenda de la curva de tendencia -->
-         <LinearLayout
-             android:layout_width="wrap_content"
-             android:layout_height="wrap_content"
-             android:orientation="horizontal"
-             android:gravity="center_vertical"
-             android:layout_gravity="center_horizontal"
-             android:paddingTop="6dp"
-             android:paddingBottom="8dp">
-
-            <View
-                android:layout_width="14dp"
-                android:layout_height="3dp"
-                android:background="#FAB219"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="  Depurado real    "
-                android:textSize="10sp"
-                android:textColor="#616161"/>
-
-            <View
-                android:layout_width="14dp"
-                android:layout_height="3dp"
-                android:background="#898781"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="  Presupuesto (ritmo ideal)"
-                android:textSize="10sp"
-                android:textColor="#616161"/>
          </LinearLayout>
 
       </LinearLayout>
