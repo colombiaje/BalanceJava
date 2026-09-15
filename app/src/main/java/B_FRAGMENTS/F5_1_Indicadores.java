@@ -160,7 +160,7 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
 
         if (graficasIndicadores_XBt != null) {
             graficasIndicadores_XBt.setOnClickListener(v ->
-                    new F5_3_GraficasIndicadores().show(getFragmentManager(), "graficas_indicadores"));
+                    F5_3_GraficasIndicadores.newInstance(true).show(getFragmentManager(), "graficas_indicadores"));
         }
 
         // Ejecutar cálculos y mostrar valores

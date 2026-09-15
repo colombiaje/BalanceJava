@@ -1414,7 +1414,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     private void mostrarGraficasIndicadores() {
         if (getFragmentManager() == null) return;
 
-        new F5_3_GraficasIndicadores().show(getFragmentManager(), "graficas_indicadores");
+        F5_3_GraficasIndicadores.newInstance(false).show(getFragmentManager(), "graficas_indicadores");
     }
 
 }

@@ -67,6 +67,12 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
     private static final String KEY_PRESUPUESTO = "presupuesto_mensual";
     private static final int PRESUPUESTO_DEFAULT = 3000;
     private static final String CUENTA_ENRIQUE = "CxC Enrique";
+    private static final String ARG_VIENE_DE_PANEL_CIFRAS = "argVieneDePanelCifras";
+
+    // true si se abrió desde el ícono 📊 de F5_1_Indicadores (panel de cifras ya abierto
+    // detrás de este diálogo); false si vino del atajo en F3_2_VerItemTransaccion (no hay
+    // panel de cifras abierto todavía). Determina si el botón 🔙 tiene sentido mostrarse.
+    private boolean vieneDePanelCifras = false;
 
     ImageButton salidaEsteFragment_XBt;
     BarChart graficaComparacion_XBc;
@@ -93,11 +99,28 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         // Constructor público vacío requerido
     }
 
+    /**
+     * @param vieneDePanelCifras true si se abre desde F5_1_Indicadores (ese panel ya está
+     *                           abierto detrás), false si se abre desde el atajo de
+     *                           F3_2_VerItemTransaccion.
+     */
+    public static F5_3_GraficasIndicadores newInstance(boolean vieneDePanelCifras) {
+        F5_3_GraficasIndicadores fragment = new F5_3_GraficasIndicadores();
+        Bundle args = new Bundle();
+        args.putBoolean(ARG_VIENE_DE_PANEL_CIFRAS, vieneDePanelCifras);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setStyle(DialogFragment.STYLE_NORMAL, android.R.style.Theme_Material_Light_Dialog);
         sharedPreferences = getActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Bundle args = getArguments();
+        if (args != null) {
+            vieneDePanelCifras = args.getBoolean(ARG_VIENE_DE_PANEL_CIFRAS, false);
+        }
     }
 
     @Override
@@ -145,7 +168,13 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());
         }
         if (irAPanelCifras_XBt != null) {
-            irAPanelCifras_XBt.setOnClickListener(v -> irAPanelDeCifras());
+            if (vieneDePanelCifras) {
+                // El panel de cifras ya está abierto detrás de este diálogo (se llegó
+                // desde su ícono 📊): el atajo sobraría, haría lo mismo que la ❌.
+                irAPanelCifras_XBt.setVisibility(View.GONE);
+            } else {
+                irAPanelCifras_XBt.setOnClickListener(v -> irAPanelDeCifras());
+            }
         }
 
         calcularYMostrarGraficas();
@@ -322,11 +351,14 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
      * "Transcurrido" (ya es un hecho) y el tono claro es "Por transcurrir" (proyección).
      * Debajo de la gráfica se muestra el delta vs presupuesto de Depurado y Contable
      * (el de Presupuesto contra sí mismo siempre es 0, por eso no se muestra).
-     * Cada barra lleva además un 3er tramo invisible (transparente, altura mínima) solo
-     * para anclar la etiqueta del total "Mes Proyectado" justo encima de la columna —
-     * MPAndroidChart dibuja el valor del tramo superior de una barra apilada por encima
-     * de esta, y al dejar de ser el tramo superior, "Por transcurrir" pasa a dibujarse
-     * dentro de su propio color, como pidió el usuario.
+     * Cada barra lleva además un 3er tramo invisible (transparente) que sirve solo de
+     * "ancla" para la etiqueta del total "Mes Proyectado": con setDrawValueAboveBar(false),
+     * MPAndroidChart dibuja la etiqueta de CADA tramo apilado ligeramente por debajo del
+     * borde superior de ese mismo tramo — así "Transcurrido" y "Por transcurrir" caen
+     * dentro de su propio color, y el tramo-ancla (el más alto) recibe la etiqueta del
+     * total justo encima de la parte visible de la columna. El tramo-ancla debe tener
+     * una altura mínima (no ínfima) para que su etiqueta no se solape con la de "Por
+     * transcurrir" justo debajo.
      * Idéntico a F5_1_Indicadores.actualizarGraficaComparacion().
      */
     private void actualizarGraficaComparacion(float presupuestoTranscurrido, float presupuestoPorTranscurrir,
@@ -347,19 +379,24 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         float depuradoPorTranscurrirPos = Math.max(depuradoPorTranscurrir, 0);
         float contablePorTranscurrirPos = Math.max(contablePorTranscurrir, 0);
 
-        // Tramo-ancla invisible: pequeño pero proporcional a cada barra, para que la
-        // etiqueta del total quede justo encima de su columna sin deformar la escala.
-        float epsilonPresupuesto = Math.max((presupuestoTranscurrido + presupuestoPorTranscurrirPos) * 0.001f, 0.5f);
-        float epsilonDepurado = Math.max((vrSaldoDepurado + depuradoPorTranscurrirPos) * 0.001f, 0.5f);
-        float epsilonContable = Math.max((vrSaldoContable + contablePorTranscurrirPos) * 0.001f, 0.5f);
+        float totalPresupuesto = presupuestoTranscurrido + presupuestoPorTranscurrirPos;
+        float totalDepurado = vrSaldoDepurado + depuradoPorTranscurrirPos;
+        float totalContable = vrSaldoContable + contablePorTranscurrirPos;
 
-        int totalPresupuestoRedondeado = Math.round(presupuestoTranscurrido + presupuestoPorTranscurrirPos);
+        // Tramo-ancla invisible: mismo alto (en valor) para las 3 barras, ~18% de la
+        // barra más alta de las 3 — suficiente para que la etiqueta del total no se
+        // solape con la de "Por transcurrir" justo debajo, sin depender del tamaño de
+        // cada barra individual.
+        float mayorTotal = Math.max(totalPresupuesto, Math.max(totalDepurado, totalContable));
+        float alturaTramoAncla = Math.max(mayorTotal * 0.18f, 1f);
+
+        int totalPresupuestoRedondeado = Math.round(totalPresupuesto);
         int totalDepuradoRedondeado = Math.round(depuradoMesProyectado);
         int totalContableRedondeado = Math.round(contableMesProyectado);
 
-        BarEntry entryPresupuesto = new BarEntry(0f, new float[]{presupuestoTranscurrido, presupuestoPorTranscurrirPos, epsilonPresupuesto});
-        BarEntry entryDepurado = new BarEntry(1f, new float[]{vrSaldoDepurado, depuradoPorTranscurrirPos, epsilonDepurado});
-        BarEntry entryContable = new BarEntry(2f, new float[]{vrSaldoContable, contablePorTranscurrirPos, epsilonContable});
+        BarEntry entryPresupuesto = new BarEntry(0f, new float[]{presupuestoTranscurrido, presupuestoPorTranscurrirPos, alturaTramoAncla});
+        BarEntry entryDepurado = new BarEntry(1f, new float[]{vrSaldoDepurado, depuradoPorTranscurrirPos, alturaTramoAncla});
+        BarEntry entryContable = new BarEntry(2f, new float[]{vrSaldoContable, contablePorTranscurrirPos, alturaTramoAncla});
 
         BarDataSet dsPresupuesto = new BarDataSet(new ArrayList<>(Collections.singletonList(entryPresupuesto)), "Presupuesto");
         dsPresupuesto.setColors(verdeOscuro, verdeClaro, Color.TRANSPARENT);
@@ -371,10 +408,10 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         dsContable.setColors(rojoOscuro, rojoClaro, Color.TRANSPARENT);
 
         // Cada barra usa su propio formateador: redondea los 2 tramos reales normalmente,
-        // y cuando el valor es el tramo-ancla (epsilon) muestra el total "Mes Proyectado".
-        dsPresupuesto.setValueFormatter(crearFormateadorConTotal(epsilonPresupuesto, totalPresupuestoRedondeado));
-        dsDepurado.setValueFormatter(crearFormateadorConTotal(epsilonDepurado, totalDepuradoRedondeado));
-        dsContable.setValueFormatter(crearFormateadorConTotal(epsilonContable, totalContableRedondeado));
+        // y cuando el valor es el tramo-ancla muestra el total "Mes Proyectado".
+        dsPresupuesto.setValueFormatter(crearFormateadorConTotal(alturaTramoAncla, totalPresupuestoRedondeado));
+        dsDepurado.setValueFormatter(crearFormateadorConTotal(alturaTramoAncla, totalDepuradoRedondeado));
+        dsContable.setValueFormatter(crearFormateadorConTotal(alturaTramoAncla, totalContableRedondeado));
 
         for (BarDataSet ds : new BarDataSet[]{dsPresupuesto, dsDepurado, dsContable}) {
             ds.setDrawValues(true);
@@ -387,9 +424,13 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
 
         graficaComparacion_XBc.setData(barData);
         graficaComparacion_XBc.setFitBars(true);
+        // Con esto en false, la etiqueta de CADA tramo (incluido el superior) se dibuja
+        // debajo de su propio borde, es decir dentro de su color — ya no "flota" sobre
+        // toda la barra. Es lo que hace que el tramo-ancla funcione como se explica arriba.
+        graficaComparacion_XBc.setDrawValueAboveBar(false);
         graficaComparacion_XBc.getDescription().setEnabled(false);
         graficaComparacion_XBc.getLegend().setEnabled(false);
-        graficaComparacion_XBc.setExtraTopOffset(10f);
+        graficaComparacion_XBc.setExtraTopOffset(14f);
         graficaComparacion_XBc.setExtraBottomOffset(6f);
         graficaComparacion_XBc.setDoubleTapToZoomEnabled(false);
         graficaComparacion_XBc.setPinchZoom(false);
