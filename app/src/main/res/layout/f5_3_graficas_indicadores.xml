@@ -30,6 +30,16 @@
           android:gravity="center"/>
 
       <Button
+          android:id="@+id/irAPanelCifras_XBt"
+          android:layout_width="40dp"
+          android:layout_height="35dp"
+          android:background="?attr/selectableItemBackground"
+          android:text="🔙"
+          android:textAllCaps="false"
+          android:textSize="20sp"
+          android:contentDescription="Ir al panel de cifras"/>
+
+      <Button
           android:id="@+id/calculadoraLibre_XBt"
           android:layout_width="40dp"
           android:layout_height="35dp"

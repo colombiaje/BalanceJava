@@ -24,6 +24,7 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.FragmentManager;
 
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.LineChart;
@@ -75,6 +76,9 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
     private F6_Calculadora calculadora_Fragment;
     Button calculadoraLibre_XBt;
 
+    // Atajo de vuelta a F5_1_Indicadores (panel de cifras)
+    Button irAPanelCifras_XBt;
+
     A22_QueryManager a22QueryManager;
     SQLiteDatabase db;
     A1_1_AyudanteBD ayudante_Class;
@@ -122,6 +126,7 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
 
         calculadora_Fragment = new F6_Calculadora();
         calculadoraLibre_XBt = inflarViews_View.findViewById(R.id.calculadoraLibre_XBt);
+        irAPanelCifras_XBt = inflarViews_View.findViewById(R.id.irAPanelCifras_XBt);
 
         if (ayudante_Class == null) {
             ayudante_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
@@ -138,6 +143,9 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         salidaEsteFragment_XBt.setOnClickListener(v -> dismiss());
         if (calculadoraLibre_XBt != null) {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());
+        }
+        if (irAPanelCifras_XBt != null) {
+            irAPanelCifras_XBt.setOnClickListener(v -> irAPanelDeCifras());
         }
 
         calcularYMostrarGraficas();
@@ -314,6 +322,11 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
      * "Transcurrido" (ya es un hecho) y el tono claro es "Por transcurrir" (proyección).
      * Debajo de la gráfica se muestra el delta vs presupuesto de Depurado y Contable
      * (el de Presupuesto contra sí mismo siempre es 0, por eso no se muestra).
+     * Cada barra lleva además un 3er tramo invisible (transparente, altura mínima) solo
+     * para anclar la etiqueta del total "Mes Proyectado" justo encima de la columna —
+     * MPAndroidChart dibuja el valor del tramo superior de una barra apilada por encima
+     * de esta, y al dejar de ser el tramo superior, "Por transcurrir" pasa a dibujarse
+     * dentro de su propio color, como pidió el usuario.
      * Idéntico a F5_1_Indicadores.actualizarGraficaComparacion().
      */
     private void actualizarGraficaComparacion(float presupuestoTranscurrido, float presupuestoPorTranscurrir,
@@ -330,30 +343,43 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         int rojoClaro   = Color.parseColor("#EAA7A7");
         int colorEtiqueta = Color.parseColor("#212121");
 
-        BarEntry entryPresupuesto = new BarEntry(0f, new float[]{presupuestoTranscurrido, Math.max(presupuestoPorTranscurrir, 0)});
-        BarEntry entryDepurado = new BarEntry(1f, new float[]{vrSaldoDepurado, Math.max(depuradoPorTranscurrir, 0)});
-        BarEntry entryContable = new BarEntry(2f, new float[]{vrSaldoContable, Math.max(contablePorTranscurrir, 0)});
+        float presupuestoPorTranscurrirPos = Math.max(presupuestoPorTranscurrir, 0);
+        float depuradoPorTranscurrirPos = Math.max(depuradoPorTranscurrir, 0);
+        float contablePorTranscurrirPos = Math.max(contablePorTranscurrir, 0);
+
+        // Tramo-ancla invisible: pequeño pero proporcional a cada barra, para que la
+        // etiqueta del total quede justo encima de su columna sin deformar la escala.
+        float epsilonPresupuesto = Math.max((presupuestoTranscurrido + presupuestoPorTranscurrirPos) * 0.001f, 0.5f);
+        float epsilonDepurado = Math.max((vrSaldoDepurado + depuradoPorTranscurrirPos) * 0.001f, 0.5f);
+        float epsilonContable = Math.max((vrSaldoContable + contablePorTranscurrirPos) * 0.001f, 0.5f);
+
+        int totalPresupuestoRedondeado = Math.round(presupuestoTranscurrido + presupuestoPorTranscurrirPos);
+        int totalDepuradoRedondeado = Math.round(depuradoMesProyectado);
+        int totalContableRedondeado = Math.round(contableMesProyectado);
+
+        BarEntry entryPresupuesto = new BarEntry(0f, new float[]{presupuestoTranscurrido, presupuestoPorTranscurrirPos, epsilonPresupuesto});
+        BarEntry entryDepurado = new BarEntry(1f, new float[]{vrSaldoDepurado, depuradoPorTranscurrirPos, epsilonDepurado});
+        BarEntry entryContable = new BarEntry(2f, new float[]{vrSaldoContable, contablePorTranscurrirPos, epsilonContable});
 
         BarDataSet dsPresupuesto = new BarDataSet(new ArrayList<>(Collections.singletonList(entryPresupuesto)), "Presupuesto");
-        dsPresupuesto.setColors(verdeOscuro, verdeClaro);
+        dsPresupuesto.setColors(verdeOscuro, verdeClaro, Color.TRANSPARENT);
 
         BarDataSet dsDepurado = new BarDataSet(new ArrayList<>(Collections.singletonList(entryDepurado)), "Depurado");
-        dsDepurado.setColors(ambarOscuro, ambarClaro);
+        dsDepurado.setColors(ambarOscuro, ambarClaro, Color.TRANSPARENT);
 
         BarDataSet dsContable = new BarDataSet(new ArrayList<>(Collections.singletonList(entryContable)), "Contable");
-        dsContable.setColors(rojoOscuro, rojoClaro);
+        dsContable.setColors(rojoOscuro, rojoClaro, Color.TRANSPARENT);
 
-        ValueFormatter formateadorRedondeo = new ValueFormatter() {
-            @Override
-            public String getFormattedValue(float value) {
-                return String.valueOf(Math.round(value));
-            }
-        };
+        // Cada barra usa su propio formateador: redondea los 2 tramos reales normalmente,
+        // y cuando el valor es el tramo-ancla (epsilon) muestra el total "Mes Proyectado".
+        dsPresupuesto.setValueFormatter(crearFormateadorConTotal(epsilonPresupuesto, totalPresupuestoRedondeado));
+        dsDepurado.setValueFormatter(crearFormateadorConTotal(epsilonDepurado, totalDepuradoRedondeado));
+        dsContable.setValueFormatter(crearFormateadorConTotal(epsilonContable, totalContableRedondeado));
+
         for (BarDataSet ds : new BarDataSet[]{dsPresupuesto, dsDepurado, dsContable}) {
             ds.setDrawValues(true);
             ds.setValueTextColor(colorEtiqueta);
             ds.setValueTextSize(10f);
-            ds.setValueFormatter(formateadorRedondeo);
         }
 
         BarData barData = new BarData(dsPresupuesto, dsDepurado, dsContable);
@@ -363,6 +389,7 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         graficaComparacion_XBc.setFitBars(true);
         graficaComparacion_XBc.getDescription().setEnabled(false);
         graficaComparacion_XBc.getLegend().setEnabled(false);
+        graficaComparacion_XBc.setExtraTopOffset(10f);
         graficaComparacion_XBc.setExtraBottomOffset(6f);
         graficaComparacion_XBc.setDoubleTapToZoomEnabled(false);
         graficaComparacion_XBc.setPinchZoom(false);
@@ -406,6 +433,25 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
             deltaGraficaContable_XTv.setText("Contable " + signo + deltaContable + " (" + signoPct + df.format(pctContable) + "%)");
             deltaGraficaContable_XTv.setTextColor(deltaContable > 0 ? colorRojo : colorAzul);
         }
+    }
+
+    /**
+     * Formateador de valores para una barra apilada de 3 tramos [Transcurrido, Por
+     * transcurrir, tramo-ancla]: redondea los 2 tramos reales de siempre, y cuando el
+     * valor que MPAndroidChart le pide formatear es el del tramo-ancla (el más alto,
+     * por eso su etiqueta se dibuja encima de toda la columna) devuelve el total "Mes
+     * Proyectado" en su lugar.
+     */
+    private ValueFormatter crearFormateadorConTotal(float valorTramoAncla, int totalRedondeado) {
+        return new ValueFormatter() {
+            @Override
+            public String getBarStackedLabel(float value, BarEntry stackedEntry) {
+                if (value == valorTramoAncla) {
+                    return String.valueOf(totalRedondeado);
+                }
+                return String.valueOf(Math.round(value));
+            }
+        };
     }
 
     /**
@@ -494,5 +540,18 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         if (getFragmentManager() == null) return;
         F6_Calculadora calculadora = F6_Calculadora.newInstanceLibre();
         calculadora.show(getFragmentManager(), "calculadora_libre");
+    }
+
+    /**
+     * Botón 🔙: cierra este diálogo de gráficas y abre F5_1_Indicadores (panel de cifras)
+     * como diálogo flotante — igual patrón que el resto de accesos desde aquí (calculadora,
+     * etc.), sin tocar el fragmento del contenedor principal. Funciona igual sin importar
+     * desde dónde se abrieron las gráficas (F5_1 o el atajo en F3_2_VerItemTransaccion).
+     */
+    private void irAPanelDeCifras() {
+        FragmentManager fm = getFragmentManager();
+        if (fm == null) return;
+        dismiss();
+        new F5_1_Indicadores().show(fm, "panel_cifras_indicadores");
     }
 }
