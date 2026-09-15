@@ -30,11 +30,24 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 
+import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.jj.appbalancev31.R;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.Collections;
 
 import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
@@ -65,6 +78,11 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
     ImageButton btnVerDetalleProrrateables_XBt;
     TextView valorActivoExigible_XTv, valorPasivoExigible_XTv, valorAhorroODeuda_XTv;
 
+    // Gráficas
+    BarChart graficaComparacion_XBc;
+    LineChart graficaTendencia_XLc;
+    TextView deltaGraficaDepurado_XTv, deltaGraficaContable_XTv;
+
     EditText editPresupuestoTotal_XEt;
     ImageButton btnGuardarPresupuesto_XBt, salidaEsteFragment_XBt;
     TextView VerDetalleProrrateables_XTv;
@@ -78,6 +96,9 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
     int sumaActivo, sumaPasivo, saldoEnrique, presupuestoTotal;
     int diasMes, diaHoy, diasRestantes, diasTranscurridosReales;
     A10_1_CalculoDepuradoIndicadores a101CalculoDepuradoIndicadores;
+
+    // Serie diaria del Depurado acumulado del mes en curso (índice 1..diasTranscurridosReales), para la gráfica de tendencia
+    float[] serieDepuradoDiaria;
 
     private static final String PREFS_NAME = "IndicadoresPrefs";
     private static final String KEY_PRESUPUESTO = "presupuesto_mensual";
@@ -209,6 +230,11 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         valorActivoExigible_XTv = view.findViewById(R.id.valorActivoExigible_XTv);
         valorPasivoExigible_XTv = view.findViewById(R.id.valorPasivoExigible_XTv);
         valorAhorroODeuda_XTv = view.findViewById(R.id.valorAhorroODeuda_XTv);
+
+        graficaComparacion_XBc = view.findViewById(R.id.graficaComparacion_XBc);
+        graficaTendencia_XLc = view.findViewById(R.id.graficaTendencia_XLc);
+        deltaGraficaDepurado_XTv = view.findViewById(R.id.deltaGraficaDepurado_XTv);
+        deltaGraficaContable_XTv = view.findViewById(R.id.deltaGraficaContable_XTv);
     }
 
     private void guardarPresupuesto() {
@@ -332,9 +358,59 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
 
             a101CalculoDepuradoIndicadores.calcular(saldoEnrique, diasTranscurridosReales, diasMes);
 
+            calcularSerieDepuradoDiaria(transacciones, año, mes);
+
         } catch (Exception e) {
             Log.e("F5_Indicadores", "Error al calcular gastos depurados: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Construye la serie diaria del saldo Depurado acumulado (días 1..diasTranscurridosReales),
+     * para la curva de tendencia del mes en curso (gráfica B). Reutiliza la misma lista de
+     * transacciones de "CxC Enrique" (todo el historial) ya consultada arriba: no hace queries
+     * nuevas. Misma fórmula que A10_1_CalculoDepuradoIndicadores.calcular(), aplicada día a día:
+     * depurado(dia) = contableAcumulado(dia) - totalProrrateables + consumoAcumulado(dia).
+     */
+    private void calcularSerieDepuradoDiaria(ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones, int año, int mes) {
+        serieDepuradoDiaria = new float[diasTranscurridosReales + 1]; // índice 0 no se usa
+
+        if (transacciones == null || diasTranscurridosReales <= 0) return;
+
+        int fechaInicioMes = año * 10000 + mes * 100 + 1;
+        int fechaFinMes = año * 10000 + mes * 100 + diasMes;
+
+        int baseAntesDelMes = 0;
+        int[] incrementoPorDia = new int[diasMes + 1];
+
+        for (A3_2_TipoTransaccionesGetsYSets transaccion : transacciones) {
+            int fecha = transaccion.tipoTget_8FechaInicialMetodoEnA5();
+            int valor = transaccion.tipoTget_5ValorMetodoEnA5();
+
+            if (fecha < fechaInicioMes) {
+                baseAntesDelMes += valor;
+            } else if (fecha <= fechaFinMes) {
+                int dia = fecha % 100;
+                if (dia >= 1 && dia <= diasMes) {
+                    incrementoPorDia[dia] += valor;
+                }
+            }
+        }
+
+        int totalProrrateables = a101CalculoDepuradoIndicadores.getTotalProrrateables();
+        ArrayList<A10_2_GastoProrrateableIndicadores> detalle = a101CalculoDepuradoIndicadores.getDetalle();
+
+        int contableAcumulado = baseAntesDelMes;
+        for (int dia = 1; dia <= diasTranscurridosReales; dia++) {
+            contableAcumulado += incrementoPorDia[dia];
+
+            float consumoAcumuladoDia = 0;
+            for (A10_2_GastoProrrateableIndicadores gasto : detalle) {
+                consumoAcumuladoDia += gasto.getConsumoAcumulado(dia);
+            }
+
+            serieDepuradoDiaria[dia] = contableAcumulado - totalProrrateables + consumoAcumuladoDia;
         }
     }
 
@@ -423,9 +499,193 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
                 valorAhorroODeuda_XTv.setBackgroundColor(R.color.colorPrimary);
             }
 
+            // Gráficas
+            actualizarGraficaComparacion(presupuestoTranscurrido, presupuestoPorTranscurrir,
+                    vrSaldoDepurado, depuradoPorTranscurrir, depuradoMesProyectado,
+                    vrSaldoContable, contablePorTranscurrir, contableMesProyectado,
+                    colorAzul, colorRojo, df);
+            actualizarGraficaTendencia();
+
         } catch (Exception e) {
             Log.e("F5_Indicadores", "Error al asignar valores: " + e.getMessage());
         }
+    }
+
+    /**
+     * Gráfica A: barras apiladas Presupuesto / Depurado / Contable del "Mes proyectado".
+     * Cada barra se divide en 2 tonos de su misma familia de color: el tono sólido es
+     * "Transcurrido" (ya es un hecho) y el tono claro es "Por transcurrir" (proyección).
+     * Debajo de la gráfica se muestra el delta vs presupuesto de Depurado y Contable
+     * (el de Presupuesto contra sí mismo siempre es 0, por eso no se muestra — igual que
+     * en la tabla original que reemplaza esta gráfica).
+     */
+    private void actualizarGraficaComparacion(float presupuestoTranscurrido, float presupuestoPorTranscurrir,
+                                               int vrSaldoDepurado, float depuradoPorTranscurrir, float depuradoMesProyectado,
+                                               int vrSaldoContable, float contablePorTranscurrir, float contableMesProyectado,
+                                               int colorAzul, int colorRojo, DecimalFormat df) {
+        if (graficaComparacion_XBc == null) return;
+
+        // Paleta de estado (verde/ámbar/rojo, la misma semántica de tu boceto): tono sólido =
+        // Transcurrido, tono claro = Por transcurrir (proyección, todavía no es un hecho).
+        int verdeOscuro = Color.parseColor("#0CA30C");
+        int verdeClaro  = Color.parseColor("#92D692");
+        int ambarOscuro = Color.parseColor("#FAB219");
+        int ambarClaro  = Color.parseColor("#FDDC98");
+        int rojoOscuro  = Color.parseColor("#D03B3B");
+        int rojoClaro   = Color.parseColor("#EAA7A7");
+        int colorEtiqueta = Color.parseColor("#212121");
+
+        BarEntry entryPresupuesto = new BarEntry(0f, new float[]{presupuestoTranscurrido, Math.max(presupuestoPorTranscurrir, 0)});
+        BarEntry entryDepurado = new BarEntry(1f, new float[]{vrSaldoDepurado, Math.max(depuradoPorTranscurrir, 0)});
+        BarEntry entryContable = new BarEntry(2f, new float[]{vrSaldoContable, Math.max(contablePorTranscurrir, 0)});
+
+        BarDataSet dsPresupuesto = new BarDataSet(new ArrayList<>(Collections.singletonList(entryPresupuesto)), "Presupuesto");
+        dsPresupuesto.setColors(verdeOscuro, verdeClaro);
+
+        BarDataSet dsDepurado = new BarDataSet(new ArrayList<>(Collections.singletonList(entryDepurado)), "Depurado");
+        dsDepurado.setColors(ambarOscuro, ambarClaro);
+
+        BarDataSet dsContable = new BarDataSet(new ArrayList<>(Collections.singletonList(entryContable)), "Contable");
+        dsContable.setColors(rojoOscuro, rojoClaro);
+
+        ValueFormatter formateadorRedondeo = new ValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                return String.valueOf(Math.round(value));
+            }
+        };
+        for (BarDataSet ds : new BarDataSet[]{dsPresupuesto, dsDepurado, dsContable}) {
+            ds.setDrawValues(true);
+            ds.setValueTextColor(colorEtiqueta);
+            ds.setValueTextSize(10f);
+            ds.setValueFormatter(formateadorRedondeo);
+        }
+
+        BarData barData = new BarData(dsPresupuesto, dsDepurado, dsContable);
+        barData.setBarWidth(0.55f);
+
+        graficaComparacion_XBc.setData(barData);
+        graficaComparacion_XBc.setFitBars(true);
+        graficaComparacion_XBc.getDescription().setEnabled(false);
+        graficaComparacion_XBc.getLegend().setEnabled(false);
+        graficaComparacion_XBc.setExtraBottomOffset(6f);
+        graficaComparacion_XBc.setDoubleTapToZoomEnabled(false);
+        graficaComparacion_XBc.setPinchZoom(false);
+        graficaComparacion_XBc.setScaleEnabled(false);
+        graficaComparacion_XBc.setDragEnabled(false);
+        graficaComparacion_XBc.setHighlightPerTapEnabled(false);
+
+        XAxis xAxis = graficaComparacion_XBc.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setGranularityEnabled(true);
+        xAxis.setDrawGridLines(false);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(new String[]{"Presupuesto", "Depurado", "Contable"}));
+        xAxis.setTextColor(Color.parseColor("#616161"));
+        xAxis.setTextSize(11f);
+
+        YAxis ejeIzquierdo = graficaComparacion_XBc.getAxisLeft();
+        ejeIzquierdo.setAxisMinimum(0f);
+        ejeIzquierdo.setDrawGridLines(true);
+        ejeIzquierdo.setGridColor(Color.parseColor("#E1E0D9"));
+        ejeIzquierdo.setTextColor(Color.parseColor("#898781"));
+        graficaComparacion_XBc.getAxisRight().setEnabled(false);
+
+        graficaComparacion_XBc.animateY(500);
+        graficaComparacion_XBc.invalidate();
+
+        // Delta vs presupuesto: solo Depurado y Contable (el de Presupuesto contra sí mismo es 0)
+        int deltaDepurado = Math.round(depuradoMesProyectado - presupuestoTotal);
+        int deltaContable = Math.round(contableMesProyectado - presupuestoTotal);
+        float pctDepurado = (presupuestoTotal != 0) ? (deltaDepurado * 100f / presupuestoTotal) : 0;
+        float pctContable = (presupuestoTotal != 0) ? (deltaContable * 100f / presupuestoTotal) : 0;
+
+        if (deltaGraficaDepurado_XTv != null) {
+            String signo = deltaDepurado >= 0 ? "+" : "";
+            String signoPct = pctDepurado >= 0 ? "+" : "";
+            deltaGraficaDepurado_XTv.setText("Depurado " + signo + deltaDepurado + " (" + signoPct + df.format(pctDepurado) + "%)");
+            deltaGraficaDepurado_XTv.setTextColor(deltaDepurado > 0 ? colorRojo : colorAzul);
+        }
+        if (deltaGraficaContable_XTv != null) {
+            String signo = deltaContable >= 0 ? "+" : "";
+            String signoPct = pctContable >= 0 ? "+" : "";
+            deltaGraficaContable_XTv.setText("Contable " + signo + deltaContable + " (" + signoPct + df.format(pctContable) + "%)");
+            deltaGraficaContable_XTv.setTextColor(deltaContable > 0 ? colorRojo : colorAzul);
+        }
+    }
+
+    /**
+     * Gráfica B: curva de tendencia del Depurado acumulado del mes en curso (día a día,
+     * solo CxC Enrique), más una línea de referencia del ritmo ideal de presupuesto
+     * (recta, ambas comparten el mismo rango de días ya transcurridos).
+     */
+    private void actualizarGraficaTendencia() {
+        if (graficaTendencia_XLc == null) return;
+
+        if (serieDepuradoDiaria == null || diasTranscurridosReales <= 0) {
+            graficaTendencia_XLc.clear();
+            graficaTendencia_XLc.invalidate();
+            return;
+        }
+
+        ArrayList<Entry> entradasDepurado = new ArrayList<>();
+        ArrayList<Entry> entradasPresupuesto = new ArrayList<>();
+        float promDiarioBase = (diasMes > 0) ? (float) presupuestoTotal / diasMes : 0;
+
+        for (int dia = 1; dia <= diasTranscurridosReales; dia++) {
+            entradasDepurado.add(new Entry(dia, serieDepuradoDiaria[dia]));
+            entradasPresupuesto.add(new Entry(dia, promDiarioBase * dia));
+        }
+
+        LineDataSet dsDepurado = new LineDataSet(entradasDepurado, "Depurado real");
+        dsDepurado.setColor(Color.parseColor("#FAB219"));
+        dsDepurado.setLineWidth(2f);
+        dsDepurado.setDrawCircles(true);
+        dsDepurado.setCircleColor(Color.parseColor("#FAB219"));
+        dsDepurado.setCircleRadius(3f);
+        dsDepurado.setDrawCircleHole(false);
+        dsDepurado.setDrawValues(false);
+        dsDepurado.setMode(LineDataSet.Mode.LINEAR);
+
+        LineDataSet dsPresupuesto = new LineDataSet(entradasPresupuesto, "Presupuesto (ritmo ideal)");
+        dsPresupuesto.setColor(Color.parseColor("#898781"));
+        dsPresupuesto.setLineWidth(1.5f);
+        dsPresupuesto.enableDashedLine(8f, 4f, 0f);
+        dsPresupuesto.setDrawCircles(false);
+        dsPresupuesto.setDrawValues(false);
+        dsPresupuesto.setMode(LineDataSet.Mode.LINEAR);
+
+        LineData lineData = new LineData(dsDepurado, dsPresupuesto);
+        graficaTendencia_XLc.setData(lineData);
+        graficaTendencia_XLc.getDescription().setEnabled(false);
+        graficaTendencia_XLc.getLegend().setEnabled(false);
+        graficaTendencia_XLc.setDoubleTapToZoomEnabled(false);
+        graficaTendencia_XLc.setPinchZoom(false);
+        graficaTendencia_XLc.setScaleEnabled(false);
+        graficaTendencia_XLc.setDragEnabled(false);
+
+        XAxis xAxis = graficaTendencia_XLc.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setGranularityEnabled(true);
+        xAxis.setDrawGridLines(false);
+        xAxis.setTextColor(Color.parseColor("#616161"));
+        xAxis.setTextSize(10f);
+        xAxis.setValueFormatter(new ValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                return String.valueOf(Math.round(value));
+            }
+        });
+
+        YAxis ejeIzquierdo = graficaTendencia_XLc.getAxisLeft();
+        ejeIzquierdo.setDrawGridLines(true);
+        ejeIzquierdo.setGridColor(Color.parseColor("#E1E0D9"));
+        ejeIzquierdo.setTextColor(Color.parseColor("#898781"));
+        graficaTendencia_XLc.getAxisRight().setEnabled(false);
+
+        graficaTendencia_XLc.animateX(500);
+        graficaTendencia_XLc.invalidate();
     }
 
     /**
