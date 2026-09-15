@@ -130,7 +130,7 @@
                 android:layout_height="wrap_content"
                 android:text="  Ya transcurrido    "
                 android:textSize="10sp"
-                android:textColor="#616161"/>
+                android:textColor="#424242"/>
 
             <View
                 android:layout_width="10dp"
@@ -142,7 +142,7 @@
                 android:layout_height="wrap_content"
                 android:text="  Proyectado (restante)"
                 android:textSize="10sp"
-                android:textColor="#616161"/>
+                android:textColor="#424242"/>
          </LinearLayout>
 
          <!-- GRÁFICA B: tendencia diaria del Depurado en el mes en curso (solo CxC Enrique), con línea de referencia del presupuesto -->
@@ -182,19 +182,19 @@
                 android:layout_height="wrap_content"
                 android:text="  Depurado real    "
                 android:textSize="10sp"
-                android:textColor="#616161"/>
+                android:textColor="#424242"/>
 
             <View
                 android:layout_width="14dp"
                 android:layout_height="3dp"
-                android:background="#898781"/>
+                android:background="#5D5A52"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="  Presupuesto (ritmo ideal)"
                 android:textSize="10sp"
-                android:textColor="#616161"/>
+                android:textColor="#424242"/>
          </LinearLayout>
 
       </LinearLayout>

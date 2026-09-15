@@ -444,14 +444,14 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         xAxis.setGranularityEnabled(true);
         xAxis.setDrawGridLines(false);
         xAxis.setValueFormatter(new IndexAxisValueFormatter(new String[]{"Presupuesto", "Depurado", "Contable"}));
-        xAxis.setTextColor(Color.parseColor("#616161"));
+        xAxis.setTextColor(Color.parseColor("#424242"));
         xAxis.setTextSize(11f);
 
         YAxis ejeIzquierdo = graficaComparacion_XBc.getAxisLeft();
         ejeIzquierdo.setAxisMinimum(0f);
         ejeIzquierdo.setDrawGridLines(true);
         ejeIzquierdo.setGridColor(Color.parseColor("#E1E0D9"));
-        ejeIzquierdo.setTextColor(Color.parseColor("#898781"));
+        ejeIzquierdo.setTextColor(Color.parseColor("#5D5A52"));
         graficaComparacion_XBc.getAxisRight().setEnabled(false);
 
         graficaComparacion_XBc.animateY(500);
@@ -529,7 +529,7 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         dsDepurado.setMode(LineDataSet.Mode.LINEAR);
 
         LineDataSet dsPresupuesto = new LineDataSet(entradasPresupuesto, "Presupuesto (ritmo ideal)");
-        dsPresupuesto.setColor(Color.parseColor("#898781"));
+        dsPresupuesto.setColor(Color.parseColor("#5D5A52"));
         dsPresupuesto.setLineWidth(1.5f);
         dsPresupuesto.enableDashedLine(8f, 4f, 0f);
         dsPresupuesto.setDrawCircles(false);
@@ -550,7 +550,7 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         xAxis.setGranularity(1f);
         xAxis.setGranularityEnabled(true);
         xAxis.setDrawGridLines(false);
-        xAxis.setTextColor(Color.parseColor("#616161"));
+        xAxis.setTextColor(Color.parseColor("#424242"));
         xAxis.setTextSize(10f);
         xAxis.setValueFormatter(new ValueFormatter() {
             @Override
@@ -562,7 +562,7 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
         YAxis ejeIzquierdo = graficaTendencia_XLc.getAxisLeft();
         ejeIzquierdo.setDrawGridLines(true);
         ejeIzquierdo.setGridColor(Color.parseColor("#E1E0D9"));
-        ejeIzquierdo.setTextColor(Color.parseColor("#898781"));
+        ejeIzquierdo.setTextColor(Color.parseColor("#5D5A52"));
         graficaTendencia_XLc.getAxisRight().setEnabled(false);
 
         graficaTendencia_XLc.animateX(500);
