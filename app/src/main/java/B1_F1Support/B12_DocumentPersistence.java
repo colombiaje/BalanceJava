@@ -1,5 +1,6 @@
 package B1_F1Support;
 
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 import android.view.View;
@@ -42,16 +43,38 @@ public class B12_DocumentPersistence {
         db.beginTransaction();
         try {
             for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
+                String nombreCuentaParaGuardar = p.tipoTget_3CuentaMetodoEnA5();
+
+                // ⭐ NUEVO — Fase 3 (parte A) de la reestructuración de BD: resolver
+                // cuenta_id por nombre al momento de guardar, para que las transacciones
+                // nuevas queden ligadas a "cuentas" desde su creación. Antes de este
+                // cambio, cuenta_id solo se llenaba en el backfill de la migración de la
+                // Fase 1 (versión 3); ninguna transacción nueva guardada desde entonces lo
+                // recibía, porque este INSERT no lo incluía. No se toca c3_Cuenta ni ningún
+                // otro comportamiento existente: esto solo agrega el dato en paralelo.
+                Long cuentaIdParaGuardar = null;
+                Cursor cCuentaId = db.rawQuery(
+                        "SELECT cuenta_id FROM cuentas WHERE Cuenta = ?",
+                        new String[]{nombreCuentaParaGuardar});
+                if (cCuentaId.moveToFirst()) {
+                    cuentaIdParaGuardar = cCuentaId.getLong(0);
+                } else {
+                    Log.w(TAG, "cuenta_id no encontrado para '" + nombreCuentaParaGuardar +
+                            "' al guardar transacción — quedará con cuenta_id NULL, igual " +
+                            "que antes de este cambio");
+                }
+                cCuentaId.close();
+
                 db.execSQL(
                         "INSERT INTO transacciones (" +
                                 "c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
                                 "c6_Descripcion, c7_FechaYhora, c8_FechaInicial, " +
                                 "c9_FechaModificacion, c10_Grupo1, c11_Grupo2, " +
-                                "c12_ColumnaDisponible, c13_ColumnaDisponible) " +
+                                "c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id) " +
                                 "VALUES ('" +
                                 p.tipoTget_1DocumentoMetodoEnA5()          + "','" +
                                 p.tipoTget_2ItemDocMetodoEnA5()            + "','" +
-                                p.tipoTget_3CuentaMetodoEnA5()             + "','" +
+                                nombreCuentaParaGuardar                    + "','" +
                                 p.tipoTget_4MasMenosMetodoEnA5()           + "','" +
                                 p.tipoTget_5ValorMetodoEnA5()              + "','" +
                                 p.tipoTget_6DescripcionMetodoEnA5()        + "','" +
@@ -61,7 +84,9 @@ public class B12_DocumentPersistence {
                                 p.tipoTget_10Grupo1MetodoEnA5()            + "','" +
                                 p.tipoTget_11Grupo2MetodoEnA5()            + "','" +
                                 p.tipoTget_12ColumnaDisponibleMetodoEnA5() + "','" +
-                                p.tipoTget_13ColumnaDisponibleMetodoEnA5() + "')"
+                                p.tipoTget_13ColumnaDisponibleMetodoEnA5() + "'," +
+                                (cuentaIdParaGuardar != null ? cuentaIdParaGuardar : "NULL") +
+                                ")"
                 );
             }
             db.setTransactionSuccessful();

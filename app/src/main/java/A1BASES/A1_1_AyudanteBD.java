@@ -17,6 +17,12 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   F2_Cuentas.java) pasan a vivir en dos tablas catálogo (catalogo_grupo1, catalogo_grupo2),
 //   sembradas con exactamente los mismos valores y el mismo orden de siempre. El comportamiento
 //   de la app no cambia hoy; lo que cambia es que esas categorías ya no exigen recompilar la app.
+// ⭐ MODIFICADO: Versión 5 — Fase 3 (parte A): corrige que las transacciones nuevas guardadas
+//   desde la app no estaban recibiendo cuenta_id (el backfill de la Fase 1/versión 3 solo
+//   corrió una vez, sobre lo que existía en ese momento; el INSERT de transacciones nunca lo
+//   llenaba desde entonces — ver B12_DocumentPersistence). Este backfill corrige, de forma
+//   idempotente, cualquier transacción que haya quedado con cuenta_id NULL entre la versión 3
+//   y esta corrección. El INSERT ya se corrigió aparte para que esto no vuelva a ocurrir.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -25,8 +31,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 3 → 4 para disparar onUpgrade en dispositivos existentes (ver Fase 2 arriba).
-    public static final int version1BalanceSqlite_int_PSF = 4;
+    // ⭐ CAMBIO: versión 4 → 5 para disparar onUpgrade en dispositivos existentes (ver Fase 3 parte A arriba).
+    public static final int version1BalanceSqlite_int_PSF = 5;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -295,6 +301,26 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             db.execSQL(SQL_CREAR_CATALOGO_GRUPO1);
             db.execSQL(SQL_CREAR_CATALOGO_GRUPO2);
             sembrarCatalogosGrupo1Y2(db);
+        }
+
+        // ⭐ NUEVO v5 — Fase 3 (parte A): backfill correctivo de cuenta_id (ver comentario
+        // arriba de la clase). Idempotente: solo toca filas con cuenta_id IS NULL, igual que
+        // el backfill original de la versión 3, así que es seguro correrlo aunque ya no queden
+        // huérfanas.
+        if (oldVersion < 5) {
+            db.execSQL("UPDATE transacciones SET cuenta_id = " +
+                    "(SELECT cuenta_id FROM cuentas WHERE cuentas.Cuenta = transacciones.c3_Cuenta) " +
+                    "WHERE cuenta_id IS NULL");
+
+            Cursor huerfanasV5 = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE cuenta_id IS NULL", null);
+            if (huerfanasV5.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v5: " + huerfanasV5.getInt(0) +
+                                " transacciones sin cuenta_id tras el backfill correctivo " +
+                                "(c3_Cuenta sin match en cuentas.Cuenta)");
+            }
+            huerfanasV5.close();
         }
     }
 
