@@ -2,6 +2,8 @@ package B_FRAGMENTS;
 
 import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
 import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
+import static A1BASES.A1_1_AyudanteBD.TABLE_CATALOGO_GRUPO1;
+import static A1BASES.A1_1_AyudanteBD.TABLE_CATALOGO_GRUPO2;
 import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_AFTER_CLOSING_RESTORING_SHEETS;
 import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL;
 import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_BEFORE_CLOSING_RESTORING_SHEETS;
@@ -515,15 +517,13 @@ public class F2_Cuentas extends DialogFragment {
         A6_3_CSVDriveUploader csvDriveUploader;
 
         //arrays de String para los spinner de grupos 1 y 2
-        nombreGrupo1Cuentas_ArrayString = new String[]{"", "Activo", "Pasivo", "Patrimonio", "Ingresos", "Costo de ventas", "Gastos",
-                "Costos de produccion", "Cuentas de orden Db", "Cuentas de orden Cr"};
-
-        nombreGrupo2Cuentas_ArrayString = new String[]{"","Exigible Conciliable",
-                "Exigible Conciliable Cerrable",
-                "Exigible No conciliable",
-                "No exigible Conciliable",
-                "No exigible No conciliable",
-                "No exigible No conciliable Cerrable"};
+        // ⭐ v4 — Fase 2: ahora se cargan desde la BD (catalogo_grupo1/catalogo_grupo2) en vez
+        // de estar hardcodeados aquí. Si por algún motivo la BD no tiene datos, se cae de vuelta
+        // a los mismos valores de siempre para que el spinner nunca quede vacío.
+        nombreGrupo1Cuentas_ArrayString = cargarCatalogoGrupoConEspacioInicial(
+                ayudante_Class.getReadableDatabase(), TABLE_CATALOGO_GRUPO1);
+        nombreGrupo2Cuentas_ArrayString = cargarCatalogoGrupoConEspacioInicial(
+                ayudante_Class.getReadableDatabase(), TABLE_CATALOGO_GRUPO2);
 
         //spinners con array adapters para cuentas
         grupo1CuentaNueva_XSp.setAdapter(new ArrayAdapter<String>(getActivity(),android.R.layout.simple_list_item_multiple_choice, nombreGrupo1Cuentas_ArrayString));
@@ -1142,6 +1142,34 @@ public class F2_Cuentas extends DialogFragment {
         // Opción 1: Usar LocalBroadcastManager (recomendado)
         Intent intent = new Intent("CUENTAS_ACTUALIZADAS");
         LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(intent);
+    }
+
+    // ⭐ NUEVO v4 — Fase 2: lee el catálogo de Grupo1 o Grupo2 desde la BD (tabla "tabla"),
+    // en el orden guardado, con un "" al inicio (la opción vacía del spinner, igual que siempre).
+    // Si la tabla no tiene filas (no debería pasar, es sembrada en onCreate/onUpgrade), cae de
+    // vuelta a los valores hardcodeados de siempre para que el spinner nunca quede vacío.
+    private String[] cargarCatalogoGrupoConEspacioInicial(SQLiteDatabase db, String tabla) {
+        ArrayList<String> nombres = new ArrayList<>();
+        nombres.add("");
+        Cursor cursor = db.rawQuery("SELECT nombre FROM " + tabla + " ORDER BY orden", null);
+        while (cursor.moveToNext()) {
+            nombres.add(cursor.getString(0));
+        }
+        cursor.close();
+
+        if (nombres.size() > 1) {
+            return nombres.toArray(new String[0]);
+        }
+
+        // Salvaguarda: la BD no tenía datos del catálogo — valores de siempre, tal cual.
+        if (TABLE_CATALOGO_GRUPO1.equals(tabla)) {
+            return new String[]{"", "Activo", "Pasivo", "Patrimonio", "Ingresos", "Costo de ventas",
+                    "Gastos", "Costos de produccion", "Cuentas de orden Db", "Cuentas de orden Cr"};
+        } else {
+            return new String[]{"", "Exigible Conciliable", "Exigible Conciliable Cerrable",
+                    "Exigible No conciliable", "No exigible Conciliable",
+                    "No exigible No conciliable", "No exigible No conciliable Cerrable"};
+        }
     }
 
     public void interrelationsAccountsGroups () {

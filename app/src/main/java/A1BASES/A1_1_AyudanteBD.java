@@ -13,6 +13,10 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   ritmo); "transacciones" gana cuenta_id como referencia hacia cuentas.cuenta_id. El nombre
 //   de cuenta deja de ser la identidad y pasa a ser un atributo editable. No se toca ninguna
 //   columna existente ni se cambia el comportamiento de nada que ya funcione.
+// ⭐ MODIFICADO: Versión 4 — Fase 2: las categorías de Grupo1 y Grupo2 (antes hardcodeadas en
+//   F2_Cuentas.java) pasan a vivir en dos tablas catálogo (catalogo_grupo1, catalogo_grupo2),
+//   sembradas con exactamente los mismos valores y el mismo orden de siempre. El comportamiento
+//   de la app no cambia hoy; lo que cambia es que esas categorías ya no exigen recompilar la app.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -21,8 +25,14 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 2 → 3 para disparar onUpgrade en dispositivos existentes (ver Fase 1 arriba).
-    public static final int version1BalanceSqlite_int_PSF = 3;
+    // ⭐ CAMBIO: versión 3 → 4 para disparar onUpgrade en dispositivos existentes (ver Fase 2 arriba).
+    public static final int version1BalanceSqlite_int_PSF = 4;
+
+    // ─────────────────────────────────────────────
+    //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
+    // ─────────────────────────────────────────────
+    public static final String TABLE_CATALOGO_GRUPO1 = "catalogo_grupo1";
+    public static final String TABLE_CATALOGO_GRUPO2 = "catalogo_grupo2";
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LAS NUEVAS TABLAS DE CACHÉ
@@ -140,6 +150,49 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c13_Col          TEXT)";
 
     // ─────────────────────────────────────────────
+    //  DDL — CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4 (Fase 2)
+    //  Reemplazan los arrays hardcodeados de F2_Cuentas.java. "orden" conserva el mismo
+    //  orden de aparición que tenían los arrays, para que los spinners se vean exactamente igual.
+    // ─────────────────────────────────────────────
+    private static final String SQL_CREAR_CATALOGO_GRUPO1 =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_CATALOGO_GRUPO1 + " (" +
+                    "grupo1_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "nombre TEXT NOT NULL UNIQUE, " +
+                    "orden INTEGER NOT NULL)";
+
+    private static final String SQL_CREAR_CATALOGO_GRUPO2 =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_CATALOGO_GRUPO2 + " (" +
+                    "grupo2_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "nombre TEXT NOT NULL UNIQUE, " +
+                    "orden INTEGER NOT NULL)";
+
+    // Valores de siempre, en el mismo orden que tenían los arrays hardcodeados en F2_Cuentas.java.
+    // Se conservan tal cual (incluida la falta de tilde en "produccion") para no alterar ningún
+    // valor ya guardado en cuentas.Grupo1/Grupo2 ni en transacciones.c10_Grupo1/c11_Grupo2.
+    private static final String[] SEED_GRUPO1 = {
+            "Activo", "Pasivo", "Patrimonio", "Ingresos", "Costo de ventas", "Gastos",
+            "Costos de produccion", "Cuentas de orden Db", "Cuentas de orden Cr"};
+
+    private static final String[] SEED_GRUPO2 = {
+            "Exigible Conciliable", "Exigible Conciliable Cerrable", "Exigible No conciliable",
+            "No exigible Conciliable", "No exigible No conciliable", "No exigible No conciliable Cerrable"};
+
+    private void sembrarCatalogosGrupo1Y2(SQLiteDatabase db) {
+        for (int i = 0; i < SEED_GRUPO1.length; i++) {
+            ContentValues cv = new ContentValues();
+            cv.put("nombre", SEED_GRUPO1[i]);
+            cv.put("orden", i + 1);
+            db.insert(TABLE_CATALOGO_GRUPO1, null, cv);
+        }
+        for (int i = 0; i < SEED_GRUPO2.length; i++) {
+            ContentValues cv = new ContentValues();
+            cv.put("nombre", SEED_GRUPO2[i]);
+            cv.put("orden", i + 1);
+            db.insert(TABLE_CATALOGO_GRUPO2, null, cv);
+        }
+    }
+
+    // ─────────────────────────────────────────────
     //  COLUMNAS (para uso en queries de F1)
     // ─────────────────────────────────────────────
     public static final String[] columnasTransacciones_ArrayString_PSF = {
@@ -161,6 +214,10 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // ⭐ NUEVO: crear tablas de caché desde el inicio en instalaciones frescas
         db.execSQL(SQL_CREAR_CACHE_HEADER);
         db.execSQL(SQL_CREAR_CACHE_RECORDS);
+        // ⭐ NUEVO v4 — Fase 2: catálogos de Grupo1/Grupo2, sembrados desde el inicio.
+        db.execSQL(SQL_CREAR_CATALOGO_GRUPO1);
+        db.execSQL(SQL_CREAR_CATALOGO_GRUPO2);
+        sembrarCatalogosGrupo1Y2(db);
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -230,6 +287,14 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 " transacciones sin cuenta_id (c3_Cuenta sin match en cuentas.Cuenta)");
             }
             huerfanas.close();
+        }
+
+        // ⭐ NUEVO v4 — Fase 2: catálogos de Grupo1/Grupo2 (ver comentario arriba de la clase).
+        // No modifica cuentas ni transacciones; solo crea y siembra las dos tablas nuevas.
+        if (oldVersion < 4) {
+            db.execSQL(SQL_CREAR_CATALOGO_GRUPO1);
+            db.execSQL(SQL_CREAR_CATALOGO_GRUPO2);
+            sembrarCatalogosGrupo1Y2(db);
         }
     }
 
