@@ -8,6 +8,11 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 // Created by JorgeEnrique on 6/08/2016.
 // ⭐ MODIFICADO: Versión 2 — Agrega tablas de caché SQLite para reemplazar CSVs de borrador.
+// ⭐ MODIFICADO: Versión 3 — Fase 1 de reestructuración: "cuentas" gana cuenta_id (llave
+//   primaria técnica) y codigo_cuenta (código de plan de cuentas, lo llena el usuario a su
+//   ritmo); "transacciones" gana cuenta_id como referencia hacia cuentas.cuenta_id. El nombre
+//   de cuenta deja de ser la identidad y pasa a ser un atributo editable. No se toca ninguna
+//   columna existente ni se cambia el comportamiento de nada que ya funcione.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -16,8 +21,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 1 → 2 para disparar onUpgrade en dispositivos existentes.
-    public static final int version1BalanceSqlite_int_PSF = 2;
+    // ⭐ CAMBIO: versión 2 → 3 para disparar onUpgrade en dispositivos existentes (ver Fase 1 arriba).
+    public static final int version1BalanceSqlite_int_PSF = 3;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LAS NUEVAS TABLAS DE CACHÉ
@@ -47,12 +52,18 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
                     "c9_FechaModificacion TEXT NOT NULL, c10_Grupo1 TEXT NOT NULL, " +
                     "c11_Grupo2 TEXT NOT NULL, c12_ColumnaDisponible TEXT NOT NULL, " +
-                    "c13_ColumnaDisponible TEXT NOT NULL)";
+                    "c13_ColumnaDisponible TEXT NOT NULL, " +
+                    // ⭐ NUEVO v3: referencia real hacia cuentas.cuenta_id (ver Fase 1).
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id))";
 
     String crearCuentas_String =
             "CREATE TABLE IF NOT EXISTS cuentas (" +
                     "Item TEXT NOT NULL, Cuenta TEXT NOT NULL, Grupo1 TEXT NOT NULL, " +
-                    "Grupo2 TEXT NOT NULL, Fecha TEXT NOT NULL)";
+                    "Grupo2 TEXT NOT NULL, Fecha TEXT NOT NULL, " +
+                    // ⭐ NUEVO v3: llave primaria técnica + código de plan de cuentas, ambas al
+                    // final para no correr el orden posicional de ningún query existente (Fase 1).
+                    "cuenta_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "codigo_cuenta TEXT)";
 
     // ─────────────────────────────────────────────
     //  DDL — NUEVAS TABLAS DE CACHÉ  ⭐ NUEVO
@@ -143,8 +154,10 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("PRAGMA encoding = 'UTF-8'");
-        db.execSQL(crearTransacciones_String);
+        // ⭐ v3: "cuentas" se crea primero porque "transacciones" ahora la referencia
+        // (cuenta_id REFERENCES cuentas.cuenta_id) — orden lógico padre→hijo.
         db.execSQL(crearCuentas_String);
+        db.execSQL(crearTransacciones_String);
         // ⭐ NUEVO: crear tablas de caché desde el inicio en instalaciones frescas
         db.execSQL(SQL_CREAR_CACHE_HEADER);
         db.execSQL(SQL_CREAR_CACHE_RECORDS);
@@ -160,9 +173,64 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             db.execSQL(SQL_CREAR_CACHE_HEADER);
             db.execSQL(SQL_CREAR_CACHE_RECORDS);
         }
-        // ⭐ NUEVO: versión 3 — el slot 4 no requiere DDL nuevo,
-        // usa las mismas tablas con area_id=4. Sin cambios estructurales.
-        // if (oldVersion < 3) { } ← reservado, no necesita nada
+
+        // ⭐ NUEVO v3 — Fase 1 de reestructuración de la BD (cuenta_id + codigo_cuenta).
+        // El slot area_id=4 (Canal D) no necesitó DDL nuevo; esta sí es una migración real.
+        if (oldVersion < 3) {
+
+            // 1) Recrear "cuentas" agregando cuenta_id (llave primaria técnica autoincremental)
+            //    y codigo_cuenta (lo llena el usuario a su propio ritmo), preservando todos los
+            //    datos existentes tal cual. Ninguna columna ni valor actual se pierde o cambia.
+            db.execSQL("CREATE TABLE cuentas_temp_v3 (" +
+                    "Item TEXT NOT NULL, Cuenta TEXT NOT NULL, Grupo1 TEXT NOT NULL, " +
+                    "Grupo2 TEXT NOT NULL, Fecha TEXT NOT NULL, " +
+                    "cuenta_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "codigo_cuenta TEXT)");
+            db.execSQL("INSERT INTO cuentas_temp_v3 (Item, Cuenta, Grupo1, Grupo2, Fecha) " +
+                    "SELECT Item, Cuenta, Grupo1, Grupo2, Fecha FROM cuentas");
+            db.execSQL("DROP TABLE cuentas");
+            db.execSQL("ALTER TABLE cuentas_temp_v3 RENAME TO cuentas");
+
+            // 2) Recrear "transacciones" agregando cuenta_id (referencia hacia cuentas.cuenta_id),
+            //    preservando las 13 columnas c1..c13 existentes exactamente igual que hoy.
+            db.execSQL("CREATE TABLE transacciones_temp_v3(" +
+                    "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
+                    "c3_Cuenta TEXT NOT NULL, c4_Signo TEXT NOT NULL, " +
+                    "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
+                    "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
+                    "c9_FechaModificacion TEXT NOT NULL, c10_Grupo1 TEXT NOT NULL, " +
+                    "c11_Grupo2 TEXT NOT NULL, c12_ColumnaDisponible TEXT NOT NULL, " +
+                    "c13_ColumnaDisponible TEXT NOT NULL, " +
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id))");
+            db.execSQL("INSERT INTO transacciones_temp_v3 (" +
+                    "c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, c6_Descripcion, " +
+                    "c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, c10_Grupo1, c11_Grupo2, " +
+                    "c12_ColumnaDisponible, c13_ColumnaDisponible) " +
+                    "SELECT c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, c6_Descripcion, " +
+                    "c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, c10_Grupo1, c11_Grupo2, " +
+                    "c12_ColumnaDisponible, c13_ColumnaDisponible FROM transacciones");
+            db.execSQL("DROP TABLE transacciones");
+            db.execSQL("ALTER TABLE transacciones_temp_v3 RENAME TO transacciones");
+
+            // 3) Backfill: emparejar cada transacción con su cuenta por nombre (c3_Cuenta = Cuenta).
+            //    Si en "cuentas" hay nombres duplicados, el emparejamiento entre esos duplicados
+            //    queda arbitrario — no aplica hoy porque no hay UNIQUE, se deja registrado abajo.
+            db.execSQL("UPDATE transacciones SET cuenta_id = " +
+                    "(SELECT cuenta_id FROM cuentas WHERE cuentas.Cuenta = transacciones.c3_Cuenta) " +
+                    "WHERE cuenta_id IS NULL");
+
+            // 4) Diagnóstico: cuántas transacciones quedaron sin cuenta_id (c3_Cuenta sin match
+            //    exacto en cuentas.Cuenta). No detiene la migración; solo se reporta en el log
+            //    para poder revisar después cuáles nombres de cuenta no calzaron.
+            Cursor huerfanas = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE cuenta_id IS NULL", null);
+            if (huerfanas.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v3: " + huerfanas.getInt(0) +
+                                " transacciones sin cuenta_id (c3_Cuenta sin match en cuentas.Cuenta)");
+            }
+            huerfanas.close();
+        }
     }
 
     // ─────────────────────────────────────────────
