@@ -50,6 +50,31 @@ public class A1_2_OperacionesBD extends Activity {
         return ultimoItem;
     }
 
+    // ⭐ NUEVO — Fase 4 Objetivo 2: siguiente cuenta_id que asignará AUTOINCREMENT.
+    // A diferencia de obtenerUltimoItem() (que puede repetirse si alguna vez se borra la
+    // cuenta con el Item más alto, porque solo hace MAX(Item)+1), sqlite_sequence nunca
+    // reutiliza un cuenta_id ya usado — por eso Jorge decidió mostrar/guardar este número
+    // como "Item" de las cuentas nuevas de aquí en adelante (las cuentas viejas conservan
+    // su Item histórico intacto, sin migrar nada).
+    public int obtenerProximoCuentaId() {
+        abrirBaseDatos();
+        int proximoCuentaId = 1;
+
+        Cursor cursor = sqliteDatabase_Abstracta.rawQuery(
+                "SELECT seq FROM sqlite_sequence WHERE name = 'cuentas'",
+                null
+        );
+
+        if (cursor != null) {
+            if (cursor.moveToFirst()) {
+                proximoCuentaId = cursor.getInt(0) + 1;
+            }
+            cursor.close();
+        }
+
+        return proximoCuentaId;
+    }
+
     public void insertarCuentas(String stringItemDoc, String cuenta_String,
                                 String grupo1_String, String grupo2_String, String fecha_String,
                                 String cerrable_String) {
