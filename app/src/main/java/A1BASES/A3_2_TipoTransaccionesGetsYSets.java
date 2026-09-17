@@ -19,6 +19,15 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public String tipoT_12AccountWhitFlag_String;
     public String tipoT_13ColumnaDisponible_String;
 
+    // ⭐ NUEVO — Fase 3 (parte B) de la reestructuración de BD: cuenta_id real de la cuenta
+    // (tabla "cuentas"), resuelto por nombre en el mismo momento en que ya se resuelven
+    // Grupo1/Grupo2 al construir el ítem (ver B11_DocumentCalculator). Puramente aditivo:
+    // no reemplaza tipoT_3Accout_String (el nombre sigue siendo lo que usa hoy toda la app
+    // para guardar, mostrar y reportar) y no se usa todavía en el guardado en BD — ese sigue
+    // resolviendo cuenta_id por su cuenta en B12_DocumentPersistence, exactamente igual que
+    // antes de este cambio. Queda disponible en el objeto para cuando se necesite.
+    public Long tipoT_14CuentaId_Long;
+
     private String columna1;
     private int columna2;
     private String columna3;
@@ -87,6 +96,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public String tipoTget_11Grupo2MetodoEnA5() {return tipoT_11BalanceItemsClassification_String;}
     public String tipoTget_12ColumnaDisponibleMetodoEnA5() {return tipoT_12AccountWhitFlag_String;}
     public String tipoTget_13ColumnaDisponibleMetodoEnA5() {return tipoT_13ColumnaDisponible_String;}
+    public Long tipoTget_14CuentaIdMetodoEnA5() {return tipoT_14CuentaId_Long;}
 
     public void tipoTset_1DocumentoMetodoEnA5(String tipoT_1NumberDocument_String) {this.tipoT_1NumberDocument_String = tipoT_1NumberDocument_String;}
     public void tipoTset_2ItemDocMetodoEnA5(String tipoT_2DocumentItems_String) {this.tipoT_2DocumentItems_String = tipoT_2DocumentItems_String;}
@@ -101,6 +111,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public void tipoTset_11Grupo2MetodoEnA5(String tipoT_11BalanceItemsClassification_String) {this.tipoT_11BalanceItemsClassification_String = tipoT_11BalanceItemsClassification_String;}
     public void tipoTset_12ColumnaDisponibleMetodoEnA5(String tipoT_12AccountWhitFlag_String) {this.tipoT_12AccountWhitFlag_String = tipoT_12AccountWhitFlag_String;}
     public void tipoTset_13ColumnaDisponibleMetodoEnA5(String tipoT_13ColumnaDisponible_String) {this.tipoT_13ColumnaDisponible_String = tipoT_13ColumnaDisponible_String;}
+    public void tipoTset_14CuentaIdMetodoEnA5(Long tipoT_14CuentaId_Long) {this.tipoT_14CuentaId_Long = tipoT_14CuentaId_Long;}
 
     public A3_2_TipoTransaccionesGetsYSets(String columna1, int columna2, String columna3, int columna4) {
 

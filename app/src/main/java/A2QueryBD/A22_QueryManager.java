@@ -290,8 +290,12 @@ public class A22_QueryManager {
         //A3_2_a3_2_consultas_para_queryManager a3_2_consultas_para_queryManager = new A3_2_a3_2_consultas_para_queryManager(context);
 
         // Crear el QueryBuilder para la consulta en la tabla "cuentas"
+        // ⭐ NUEVO — Fase 3 (parte B): se agrega cuenta_id como 6to elemento del arreglo
+        // (índice 5), puramente aditivo. Nada que ya lea este arreglo por índice 0-4 o por
+        // "length >= 4" se ve afectado; ver A3_2_TipoTransaccionesGetsYSets y
+        // B11_DocumentCalculator para dónde queda guardado ese dato de ahora en adelante.
         A21_OptimizedQuery.QueryBuilder queryBuilder = new A21_OptimizedQuery.QueryBuilder()
-                .select("Item", "Cuenta", "Grupo1", "Grupo2", "Fecha")
+                .select("Item", "Cuenta", "Grupo1", "Grupo2", "Fecha", "cuenta_id")
                 .from("cuentas")
                 .where("Cuenta = ?", nombreCuenta);
 
@@ -309,7 +313,8 @@ public class A22_QueryManager {
                 cursor.getString(cursor.getColumnIndexOrThrow("Cuenta")),
                 cursor.getString(cursor.getColumnIndexOrThrow("Grupo1")),
                 cursor.getString(cursor.getColumnIndexOrThrow("Grupo2")),
-                cursor.getString(cursor.getColumnIndexOrThrow("Fecha"))
+                cursor.getString(cursor.getColumnIndexOrThrow("Fecha")),
+                cursor.getString(cursor.getColumnIndexOrThrow("cuenta_id")) // ⭐ NUEVO — índice 5
         });
 
         // Retornar el primer resultado como un QueryResult

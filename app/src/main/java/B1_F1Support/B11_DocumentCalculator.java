@@ -277,7 +277,7 @@ public class B11_DocumentCalculator {
             return null;
         }
 
-        return new A3_2_TipoTransaccionesGetsYSets(
+        A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
                 numeroDoc,
                 Integer.toString(posicionEnLista),
                 cuentaAlItemList,
@@ -292,6 +292,23 @@ public class B11_DocumentCalculator {
                 "na",
                 "na"
         );
+        item.tipoTset_14CuentaIdMetodoEnA5(parseCuentaId(atributosCuenta));
+        return item;
+    }
+
+    // ⭐ NUEVO — Fase 3 (parte B): lee cuenta_id (índice 5, agregado en
+    // A22_QueryManager.queryAttributesByAccount) si está presente, sin romper llamadas
+    // que aún trabajen con arreglos de 4 o 5 elementos. Devuelve null si no viene o no es
+    // un número válido — el guardado en BD no depende de este valor (ver
+    // B12_DocumentPersistence), así que un null aquí no tiene efecto visible.
+    private Long parseCuentaId(String[] atributosCuenta) {
+        if (atributosCuenta.length < 6 || atributosCuenta[5] == null) return null;
+        try {
+            return Long.valueOf(atributosCuenta[5]);
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "cuenta_id no numérico en atributosCuenta[5]: " + atributosCuenta[5]);
+            return null;
+        }
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -330,7 +347,7 @@ public class B11_DocumentCalculator {
             descripcion  = "Entrada del dia";
         }
 
-        return new A3_2_TipoTransaccionesGetsYSets(
+        A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
                 numeroDoc,
                 "1",
                 cuentaConciliable,
@@ -345,5 +362,7 @@ public class B11_DocumentCalculator {
                 "na",
                 "na"
         );
+        item.tipoTset_14CuentaIdMetodoEnA5(parseCuentaId(atributosCuenta));
+        return item;
     }
 }
