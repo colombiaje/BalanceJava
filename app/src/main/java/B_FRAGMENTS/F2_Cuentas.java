@@ -137,6 +137,8 @@ public class F2_Cuentas extends DialogFragment {
     TextView item_XTv;
     AutoCompleteTextView account_XAct;
     Spinner grupo1CuentaNueva_XSp,grupo2CuentaNueva_XSp;
+    // ⭐ NUEVO — Fase 4 (parte B): checkbox de Cerrable en Nueva Cuenta / Modificar cuenta.
+    CheckBox cerrableCuentaNueva_XChB;
     String itemCuentaNueva_String;
     String cuentaNueva_String;
     String grupo1CuentaNueva_String;
@@ -472,6 +474,7 @@ public class F2_Cuentas extends DialogFragment {
         clickUpdate_XBt=(Button)inflarViews_View.findViewById(R.id.clickUpdate_XBt);
         grupo1CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo1CuentaNueva_XSp);
         grupo2CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo2CuentaNueva_XSp);
+        cerrableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.cerrableCuentaNueva_XChB);
         cuentasOrdenAzParaVistaDetalleCuenta_XSp=(Spinner) inflarViews_View.findViewById(R.id.cuentasOrdenAzParaVistaDetalleCuenta_XSp);
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
@@ -1122,8 +1125,11 @@ public class F2_Cuentas extends DialogFragment {
 
         else {
             // Insertar en la base de datos
+            // ⭐ NUEVO — Fase 4 (parte B): checkbox Cerrable → "Cerrable" o null.
+            String cerrableCuentaNueva_String = cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null;
             a3_operacionesBD.insertarCuentas(itemCuentaNueva_String, cuentaNueva_String,
-                    grupo1CuentaNueva_String, grupo2CuentaNueva_String, fechaCuentaNueva_String);
+                    grupo1CuentaNueva_String, grupo2CuentaNueva_String, fechaCuentaNueva_String,
+                    cerrableCuentaNueva_String);
 
             cleanClickFieldsAccount();
             Toast.makeText(getActivity(), "! Registro de cuenta nueva guardado ! ", Toast.LENGTH_SHORT).show();
@@ -1179,8 +1185,10 @@ public class F2_Cuentas extends DialogFragment {
         SQLiteDatabase db = ayudanteBD_Class.getWritableDatabase();
 
         if (!existingText.isEmpty()) {
+            // ⭐ CAMBIO — Fase 4 (parte B): se agrega Cerrable al SELECT para poder marcar el
+            // checkbox nuevo con el estado real de la cuenta al abrirla en Modificar.
             Cursor fila = db.rawQuery
-                    ("select Item, Grupo1, Grupo2  from" +
+                    ("select Item, Grupo1, Grupo2, Cerrable  from" +
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1204,6 +1212,9 @@ public class F2_Cuentas extends DialogFragment {
                         indiceEnArrayG2 = i;
                 }
                 grupo2CuentaNueva_XSp.setSelection(indiceEnArrayG2);
+
+                // ⭐ NUEVO — Fase 4 (parte B).
+                cerrableCuentaNueva_XChB.setChecked("Cerrable".equals(fila.getString(3)));
 
                 //aplica en nuevas
 
@@ -1388,6 +1399,7 @@ public class F2_Cuentas extends DialogFragment {
         account_XAct.setText("");
         grupo1CuentaNueva_XSp.setSelection(0);
         grupo2CuentaNueva_XSp.setSelection(0);
+        cerrableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — Fase 4 (parte B)
 
         atributos_XTL.removeAllViews();
 
@@ -1409,6 +1421,8 @@ public class F2_Cuentas extends DialogFragment {
             contenedor_ContentValues.put("Cuenta",cuenta);
             contenedor_ContentValues.put("Grupo1",g1);
             contenedor_ContentValues.put("Grupo2",g2);
+            // ⭐ NUEVO — Fase 4 (parte B): checkbox Cerrable → "Cerrable" o null.
+            contenedor_ContentValues.put("Cerrable", cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null);
 
             int actualizar = db.update("cuentas",contenedor_ContentValues,"Cuenta like '" +
                     cuenta + "';", null);
@@ -1442,7 +1456,14 @@ public class F2_Cuentas extends DialogFragment {
 
         //consultasClass.consultarDetalleCuentaDeCuentaSeleccionada();
 
-        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha"};
+        // ⭐ CORRECCIÓN — Fase 4 (parte B): este arreglo de etiquetas se había quedado con 5
+        // elementos desde antes de la Fase 3 (parte B), cuando cuentaSeleccionadaAqui_ArrayS_Result
+        // pasó a traer un 6to elemento (cuenta_id). El bucle de abajo recorre por
+        // cuentaSeleccionadaAqui_ArrayS_Result.length e indexa este arreglo con el mismo índice,
+        // así que desde entonces cualquier cuenta con cuenta_id (o sea, todas) lanzaba
+        // ArrayIndexOutOfBoundsException al seleccionarla aquí. Se completa con las etiquetas que
+        // faltaban (cuenta_id de la Fase 3, Cerrable de esta fase) para que no truene.
+        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable"};
         // Crear un ArrayList de HashMaps
         ArrayList<HashMap<String, String>> listaConColumnas = new ArrayList<>();
 

@@ -31,15 +31,23 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   cuando no aplica), y se le quita la palabra "Cerrable" al texto de Grupo2 en cuentas y en el
 //   snapshot histórico de transacciones (c11_Grupo2). El snapshot por transacción se guarda en
 //   la columna c12_ColumnaDisponible, que ya existía en el esquema pero nunca se usaba de verdad
-//   (todo el código la llenaba siempre con el texto fijo "No Aplica" — se verificó que ningún
-//   otro punto de la app depende de ese valor literal, así que no hace falta agregar columna
-//   nueva ahí). Como esa columna es NOT NULL, el caso "no aplica" se guarda como el texto
-//   literal "No Aplica" (igual que siempre lo hacía), mientras que en "cuentas" (columna sí
-//   nullable) "no aplica" se guarda como NULL — mismo significado, distinta representación por
-//   la restricción de cada columna. Se migran en el mismo paso las dos consultas operativas que
-//   dependían del texto viejo de Grupo2 (el cierre parcial en A1_2_OperacionesBD y el resumen de
-//   respaldo en A5_1_BackupManager) para que lean la columna nueva — si se separaran en pasos
-//   distintos, el cierre parcial quedaría temporalmente roto entre uno y otro.
+//   (B11_DocumentCalculator la llenaba siempre con el texto fijo "na" en toda transacción nueva
+//   — se verificó que ningún otro punto de la app depende de ese valor literal, así que no hace
+//   falta agregar columna nueva ahí). Como esa columna es NOT NULL, el caso "no aplica" se guarda
+//   como el texto literal "No Aplica", mientras que en "cuentas" (columna sí nullable) "no
+//   aplica" se guarda como NULL — mismo significado, distinta representación por la restricción
+//   de cada columna. Se migran en el mismo paso las dos consultas operativas que dependían del
+//   texto viejo de Grupo2 (el cierre parcial en A1_2_OperacionesBD y el resumen de respaldo en
+//   A5_1_BackupManager) para que lean la columna nueva — si se separaran en pasos distintos, el
+//   cierre parcial quedaría temporalmente roto entre uno y otro.
+// ⭐ MODIFICADO: Versión 7 — Fase 4 (parte B): B11_DocumentCalculator ya escribe el valor real
+//   ("Cerrable" o "No Aplica") en c12_ColumnaDisponible para toda transacción nueva, en vez del
+//   "na" fijo de siempre — y se agrega el checkbox en F2_Cuentas para que el usuario pueda
+//   marcar una cuenta como Cerrable. Esta versión solo corrige, de forma idempotente, cualquier
+//   transacción que se haya creado ENTRE la v6 (parte A, ya instalada) y esta corrección: en ese
+//   intervalo, B11_DocumentCalculator todavía escribía "na" (no había cambiado), así que esas
+//   filas puntuales quedaron con "na" en vez de "Cerrable"/"No Aplica". No es un cambio de
+//   esquema, solo un backfill de continuidad.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -48,8 +56,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 5 → 6 para disparar onUpgrade en dispositivos existentes (ver Fase 4 parte A arriba).
-    public static final int version1BalanceSqlite_int_PSF = 6;
+    // ⭐ CAMBIO: versión 6 → 7 para disparar onUpgrade en dispositivos existentes (ver Fase 4 parte B arriba).
+    public static final int version1BalanceSqlite_int_PSF = 7;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -404,6 +412,27 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         "Migración v6: " + transaccionesCerrables.getInt(0) + " transacciones marcadas Cerrable");
             }
             transaccionesCerrables.close();
+        }
+
+        // ⭐ NUEVO v7 — Fase 4 (parte B): backfill de continuidad (ver comentario de clase
+        // arriba). Idempotente: solo toca filas que todavía digan "na" — el texto fijo que
+        // escribía B11_DocumentCalculator antes de esta parte; después de esta versión ya nunca
+        // vuelve a escribirse.
+        if (oldVersion < 7) {
+            db.execSQL("UPDATE transacciones SET c12_ColumnaDisponible = 'Cerrable' " +
+                    "WHERE c12_ColumnaDisponible = 'na' AND cuenta_id IN " +
+                    "(SELECT cuenta_id FROM cuentas WHERE Cerrable = 'Cerrable')");
+            db.execSQL("UPDATE transacciones SET c12_ColumnaDisponible = 'No Aplica' " +
+                    "WHERE c12_ColumnaDisponible = 'na'");
+
+            Cursor naResiduales = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE c12_ColumnaDisponible = 'na'", null);
+            if (naResiduales.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v7: " + naResiduales.getInt(0) +
+                                " transacciones seguían con 'na' tras el backfill (no debería pasar)");
+            }
+            naResiduales.close();
         }
     }
 

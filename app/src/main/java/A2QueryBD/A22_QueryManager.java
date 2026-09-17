@@ -294,8 +294,11 @@ public class A22_QueryManager {
         // (índice 5), puramente aditivo. Nada que ya lea este arreglo por índice 0-4 o por
         // "length >= 4" se ve afectado; ver A3_2_TipoTransaccionesGetsYSets y
         // B11_DocumentCalculator para dónde queda guardado ese dato de ahora en adelante.
+        // ⭐ NUEVO — Fase 4 (parte B): se agrega Cerrable como 7mo elemento (índice 6), mismo
+        // criterio aditivo. Viene de cuentas.Cerrable (ver A1_1_AyudanteBD, migración v6):
+        // "Cerrable" o null.
         A21_OptimizedQuery.QueryBuilder queryBuilder = new A21_OptimizedQuery.QueryBuilder()
-                .select("Item", "Cuenta", "Grupo1", "Grupo2", "Fecha", "cuenta_id")
+                .select("Item", "Cuenta", "Grupo1", "Grupo2", "Fecha", "cuenta_id", "Cerrable")
                 .from("cuentas")
                 .where("Cuenta = ?", nombreCuenta);
 
@@ -314,7 +317,8 @@ public class A22_QueryManager {
                 cursor.getString(cursor.getColumnIndexOrThrow("Grupo1")),
                 cursor.getString(cursor.getColumnIndexOrThrow("Grupo2")),
                 cursor.getString(cursor.getColumnIndexOrThrow("Fecha")),
-                cursor.getString(cursor.getColumnIndexOrThrow("cuenta_id")) // ⭐ NUEVO — índice 5
+                cursor.getString(cursor.getColumnIndexOrThrow("cuenta_id")), // ⭐ NUEVO — índice 5
+                cursor.getString(cursor.getColumnIndexOrThrow("Cerrable"))  // ⭐ NUEVO — índice 6
         });
 
         // Retornar el primer resultado como un QueryResult

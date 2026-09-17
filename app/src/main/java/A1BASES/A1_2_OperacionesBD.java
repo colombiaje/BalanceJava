@@ -51,7 +51,8 @@ public class A1_2_OperacionesBD extends Activity {
     }
 
     public void insertarCuentas(String stringItemDoc, String cuenta_String,
-                                String grupo1_String, String grupo2_String, String fecha_String) {
+                                String grupo1_String, String grupo2_String, String fecha_String,
+                                String cerrable_String) {
         abrirBaseDatos();
         ContentValues contenedor_ContentValues = new ContentValues();
         contenedor_ContentValues.put("Item", stringItemDoc);
@@ -59,6 +60,8 @@ public class A1_2_OperacionesBD extends Activity {
         contenedor_ContentValues.put("Grupo1", grupo1_String);
         contenedor_ContentValues.put("Grupo2", grupo2_String);
         contenedor_ContentValues.put("Fecha", fecha_String);
+        // ⭐ NUEVO — Fase 4 (parte B): "Cerrable" o null (ver A1_1_AyudanteBD, migración v6).
+        contenedor_ContentValues.put("Cerrable", cerrable_String);
         sqliteDatabase_Abstracta.insert("cuentas", null, contenedor_ContentValues);
 
         // ⭐ AGREGAR ESTO:

@@ -289,7 +289,7 @@ public class B11_DocumentCalculator {
                 "No Aplica",
                 atributosCuenta[2],
                 atributosCuenta[3],
-                "na",
+                resolveCerrable(atributosCuenta),
                 "na"
         );
         item.tipoTset_14CuentaIdMetodoEnA5(parseCuentaId(atributosCuenta));
@@ -309,6 +309,20 @@ public class B11_DocumentCalculator {
             Log.w(TAG, "cuenta_id no numérico en atributosCuenta[5]: " + atributosCuenta[5]);
             return null;
         }
+    }
+
+    // ⭐ NUEVO — Fase 4 (parte B): lee Cerrable (índice 6, agregado en
+    // A22_QueryManager.queryAttributesByAccount) para que cada transacción NUEVA guarde en
+    // c12_ColumnaDisponible el valor real de la cuenta ("Cerrable" o "No Aplica"), en vez del
+    // texto fijo "na" que tenía siempre antes de esta fase (ver A1_1_AyudanteBD, migración v6,
+    // y el comentario de clase ahí para el detalle completo). Si el arreglo todavía no trae ese
+    // índice (llamadas viejas de 4/5/6 elementos), se asume "No Aplica" — mismo comportamiento
+    // conservador que ya tiene parseCuentaId con cuenta_id.
+    private String resolveCerrable(String[] atributosCuenta) {
+        if (atributosCuenta.length < 7 || atributosCuenta[6] == null || atributosCuenta[6].isEmpty()) {
+            return "No Aplica";
+        }
+        return "Cerrable".equals(atributosCuenta[6]) ? "Cerrable" : "No Aplica";
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -359,7 +373,7 @@ public class B11_DocumentCalculator {
                 "No Aplica",
                 atributosCuenta[2],
                 atributosCuenta[3],
-                "na",
+                resolveCerrable(atributosCuenta),
                 "na"
         );
         item.tipoTset_14CuentaIdMetodoEnA5(parseCuentaId(atributosCuenta));
