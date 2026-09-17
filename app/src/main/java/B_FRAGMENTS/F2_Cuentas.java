@@ -208,15 +208,6 @@ public class F2_Cuentas extends DialogFragment {
     Button clickDeleteXBt;
     ArrayList<A3_2_TipoTransaccionesGetsYSets> cuentaConTransacciones_Result_ArrayList;
     String existingText;
-
-    // ⭐ NUEVO — Fase 4 Objetivo 2 (renombrado): cuenta_id y nombre original de la cuenta
-    // que quedó cargada en "Modificar cuenta". clickModify() los usa para identificar la
-    // fila a actualizar por su llave real (cuenta_id) en vez de por el texto de
-    // account_XAct, que ahora se puede editar ahí mismo para renombrar. Se reinician en
-    // cleanClickFieldsAccount() cada vez que se cambia de modo o se carga otra cuenta.
-    private Long cuentaIdEnModificar_Long;
-    private String nombreOriginalEnModificar_String;
-
     AutoCompleteTextView emulateAttributesAccount_XAct;
     TextView titleModifyXTV;
     TextView titleNewXTv;
@@ -1200,10 +1191,8 @@ public class F2_Cuentas extends DialogFragment {
         if (!existingText.isEmpty()) {
             // ⭐ CAMBIO — Fase 4 (parte B): se agrega Cerrable al SELECT para poder marcar el
             // checkbox nuevo con el estado real de la cuenta al abrirla en Modificar.
-            // ⭐ CAMBIO — Fase 4 Objetivo 2 (renombrado): se agrega cuenta_id (índice 4) para
-            // poder identificar esta cuenta por su llave real al guardar desde Modificar.
             Cursor fila = db.rawQuery
-                    ("select Item, Grupo1, Grupo2, Cerrable, cuenta_id from" +
+                    ("select Item, Grupo1, Grupo2, Cerrable  from" +
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1271,15 +1260,9 @@ public class F2_Cuentas extends DialogFragment {
                 }
 
                 else if (seeModifyXChB.isChecked()) {
-                    // ⭐ CAMBIO — Fase 4 Objetivo 2: el campo se habilita aquí (antes quedaba
-                    // deshabilitado) para permitir renombrar la cuenta desde "Modificar
-                    // cuenta", que fue lo que decidimos como lugar de esta acción.
-                    // clickModify() ya no identifica la fila a actualizar por este texto —
-                    // usa cuentaIdEnModificar_Long, guardado justo abajo.
+                    // Tu lógica aquí
                     account_XAct.setText(existingText);
-                    account_XAct.setEnabled(true);
-                    cuentaIdEnModificar_Long = fila.getLong(4);
-                    nombreOriginalEnModificar_String = existingText;
+                    account_XAct.setEnabled(false);
                 }
 
 
@@ -1422,12 +1405,6 @@ public class F2_Cuentas extends DialogFragment {
         grupo2CuentaNueva_XSp.setSelection(0);
         cerrableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — Fase 4 (parte B)
 
-        // ⭐ NUEVO — Fase 4 Objetivo 2: se limpian junto con el resto de los campos, para que
-        // no quede un cuenta_id de una cuenta ya no cargada en pantalla listo para usarse
-        // por accidente en un guardado posterior.
-        cuentaIdEnModificar_Long = null;
-        nombreOriginalEnModificar_String = null;
-
         atributos_XTL.removeAllViews();
 
     }
@@ -1436,97 +1413,38 @@ public class F2_Cuentas extends DialogFragment {
 
     public void clickModify () {
 
-        String cuenta = account_XAct.getText().toString().trim();
+        A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(),"balance.db",null , version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudanteBD_Class.getWritableDatabase();
+
+        String cuenta = account_XAct.getText().toString();
         String g1 = grupo1CuentaNueva_XSp.getSelectedItem().toString();
         String g2 = grupo2CuentaNueva_XSp.getSelectedItem().toString();
 
         if (!cuenta.isEmpty() && !g1.isEmpty() && !g2.isEmpty()) {
-
-            // ⭐ NUEVO — Fase 4 Objetivo 2: sin el cuenta_id de la cuenta que se cargó en
-            // esta pantalla no hay una llave segura para identificar qué fila actualizar
-            // (el nombre ya no sirve para eso, porque es justo lo que se puede editar
-            // aquí). En vez de caer de vuelta al viejo match por nombre, se aborta y se
-            // pide volver a buscar la cuenta.
-            if (cuentaIdEnModificar_Long == null) {
-                Toast.makeText(getActivity(),
-                        "No se pudo identificar la cuenta a modificar. Vuelve a buscarla.",
-                        Toast.LENGTH_LONG).show();
-                return;
-            }
-
-            // ⭐ NUEVO — Fase 4 Objetivo 2: ¿el usuario cambió el nombre? Si sí, esto es un
-            // renombrado — se valida que no choque con otra cuenta y se confirma antes de
-            // guardar, porque afecta el nombre visible de la cuenta hacia adelante.
-            boolean seEstaRenombrando = nombreOriginalEnModificar_String != null &&
-                    !cuenta.equals(nombreOriginalEnModificar_String);
-
             ContentValues contenedor_ContentValues = new ContentValues();
-            contenedor_ContentValues.put("Cuenta", cuenta);
-            contenedor_ContentValues.put("Grupo1", g1);
-            contenedor_ContentValues.put("Grupo2", g2);
+            contenedor_ContentValues.put("Cuenta",cuenta);
+            contenedor_ContentValues.put("Grupo1",g1);
+            contenedor_ContentValues.put("Grupo2",g2);
             // ⭐ NUEVO — Fase 4 (parte B): checkbox Cerrable → "Cerrable" o null.
             contenedor_ContentValues.put("Cerrable", cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null);
 
-            if (seEstaRenombrando) {
-                A1_1_AyudanteBD ayudanteBDValidacion = new A1_1_AyudanteBD(getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
-                SQLiteDatabase dbValidacion = ayudanteBDValidacion.getWritableDatabase();
-                // La BD no tiene UNIQUE en "Cuenta" — la validación de nombre duplicado es
-                // solo de la app, igual que ya se hace en registrarNuevas() al crear.
-                Cursor choque = dbValidacion.rawQuery(
-                        "SELECT cuenta_id FROM cuentas WHERE Cuenta = ? AND cuenta_id != ?",
-                        new String[]{cuenta, String.valueOf(cuentaIdEnModificar_Long)});
-                boolean yaExisteOtraCuenta = choque.moveToFirst();
-                choque.close();
-                dbValidacion.close();
+            int actualizar = db.update("cuentas",contenedor_ContentValues,"Cuenta like '" +
+                    cuenta + "';", null);
 
-                if (yaExisteOtraCuenta) {
-                    Toast.makeText(getActivity(), "Ya existe otra cuenta con ese nombre", Toast.LENGTH_LONG).show();
-                    return;
-                }
+            db.close();
+            if (actualizar == 1) {
 
-                String nombreViejo = nombreOriginalEnModificar_String;
-                new AlertDialog.Builder(getActivity())
-                        .setTitle("Confirmar renombrado")
-                        .setMessage("¿Cambiar el nombre de \"" + nombreViejo + "\" a \"" + cuenta + "\"?\n\n" +
-                                "Las transacciones ya registradas conservarán \"" + nombreViejo + "\" en su historial.")
-                        .setPositiveButton("Sí, renombrar", (dialog, which) ->
-                                ejecutarActualizacionCuenta(contenedor_ContentValues, true))
-                        .setNegativeButton("Cancelar", null)
-                        .setCancelable(false)
-                        .show();
-                return;
+                atributos_XTL.removeAllViews();
+                Toast.makeText(getActivity(), "Registro modificado", Toast.LENGTH_SHORT).show();
             }
 
-            ejecutarActualizacionCuenta(contenedor_ContentValues, false);
+            else{
+                Toast.makeText(getActivity(), "La cuenta no existe", Toast.LENGTH_SHORT).show();
+            }
         }
 
         else {
             Toast.makeText(getActivity(), "Debes escriba el nombre de la cuenta", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    // ⭐ NUEVO — Fase 4 Objetivo 2: ejecuta el UPDATE de "cuentas" por cuenta_id (no por
-    // nombre), común a la modificación normal y al renombrado (que solo agrega la
-    // confirmación previa en clickModify()).
-    private void ejecutarActualizacionCuenta(ContentValues valores, boolean fueRenombrado) {
-        A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
-        SQLiteDatabase db = ayudanteBD_Class.getWritableDatabase();
-
-        int actualizar = db.update("cuentas", valores, "cuenta_id = ?",
-                new String[]{String.valueOf(cuentaIdEnModificar_Long)});
-
-        db.close();
-
-        if (actualizar == 1) {
-            atributos_XTL.removeAllViews();
-            Toast.makeText(getActivity(), fueRenombrado ? "Cuenta renombrada" : "Registro modificado", Toast.LENGTH_SHORT).show();
-            if (fueRenombrado) {
-                // Mantener el estado consistente si se guarda otra vez sin salir de la pantalla.
-                nombreOriginalEnModificar_String = (String) valores.get("Cuenta");
-                notificarActualizacionCuentas();
-            }
-        } else {
-            Toast.makeText(getActivity(), "La cuenta no existe", Toast.LENGTH_SHORT).show();
         }
     }
 
