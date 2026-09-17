@@ -809,6 +809,10 @@ public class F2_Cuentas extends DialogFragment {
                         account_XAct.setText("");
                         grupo1CuentaNueva_XSp.setSelection(0);
                         grupo2CuentaNueva_XSp.setSelection(0);
+                        // ⭐ CORRECCIÓN — Fase 4 (parte B): este botón ya limpiaba Grupo1/Grupo2
+                        // al copiar, pero se había quedado sin limpiar Cerrable — se veía en la
+                        // pantalla como si la cuenta anterior siguiera marcada Cerrable.
+                        cerrableCuentaNueva_XChB.setChecked(false);
                         copyCuentaABuscarXChb.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_paste,0,0,0);
                         limpiarTextoEnCuentaABuscar();
                         isCopyMode = false;

@@ -14,6 +14,7 @@ import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_I
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED;
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
@@ -338,9 +339,13 @@ public class F4_Cierres extends Fragment {
     // ==================== MÉTODOS DE CIERRE ALGUNAS CUENTAS ====================
 
     public void _3dialogoCierreAutonomoAlgunasCuentas() {
+        // ⭐ CORRECCIÓN — Fase 4: este mensaje usaba _7verNumeroDeTransacciones() (el total de
+        // TODA la tabla) para anunciar cuántas se iban a borrar aquí, cuando el cierre parcial
+        // solo borra las Cerrable (ver A1_2_OperacionesBD.eliminarTransaccionesAlgunasCuentas()).
+        // El número mostrado nunca coincidía con lo que en verdad se eliminaba.
         new AlertDialog.Builder(getActivity())
                 .setTitle("Advertencia")
-                .setMessage("Actualmente hay: " + _7verNumeroDeTransacciones() +
+                .setMessage("Actualmente hay: " + _7verNumeroDeTransaccionesCerrable() +
                         ", ¿Eliminarlas, hará un resumen de algunas cuentas y lo colocará como saldos iniciales?")
                 .setCancelable(false)
                 .setPositiveButton("Si", (dialog, id) -> {
@@ -1581,6 +1586,36 @@ public class F4_Cierres extends Fragment {
             return numeroRegistros;
         } catch (Exception e) {
             Log.e(TAG, "Error al contar transacciones: " + e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    // ⭐ NUEVO — Fase 4: corrige el diálogo del cierre parcial ("interno de algunas cuentas"),
+    // que venía usando _7verNumeroDeTransacciones() (el total de TODA la tabla, sin filtro) para
+    // anunciar cuántas transacciones se iban a borrar. Ese número nunca fue el correcto para el
+    // cierre parcial — el correcto es este, filtrado por el snapshot Cerrable (ver
+    // A1_1_AyudanteBD, migración v6, y A1_2_OperacionesBD.eliminarTransaccionesAlgunasCuentas(),
+    // que es la que de verdad borra por esta misma condición).
+    private long _7verNumeroDeTransaccionesCerrable() {
+        try {
+            A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
+                    getActivity(),
+                    balanceSqlite_String_PSF,
+                    null,
+                    version1BalanceSqlite_int_PSF
+            );
+            SQLiteDatabase db = ayudanteBD.getReadableDatabase();
+            Cursor cursor = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE c12_ColumnaDisponible = 'Cerrable'", null);
+            long numeroRegistros = 0;
+            if (cursor.moveToFirst()) {
+                numeroRegistros = cursor.getLong(0);
+            }
+            cursor.close();
+            db.close();
+            return numeroRegistros;
+        } catch (Exception e) {
+            Log.e(TAG, "Error al contar transacciones Cerrable: " + e.getMessage(), e);
             return 0;
         }
     }
