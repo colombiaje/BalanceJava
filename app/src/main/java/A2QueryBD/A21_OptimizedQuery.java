@@ -254,6 +254,15 @@ public class A21_OptimizedQuery {
      * casos donde uno de los dos valores quedó vacío/nulo — con "!=" una
      * comparación contra NULL no se marca como diferente y el caso pasaría
      * desapercibido.
+     *
+     * ⭐ MODIFICADO — Fase 3 (parte C): el JOIN contra "cuentas" ahora se hace por
+     * cuenta_id en vez de por nombre (Cuenta = c3_Cuenta). Motivo: cuenta_id es un
+     * vínculo estable que no depende del texto, así que esta auditoría seguirá
+     * funcionando igual el día que exista renombrado de cuentas (Fase 4) — un JOIN
+     * por nombre dejaría de encontrar la cuenta en cuanto se renombrara. Con los
+     * datos de hoy (ninguna cuenta se ha renombrado todavía) el resultado de esta
+     * consulta es idéntico al que daba el JOIN por nombre — ver verificación pedida
+     * en el reporte de este cambio.
      */
     public ArrayList<String[]> obtenerTransaccionesDesalineadas() {
         ArrayList<String[]> desalineadas = new ArrayList<>();
@@ -263,7 +272,7 @@ public class A21_OptimizedQuery {
             String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, t.c3_Cuenta, t.c5_Valor, " +
                     "t.c10_Grupo1, t.c11_Grupo2, c.Grupo1, c.Grupo2 " +
                     "FROM transacciones t " +
-                    "JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
+                    "JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
                     "WHERE t.c10_Grupo1 IS NOT c.Grupo1 OR t.c11_Grupo2 IS NOT c.Grupo2 " +
                     "ORDER BY t.c3_Cuenta, t.c1_Documento, t.c2_ItemDoc";
             cursor = db.rawQuery(query, null);
