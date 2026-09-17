@@ -576,6 +576,21 @@ public class F4_Cierres extends Fragment {
             valores.put("c12_ColumnaDisponible", datos[11]);
             valores.put("c13_ColumnaDisponible", datos[12]);
 
+            // ⭐ NUEVO — Fase 4 (parte C): cuenta_id, si el CSV lo trae (backup nuevo de
+            // A5_1_BackupManager.guardarTodasLasTransancionsAUnArchivoCSV, columna 14).
+            // Compatible con CSVs viejos de 13 columnas: si no viene, se deja sin poner —
+            // igual que hoy, queda NULL y puede repararse después por c3_Cuenta (ver backfills
+            // en A1_1_AyudanteBD). Los resúmenes de saldo inicial (_2 y _3 en A5_1_BackupManager)
+            // tampoco escriben esta columna todavía, así que sus líneas seguirán entrando aquí
+            // sin cuenta_id, como siempre.
+            if (datos.length >= 14 && datos[13] != null && !datos[13].trim().isEmpty()) {
+                try {
+                    valores.put("cuenta_id", Long.parseLong(datos[13].trim()));
+                } catch (NumberFormatException nfe) {
+                    Log.e(TAG, "cuenta_id inválido en CSV, se omite: " + datos[13]);
+                }
+            }
+
             db.insert("transacciones", null, valores);
             db.close();
         } catch (Exception e) {

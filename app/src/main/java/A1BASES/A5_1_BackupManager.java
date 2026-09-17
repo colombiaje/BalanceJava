@@ -88,12 +88,20 @@ public class A5_1_BackupManager {
                 OutputStreamWriter salidaArchivo = new OutputStreamWriter(new FileOutputStream(archivo));
 
                 // Escribir datos
+                // ⭐ CAMBIO — Fase 4 (parte C): se agregan cuenta_id, codigo_cuenta y Cerrable al
+                // final de la línea (columnas 6, 7 y 8) — las 5 columnas de siempre quedan en el
+                // mismo orden, así que un restaurador viejo que solo lea las primeras 5 sigue
+                // funcionando igual. Ver F2_Cuentas.insertarCuenta(), que ya sabe leer estas 3
+                // columnas nuevas si están presentes.
                 for (A3_1_TipoCuentasGetsYSets cuenta : todasLasCuentas_List_Result) {
                     String linea = cuenta.tipoTgetCuenta_1Item() + "," +
                             cuenta.tipoTgetCuenta_2Cuenta() + "," +
                             cuenta.tipoTgetCuenta_3G1() + "," +
                             cuenta.tipoTgetCuenta_3G2() + "," +
-                            cuenta.tipoTgetCuenta_5Fecha() + "\n";
+                            cuenta.tipoTgetCuenta_5Fecha() + "," +
+                            (cuenta.tipoTgetCuenta_6CuentaId() == null ? "" : cuenta.tipoTgetCuenta_6CuentaId()) + "," +
+                            (cuenta.tipoTgetCuenta_7CodigoCuenta() == null ? "" : cuenta.tipoTgetCuenta_7CodigoCuenta()) + "," +
+                            (cuenta.tipoTgetCuenta_8Cerrable() == null ? "" : cuenta.tipoTgetCuenta_8Cerrable()) + "\n";
 
                     salidaArchivo.write(linea);
                     Log.d("BackupManager", "Escribiendo línea: " + linea.trim());
@@ -177,6 +185,10 @@ public class A5_1_BackupManager {
 
                     OutputStreamWriter salidaArchivo_OutputStreamWriter = new OutputStreamWriter(new FileOutputStream(archivo_File));
 
+                    // ⭐ CAMBIO — Fase 4 (parte C): se agrega cuenta_id como 14ta columna al
+                    // final — las 13 de siempre quedan en el mismo orden y posición. Ver
+                    // F4_Cierres.insertarTransaccion(), que ya sabe leer esta columna extra si
+                    // está presente.
                     for (int i = 0; i < todasLasTransacciones_Result_ArrayLTT.size(); i++) {
                         A3_2_TipoTransaccionesGetsYSets TransaccionX = todasLasTransacciones_Result_ArrayLTT.get(i);
                         salidaArchivo_OutputStreamWriter.write(
@@ -193,6 +205,7 @@ public class A5_1_BackupManager {
                                         TransaccionX.tipoTget_11Grupo2MetodoEnA5() + "," +
                                         TransaccionX.tipoTget_12ColumnaDisponibleMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_13ColumnaDisponibleMetodoEnA5() + "," +
+                                        (TransaccionX.tipoTget_14CuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_14CuentaIdMetodoEnA5()) +
                                         "\n");
                     }
 
@@ -237,10 +250,17 @@ public class A5_1_BackupManager {
                 A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase_Abstracta= ayudanteBD_Class.getWritableDatabase();
 
+                // ⭐ CAMBIO — Fase 4 (parte C): se agrega un LEFT JOIN a "cuentas" para poder
+                // escribir el Cerrable real de cada cuenta (columna 12 de abajo) en vez del texto
+                // fijo "n a" que tenía siempre — este resumen genera transacciones NUEVAS de
+                // saldo inicial, así que debe reflejar el estado ACTUAL de la cuenta en "cuentas"
+                // (la fuente autoritativa), igual que ya hace B11_DocumentCalculator para
+                // cualquier transacción nueva. LEFT JOIN (no INNER) para que una cuenta sin match
+                // exacto por nombre siga apareciendo en el resumen, igual que antes.
                 final Cursor transacciones_Cursor = sqliteDatabase_Abstracta.rawQuery
-                        ("SELECT c3_Cuenta, c4_Signo,SUM(c5_Valor),c10_Grupo1,c11_Grupo2 " +
-                                "as transacciones  FROM transacciones  " +
-                                "where c4_Signo !='?' Group By c3_Cuenta ; ", null);
+                        ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable " +
+                                "FROM transacciones t LEFT JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
+                                "WHERE t.c4_Signo != '?' GROUP BY t.c3_Cuenta;", null);
 
                 a99_metodosVarios = new A99_MetodosVarios();
                 dateCurrent_ArrayInteger= a99_metodosVarios.fechasYHoras();
@@ -260,7 +280,8 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append(","); //9 fecha de modificacion
                         escrituraDeArchivo_FileWriter.append( transacciones_Cursor.getString(3) );escrituraDeArchivo_FileWriter.append(",");// 10 grupo 1
                         escrituraDeArchivo_FileWriter.append( transacciones_Cursor.getString(4) );escrituraDeArchivo_FileWriter.append(",");// 11 grupo 2
-                        escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append(","); // 12 columna disponible 1
+                        // ⭐ CAMBIO — Fase 4 (parte C): antes "n a" fijo; ahora el Cerrable real de "cuentas".
+                        escrituraDeArchivo_FileWriter.append("Cerrable".equals(transacciones_Cursor.getString(5)) ? "Cerrable" : "No Aplica");escrituraDeArchivo_FileWriter.append(","); // 12 columna disponible 1
                         escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append("\n"); // 13 columna disponible 2
 
                     } while (transacciones_Cursor.moveToNext());
@@ -307,11 +328,16 @@ public class A5_1_BackupManager {
                 // las cuentas "Cerrable" comparando el texto exacto de Grupo2; ahora lee el
                 // snapshot en c12_ColumnaDisponible (ver A1_1_AyudanteBD, migración v6). Debe
                 // seguir resumiendo exactamente las mismas cuentas que antes del cierre parcial.
+                // ⭐ CAMBIO — Fase 4 (parte C): se agrega el LEFT JOIN a "cuentas" (mismo criterio
+                // que en _2csvConsultaResumenTodasLasCuentasAntesDeCerrar...) para escribir el
+                // Cerrable real en vez de "n a" fijo. Aquí, por el WHERE, en la práctica todas
+                // las filas ya deberían ser Cerrable — se lee igual del JOIN, no del filtro, para
+                // que quede consistente si alguna cuenta cambiara de estado justo antes de cerrar.
                 final Cursor transaccionesCursor = sqliteDatabase.rawQuery(
-                        "SELECT c3_Cuenta, c4_Signo, SUM(c5_Valor), c10_Grupo1, c11_Grupo2 " +
-                                "AS transacciones FROM transacciones " +
-                                "WHERE c4_Signo != '?' AND c12_ColumnaDisponible = 'Cerrable' " +
-                                "GROUP BY c3_Cuenta;", null);
+                        "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable " +
+                                "FROM transacciones t LEFT JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
+                                "WHERE t.c4_Signo != '?' AND t.c12_ColumnaDisponible = 'Cerrable' " +
+                                "GROUP BY t.c3_Cuenta;", null);
 
                 A99_MetodosVarios metodosVarios = new A99_MetodosVarios();
                 dateCurrent_ArrayInteger = metodosVarios.fechasYHoras();
@@ -331,8 +357,10 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 9 fecha de modificacion
                         escrituraDeArchivo.append(transaccionesCursor.getString(3)); escrituraDeArchivo.append(","); // 10 grupo 1
                         escrituraDeArchivo.append(transaccionesCursor.getString(4)); escrituraDeArchivo.append(","); // 11 grupo 2
-                        escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 12 columna disponible 1
-                        escrituraDeArchivo.append("n a"); escrituraDeArchivo.append("\n"); // 13 columna disponible 2
+                        // ⭐ CAMBIO — Fase 4 (parte C): antes escribía "n a" fijo; ahora usa el
+                        // Cerrable real leído del JOIN a "cuentas" (columna 5 del cursor).
+                        escrituraDeArchivo.append("Cerrable".equals(transaccionesCursor.getString(5)) ? "Cerrable" : "No Aplica"); escrituraDeArchivo.append(","); // 12 columna disponible 1
+                        escrituraDeArchivo.append("n a"); escrituraDeArchivo.append("\n"); // 13 columna disponible 2 (sin cambios, espacio libre genuino)
 
                     } while (transaccionesCursor.moveToNext());
 

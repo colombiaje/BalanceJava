@@ -376,8 +376,15 @@ public class A21_OptimizedQuery {
     }
 
     // Métodos auxiliares de mapeo
+    // ⭐ CORRECCIÓN — Fase 4 (parte C): este mapeo por posición (0..12) cubre exactamente las 13
+    // columnas c1..c13 de "transacciones" en su orden de siempre — eso sigue funcionando bien.
+    // Pero el SELECT * de quien llama a este mapeo (consultarTransacciones) también trae
+    // cuenta_id (la columna agregada en la Fase 1, al final de la tabla) y este método nunca la
+    // leía: por eso los respaldos/exportaciones a CSV que pasan por aquí (A5_1_BackupManager)
+    // venían sin cuenta_id. Se agrega con un set() después de construir, igual que ya se hace
+    // en B11_DocumentCalculator, sin tocar el constructor de 13 parámetros.
     private A3_2_TipoTransaccionesGetsYSets mapTransactionFromCursor(Cursor cursor) {
-        return new A3_2_TipoTransaccionesGetsYSets(
+        A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
                 cursor.getString(0),  // documento
                 cursor.getString(1),  // tipo
                 cursor.getString(2),  // fecha
@@ -392,11 +399,21 @@ public class A21_OptimizedQuery {
                 cursor.getString(11), // grupo2
                 cursor.getString(12)  // grupo3
         );
+        int indiceCuentaId = cursor.getColumnIndex("cuenta_id");
+        if (indiceCuentaId != -1 && !cursor.isNull(indiceCuentaId)) {
+            item.tipoTset_14CuentaIdMetodoEnA5(cursor.getLong(indiceCuentaId));
+        }
+        return item;
     }
 
     // Métodos auxiliares de mapeo
+    // ⭐ CORRECCIÓN — Fase 4 (parte C): mismo problema que en mapTransactionFromCursor, pero
+    // para "cuentas": el SELECT * de quien llama a este mapeo (consultarCuentas) ya trae
+    // cuenta_id, codigo_cuenta y Cerrable (agregadas en las Fases 1 y 4), y este método nunca las
+    // leía — por eso el respaldo de cuentas a CSV las omitía. Se agregan con set() después de
+    // construir, sin tocar el constructor de 5 parámetros.
     private A3_1_TipoCuentasGetsYSets mapCuentasFromCursor(Cursor cursor) {
-        return new A3_1_TipoCuentasGetsYSets(
+        A3_1_TipoCuentasGetsYSets item = new A3_1_TipoCuentasGetsYSets(
                 cursor.getString(0),  // documento
                 cursor.getString(1),  // tipo
                 cursor.getString(2),  // fecha
@@ -404,5 +421,18 @@ public class A21_OptimizedQuery {
                 cursor.getString(4)   // valor
 
         );
+        int indiceCuentaId = cursor.getColumnIndex("cuenta_id");
+        if (indiceCuentaId != -1 && !cursor.isNull(indiceCuentaId)) {
+            item.tipoTsetCuenta_6CuentaId(cursor.getLong(indiceCuentaId));
+        }
+        int indiceCodigoCuenta = cursor.getColumnIndex("codigo_cuenta");
+        if (indiceCodigoCuenta != -1) {
+            item.tipoTsetCuenta_7CodigoCuenta(cursor.getString(indiceCodigoCuenta));
+        }
+        int indiceCerrable = cursor.getColumnIndex("Cerrable");
+        if (indiceCerrable != -1) {
+            item.tipoTsetCuenta_8Cerrable(cursor.getString(indiceCerrable));
+        }
+        return item;
     }
 }

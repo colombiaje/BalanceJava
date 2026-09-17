@@ -2369,6 +2369,29 @@ public class F2_Cuentas extends DialogFragment {
             valores.put("Grupo2", datos[3]);
             valores.put("Fecha", datos[4]);
 
+            // ⭐ NUEVO — Fase 4 (parte C): cuenta_id, codigo_cuenta y Cerrable, si el CSV los
+            // trae (backup nuevo de A5_1_BackupManager.backupCuentasArchivoCSV, columnas 6,7,8).
+            // Compatible con CSVs viejos de 5 columnas: si no vienen, simplemente no se ponen y
+            // cuenta_id lo asigna AUTOINCREMENT como siempre. Se preserva el cuenta_id original
+            // (en vez de dejar que AUTOINCREMENT asigne uno nuevo) para que las transacciones
+            // restauradas después, que traen su propio cuenta_id, sigan apuntando a la cuenta
+            // correcta.
+            if (datos.length >= 8) {
+                if (datos[5] != null && !datos[5].trim().isEmpty()) {
+                    try {
+                        valores.put("cuenta_id", Long.parseLong(datos[5].trim()));
+                    } catch (NumberFormatException nfe) {
+                        Log.e(TAG, "cuenta_id inválido en CSV, se omite: " + datos[5]);
+                    }
+                }
+                if (datos[6] != null && !datos[6].trim().isEmpty()) {
+                    valores.put("codigo_cuenta", datos[6]);
+                }
+                if (datos[7] != null && !datos[7].trim().isEmpty()) {
+                    valores.put("Cerrable", datos[7]);
+                }
+            }
+
             db.insert("cuentas", null, valores);
             db.close();
         } catch (Exception e) {
