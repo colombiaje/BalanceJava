@@ -216,11 +216,24 @@ public class A21_OptimizedQuery {
             // Las transacciones cuya copia interna quedó desalineada frente
             // a "cuentas" se pueden revisar en detalle con el botón de
             // Auditoría de Clasificación (ver A11_AuditoriaClasificacionDialogo).
-            String query = "SELECT t.c3_Cuenta AS c3_Cuenta, t.c4_Signo AS c4_Signo, " +
+            //
+            // ⭐ MODIFICADO — Fase 3 (parte D): el JOIN y el GROUP BY pasan de hacerse
+            // por nombre (Cuenta = c3_Cuenta) a hacerse por cuenta_id, igual que ya se
+            // hizo en la auditoría (parte C). Motivo: cuenta_id es el vínculo estable;
+            // agrupar por nombre es lo que haría que, el día que exista renombrado
+            // (Fase 4), una misma cuenta apareciera PARTIDA en dos filas del Informe
+            // (una con el nombre viejo para las transacciones de antes, otra con el
+            // nombre nuevo) — exactamente el síntoma que este método ya existe para
+            // evitar. El nombre a mostrar ahora se toma de "cuentas" (el vigente), con
+            // el propio c3_Cuenta como respaldo solo si el LEFT JOIN no encuentra la
+            // cuenta (COALESCE). Con los datos de hoy (sin cuentas renombradas ni
+            // huérfanas — ver verificación de la parte A) el resultado es idéntico al
+            // que daba la versión anterior por nombre.
+            String query = "SELECT COALESCE(c.Cuenta, t.c3_Cuenta) AS c3_Cuenta, t.c4_Signo AS c4_Signo, " +
                     "SUM(t.c5_Valor) AS suma, c.Grupo1 AS c10_Grupo1, c.Grupo2 AS c11_Grupo2 " +
                     "FROM transacciones t " +
-                    "LEFT JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
-                    "GROUP BY t.c3_Cuenta";
+                    "LEFT JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
+                    "GROUP BY t.cuenta_id";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
