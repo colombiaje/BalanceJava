@@ -1166,9 +1166,11 @@ public class F2_Cuentas extends DialogFragment {
             return new String[]{"", "Activo", "Pasivo", "Patrimonio", "Ingresos", "Costo de ventas",
                     "Gastos", "Costos de produccion", "Cuentas de orden Db", "Cuentas de orden Cr"};
         } else {
-            return new String[]{"", "Exigible Conciliable", "Exigible Conciliable Cerrable",
+            // ⭐ CAMBIO — Fase 4 (parte A): se quitan las dos combinaciones que mezclaban Grupo2
+            // con "Cerrable" (ver A1_1_AyudanteBD.SEED_GRUPO2, misma migración).
+            return new String[]{"", "Exigible Conciliable",
                     "Exigible No conciliable", "No exigible Conciliable",
-                    "No exigible No conciliable", "No exigible No conciliable Cerrable"};
+                    "No exigible No conciliable"};
         }
     }
 

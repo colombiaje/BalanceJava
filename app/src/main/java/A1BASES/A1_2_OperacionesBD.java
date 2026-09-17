@@ -90,8 +90,12 @@ public class A1_2_OperacionesBD extends Activity {
     public void eliminarTransaccionesAlgunasCuentas() {
 
         abrirBaseDatos();
-        sqliteDatabase_Abstracta.execSQL("DELETE FROM transacciones WHERE c11_Grupo2 = 'Exigible Conciliable Cerrable' " +
-                "OR c11_Grupo2 = 'No exigible No conciliable Cerrable'");
+        // ⭐ CAMBIO — Fase 4 (parte A): antes identificaba las cuentas "Cerrable" comparando el
+        // texto exacto de Grupo2. Desde la migración v6 ese texto ya no lleva la palabra
+        // "Cerrable" (ver A1_1_AyudanteBD); el atributo vive en su propia columna, con snapshot
+        // por transacción en c12_ColumnaDisponible. Misma lógica de negocio, misma selección de
+        // filas — solo cambia por dónde se identifica.
+        sqliteDatabase_Abstracta.execSQL("DELETE FROM transacciones WHERE c12_ColumnaDisponible = 'Cerrable'");
 
     }
 

@@ -249,17 +249,21 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
 
     public void dynamicQuery$Values() {
         // Activo Exigible
-        String argumento1WhereActivo_String = "c10_Grupo1 = ? AND (c11_Grupo2 = ? OR c11_Grupo2 = ? OR c11_Grupo2= ? OR c11_Grupo2= ?)";
+        // ⭐ CAMBIO — Fase 4 (parte A): se quita "Exigible Conciliable Cerrable" de la lista.
+        // Desde la migración v6, ningún Grupo2 guardado vuelve a tener esa palabra mezclada
+        // (ver A1_1_AyudanteBD) — esta rama ya no podía volver a coincidir con nada, así que se
+        // limpia en vez de dejarla como código muerto.
+        String argumento1WhereActivo_String = "c10_Grupo1 = ? AND (c11_Grupo2 = ? OR c11_Grupo2 = ? OR c11_Grupo2= ?)";
         String[] argumento2WhereArgs = new String[]{"Activo", "Exigible", "Exigible Conciliable",
-                "Exigible Conciliable Cerrable", "Exigible No conciliable"};
+                "Exigible No conciliable"};
         A23_QueryResult sumaActivo_Result = a22QueryManager.querySumTransactionsForStringWhere(
                 argumento1WhereActivo_String, argumento2WhereArgs);
         sumaActivo = sumaActivo_Result.getSuma();
 
         // Pasivo exigible
-        String argumento1WhereActivo_String2 = "c10_Grupo1 = ? AND (c11_Grupo2 = ? OR c11_Grupo2 = ? OR c11_Grupo2= ? OR c11_Grupo2= ?)";
+        String argumento1WhereActivo_String2 = "c10_Grupo1 = ? AND (c11_Grupo2 = ? OR c11_Grupo2 = ? OR c11_Grupo2= ?)";
         String[] argumento2WhereArgs2 = new String[]{"Pasivo", "Exigible", "Exigible Conciliable",
-                "Exigible Conciliable Cerrable", "Exigible No conciliable"};
+                "Exigible No conciliable"};
         A23_QueryResult sumaPasivo_Result = a22QueryManager.querySumTransactionsForStringWhere(
                 argumento1WhereActivo_String2, argumento2WhereArgs2);
         sumaPasivo = sumaPasivo_Result.getSuma();

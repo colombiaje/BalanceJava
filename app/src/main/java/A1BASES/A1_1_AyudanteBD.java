@@ -23,6 +23,23 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   llenaba desde entonces — ver B12_DocumentPersistence). Este backfill corrige, de forma
 //   idempotente, cualquier transacción que haya quedado con cuenta_id NULL entre la versión 3
 //   y esta corrección. El INSERT ya se corrigió aparte para que esto no vuelva a ocurrir.
+// ⭐ MODIFICADO: Versión 6 — Fase 4 (parte A): separa el atributo "Cerrable" del texto de
+//   Grupo2. Antes "Cerrable" venía mezclado dentro de dos combinaciones de Grupo2
+//   ("Exigible Conciliable Cerrable" / "No exigible No conciliable Cerrable"), lo que obligaba
+//   a todo el código que necesitaba saber si una cuenta era cerrable a comparar ese texto exacto.
+//   Ahora "cuentas" gana una columna propia "Cerrable" (texto, valor literal "Cerrable" o NULL
+//   cuando no aplica), y se le quita la palabra "Cerrable" al texto de Grupo2 en cuentas y en el
+//   snapshot histórico de transacciones (c11_Grupo2). El snapshot por transacción se guarda en
+//   la columna c12_ColumnaDisponible, que ya existía en el esquema pero nunca se usaba de verdad
+//   (todo el código la llenaba siempre con el texto fijo "No Aplica" — se verificó que ningún
+//   otro punto de la app depende de ese valor literal, así que no hace falta agregar columna
+//   nueva ahí). Como esa columna es NOT NULL, el caso "no aplica" se guarda como el texto
+//   literal "No Aplica" (igual que siempre lo hacía), mientras que en "cuentas" (columna sí
+//   nullable) "no aplica" se guarda como NULL — mismo significado, distinta representación por
+//   la restricción de cada columna. Se migran en el mismo paso las dos consultas operativas que
+//   dependían del texto viejo de Grupo2 (el cierre parcial en A1_2_OperacionesBD y el resumen de
+//   respaldo en A5_1_BackupManager) para que lean la columna nueva — si se separaran en pasos
+//   distintos, el cierre parcial quedaría temporalmente roto entre uno y otro.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -31,8 +48,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 4 → 5 para disparar onUpgrade en dispositivos existentes (ver Fase 3 parte A arriba).
-    public static final int version1BalanceSqlite_int_PSF = 5;
+    // ⭐ CAMBIO: versión 5 → 6 para disparar onUpgrade en dispositivos existentes (ver Fase 4 parte A arriba).
+    public static final int version1BalanceSqlite_int_PSF = 6;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -79,7 +96,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // ⭐ NUEVO v3: llave primaria técnica + código de plan de cuentas, ambas al
                     // final para no correr el orden posicional de ningún query existente (Fase 1).
                     "cuenta_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "codigo_cuenta TEXT)";
+                    "codigo_cuenta TEXT, " +
+                    // ⭐ NUEVO v6 — Fase 4 (parte A): atributo "Cerrable" propio, separado de
+                    // Grupo2. Valor literal "Cerrable" o NULL ("no aplica" — la cuenta conserva
+                    // su historial completo).
+                    "Cerrable TEXT)";
 
     // ─────────────────────────────────────────────
     //  DDL — NUEVAS TABLAS DE CACHÉ  ⭐ NUEVO
@@ -179,9 +200,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             "Activo", "Pasivo", "Patrimonio", "Ingresos", "Costo de ventas", "Gastos",
             "Costos de produccion", "Cuentas de orden Db", "Cuentas de orden Cr"};
 
+    // ⭐ CAMBIO v6 — Fase 4 (parte A): se quitan las dos combinaciones que mezclaban Grupo2 con
+    // "Cerrable" ("Exigible Conciliable Cerrable" y "No exigible No conciliable Cerrable"). El
+    // atributo "Cerrable" pasa a vivir por su cuenta en cuentas.Cerrable (ver más arriba); estas
+    // 4 quedan como las combinaciones base de Grupo2, en el mismo orden relativo de siempre.
     private static final String[] SEED_GRUPO2 = {
-            "Exigible Conciliable", "Exigible Conciliable Cerrable", "Exigible No conciliable",
-            "No exigible Conciliable", "No exigible No conciliable", "No exigible No conciliable Cerrable"};
+            "Exigible Conciliable", "Exigible No conciliable",
+            "No exigible Conciliable", "No exigible No conciliable"};
 
     private void sembrarCatalogosGrupo1Y2(SQLiteDatabase db) {
         for (int i = 0; i < SEED_GRUPO1.length; i++) {
@@ -321,6 +346,64 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 "(c3_Cuenta sin match en cuentas.Cuenta)");
             }
             huerfanasV5.close();
+        }
+
+        // ⭐ NUEVO v6 — Fase 4 (parte A): separar "Cerrable" del texto de Grupo2 (ver comentario
+        // de clase arriba). Idempotente: cada paso solo toca filas que todavía tienen "Cerrable"
+        // en el texto, así que es seguro volver a correrlo.
+        if (oldVersion < 6) {
+
+            // 1) cuentas: agregar la columna nueva (ALTER TABLE simple, sin recrear la tabla —
+            //    a diferencia de la migración v3, esta columna no es llave ni cambia el orden
+            //    posicional de ninguna columna existente).
+            db.execSQL("ALTER TABLE cuentas ADD COLUMN Cerrable TEXT");
+
+            // 2) cuentas: marcar como Cerrable las que hoy lo tienen mezclado en Grupo2, y
+            //    quitarle esa palabra al texto de Grupo2. Se asume que "Cerrable" aparece solo
+            //    como palabra final, precedida de un espacio (los dos únicos valores conocidos:
+            //    "Exigible Conciliable Cerrable" y "No exigible No conciliable Cerrable").
+            db.execSQL("UPDATE cuentas SET Cerrable = 'Cerrable' WHERE Grupo2 LIKE '%Cerrable%'");
+            db.execSQL("UPDATE cuentas SET Grupo2 = TRIM(REPLACE(Grupo2, ' Cerrable', '')) " +
+                    "WHERE Grupo2 LIKE '%Cerrable%'");
+
+            // 3) transacciones: el snapshot por transacción se guarda en c12_ColumnaDisponible
+            //    (columna existente, nunca usada de verdad — siempre tenía el texto fijo
+            //    "No Aplica"; se verificó que ningún otro punto de la app depende de ese valor
+            //    literal). Se deriva del texto de Grupo2 QUE YA TENÍA CADA TRANSACCIÓN en el
+            //    momento en que se guardó (c11_Grupo2), no del estado actual de la cuenta — así
+            //    el snapshot histórico queda fiel a lo que era cierto cuando se creó cada
+            //    transacción, igual que ya pasa con Grupo1/Grupo2. Como la columna es NOT NULL,
+            //    "no aplica" se guarda como el texto "No Aplica" (el mismo que ya tenía siempre).
+            db.execSQL("UPDATE transacciones SET c12_ColumnaDisponible = 'Cerrable' " +
+                    "WHERE c11_Grupo2 LIKE '%Cerrable%'");
+            db.execSQL("UPDATE transacciones SET c12_ColumnaDisponible = 'No Aplica' " +
+                    "WHERE c11_Grupo2 NOT LIKE '%Cerrable%'");
+            db.execSQL("UPDATE transacciones SET c11_Grupo2 = TRIM(REPLACE(c11_Grupo2, ' Cerrable', '')) " +
+                    "WHERE c11_Grupo2 LIKE '%Cerrable%'");
+
+            // 4) catálogo Grupo2 (tabla, no el array): quitar las dos filas que ya no deberían
+            //    existir como combinación seleccionable. Las instalaciones nuevas nunca las
+            //    siembran porque SEED_GRUPO2 ya no las tiene (ver arriba).
+            db.execSQL("DELETE FROM " + TABLE_CATALOGO_GRUPO2 +
+                    " WHERE nombre IN ('Exigible Conciliable Cerrable', 'No exigible No conciliable Cerrable')");
+
+            // 5) Diagnóstico: cuántas cuentas y transacciones quedaron marcadas Cerrable, para
+            //    poder comparar contra lo que se veía en la app antes de la migración.
+            Cursor cuentasCerrables = db.rawQuery(
+                    "SELECT COUNT(*) FROM cuentas WHERE Cerrable = 'Cerrable'", null);
+            if (cuentasCerrables.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v6: " + cuentasCerrables.getInt(0) + " cuentas marcadas Cerrable");
+            }
+            cuentasCerrables.close();
+
+            Cursor transaccionesCerrables = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE c12_ColumnaDisponible = 'Cerrable'", null);
+            if (transaccionesCerrables.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v6: " + transaccionesCerrables.getInt(0) + " transacciones marcadas Cerrable");
+            }
+            transaccionesCerrables.close();
         }
     }
 

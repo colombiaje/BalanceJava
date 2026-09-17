@@ -302,10 +302,15 @@ public class A5_1_BackupManager {
                 A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase = ayudanteBD.getWritableDatabase();
 
+                // ⭐ CAMBIO — Fase 4 (parte A): misma migración que en
+                // A1_2_OperacionesBD.eliminarTransaccionesAlgunasCuentas() — antes identificaba
+                // las cuentas "Cerrable" comparando el texto exacto de Grupo2; ahora lee el
+                // snapshot en c12_ColumnaDisponible (ver A1_1_AyudanteBD, migración v6). Debe
+                // seguir resumiendo exactamente las mismas cuentas que antes del cierre parcial.
                 final Cursor transaccionesCursor = sqliteDatabase.rawQuery(
                         "SELECT c3_Cuenta, c4_Signo, SUM(c5_Valor), c10_Grupo1, c11_Grupo2 " +
                                 "AS transacciones FROM transacciones " +
-                                "WHERE c4_Signo != '?' AND (c11_Grupo2 = 'Exigible Conciliable Cerrable' OR c11_Grupo2 = 'No exigible No conciliable Cerrable') " +
+                                "WHERE c4_Signo != '?' AND c12_ColumnaDisponible = 'Cerrable' " +
                                 "GROUP BY c3_Cuenta;", null);
 
                 A99_MetodosVarios metodosVarios = new A99_MetodosVarios();
