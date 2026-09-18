@@ -563,9 +563,11 @@ public class F2_Cuentas extends DialogFragment {
             public void onClick(View inflarViews_View) {
 
                 if(seeModifyXChB.isChecked()) {
+                    // ⭐ CAMBIO — Fase 4 Objetivo 2 (fix): verItemsPorCuenta()/
+                    // cleanClickFieldsAccount() se movieron dentro de
+                    // ejecutarActualizacionCuenta() (solo si el guardado tuvo éxito) — ver el
+                    // comentario allá. Aquí ya no se llaman sin condición.
                     clickModify();
-                    verItemsPorCuenta();
-                    cleanClickFieldsAccount();
                 }
 
                 /*if(seeModifyXChB.isChecked()){
@@ -1592,10 +1594,22 @@ public class F2_Cuentas extends DialogFragment {
             atributos_XTL.removeAllViews();
             Toast.makeText(getActivity(), fueRenombrado ? "Cuenta renombrada" : "Registro modificado", Toast.LENGTH_SHORT).show();
             if (fueRenombrado) {
-                // Mantener el estado consistente si se guarda otra vez sin salir de la pantalla.
-                nombreOriginalEnModificar_String = (String) valores.get("Cuenta");
                 notificarActualizacionCuentas();
             }
+
+            // ⭐ CAMBIO — Fase 4 Objetivo 2 (fix): estas dos llamadas vivían en el listener de
+            // clickUpdate_XBt, justo después de clickModify(), sin condición. Para un
+            // renombrado eso era un error: clickModify() solo abre el diálogo "Confirmar
+            // renombrado" y regresa (es asíncrono), así que esa limpieza corría de inmediato
+            // — mientras el diálogo todavía estaba en pantalla — y dejaba
+            // cuentaIdEnModificar_Long en null ANTES de que el usuario llegara a confirmar.
+            // Al confirmar, este método ya no encontraba la cuenta (cuenta_id = null) y no
+            // guardaba nada — la causa exacta de que "no guarda los cambios". Moviendo la
+            // limpieza aquí, solo corre después de un guardado real y exitoso, sin importar
+            // si vino del camino síncrono (sin renombrar) o del callback del diálogo
+            // (renombrando).
+            verItemsPorCuenta();
+            cleanClickFieldsAccount();
         } else {
             Toast.makeText(getActivity(), "La cuenta no existe", Toast.LENGTH_SHORT).show();
         }
