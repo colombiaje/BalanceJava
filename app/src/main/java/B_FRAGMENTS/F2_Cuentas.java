@@ -1446,26 +1446,36 @@ public class F2_Cuentas extends DialogFragment {
         cuentaIdEnModificar_Long = null;
         nombreOriginalEnModificar_String = null;
         account_XAct.setError(null);
-        clickSave_XBt.setEnabled(true);
-        clickUpdate_XBt.setEnabled(true);
+        habilitarBotonesGuardarModificar(true);
 
         atributos_XTL.removeAllViews();
 
     }
 
+    // ⭐ NUEVO — Fase 4 Objetivo 2: clickSave_XBt/clickUpdate_XBt usan un fondo fijo
+    // (bg_green_square, un <shape> sin estado "disabled"), así que setEnabled(false) solo
+    // bloqueaba el clic pero se veía IGUAL que habilitado — de ahí que no se notara. Se
+    // atenúa también la opacidad para que el bloqueo se vea, no solo funcione.
+    private void habilitarBotonesGuardarModificar(boolean habilitar) {
+        float alfa = habilitar ? 1.0f : 0.4f;
+        clickSave_XBt.setEnabled(habilitar);
+        clickSave_XBt.setAlpha(alfa);
+        clickUpdate_XBt.setEnabled(habilitar);
+        clickUpdate_XBt.setAlpha(alfa);
+    }
+
     // ⭐ NUEVO — Fase 4 Objetivo 2: primer seguro contra nombres duplicados — se llama en
     // cada cambio de texto de account_XAct (Nueva y Modificar). Si el nombre escrito ya
-    // pertenece a OTRA cuenta, avisa en el campo mismo y bloquea el botón de guardar/
-    // modificar; el segundo seguro (la validación real antes de escribir en la BD) sigue
-    // viviendo en registrarNuevas() y en clickModify(), por si este aviso en vivo no llegó
-    // a correr por cualquier motivo.
+    // pertenece a OTRA cuenta, avisa en el campo mismo y bloquea (y atenúa) el botón de
+    // guardar/modificar; el segundo seguro (la validación real antes de escribir en la BD)
+    // sigue viviendo en registrarNuevas() y en clickModify(), por si este aviso en vivo no
+    // llegó a correr por cualquier motivo.
     private void validarNombreCuentaEnVivo() {
         String nombre = account_XAct.getText().toString().trim();
 
         if (nombre.isEmpty()) {
             account_XAct.setError(null);
-            clickSave_XBt.setEnabled(true);
-            clickUpdate_XBt.setEnabled(true);
+            habilitarBotonesGuardarModificar(true);
             return;
         }
 
@@ -1474,12 +1484,10 @@ public class F2_Cuentas extends DialogFragment {
 
         if (yaExiste) {
             account_XAct.setError("Ya existe una cuenta con ese nombre — cámbialo");
-            clickSave_XBt.setEnabled(false);
-            clickUpdate_XBt.setEnabled(false);
+            habilitarBotonesGuardarModificar(false);
         } else {
             account_XAct.setError(null);
-            clickSave_XBt.setEnabled(true);
-            clickUpdate_XBt.setEnabled(true);
+            habilitarBotonesGuardarModificar(true);
         }
     }
 
