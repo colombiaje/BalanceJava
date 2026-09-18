@@ -626,6 +626,14 @@ public class F2_Cuentas extends DialogFragment {
         emulateAttributesAccount_XAct.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // ⭐ CAMBIO — Fase 4 Objetivo 2 (Nivel 1, checklist): esta limpieza vivía en
+                // un TextWatcher que selectNameAccount() volvía a agregar cada vez que se
+                // llamaba (una vez por cada tecla escrita en account_XAct o en este mismo
+                // campo) — sin quitar los anteriores, se iban acumulando listeners
+                // duplicados en emulateAttributesAccount_XAct. Se trae aquí, al ÚNICO
+                // TextWatcher permanente de este campo (agregado una sola vez), con el
+                // mismo efecto de siempre.
+                limpiarTextoEnCuentaABuscar();
             }
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -1244,8 +1252,15 @@ public class F2_Cuentas extends DialogFragment {
                 //aplica en nuevas
 
                 if(seeNewXChB.isChecked()) {
-                    String additionalText = " Renombrar";
-                    String arrow = "←"; // Flecha hacia la izquier
+                    // ⭐ CAMBIO — Fase 4 Objetivo 2 (Nivel 1, checklist): el texto decía
+                    // "Renombrar←", pero esto NO renombra la cuenta elegida — copia sus
+                    // atributos (Grupo1/Grupo2/Cerrable) a "Nueva cuenta" para crear una
+                    // cuenta DISTINTA con el nombre que se escriba aquí. Se deja el mismo
+                    // mecanismo visual (SpannableStringBuilder + flecha grande), solo se
+                    // corrige la palabra para que no se confunda con el renombrado real de
+                    // "Modificar cuenta" (decisión de Jorge: "Usar como plantilla →").
+                    String additionalText = " Usar como plantilla ";
+                    String arrow = "→"; // Flecha hacia la derecha
 
                     // Crear un SpannableStringBuilder para combinar ambos textos con diferentes colores
                     SpannableStringBuilder spannable = new SpannableStringBuilder();
@@ -1396,18 +1411,12 @@ public class F2_Cuentas extends DialogFragment {
                 }
             });
 
-            emulateAttributesAccount_XAct.addTextChangedListener(new TextWatcher() {
-                @Override
-                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                    limpiarTextoEnCuentaABuscar();
-                }
-                @Override
-                public void onTextChanged(CharSequence s, int start, int before, int count) {
-                }
-                @Override
-                public void afterTextChanged(Editable s) {
-                }
-            });
+            // ⭐ CAMBIO — Fase 4 Objetivo 2 (Nivel 1, checklist): aquí se agregaba OTRO
+            // TextWatcher a emulateAttributesAccount_XAct cada vez que se llamaba a este
+            // método (una vez por cada tecla escrita), sin quitar los anteriores — se
+            // acumulaban listeners duplicados. La misma limpieza ya vive en el único
+            // TextWatcher permanente del campo (ver onCreateView), así que no hace falta
+            // repetirla aquí.
 
         }
     }
