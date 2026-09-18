@@ -1561,16 +1561,17 @@ public class F2_Cuentas extends DialogFragment {
                 new AlertDialog.Builder(getActivity())
                         .setTitle("Confirmar renombrado")
                         .setMessage("¿Cambiar el nombre de \"" + nombreViejo + "\" a \"" + cuenta + "\"?\n\n" +
-                                "Las transacciones ya registradas conservarán \"" + nombreViejo + "\" en su historial.")
+                                "Las transacciones ya registradas con \"" + nombreViejo + "\" se actualizarán " +
+                                "para mostrar \"" + cuenta + "\".")
                         .setPositiveButton("Sí, renombrar", (dialog, which) ->
-                                ejecutarActualizacionCuenta(contenedor_ContentValues, true))
+                                ejecutarActualizacionCuenta(contenedor_ContentValues, true, nombreViejo))
                         .setNegativeButton("Cancelar", null)
                         .setCancelable(false)
                         .show();
                 return;
             }
 
-            ejecutarActualizacionCuenta(contenedor_ContentValues, false);
+            ejecutarActualizacionCuenta(contenedor_ContentValues, false, null);
         }
 
         else {
@@ -1580,15 +1581,41 @@ public class F2_Cuentas extends DialogFragment {
 
     // ⭐ NUEVO — Fase 4 Objetivo 2: ejecuta el UPDATE de "cuentas" por cuenta_id (no por
     // nombre), común a la modificación normal y al renombrado (que solo agrega la
-    // validación y la confirmación previas en clickModify()).
-    private void ejecutarActualizacionCuenta(ContentValues valores, boolean fueRenombrado) {
+    // validación y la confirmación previas en clickModify()). Cuando sí es un renombrado
+    // (fueRenombrado=true, nombreViejo != null) también propaga el nombre nuevo a las
+    // transacciones ya registradas — ver el comentario de más abajo.
+    private void ejecutarActualizacionCuenta(ContentValues valores, boolean fueRenombrado, String nombreViejo) {
         A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudanteBD_Class.getWritableDatabase();
 
-        int actualizar = db.update("cuentas", valores, "cuenta_id = ?",
-                new String[]{String.valueOf(cuentaIdEnModificar_Long)});
+        int actualizar;
+        db.beginTransaction();
+        try {
+            actualizar = db.update("cuentas", valores, "cuenta_id = ?",
+                    new String[]{String.valueOf(cuentaIdEnModificar_Long)});
 
-        db.close();
+            // ⭐ NUEVO — Fase 4 Objetivo 2 "camino corto" (sin tocar el esquema de la BD):
+            // transacciones.c3_Cuenta guarda una FOTO del nombre de la cuenta en el momento
+            // de cada transacción (no su cuenta_id) — por eso, sin este paso, las
+            // transacciones ya registradas se quedarían para siempre con el nombre viejo.
+            // Se corrige propagando el nombre nuevo a esas transacciones, en la MISMA
+            // transacción SQL que el renombrado, para que "cuentas" y "transacciones" queden
+            // consistentes juntas o ninguna se modifique si algo falla.
+            if (actualizar == 1 && fueRenombrado && nombreViejo != null) {
+                String nombreNuevo = (String) valores.get("Cuenta");
+                ContentValues valoresTransacciones = new ContentValues();
+                valoresTransacciones.put("c3_Cuenta", nombreNuevo);
+                int transaccionesActualizadas = db.update("transacciones", valoresTransacciones,
+                        "c3_Cuenta = ?", new String[]{nombreViejo});
+                Log.d("F2_DEBUG", "Renombrado de cuenta: " + transaccionesActualizadas +
+                        " transaccion(es) actualizada(s) de \"" + nombreViejo + "\" a \"" + nombreNuevo + "\"");
+            }
+
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
 
         if (actualizar == 1) {
             atributos_XTL.removeAllViews();
