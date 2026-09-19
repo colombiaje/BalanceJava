@@ -323,6 +323,11 @@ public class B13_NavigationManager {
         }
 
         f1.restoreBackups(R.id.updateDelete_XRb);
+        // restoreBackups() reconstruye lista y spinner desde la caché pero no el ajuste
+        // transitorio de saldos (Saldo 1 = saldo BD - movimiento original del documento).
+        // Se calcula aquí, antes de que el spinner entregue su selección, para que el
+        // documento en espera se comporte igual que uno cargado por el consecutivo.
+        f1.recalcularAjusteDeSaldosDesdeBD();
         actualizarVisibilidadBotonVerde();
     }
 

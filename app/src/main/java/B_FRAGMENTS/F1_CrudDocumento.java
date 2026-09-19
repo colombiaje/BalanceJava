@@ -2074,6 +2074,43 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 calculator.calcularMovimientosOriginales(listaDocumento_ArrayLTT);
     }
 
+    /**
+     * Reconstruye el ajuste transitorio de saldos del spinner listaCuentasDeRevision_XSp
+     * (documentoCargadoParaEdicion + movimientosOriginalesDocumento_HashMap) para un documento
+     * que llega restaurado desde la caché (botón verde / Canal D) y NO por
+     * colocarDocConsultadoEnListaItemDoc(), único lugar que hasta ahora los establecía.
+     *
+     * Los movimientos originales se toman de la BD por número de documento, no de la lista
+     * restaurada: esa lista puede ser un borrador ya editado, y contarlo como "original"
+     * daría un Saldo 1 incorrecto.
+     *
+     * No toca la lista, el spinner ni los TextViews; solo el estado que leen
+     * ControlAccountsUnit.setupReviewAccountSpinner() y actualizarSpinnerCuentasRevision().
+     */
+    public void recalcularAjusteDeSaldosDesdeBD() {
+        String doc = documentoABuscarParaEditar_XATv.getText().toString().trim();
+
+        List<A3_2_TipoTransaccionesGetsYSets> originales = null;
+        if (!doc.isEmpty()) {
+            A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> resultado =
+                    a22QueryManager.queryTransactionsByDocument(doc);
+            originales = (resultado != null) ? resultado.getDatos() : null;
+        }
+
+        if (originales == null || originales.isEmpty()) {
+            // Sin documento en la BD no hay nada que restar: mismo criterio que la rama
+            // "else" de colocarDocConsultadoEnListaItemDoc().
+            documentoCargadoParaEdicion = false;
+            movimientosOriginalesDocumento_HashMap.clear();
+            return;
+        }
+
+        documentoCargadoParaEdicion = true;
+        documentoEnEdicion_ID = doc;
+        movimientosOriginalesDocumento_HashMap =
+                calculator.calcularMovimientosOriginales(originales);
+    }
+
     public void resetearSpinnerCuentasRevision() {
         if (listaCuentasDeRevision_XSp != null &&
                 listaCuentasDeRevision_XSp.getAdapter() != null &&
