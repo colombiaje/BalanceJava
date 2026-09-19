@@ -1291,9 +1291,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 } else {
                     // ─────────────────────────────────────────
                     // ESCENARIOS B / C — Slot 3 tiene backup.
-                    // Mostrar diálogo de dos botones.
+                    // Sin diálogo: el documento en Edición pasa a Espera
+                    // (slot 4) y el recibido entra en Edición (slot 3).
                     // ─────────────────────────────────────────
-                    mostrarDialogoCanalD(documentoRecibido);
+                    navManager.cargarNuevoYPasarEdicionAEspera(documentoRecibido);
                 }
             }
 
@@ -1327,17 +1328,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      *
      * Se abre automático tanto en el camino más común (Escenario A de
      * recibirBundleDeVerItemTransaction — Área 3 vacía, carga directa) como
-     * cuando Área 3 tiene trabajo pendiente y el usuario elige
-     * "EDITAR NUEVO O SOBREESCRIBIR" en el diálogo de dos botones — en ambos
-     * casos el documento con el error termina cargado en Área 3, así que en
-     * ambos tiene sentido aterrizar directo en el ítem (ver
-     * B13_NavigationManager.mostrarDialogoCanalD()).
-     *
-     * La única excepción sigue siendo "GUARDAR AMBOS DOCUMENTOS": ahí el
-     * documento de la auditoría NO se carga ahora (queda "en espera" y sigue
-     * viéndose el documento que ya se estaba editando), así que no hay nada
-     * que abrir todavía — el usuario debe ubicar el ítem a mano cuando más
-     * tarde entre a ese documento en espera.
+     * cuando Área 3 tiene trabajo pendiente: en ese caso el documento en
+     * Edición pasa a Espera y el de la auditoría entra en Edición (ver
+     * B13_NavigationManager.cargarNuevoYPasarEdicionAEspera()), así que en
+     * todos los casos el documento con el error termina cargado en Área 3 y
+     * tiene sentido aterrizar directo en el ítem.
      */
     public void cargarDocumentoDesdeAuditoria(String numeroDocumento, String numeroItem) {
         if (numeroDocumento == null || numeroDocumento.isEmpty()) return;
@@ -1353,10 +1348,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      * cargarDocumentoDesdeAuditoria(documento, item) y, si lo encuentra ya
      * cargado en listaDocumento_ArrayLTT, abre su detalle automáticamente.
      *
-     * Público porque B13_NavigationManager.mostrarDialogoCanalD() también la
-     * llama (rama "EDITAR NUEVO O SOBREESCRIBIR" del diálogo de Área 3 con
-     * trabajo pendiente) — ahí el documento sí termina cargado igual que en
-     * el camino directo, así que también corresponde abrir el ítem.
+     * Público porque B13_NavigationManager.cargarNuevoYPasarEdicionAEspera()
+     * también la llama (Área 3 con trabajo pendiente) — ahí el documento
+     * también termina cargado en Área 3, así que corresponde abrir el ítem.
      */
     public void abrirItemPendienteDeAuditoriaSiExiste() {
         if (itemPendienteDeAuditoria_String == null || itemPendienteDeAuditoria_String.isEmpty()) {
@@ -2524,10 +2518,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             ejecutarLimpiezaDeInterfaz();
         }
     }
-    private void mostrarDialogoCanalD(String documentoRecibido) {
-        navManager.mostrarDialogoCanalD(documentoRecibido);
-    }
-
     private void cargarDocumentoEnArea3CanalD(String documentoRecibido) {
         navManager.cargarDocumentoEnArea3CanalD(documentoRecibido);
         abrirItemPendienteDeAuditoriaSiExiste();

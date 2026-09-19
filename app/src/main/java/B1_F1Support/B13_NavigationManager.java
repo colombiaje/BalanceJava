@@ -9,13 +9,11 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.gridlayout.widget.GridLayout;
 
@@ -225,71 +223,76 @@ public class B13_NavigationManager {
         actualizarVisibilidadBotonVerde();
     }
 
-    public void mostrarDialogoCanalD(String documentoRecibido) {
-        String docEnSlot3 = obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE);
+    /**
+     * CANAL D con Área 3 ocupada (slot 3 con un documento en edición).
+     *
+     * Sin diálogos: tocar un documento en F3_2 significa "quiero editar este".
+     *  - Doc. distinto a los ya cargados: el documento que estaba en Edición (slot 3) pasa tal
+     *    cual a Espera (slot 4), con sus ediciones sin guardar, y el nuevo entra en Edición por
+     *    el mismo camino del Escenario A (cargarDocumentoEnArea3CanalD). Si Espera ya tenía otro
+     *    documento, ese se reemplaza y se avisa con un Snackbar.
+     *  - Doc. igual al de Edición: no se recarga desde la BD (protege el borrador); solo se
+     *    muestra el borrador tal como estaba.
+     *  - Doc. igual al de Espera: se intercambian, igual que con el botón verde.
+     */
+    public void cargarNuevoYPasarEdicionAEspera(String documentoRecibido) {
+        String docNuevo = documentoRecibido.trim();
+        String docEnEdicion = obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE).trim();
+        boolean hayEspera = A5_CacheManager.existeCache(
+                f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+        String docEnEspera = hayEspera
+                ? obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE_ESPERA).trim() : "";
 
-        new AlertDialog.Builder(f1.requireContext())
-                .setTitle("Área 3 tiene trabajo pendiente")
-                .setMessage("Doc. en edición: #" + docEnSlot3
-                        + "\nDoc. nuevo de F2: #" + documentoRecibido
-                        + "\n\n¿Qué deseas hacer?")
-                .setCancelable(false)
-                .setPositiveButton("EDITAR NUEVO O SOBREESCRIBIR", (dialog, which) -> {
-                    A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
-                    Log.d("canal D","aqui D");
-                    cargarDocumentoEnArea3CanalD(documentoRecibido);
-                    // El documento de la auditoría sí queda cargado en Área 3
-                    // por esta rama (igual que por el camino directo de
-                    // Escenario A) — abrir el ítem puntual si hay uno
-                    // pendiente (ver F1_CrudDocumento.abrirItemPendienteDeAuditoriaSiExiste()).
-                    f1.abrirItemPendienteDeAuditoriaSiExiste();
-                })
-                .setNegativeButton("GUARDAR AMBOS DOCUMENTOS", (dialog, which) -> {
-                    f1.documentoABuscarParaEditar_XATv.setText(documentoRecibido);
-                    f1.dynamicQueryTransactionOneDocument(documentoRecibido);
+        // 1) Mismo documento que ya está en Edición: mostrar el borrador, sin recargar de la BD.
+        if (docNuevo.equals(docEnEdicion)) {
+            sincronizarYMostrarArea(R.id.updateDelete_XRb);
+            f1.recalcularAjusteDeSaldosDesdeBD();
+            actualizarVisibilidadBotonVerde();
+            f1.abrirItemPendienteDeAuditoriaSiExiste();
+            mostrarMensajeLightCanalD("El doc. #" + docNuevo + " ya está en edición");
+            return;
+        }
 
-                    A5_CacheManager.Encabezado encEspera = new A5_CacheManager.Encabezado();
-                    encEspera.campo_8_docBuscarEditar = documentoRecibido;
-                    if (f1.transaccionesUnDocumento_ArrayListTT_Result != null
-                            && f1.transaccionesUnDocumento_ArrayListTT_Result.size() > 0) {
-                        encEspera.campo_3_fechaUpdate = String.valueOf(
-                                f1.transaccionesUnDocumento_ArrayListTT_Result
-                                        .get(0).tipoTget_8FechaInicialMetodoEnA5());
-                    }
+        // 2) Mismo documento que está en Espera: intercambio, igual que el botón verde.
+        //    Primero se sincroniza Área 3 desde su caché para que el respaldo inicial del
+        //    intercambio no guarde campos vacíos encima del backup real (ver
+        //    irAEsperaYIntercambiarDesdeVisor()).
+        if (hayEspera && docNuevo.equals(docEnEspera)) {
+            sincronizarYMostrarArea(R.id.updateDelete_XRb);
+            intercambiarSlot3YSlot4CanalD();
+            f1.abrirItemPendienteDeAuditoriaSiExiste();
+            mostrarMensajeLightCanalD("Doc. #" + docNuevo + " pasó a edición; #"
+                    + docEnEdicion + " quedó en espera");
+            return;
+        }
 
-                    ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosDocF2 =
-                            (ArrayList<A3_2_TipoTransaccionesGetsYSets>)
-                                    f1.transaccionesUnDocumento_ArrayListTT_Result;
+        // 3) Documento nuevo: Edición (slot 3) -> Espera (slot 4), y el nuevo entra en Edición.
+        A5_CacheManager.Encabezado encSlot3 = A5_CacheManager.restaurarEncabezado(
+                f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosSlot3 =
+                A5_CacheManager.restaurarRegistros(
+                        f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
 
-                    A5_CacheManager.guardarRegistros(f1.getContext(),
-                            A1_1_AyudanteBD.AREA_UPDATE_ESPERA, registrosDocF2);
-                            Log.d("hacer_backup","aqui 1 NavManager");
-                    A5_CacheManager.guardarEncabezado(f1.getContext(),
-                            A1_1_AyudanteBD.AREA_UPDATE_ESPERA, encEspera);
-                    Log.d("hacer_backup","aqui 2 NavManager");
+        if (encSlot3 != null) {
+            // Registros primero y encabezado después: misma convención que el resto del código.
+            A5_CacheManager.guardarRegistros(f1.getContext(),
+                    A1_1_AyudanteBD.AREA_UPDATE_ESPERA, registrosSlot3);
+            A5_CacheManager.guardarEncabezado(f1.getContext(),
+                    A1_1_AyudanteBD.AREA_UPDATE_ESPERA, encSlot3);
+        }
 
-                    String docSlot3 = obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE);
-                    f1.documentoABuscarParaEditar_XATv.setText(docSlot3);
+        A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
+        cargarDocumentoEnArea3CanalD(docNuevo);
+        f1.abrirItemPendienteDeAuditoriaSiExiste();
 
-                    f1.setVisibilityGoneTodo();
-                    f1.currentRadioButtonId = R.id.updateDelete_XRb;
-                    f1.setVisibilityVisibleAreasForUpdateAndDelete();
-                    f1.restoreBackups(R.id.updateDelete_XRb);
-
-                    f1.updateDelete_XRb.post(() -> {
-                        f1.optionsDoc_XRg.setOnCheckedChangeListener(null);
-                        f1.optionsDoc_XRg.clearCheck();
-                        f1.updateDelete_XRb.setChecked(true);
-                        f1.optionsDoc_XRg.postDelayed(() ->
-                                f1.optionsDoc_XRg.setOnCheckedChangeListener((group, checkedId) -> {
-                                    if (checkedId != -1 && checkedId != f1.currentRadioButtonId) {
-                                        procesarCambioDeRadioButton(checkedId);
-                                    }
-                                }), 100);
-                    });
-                    actualizarVisibilidadBotonVerde();
-                })
-                .show();
+        String aviso = "Doc. #" + docEnEdicion + " pasó a espera; #" + docNuevo + " en edición";
+        if (hayEspera) {
+            aviso += ". Se reemplazó el #" + docEnEspera + " que estaba en espera";
+        }
+        View root = f1.getView();
+        if (root != null) {
+            Snackbar.make(root, aviso, Snackbar.LENGTH_LONG).show();
+        }
     }
 
     public void intercambiarSlot3YSlot4CanalD() {
