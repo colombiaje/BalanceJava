@@ -217,14 +217,6 @@ public class F2_Cuentas extends DialogFragment {
     private Long cuentaIdEnModificar_Long;
     private String nombreOriginalEnModificar_String;
 
-    // ⭐ NUEVO — Checklist Nivel 1 (plantilla): true mientras "Nueva cuenta" está usando
-    // otra cuenta como plantilla para copiar sus atributos (ver
-    // interrelationsAccountsGroups()). nombrePlantillaOriginal_String guarda el nombre de
-    // esa cuenta plantilla, para saber si el usuario ya escribió uno distinto. Ambos se
-    // reinician en cleanClickFieldsAccount().
-    private boolean modoPlantilla = false;
-    private String nombrePlantillaOriginal_String;
-
     AutoCompleteTextView emulateAttributesAccount_XAct;
     TextView titleModifyXTV;
     TextView titleNewXTv;
@@ -1260,21 +1252,47 @@ public class F2_Cuentas extends DialogFragment {
                 //aplica en nuevas
 
                 if(seeNewXChB.isChecked()) {
-                    // ⭐ CAMBIO — Checklist Nivel 1 (plantilla, ajuste sobre el cambio
-                    // anterior): el texto "Usar como plantilla →" concatenado al nombre ya
-                    // no se usa — Jorge lo probó y prefirió otra señal. El campo queda con
-                    // SOLO el nombre de la cuenta elegida (editable directo; el cursor al
-                    // final y parpadeando ya los pone el callback de selectNameAccount()
-                    // justo después de esta llamada), y el color de fondo indica el estado:
-                    // rojo mientras el nombre siga igual al de la plantilla, verde cuando ya
-                    // se escribió uno distinto. Ese color y el aviso explicativo los decide
-                    // validarNombreCuentaEnVivo() en cada tecla — aquí solo se marca el modo
-                    // y el nombre de referencia ANTES del setText, para que la primera
-                    // evaluación (disparada por el propio setText) ya sea correcta.
-                    modoPlantilla = true;
-                    nombrePlantillaOriginal_String = existingText;
-                    account_XAct.setText(existingText);
-                    account_XAct.setEnabled(true);
+                    // ⭐ CAMBIO — Fase 4 Objetivo 2 (Nivel 1, checklist): el texto decía
+                    // "Renombrar←", pero esto NO renombra la cuenta elegida — copia sus
+                    // atributos (Grupo1/Grupo2/Cerrable) a "Nueva cuenta" para crear una
+                    // cuenta DISTINTA con el nombre que se escriba aquí. Se deja el mismo
+                    // mecanismo visual (SpannableStringBuilder + flecha grande), solo se
+                    // corrige la palabra para que no se confunda con el renombrado real de
+                    // "Modificar cuenta" (decisión de Jorge: "Usar como plantilla →").
+                    String additionalText = " Usar como plantilla ";
+                    String arrow = "→"; // Flecha hacia la derecha
+
+                    // Crear un SpannableStringBuilder para combinar ambos textos con diferentes colores
+                    SpannableStringBuilder spannable = new SpannableStringBuilder();
+                    spannable.append(existingText); // Agregar el texto inicial
+                    spannable.append(additionalText); // Agregar el texto adicional
+                    int arrowStart = spannable.length(); // Posición inicial de la flecha
+                    spannable.append(arrow); // Agregar la flecha
+
+                    // Aplicar un color al texto adicional
+                    spannable.setSpan(
+                            new ForegroundColorSpan(Color.RED), // Estilo: color rojo
+                            existingText.length(), // Inicio del texto adicional
+                            spannable.length(), // Fin del texto adicional
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    );
+
+                    // Aumentar el tamaño de la flecha
+                    spannable.setSpan(
+                            new RelativeSizeSpan(2.5f), // Tamaño 1.5 veces mayor
+                            arrowStart,
+                            spannable.length(),
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    );
+
+                    // Establecer el texto con el estilo aplicado
+
+                    if(seeNewXChB.isChecked()) {
+
+                        account_XAct.setText(spannable);
+                        account_XAct.setEnabled(true);
+                    }
+
                 }
 
                 else if (seeModifyXChB.isChecked()) {
@@ -1441,13 +1459,6 @@ public class F2_Cuentas extends DialogFragment {
         account_XAct.setError(null);
         habilitarBotonesGuardarModificar(true);
 
-        // ⭐ NUEVO — Checklist Nivel 1 (plantilla): igual que lo anterior, para que el modo
-        // plantilla y su color de fondo no queden arrastrados a la siguiente cuenta nueva o
-        // al cambiar de modo (Nueva/Modificar).
-        modoPlantilla = false;
-        nombrePlantillaOriginal_String = null;
-        account_XAct.setBackgroundColor(Color.parseColor("#F4D7F5"));
-
         atributos_XTL.removeAllViews();
 
     }
@@ -1476,24 +1487,6 @@ public class F2_Cuentas extends DialogFragment {
         if (nombre.isEmpty()) {
             account_XAct.setError(null);
             habilitarBotonesGuardarModificar(true);
-            if (modoPlantilla) {
-                account_XAct.setBackgroundColor(Color.parseColor("#F4D7F5"));
-            }
-            return;
-        }
-
-        // ⭐ NUEVO — Checklist Nivel 1 (plantilla): mientras "Nueva cuenta" usa otra cuenta
-        // como plantilla (ver interrelationsAccountsGroups()), el campo llega precargado con
-        // el MISMO nombre de esa cuenta — es intencional (para copiar sus atributos), pero
-        // así no se puede guardar (duplicaría el nombre). En vez del aviso genérico de "ya
-        // existe" se explica el motivo puntual, con el campo en rojo, hasta que el usuario
-        // escriba un nombre distinto — ahí pasa a verde y sigue la validación normal de
-        // duplicados, por si el nombre nuevo choca con OTRA cuenta ya existente.
-        if (modoPlantilla && nombrePlantillaOriginal_String != null
-                && nombre.equals(nombrePlantillaOriginal_String)) {
-            account_XAct.setError("Estás usando esto como plantilla. Asigna un nombre de cuenta completamente nuevo.");
-            account_XAct.setBackgroundColor(Color.RED);
-            habilitarBotonesGuardarModificar(false);
             return;
         }
 
@@ -1503,15 +1496,9 @@ public class F2_Cuentas extends DialogFragment {
         if (yaExiste) {
             account_XAct.setError("Ya existe una cuenta con ese nombre — cámbialo");
             habilitarBotonesGuardarModificar(false);
-            if (modoPlantilla) {
-                account_XAct.setBackgroundColor(Color.RED);
-            }
         } else {
             account_XAct.setError(null);
             habilitarBotonesGuardarModificar(true);
-            if (modoPlantilla) {
-                account_XAct.setBackgroundColor(Color.parseColor("#C8E6C9"));
-            }
         }
     }
 
