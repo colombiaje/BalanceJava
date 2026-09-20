@@ -2149,6 +2149,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 radioButtonId,
                 R.id.create_XRb, R.id.template_XRb, R.id.updateDelete_XRb);
 
+        Log.d("BackupSlot", "hacerBackupSilencioso inst=" + System.identityHashCode(this)
+                + " area=" + areaId + " doc=" + documentoABuscarParaEditar_XATv.getText()
+                + " registros=" + listaDocumento_ArrayLTT.size() + " vista=" + (getView() != null));
         Log.d("hacer_backup","aqui 11 F1 # de registros: "+listaDocumento_ArrayLTT.size());
         // ✅ Registros primero — emula CSV_RECORDS
         A5_CacheManager.guardarRegistros(getContext(), areaId, listaDocumento_ArrayLTT);
@@ -2604,8 +2607,16 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         if (getContext() == null || currentRadioButtonId == 0) return;
         if (!hayDatosEnAreaActual()) return;
 
-        // Backup inmediato — SQLite persiste aunque el proceso muera
-        hacerBackupSilencioso(currentRadioButtonId);
+        // Backup inmediato — SQLite persiste aunque el proceso muera.
+        // Un fragmento sin vista (instancia anterior de F1 que quedó en la pila de navegación
+        // al volver de F3_2) NO respalda: sus campos y su lista son de antes y pisarían el
+        // slot 3 con un documento viejo.
+        if (getView() != null) {
+            hacerBackupSilencioso(currentRadioButtonId);
+        } else {
+            Log.d("BackupSlot", "onSaveInstanceState SKIP (sin vista) inst="
+                    + System.identityHashCode(this));
+        }
 
         // Guardar bandera para que onStart() sepa que debe restaurar
         outState.putInt("radioButtonIdCanalA", currentRadioButtonId);
@@ -2653,6 +2664,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     public void hacerBackupSilenciosoCanalD(int areaId) {
+        Log.d("BackupSlot", "hacerBackupSilenciosoCanalD inst=" + System.identityHashCode(this)
+                + " area=" + areaId + " doc=" + documentoABuscarParaEditar_XATv.getText()
+                + " registros=" + listaDocumento_ArrayLTT.size() + " vista=" + (getView() != null));
         // ✅ Registros primero — emula CSV_RECORDS
         A5_CacheManager.guardarRegistros(getContext(), areaId, listaDocumento_ArrayLTT);
         Log.d("hacer_backup","aqui 21 F1");

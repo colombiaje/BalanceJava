@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -223,25 +224,66 @@ public class B13_NavigationManager {
         actualizarVisibilidadBotonVerde();
     }
 
+    /** Cantidad de registros guardados en un slot de caché (0 si el slot no tiene ninguno). */
+    private int contarRegistrosSlot(int areaId) {
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> r =
+                A5_CacheManager.restaurarRegistros(f1.getContext(), areaId);
+        return r != null ? r.size() : 0;
+    }
+
     /**
      * CANAL D con Área 3 ocupada (slot 3 con un documento en edición).
      *
      * Sin diálogos: tocar un documento en F3_2 significa "quiero editar este".
      *  - Doc. distinto a los ya cargados: el documento que estaba en Edición (slot 3) pasa tal
      *    cual a Espera (slot 4), con sus ediciones sin guardar, y el nuevo entra en Edición por
-     *    el mismo camino del Escenario A (cargarDocumentoEnArea3CanalD). Si Espera ya tenía otro
-     *    documento, ese se reemplaza y se avisa con un Snackbar.
-     *  - Doc. igual al de Edición: no se recarga desde la BD (protege el borrador); solo se
-     *    muestra el borrador tal como estaba.
+     *    el mismo camino del Escenario A (cargarDocumentoEnArea3CanalD) y queda respaldado de
+     *    inmediato en el slot 3. Si Espera ya tenía otro documento, ese se reemplaza y se avisa.
+     *  - Doc. igual al de Edición: no se recarga desde la BD (protege el borrador).
      *  - Doc. igual al de Espera: se intercambian, igual que con el botón verde.
+     *
+     * Un slot solo cuenta como "ocupado" si tiene REGISTROS: un encabezado sin registros es un
+     * resto (por ejemplo lo que deja onPause al borrar solo los registros) y se descarta en vez
+     * de copiarlo a Espera como si fuera un documento.
      */
     public void cargarNuevoYPasarEdicionAEspera(String documentoRecibido) {
+        final int SLOT_EDICION = A1_1_AyudanteBD.AREA_UPDATE;
+        final int SLOT_ESPERA = A1_1_AyudanteBD.AREA_UPDATE_ESPERA;
+        final String T = "CanalD";
+
         String docNuevo = documentoRecibido.trim();
-        String docEnEdicion = obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE).trim();
-        boolean hayEspera = A5_CacheManager.existeCache(
-                f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
-        String docEnEspera = hayEspera
-                ? obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE_ESPERA).trim() : "";
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosEdicion =
+                A5_CacheManager.restaurarRegistros(f1.getContext(), SLOT_EDICION);
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosEspera =
+                A5_CacheManager.restaurarRegistros(f1.getContext(), SLOT_ESPERA);
+        boolean edicionValida = registrosEdicion != null && !registrosEdicion.isEmpty();
+        boolean esperaValida = registrosEspera != null && !registrosEspera.isEmpty();
+        String docEnEdicion = obtenerNumeroDocDeSlot(SLOT_EDICION).trim();
+        String docEnEspera = esperaValida ? obtenerNumeroDocDeSlot(SLOT_ESPERA).trim() : "";
+
+        Log.d(T, "recibido=" + docNuevo
+                + " | edicion doc=" + docEnEdicion + " registros="
+                + (registrosEdicion != null ? registrosEdicion.size() : 0)
+                + " | espera doc=" + docEnEspera + " registros="
+                + (registrosEspera != null ? registrosEspera.size() : 0));
+
+        // Espera a medias (encabezado sin registros): se limpia el resto.
+        if (!esperaValida && A5_CacheManager.existeCache(f1.getContext(), SLOT_ESPERA)) {
+            Log.w(T, "Espera sin registros: se descarta el resto del slot 4");
+            A5_CacheManager.eliminar(f1.getContext(), SLOT_ESPERA);
+        }
+
+        // 0) Slot 3 sin registros: no hay nada que pasar a Espera. Se descarta el resto y el
+        //    documento nuevo entra directo en Edición.
+        if (!edicionValida) {
+            Log.w(T, "Edición sin registros: se descarta el resto del slot 3, carga directa");
+            A5_CacheManager.eliminar(f1.getContext(), SLOT_EDICION);
+            cargarDocumentoEnArea3CanalD(docNuevo);
+            f1.hacerBackupSilenciosoCanalD(SLOT_EDICION);
+            f1.abrirItemPendienteDeAuditoriaSiExiste();
+            mostrarMensajeLightCanalD("Documento cargado en Área 3");
+            return;
+        }
 
         // 1) Mismo documento que ya está en Edición: mostrar el borrador, sin recargar de la BD.
         if (docNuevo.equals(docEnEdicion)) {
@@ -257,7 +299,7 @@ public class B13_NavigationManager {
         //    Primero se sincroniza Área 3 desde su caché para que el respaldo inicial del
         //    intercambio no guarde campos vacíos encima del backup real (ver
         //    irAEsperaYIntercambiarDesdeVisor()).
-        if (hayEspera && docNuevo.equals(docEnEspera)) {
+        if (esperaValida && docNuevo.equals(docEnEspera)) {
             sincronizarYMostrarArea(R.id.updateDelete_XRb);
             intercambiarSlot3YSlot4CanalD();
             f1.abrirItemPendienteDeAuditoriaSiExiste();
@@ -267,26 +309,42 @@ public class B13_NavigationManager {
         }
 
         // 3) Documento nuevo: Edición (slot 3) -> Espera (slot 4), y el nuevo entra en Edición.
-        A5_CacheManager.Encabezado encSlot3 = A5_CacheManager.restaurarEncabezado(
-                f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
-        ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosSlot3 =
-                A5_CacheManager.restaurarRegistros(
-                        f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
+        A5_CacheManager.Encabezado encEdicion = A5_CacheManager.restaurarEncabezado(
+                f1.getContext(), SLOT_EDICION);
 
-        if (encSlot3 != null) {
-            // Registros primero y encabezado después: misma convención que el resto del código.
-            A5_CacheManager.guardarRegistros(f1.getContext(),
-                    A1_1_AyudanteBD.AREA_UPDATE_ESPERA, registrosSlot3);
-            A5_CacheManager.guardarEncabezado(f1.getContext(),
-                    A1_1_AyudanteBD.AREA_UPDATE_ESPERA, encSlot3);
+        // Registros primero y encabezado después: misma convención que el resto del código.
+        A5_CacheManager.guardarRegistros(f1.getContext(), SLOT_ESPERA, registrosEdicion);
+        if (encEdicion != null) {
+            A5_CacheManager.guardarEncabezado(f1.getContext(), SLOT_ESPERA, encEdicion);
         }
 
-        A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
+        // Verificación: Espera debe quedar con TODOS los registros. Si no, no se toca Edición.
+        int guardados = contarRegistrosSlot(SLOT_ESPERA);
+        if (encEdicion == null || guardados != registrosEdicion.size()) {
+            Log.e(T, "Fallo al pasar #" + docEnEdicion + " a espera: esperados="
+                    + registrosEdicion.size() + " guardados=" + guardados);
+            A5_CacheManager.eliminar(f1.getContext(), SLOT_ESPERA);
+            sincronizarYMostrarArea(R.id.updateDelete_XRb);
+            actualizarVisibilidadBotonVerde();
+            View rootError = f1.getView();
+            if (rootError != null) {
+                Snackbar.make(rootError, "No se pudo pasar #" + docEnEdicion
+                        + " a espera; sigue en edición", Snackbar.LENGTH_LONG).show();
+            }
+            return;
+        }
+
+        A5_CacheManager.eliminar(f1.getContext(), SLOT_EDICION);
         cargarDocumentoEnArea3CanalD(docNuevo);
+        // El documento nuevo también queda respaldado ya (slot 3), para que los dos slots sean
+        // siempre backups reales y no dependan de que después pase por onPause.
+        f1.hacerBackupSilenciosoCanalD(SLOT_EDICION);
         f1.abrirItemPendienteDeAuditoriaSiExiste();
+        Log.d(T, "movido #" + docEnEdicion + " -> espera (" + guardados + " registros); #"
+                + docNuevo + " en edición");
 
         String aviso = "Doc. #" + docEnEdicion + " pasó a espera; #" + docNuevo + " en edición";
-        if (hayEspera) {
+        if (esperaValida) {
             aviso += ". Se reemplazó el #" + docEnEspera + " que estaba en espera";
         }
         View root = f1.getView();
@@ -303,6 +361,16 @@ public class B13_NavigationManager {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosSlot4 =
                 A5_CacheManager.restaurarRegistros(
                         f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+
+        // Espera con encabezado pero sin registros = resto de un backup incompleto. Intercambiarlo
+        // dejaría Edición vacía y perdería el documento que sí está en pantalla.
+        if (encSlot4 != null && (registrosSlot4 == null || registrosSlot4.isEmpty())) {
+            Log.w("CanalD", "Intercambio cancelado: Espera sin registros, se descarta");
+            A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+            actualizarVisibilidadBotonVerde();
+            mostrarMensajeLightCanalD("El documento en espera estaba incompleto y se descartó");
+            return;
+        }
 
         A5_CacheManager.Encabezado encSlot3 = A5_CacheManager.restaurarEncabezado(
                 f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
