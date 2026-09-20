@@ -261,7 +261,7 @@ public class B13_NavigationManager {
         String docEnEdicion = obtenerNumeroDocDeSlot(SLOT_EDICION).trim();
         String docEnEspera = esperaValida ? obtenerNumeroDocDeSlot(SLOT_ESPERA).trim() : "";
 
-        Log.d(T, "recibido=" + docNuevo
+        Log.d(T, "DIAG CanalD recibido=" + docNuevo
                 + " | edicion doc=" + docEnEdicion + " registros="
                 + (registrosEdicion != null ? registrosEdicion.size() : 0)
                 + " | espera doc=" + docEnEspera + " registros="
@@ -269,14 +269,14 @@ public class B13_NavigationManager {
 
         // Espera a medias (encabezado sin registros): se limpia el resto.
         if (!esperaValida && A5_CacheManager.existeCache(f1.getContext(), SLOT_ESPERA)) {
-            Log.w(T, "Espera sin registros: se descarta el resto del slot 4");
+            Log.w(T, "DIAG CanalD Espera sin registros: se descarta el resto del slot 4");
             A5_CacheManager.eliminar(f1.getContext(), SLOT_ESPERA);
         }
 
         // 0) Slot 3 sin registros: no hay nada que pasar a Espera. Se descarta el resto y el
         //    documento nuevo entra directo en Edición.
         if (!edicionValida) {
-            Log.w(T, "Edición sin registros: se descarta el resto del slot 3, carga directa");
+            Log.w(T, "DIAG CanalD Edición sin registros: se descarta el resto del slot 3, carga directa");
             A5_CacheManager.eliminar(f1.getContext(), SLOT_EDICION);
             cargarDocumentoEnArea3CanalD(docNuevo);
             f1.hacerBackupSilenciosoCanalD(SLOT_EDICION);
@@ -321,7 +321,7 @@ public class B13_NavigationManager {
         // Verificación: Espera debe quedar con TODOS los registros. Si no, no se toca Edición.
         int guardados = contarRegistrosSlot(SLOT_ESPERA);
         if (encEdicion == null || guardados != registrosEdicion.size()) {
-            Log.e(T, "Fallo al pasar #" + docEnEdicion + " a espera: esperados="
+            Log.e(T, "DIAG CanalD Fallo al pasar #" + docEnEdicion + " a espera: esperados="
                     + registrosEdicion.size() + " guardados=" + guardados);
             A5_CacheManager.eliminar(f1.getContext(), SLOT_ESPERA);
             sincronizarYMostrarArea(R.id.updateDelete_XRb);
@@ -340,7 +340,7 @@ public class B13_NavigationManager {
         // siempre backups reales y no dependan de que después pase por onPause.
         f1.hacerBackupSilenciosoCanalD(SLOT_EDICION);
         f1.abrirItemPendienteDeAuditoriaSiExiste();
-        Log.d(T, "movido #" + docEnEdicion + " -> espera (" + guardados + " registros); #"
+        Log.d(T, "DIAG CanalD movido #" + docEnEdicion + " -> espera (" + guardados + " registros); #"
                 + docNuevo + " en edición");
 
         String aviso = "Doc. #" + docEnEdicion + " pasó a espera; #" + docNuevo + " en edición";
@@ -354,6 +354,8 @@ public class B13_NavigationManager {
     }
 
     public void intercambiarSlot3YSlot4CanalD() {
+        Log.d("CanalD", "DIAG CanalD boton verde / intercambio: registros(3)=" + contarRegistrosSlot(A1_1_AyudanteBD.AREA_UPDATE)
+                + " registros(4)=" + contarRegistrosSlot(A1_1_AyudanteBD.AREA_UPDATE_ESPERA));
         f1.hacerBackupSilenciosoCanalD(A1_1_AyudanteBD.AREA_UPDATE);
 
         A5_CacheManager.Encabezado encSlot4 = A5_CacheManager.restaurarEncabezado(
@@ -365,7 +367,7 @@ public class B13_NavigationManager {
         // Espera con encabezado pero sin registros = resto de un backup incompleto. Intercambiarlo
         // dejaría Edición vacía y perdería el documento que sí está en pantalla.
         if (encSlot4 != null && (registrosSlot4 == null || registrosSlot4.isEmpty())) {
-            Log.w("CanalD", "Intercambio cancelado: Espera sin registros, se descarta");
+            Log.w("CanalD", "DIAG CanalD Intercambio cancelado: Espera sin registros, se descarta");
             A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
             actualizarVisibilidadBotonVerde();
             mostrarMensajeLightCanalD("El documento en espera estaba incompleto y se descartó");

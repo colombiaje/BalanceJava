@@ -578,6 +578,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
         // ✅ DETECTAR si viene de VerItemTransaccion
         Bundle bundle = getArguments();
+        Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onCreateView bundle=" + (bundle != null && bundle.getBoolean("fromVerItemTransaccion", false)));
         if (bundle != null && bundle.getBoolean("fromVerItemTransaccion", false)) {
             vieneDeVerItemTransaccion = true; // ⭐ Activar bandera ANTES de procesar
 
@@ -1281,6 +1282,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 int slotUpdate = A1_1_AyudanteBD.AREA_UPDATE; // = 3
                 boolean hayBackupEnSlot3 = A5_CacheManager.existeCache(
                         getContext(), slotUpdate);
+                Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " LLEGA doc=" + documentoRecibido + " existeCache(3)=" + hayBackupEnSlot3
+                        + " registros(3)=" + A5_CacheManager.restaurarRegistros(getContext(), slotUpdate).size()
+                        + " existeCache(4)=" + A5_CacheManager.existeCache(getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA)
+                        + " registros(4)=" + A5_CacheManager.restaurarRegistros(getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA).size()
+                        + " " + diagEstado());
                 if (!hayBackupEnSlot3) {
                     // ─────────────────────────────────────────
                     // ESCENARIO A — Slot 3 vacío. Carga directa.
@@ -2128,6 +2134,14 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         });
     }
 
+    /** Solo diagnóstico: resumen del estado que decide los backups. */
+    private String diagEstado() {
+        return "radio=" + currentRadioButtonId
+                + " doc=" + (documentoABuscarParaEditar_XATv != null ? documentoABuscarParaEditar_XATv.getText() : "?")
+                + " lista=" + (listaDocumento_ArrayLTT != null ? listaDocumento_ArrayLTT.size() : -1)
+                + " vista=" + (getView() != null);
+    }
+
     public boolean hayDatosEnAreaActual() {
         // Verificación directa sin método auxiliar
         boolean hayRegistros = listaDocumento_ArrayLTT != null
@@ -2149,9 +2163,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 radioButtonId,
                 R.id.create_XRb, R.id.template_XRb, R.id.updateDelete_XRb);
 
-        Log.d("BackupSlot", "hacerBackupSilencioso inst=" + System.identityHashCode(this)
-                + " area=" + areaId + " doc=" + documentoABuscarParaEditar_XATv.getText()
-                + " registros=" + listaDocumento_ArrayLTT.size() + " vista=" + (getView() != null));
+        Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " hacerBackupSilencioso -> slot=" + areaId
+                + " " + diagEstado());
         Log.d("hacer_backup","aqui 11 F1 # de registros: "+listaDocumento_ArrayLTT.size());
         // ✅ Registros primero — emula CSV_RECORDS
         A5_CacheManager.guardarRegistros(getContext(), areaId, listaDocumento_ArrayLTT);
@@ -2368,6 +2381,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     @Override
     public void onPause() {
         super.onPause();
+        Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onPause saliendoHaciaF2=" + saliendoHaciaF2
+                + " estaRestaurandoCanalA=" + estaRestaurandoCanalA + " " + diagEstado());
 
         if (saliendoHaciaF2) return;
         if (getContext() == null || currentRadioButtonId == 0) return;
@@ -2392,6 +2407,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             hacerBackupSilencioso(currentRadioButtonId);
             vieneDeHome = true;
         } else {
+            Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onPause SIN DATOS: borra registros del slot " + areaIdActual);
             A5_CacheManager.eliminarRegistrosCache(getContext(), areaIdActual);
             vieneDeHome = false;
         }
@@ -2421,6 +2437,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         super.onStart();
         if (getActivity() == null || !isAdded() || getView() == null) return;
         if (getContext() == null) return;
+        Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onStart vieneDeNavController=" + vieneDeNavController + " vieneDeHome=" + vieneDeHome
+                + " vieneDeVerItemTransaccion=" + vieneDeVerItemTransaccion + " " + diagEstado());
 
         // ✅ Recuperar bandera que sobrevive muerte de proceso
         if (savedInstanceState != null
@@ -2444,6 +2462,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onDestroyView " + diagEstado());
         vieneDeNavController = true;
 
         if (getContext() != null && currentRadioButtonId != 0) {
@@ -2559,6 +2578,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             // create_XRb→slot1, template_XRb→slot2, updateDelete_XRb→slot3.
             // El slot 3 NO se toca si el usuario viene de área 1 o 2.
             saliendoHaciaF2 = true;
+            Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " SALE hacia F3_2 hayDatos=" + hayDatosEnAreaActual() + " " + diagEstado());
 
             int areaIdSalida = A5_CacheManager.radioButtonToAreaId(
                     currentRadioButtonId,
@@ -2602,6 +2622,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
+        Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onSaveInstanceState entrada " + diagEstado());
 
         // Este método está GARANTIZADO antes de matar el proceso
         if (getContext() == null || currentRadioButtonId == 0) return;
@@ -2614,8 +2635,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         if (getView() != null) {
             hacerBackupSilencioso(currentRadioButtonId);
         } else {
-            Log.d("BackupSlot", "onSaveInstanceState SKIP (sin vista) inst="
-                    + System.identityHashCode(this));
+            Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this)
+                    + " onSaveInstanceState SKIP (sin vista) " + diagEstado());
         }
 
         // Guardar bandera para que onStart() sepa que debe restaurar
@@ -2664,9 +2685,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     public void hacerBackupSilenciosoCanalD(int areaId) {
-        Log.d("BackupSlot", "hacerBackupSilenciosoCanalD inst=" + System.identityHashCode(this)
-                + " area=" + areaId + " doc=" + documentoABuscarParaEditar_XATv.getText()
-                + " registros=" + listaDocumento_ArrayLTT.size() + " vista=" + (getView() != null));
+        Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " hacerBackupSilenciosoCanalD -> slot=" + areaId
+                + " " + diagEstado());
         // ✅ Registros primero — emula CSV_RECORDS
         A5_CacheManager.guardarRegistros(getContext(), areaId, listaDocumento_ArrayLTT);
         Log.d("hacer_backup","aqui 21 F1");

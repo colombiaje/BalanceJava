@@ -128,7 +128,7 @@ public class A5_CacheManager {
                     null, cv,
                     SQLiteDatabase.CONFLICT_REPLACE);
             exito = (result != -1);
-            Log.d(TAG, "Encabezado guardado — area=" + areaId + " ok=" + exito);
+            Log.d(TAG, "DIAG Encabezado guardado — area=" + areaId + " ok=" + exito);
         } catch (Exception e) {
             Log.e(TAG, "Error guardando encabezado", e);
         } finally {
@@ -154,7 +154,7 @@ public class A5_CacheManager {
             }
             Log.d("hacer_backup","aqui 1 A5_Cache");
             exito = true;
-            Log.d(TAG, "Registros guardados — area=" + areaId +
+            Log.d(TAG, "DIAG Registros guardados — area=" + areaId +
                     " cantidad=" + (lista != null ? lista.size() : 0));
         } catch (Exception e) {
             Log.e(TAG, "Error guardando registros", e);
@@ -377,7 +377,7 @@ public class A5_CacheManager {
             db.delete(A1_1_AyudanteBD.TABLE_CACHE_RECORDS,
                     "area_id = ?", new String[]{String.valueOf(areaId)});
             db.setTransactionSuccessful();
-            Log.d(TAG, "Cache eliminado — area=" + areaId);
+            Log.d(TAG, "DIAG Cache eliminado — area=" + areaId);
         } catch (Exception e) {
             Log.e(TAG, "Error en eliminar() area=" + areaId, e);
         } finally {
@@ -503,7 +503,8 @@ public class A5_CacheManager {
         SQLiteDatabase db = ayudante.getWritableDatabase();
 
         // Eliminación por área para evitar "contaminación" [cite: 11, 41]
-        db.delete("cache_registros", "area_id = ?", new String[]{String.valueOf(areaId)});
+        int borrados = db.delete("cache_registros", "area_id = ?", new String[]{String.valueOf(areaId)});
+        Log.d(TAG, "DIAG eliminarRegistrosCache (deja el encabezado) — area=" + areaId + " registros borrados=" + borrados);
         db.close();
     }
 
