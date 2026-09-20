@@ -111,6 +111,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     private boolean esReanudacionDeSistema   = false;
     public boolean vieneDeVerItemTransaccion = false;
     private boolean saliendoHaciaF2          = false;
+    // true desde que se crea una instancia nueva de F1 para recibir el documento de F3_2 hasta
+    // que recibirBundleDeVerItemTransaction() termina. Mientras tanto la pantalla está en blanco
+    // y su onPause NO debe tratarla como "área vacía" (borraría los registros del slot 3).
+    private boolean bundleF3_2Pendiente      = false;
     public boolean vieneDeNavController = false;
     public boolean vieneDeHome          = false;
     public int     areaGuardadaCanalA   = 0;
@@ -581,6 +585,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onCreateView bundle=" + (bundle != null && bundle.getBoolean("fromVerItemTransaccion", false)));
         if (bundle != null && bundle.getBoolean("fromVerItemTransaccion", false)) {
             vieneDeVerItemTransaccion = true; // ⭐ Activar bandera ANTES de procesar
+            bundleF3_2Pendiente = true;
 
             // CORRECCIÓN (bug reportado 2026-09-12): cuando esta instancia se
             // crea NUEVA desde A11_AuditoriaClasificacionDialogo (caso "se
@@ -1306,6 +1311,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            bundleF3_2Pendiente = false;
         }
     }
 
@@ -2381,6 +2388,16 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     @Override
     public void onPause() {
         super.onPause();
+
+        // Instancia recién creada por la navegación desde F3_2 que aún no procesó el documento
+        // recibido: su pantalla está en blanco solo porque todavía no se cargó. Si continuara,
+        // el else de más abajo borraría los registros del slot 3 (el documento que estaba en
+        // Edición) justo antes de que se pase a Espera.
+        if (bundleF3_2Pendiente) {
+            Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this)
+                    + " onPause OMITIDO (bundle de F3_2 pendiente de procesar)");
+            return;
+        }
         Log.d("DIAG", "DIAG inst=" + System.identityHashCode(this) + " onPause saliendoHaciaF2=" + saliendoHaciaF2
                 + " estaRestaurandoCanalA=" + estaRestaurandoCanalA + " " + diagEstado());
 
