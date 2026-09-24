@@ -8,3 +8,9 @@
 .cxx
 local.properties
 .idea/
+
+# Keystore de firma de release: nunca se versiona. Se genera una vez y se
+# guarda como secreto de GitHub Actions (ver .github/workflows/build-apk.yml).
+*.jks
+*.keystore
+release.jks
