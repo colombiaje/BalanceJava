@@ -403,6 +403,14 @@ public class A21_OptimizedQuery {
         if (indiceCuentaId != -1 && !cursor.isNull(indiceCuentaId)) {
             item.tipoTset_14CuentaIdMetodoEnA5(cursor.getLong(indiceCuentaId));
         }
+        // ⭐ NUEVO v8 — Fase 5: transaccion_id (agregado al final de "transacciones", igual que
+        // cuenta_id en la Fase 1), leído por nombre por la misma razón que cuenta_id arriba: el
+        // mapeo de las 13 columnas c1..c13 es por posición fija, así que cualquier columna nueva
+        // debe leerse aparte, por nombre, para no desalinear ese mapeo.
+        int indiceTransaccionId = cursor.getColumnIndex("transaccion_id");
+        if (indiceTransaccionId != -1 && !cursor.isNull(indiceTransaccionId)) {
+            item.tipoTset_15TransaccionIdMetodoEnA5(cursor.getLong(indiceTransaccionId));
+        }
         return item;
     }
 
