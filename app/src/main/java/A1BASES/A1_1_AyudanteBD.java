@@ -48,6 +48,19 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   intervalo, B11_DocumentCalculator todavía escribía "na" (no había cambiado), así que esas
 //   filas puntuales quedaron con "na" en vez de "Cerrable"/"No Aplica". No es un cambio de
 //   esquema, solo un backfill de continuidad.
+// ⭐ MODIFICADO: Versión 8 — Fase 5 (primer paso del modelo nuevo acordado): "transacciones"
+//   gana transaccion_id, una llave primaria técnica propia (hasta ahora la tabla solo tenía el
+//   rowid interno de SQLite, sin nombre ni columna visible). Es el requisito de base para que,
+//   en una versión futura, "transacciones_inventario" pueda enlazarse 1 a 1 con cada transacción
+//   por un id real en vez de depender del rowid implícito. Se agrega AL FINAL de la tabla, no al
+//   principio — ver el comentario junto a crearTransacciones_String más abajo sobre por qué.
+//   De paso: se activa el cumplimiento de llaves foráneas (PRAGMA foreign_keys, vía
+//   onConfigure — ver más abajo); ya existía la referencia cuenta_id → cuentas.cuenta_id desde
+//   la versión 3, pero sin esto SQLite nunca la hacía cumplir de verdad. Y se agregan índices:
+//   uno único sobre (c1_Documento, c2_ItemDoc) de forma "best effort" (no debe tumbar la
+//   migración si hay duplicados reales en el dispositivo — todavía no se ha verificado), y tres
+//   simples (cuenta_id, c1_Documento, c8_FechaInicial) para acelerar las consultas que ya existen
+//   hoy. No se toca ninguna columna existente ni su contenido.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -56,8 +69,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 6 → 7 para disparar onUpgrade en dispositivos existentes (ver Fase 4 parte B arriba).
-    public static final int version1BalanceSqlite_int_PSF = 7;
+    // ⭐ CAMBIO: versión 7 → 8 para disparar onUpgrade en dispositivos existentes (ver Fase 5 arriba).
+    public static final int version1BalanceSqlite_int_PSF = 8;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -95,7 +108,25 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c11_Grupo2 TEXT NOT NULL, c12_ColumnaDisponible TEXT NOT NULL, " +
                     "c13_ColumnaDisponible TEXT NOT NULL, " +
                     // ⭐ NUEVO v3: referencia real hacia cuentas.cuenta_id (ver Fase 1).
-                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id))";
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
+                    // ⭐ NUEVO v8 — Fase 5: llave primaria técnica propia de "transacciones", en el
+                    // mismo espíritu que cuenta_id en "cuentas" (Fase 1). Se agrega AL FINAL,
+                    // después de cuenta_id, y NO al principio como suele ser lo habitual:
+                    // A21_OptimizedQuery.mapTransactionFromCursor lee las columnas c1..c13 de un
+                    // "SELECT *" por POSICIÓN fija (cursor.getString(0)..getString(12)), y solo lee
+                    // cuenta_id aparte, por nombre. Si transaccion_id se agregara al principio, esas
+                    // 13 posiciones se recorrerían un lugar a la derecha y cada campo leído por
+                    // índice numérico quedaría silenciosamente cruzado con el campo vecino — sin
+                    // ningún error, solo datos mal leídos (afecta, entre otros, a
+                    // A22_QueryManager.queryAllTransactions/queryTransactionsByDocument/
+                    // queryTransactionsByAccount, que alimentan pantallas y el backup a CSV).
+                    // Agregarla al final evita ese riesgo sin tocar ese mapeo, y no cambia en nada
+                    // el comportamiento de la llave: SQLite no exige que "INTEGER PRIMARY KEY" sea
+                    // la primera columna para funcionar como alias del rowid. Ver el bloque
+                    // "if (oldVersion < 8)" en onUpgrade() para cómo se agrega en dispositivos que
+                    // ya tienen la tabla creada, y mapTransactionFromCursor (A21_OptimizedQuery) para
+                    // cómo se lee de vuelta.
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT)";
 
     String crearCuentas_String =
             "CREATE TABLE IF NOT EXISTS cuentas (" +
@@ -243,6 +274,52 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     //  LIFECYCLE DE LA BD
     // ─────────────────────────────────────────────
 
+    // ⭐ NUEVO v8 — Fase 5: habilita el cumplimiento de llaves foráneas en cada conexión que
+    // Android abre hacia balance.db. SQLite las trae DESACTIVADAS por defecto y es una propiedad
+    // de cada conexión, no de la base de datos en sí — por eso se hace aquí (onConfigure, que
+    // corre siempre que se abre una conexión nueva) y no con una sentencia
+    // "PRAGMA foreign_keys=ON" suelta dentro de onCreate/onUpgrade, que solo correría una vez y
+    // no en cada apertura posterior de la app. Con esto, la referencia
+    // transacciones.cuenta_id → cuentas.cuenta_id (que existe desde la versión 3) empieza a
+    // hacerse cumplir de verdad; no revisa datos ya existentes, solo escrituras nuevas — no debería
+    // haber ninguna, ya que no existe ningún DELETE sobre "cuentas" en el código, y el único punto
+    // que inserta cuenta_id "a mano" (F4_Cierres, al restaurar un backup CSV) ya lo valida con
+    // try/catch antes de intentarlo.
+    @Override
+    public void onConfigure(SQLiteDatabase db) {
+        super.onConfigure(db);
+        db.setForeignKeyConstraintsEnabled(true);
+    }
+
+    // ⭐ NUEVO v8: índice único "best effort" sobre (c1_Documento, c2_ItemDoc) — en el modelo
+    // nuevo acordado, ese par debería identificar de forma única cada línea dentro de un
+    // documento. Todavía no se ha verificado si los datos reales de cada dispositivo cumplen eso
+    // (quedó anotado en la retroalimentación: "hay transacciones con el mismo documento en ese
+    // campo"), así que si CREATE UNIQUE INDEX falla por duplicados reales, NO debe tumbar el
+    // resto de la migración/creación — se atrapa el error, se registra en el log, y se continúa.
+    // Se comparte entre onCreate y la migración v8 para no duplicar la sentencia en dos lugares.
+    private void crearIndiceUnicoDocumentoItem(SQLiteDatabase db) {
+        try {
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_transacciones_documento_item " +
+                    "ON transacciones(c1_Documento, c2_ItemDoc)");
+        } catch (Exception e) {
+            android.util.Log.w("A1_1_AyudanteBD",
+                    "No se pudo crear el índice único (c1_Documento, c2_ItemDoc) — " +
+                            "probablemente hay filas con el mismo documento+ítem en este " +
+                            "dispositivo. Se continúa sin este índice; conviene revisar y depurar " +
+                            "los duplicados. Detalle: " + e.getMessage());
+        }
+    }
+
+    // ⭐ NUEVO v8: índices simples de lectura frecuente sobre "transacciones" — no imponen
+    // ninguna restricción, solo aceleran consultas que ya existen hoy (por cuenta, por documento,
+    // por fecha). Se comparte entre onCreate y la migración v8 por la misma razón que arriba.
+    private void crearIndicesTransacciones(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_cuenta_id ON transacciones(cuenta_id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_c1_documento ON transacciones(c1_Documento)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_c8_fecha_inicial ON transacciones(c8_FechaInicial)");
+    }
+
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("PRAGMA encoding = 'UTF-8'");
@@ -250,6 +327,10 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // (cuenta_id REFERENCES cuentas.cuenta_id) — orden lógico padre→hijo.
         db.execSQL(crearCuentas_String);
         db.execSQL(crearTransacciones_String);
+        // ⭐ NUEVO v8 — Fase 5: índices sobre "transacciones" desde el inicio en instalaciones
+        // frescas (mismos helpers que usa la migración v8 — ver más abajo).
+        crearIndiceUnicoDocumentoItem(db);
+        crearIndicesTransacciones(db);
         // ⭐ NUEVO: crear tablas de caché desde el inicio en instalaciones frescas
         db.execSQL(SQL_CREAR_CACHE_HEADER);
         db.execSQL(SQL_CREAR_CACHE_RECORDS);
@@ -433,6 +514,56 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 " transacciones seguían con 'na' tras el backfill (no debería pasar)");
             }
             naResiduales.close();
+        }
+
+        // ⭐ NUEVO v8 — Fase 5: llave primaria técnica (transaccion_id) + índices en
+        // "transacciones" (ver comentario de clase arriba). No toca ninguna columna existente ni
+        // su contenido.
+        if (oldVersion < 8) {
+
+            // 1) Recrear "transacciones" agregando transaccion_id, preservando el rowid interno
+            //    que SQLite ya le asigna a cada fila desde siempre (toda tabla normal lo tiene,
+            //    aunque no se declare ninguna columna como llave primaria). Se usa ese mismo rowid
+            //    como valor de transaccion_id — en vez de dejar que AUTOINCREMENT vuelva a numerar
+            //    desde 1 — para no renumerar ninguna fila existente: cualquier referencia futura
+            //    que se guarde hacia una transacción (p.ej. desde una futura tabla de inventario)
+            //    coincidirá con la fila real desde el primer momento.
+            db.execSQL("CREATE TABLE transacciones_temp_v8(" +
+                    "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
+                    "c3_Cuenta TEXT NOT NULL, c4_Signo TEXT NOT NULL, " +
+                    "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
+                    "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
+                    "c9_FechaModificacion TEXT NOT NULL, c10_Grupo1 TEXT NOT NULL, " +
+                    "c11_Grupo2 TEXT NOT NULL, c12_ColumnaDisponible TEXT NOT NULL, " +
+                    "c13_ColumnaDisponible TEXT NOT NULL, " +
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT)");
+            db.execSQL("INSERT INTO transacciones_temp_v8 (" +
+                    "transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "c10_Grupo1, c11_Grupo2, c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id) " +
+                    "SELECT rowid, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "c10_Grupo1, c11_Grupo2, c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id " +
+                    "FROM transacciones");
+            db.execSQL("DROP TABLE transacciones");
+            db.execSQL("ALTER TABLE transacciones_temp_v8 RENAME TO transacciones");
+
+            // 2) Índices (mismos helpers que usa onCreate en instalaciones frescas — ver arriba).
+            //    El único es "best effort": si falla por duplicados reales en este dispositivo, se
+            //    registra en el log y la migración sigue sin él (no se pierde ni se bloquea nada).
+            crearIndiceUnicoDocumentoItem(db);
+            crearIndicesTransacciones(db);
+
+            // 3) Diagnóstico: confirmar en el log que la tabla quedó con el mismo número de filas
+            //    que tenía antes de recrearla (la migración no debería perder ni duplicar ninguna).
+            Cursor totalTransacciones = db.rawQuery("SELECT COUNT(*) FROM transacciones", null);
+            if (totalTransacciones.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v8: transacciones quedó con " + totalTransacciones.getInt(0) +
+                                " filas tras agregar transaccion_id");
+            }
+            totalTransacciones.close();
         }
     }
 
