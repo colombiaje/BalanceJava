@@ -54,13 +54,20 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   en una versión futura, "transacciones_inventario" pueda enlazarse 1 a 1 con cada transacción
 //   por un id real en vez de depender del rowid implícito. Se agrega AL FINAL de la tabla, no al
 //   principio — ver el comentario junto a crearTransacciones_String más abajo sobre por qué.
-//   De paso: se activa el cumplimiento de llaves foráneas (PRAGMA foreign_keys, vía
-//   onConfigure — ver más abajo); ya existía la referencia cuenta_id → cuentas.cuenta_id desde
-//   la versión 3, pero sin esto SQLite nunca la hacía cumplir de verdad. Y se agregan índices:
-//   uno único sobre (c1_Documento, c2_ItemDoc) de forma "best effort" (no debe tumbar la
-//   migración si hay duplicados reales en el dispositivo — todavía no se ha verificado), y tres
-//   simples (cuenta_id, c1_Documento, c8_FechaInicial) para acelerar las consultas que ya existen
-//   hoy. No se toca ninguna columna existente ni su contenido.
+//   De paso: se activa el cumplimiento de llaves foráneas (PRAGMA foreign_keys, vía onOpen —
+//   ver más abajo); ya existía la referencia cuenta_id → cuentas.cuenta_id desde la versión 3,
+//   pero sin esto SQLite nunca la hacía cumplir de verdad. Y se agregan índices: uno único sobre
+//   (c1_Documento, c2_ItemDoc) de forma "best effort" (no debe tumbar la migración si hay
+//   duplicados reales en el dispositivo — todavía no se ha verificado), y tres simples
+//   (cuenta_id, c1_Documento, c8_FechaInicial) para acelerar las consultas que ya existen hoy. No
+//   se toca ninguna columna existente ni su contenido.
+// ⭐ CORRECCIÓN: Versión 8 (parte B) — el cumplimiento de llaves foráneas de arriba se activaba
+//   originalmente en onConfigure() (que corre ANTES de onUpgrade()), lo que hizo que la propia
+//   migración de esta versión fallara al copiar filas con un cuenta_id huérfano (que ya existían
+//   en dispositivos reales, sin que ninguna versión anterior lo hubiera detectado) — la app
+//   quedaba sin poder abrir la base de datos. Se mueve a onOpen() (corre DESPUÉS de que la
+//   migración ya terminó) para que la migración copie los datos tal cual, sin bloquear por eso;
+//   ver el comentario junto a onOpen() más abajo para el detalle completo.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -276,18 +283,28 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
     // ⭐ NUEVO v8 — Fase 5: habilita el cumplimiento de llaves foráneas en cada conexión que
     // Android abre hacia balance.db. SQLite las trae DESACTIVADAS por defecto y es una propiedad
-    // de cada conexión, no de la base de datos en sí — por eso se hace aquí (onConfigure, que
-    // corre siempre que se abre una conexión nueva) y no con una sentencia
-    // "PRAGMA foreign_keys=ON" suelta dentro de onCreate/onUpgrade, que solo correría una vez y
-    // no en cada apertura posterior de la app. Con esto, la referencia
-    // transacciones.cuenta_id → cuentas.cuenta_id (que existe desde la versión 3) empieza a
-    // hacerse cumplir de verdad; no revisa datos ya existentes, solo escrituras nuevas — no debería
-    // haber ninguna, ya que no existe ningún DELETE sobre "cuentas" en el código, y el único punto
-    // que inserta cuenta_id "a mano" (F4_Cierres, al restaurar un backup CSV) ya lo valida con
-    // try/catch antes de intentarlo.
+    // de cada conexión, no de la base de datos en sí.
+    //
+    // ⭐ CORRECCIÓN — Fase 5 (parte B): se activa en onOpen(), NO en onConfigure(). Iba en
+    // onConfigure() en el primer intento de esta versión, pero onConfigure() corre ANTES de
+    // onCreate()/onUpgrade() — o sea, corre antes de que la migración v8 termine de reconstruir
+    // "transacciones". Eso hizo que la propia migración (el INSERT que copia las filas existentes
+    // a la tabla nueva) se validara contra la llave foránea cuenta_id → cuentas.cuenta_id, y
+    // falló con "FOREIGN KEY constraint failed" porque en los datos reales del dispositivo hay
+    // transacciones cuyo cuenta_id ya no coincide con ninguna cuenta existente (huérfanas con
+    // valor, distintas de las huérfanas con cuenta_id NULL que sí se diagnosticaron en las
+    // versiones 3 y 5) — la app quedaba sin poder abrir la base de datos en cada intento.
+    // onOpen() corre DESPUÉS de que onCreate()/onUpgrade() ya terminaron y su transacción quedó
+    // confirmada, así que la migración copia todas las filas tal cual, sin bloquear por esas
+    // huérfanas (ver el diagnóstico que las cuenta, más abajo en el bloque "if (oldVersion < 8)").
+    // El cumplimiento, activado aquí, sigue aplicando igual a partir de ese momento y en cada
+    // apertura posterior — solo que a escrituras NUEVAS, nunca revisa retroactivamente filas que
+    // ya estaban guardadas. No debería afectar ninguna escritura nueva de la app: no existe
+    // ningún DELETE sobre "cuentas" en el código, y el único punto que inserta cuenta_id "a mano"
+    // (F4_Cierres, al restaurar un backup CSV) ya lo valida con try/catch antes de intentarlo.
     @Override
-    public void onConfigure(SQLiteDatabase db) {
-        super.onConfigure(db);
+    public void onOpen(SQLiteDatabase db) {
+        super.onOpen(db);
         db.setForeignKeyConstraintsEnabled(true);
     }
 
@@ -564,6 +581,24 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 " filas tras agregar transaccion_id");
             }
             totalTransacciones.close();
+
+            // 4) Diagnóstico — Fase 5 (parte B): cuántas transacciones tienen un cuenta_id que ya
+            //    NO existe en "cuentas" (huérfanas "con valor" — distintas de las huérfanas con
+            //    cuenta_id NULL que ya diagnosticaban las versiones 3 y 5). Esta migración las deja
+            //    tal cual, sin tocarlas ni bloquear por ellas (ver el comentario en onOpen() sobre
+            //    por qué el cumplimiento de llaves foráneas se activa DESPUÉS de este bloque). Solo
+            //    quedan registradas aquí para poder revisarlas y decidir qué hacer con ellas más
+            //    adelante — es exactamente el tipo de dato que este número visibiliza.
+            Cursor huerfanasConValor = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE cuenta_id IS NOT NULL " +
+                            "AND cuenta_id NOT IN (SELECT cuenta_id FROM cuentas)", null);
+            if (huerfanasConValor.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v8: " + huerfanasConValor.getInt(0) +
+                                " transacciones con cuenta_id que ya no existe en cuentas (huérfanas " +
+                                "con valor). Quedan sin tocar; conviene revisarlas.");
+            }
+            huerfanasConValor.close();
         }
     }
 
