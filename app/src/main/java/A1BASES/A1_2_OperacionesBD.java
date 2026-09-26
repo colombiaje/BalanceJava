@@ -115,6 +115,44 @@ public class A1_2_OperacionesBD extends Activity {
         db.execSQL("DELETE FROM "+tablaX_String);
     }
 
+    // ⭐ NUEVO — fix v8 (aprobado aparte de la v10): "DELETE FROM cuentas" con las FK activas
+    // desde v8 (ver A1_1_AyudanteBD.onOpen) lanza SQLiteConstraintException si alguna fila de
+    // "transacciones" todavía apunta (transacciones.cuenta_id) a una cuenta que se va a borrar.
+    // Esto pasaba sin excepción en F2_Cuentas al restaurar TODAS las cuentas desde un backup
+    // (Sheets, backup local, o Google Drive) — los 3 flujos primero vacían "cuentas" por
+    // completo y luego la vuelven a llenar desde el CSV. Las dos funciones de abajo separan
+    // ese vaciado en dos pasos seguros, con las FK siempre activas:
+    //   1) limpiarReferenciasCuentaId(): suelta (a NULL) las referencias antes del DELETE.
+    //      Nunca viola una FK — poner una columna FK en NULL siempre está permitido.
+    //   2) repararReferenciasCuentaIdPorNombre(): después de reinsertar "cuentas" desde el CSV,
+    //      reempareja cada transacción con su cuenta por nombre (c3_Cuenta = cuentas.Cuenta) —
+    //      el mismo backfill ya usado en las migraciones v3 y v5 (ver A1_1_AyudanteBD),
+    //      reutilizado aquí en vez de inventar un mecanismo nuevo.
+    // Ninguna de las dos toca cuentas ni transacciones fuera de esta ventana de borrado+
+    // restauración completa de "cuentas".
+    public static void limpiarReferenciasCuentaId(SQLiteDatabase db) {
+        db.execSQL("UPDATE transacciones SET cuenta_id = NULL WHERE cuenta_id IS NOT NULL");
+    }
+
+    /**
+     * @return cuántas transacciones quedaron sin cuenta_id tras el reemparejamiento (su
+     * c3_Cuenta no tuvo match exacto en cuentas.Cuenta) — el llamador decide cómo registrarlo.
+     */
+    public static int repararReferenciasCuentaIdPorNombre(SQLiteDatabase db) {
+        db.execSQL("UPDATE transacciones SET cuenta_id = " +
+                "(SELECT cuenta_id FROM cuentas WHERE cuentas.Cuenta = transacciones.c3_Cuenta) " +
+                "WHERE cuenta_id IS NULL");
+
+        int huerfanas = 0;
+        Cursor cursor = db.rawQuery(
+                "SELECT COUNT(*) FROM transacciones WHERE cuenta_id IS NULL", null);
+        if (cursor.moveToFirst()) {
+            huerfanas = cursor.getInt(0);
+        }
+        cursor.close();
+        return huerfanas;
+    }
+
     public void eliminarTransaccionesAlgunasCuentas() {
 
         abrirBaseDatos();

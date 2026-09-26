@@ -1801,9 +1801,41 @@ public class F2_Cuentas extends DialogFragment {
     public void borrarHistorialCuentas (String tablaX_String) {
         A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,  version1BalanceSqlite_int_PSF);
         SQLiteDatabase sqliteDatabase_Abstracta = ayudanteBD_Class.getWritableDatabase();
+        // ⭐ NUEVO — fix v8 (bug preexistente, corregido aparte de la v10 a pedido explícito):
+        // si se va a vaciar por completo "cuentas", primero hay que soltar las referencias de
+        // transacciones.cuenta_id hacia esas filas — si no, el DELETE de abajo choca contra la
+        // FK (activa desde v8) apenas alguna transacción siga apuntando a una cuenta existente.
+        // Los 3 flujos que llaman a este método con "cuentas" (Sheets, backup local, Drive)
+        // reinsertan "cuentas" completa justo después, y ya cada uno reempareja las referencias
+        // por nombre al terminar — ver A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre().
+        if ("cuentas".equals(tablaX_String)) {
+            A1_2_OperacionesBD.limpiarReferenciasCuentaId(sqliteDatabase_Abstracta);
+        }
         A1_2_OperacionesBD.borrarRegistros(tablaX_String, sqliteDatabase_Abstracta);
         // NUEVO LOG
     }
+
+    // ⭐ NUEVO — fix v8: completa, del lado de "después", el fix de borrarHistorialCuentas()
+    // de arriba. Se llama al terminar de reinsertar "cuentas" completa en cada uno de los 3
+    // flujos de restauración (Sheets, backup local, Drive) para reemparejar por nombre las
+    // transacciones que quedaron con cuenta_id NULL. Solo registra en el log si algo quedó sin
+    // emparejar (nombre de cuenta que ya no existe igual en el backup) — no bloquea nada.
+    private void repararReferenciasCuentaIdTrasRestaurarCuentas(String origenRestauracion) {
+        try {
+            A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+            SQLiteDatabase sqliteDatabase_Abstracta = ayudanteBD_Class.getWritableDatabase();
+            int huerfanas = A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre(sqliteDatabase_Abstracta);
+            sqliteDatabase_Abstracta.close();
+            if (huerfanas > 0) {
+                Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + huerfanas +
+                        " transacciones sin cuenta_id tras reemparejar por nombre " +
+                        "(c3_Cuenta sin match exacto en cuentas.Cuenta)");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error al reemparejar cuenta_id tras restaurar cuentas: " + e.getMessage(), e);
+        }
+    }
+
     public void iniciarCierreConCSVCuentasDeGoogleSheets () {
 
         pedirPermisoAlDispositivo();
@@ -1850,6 +1882,8 @@ public class F2_Cuentas extends DialogFragment {
                     sqLiteDatabase_Abstracta.insert("cuentas", null, contenedor_ContentValues);
                     sqLiteDatabase_Abstracta.close();
                 }
+
+                repararReferenciasCuentaIdTrasRestaurarCuentas("Sheets");
 
                 } catch (Exception e) {
 
@@ -2015,6 +2049,8 @@ public class F2_Cuentas extends DialogFragment {
                     sqliteDatabase_Abstracta.close();
 
                 }
+
+                repararReferenciasCuentaIdTrasRestaurarCuentas("backup local");
 
                 nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName();
                 subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
@@ -2549,6 +2585,7 @@ public class F2_Cuentas extends DialogFragment {
             File archivo = new File(rutaArchivo);
             String nombreArchivo = archivo.getName();
             importarCuentasDesdeCSV(nombreArchivo);
+            repararReferenciasCuentaIdTrasRestaurarCuentas("Drive");
 
             long cuentasRestauradas = verNumeroDeRegistrosCuentas();
             mensajeInformativo_XTv.setText(String.valueOf(cuentasRestauradas));
