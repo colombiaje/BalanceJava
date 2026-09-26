@@ -1817,13 +1817,56 @@ public class F2_Cuentas extends DialogFragment {
 
     // ⭐ NUEVO — fix v8: completa, del lado de "después", el fix de borrarHistorialCuentas()
     // de arriba. Se llama al terminar de reinsertar "cuentas" completa en cada uno de los 3
-    // flujos de restauración (Sheets, backup local, Drive) para reemparejar por nombre las
-    // transacciones que quedaron con cuenta_id NULL. Solo registra en el log si algo quedó sin
-    // emparejar (nombre de cuenta que ya no existe igual en el backup) — no bloquea nada.
+    // flujos de restauración (Sheets, backup local, Drive).
+    //
+    // ⭐ AMPLIADO — fix v8 (parte 2): además de reemparejar transacciones.cuenta_id por nombre,
+    // ahora también repara la clasificación de la v10 que los 3 flujos pierden al reinsertar
+    // "cuentas" (insertarCuenta() y los otros dos insert loops no traen tipo_cuenta_id ni
+    // cuenta_seguimiento del CSV — eso llega con la unificación de la tanda 2). Confirmado por
+    // Logcat: sin esto, cualquier restauración completa deja el panel de Indicadores en cero.
+    // Ninguna de las dos reparaciones es una migración versionada — se pueden repetir tantas
+    // veces como se restaure, sin duplicar ni dañar nada (ver
+    // A1_1_AyudanteBD.repararTipoCuentaDeCuentasSinClasificar()).
     private void repararReferenciasCuentaIdTrasRestaurarCuentas(String origenRestauracion) {
         try {
             A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
             SQLiteDatabase sqliteDatabase_Abstracta = ayudanteBD_Class.getWritableDatabase();
+
+            // 1) Reclasificar por Grupo1/Grupo2 toda cuenta que haya quedado con tipo_cuenta_id
+            //    NULL (mismo backfill que la migración v9, reutilizado — ver el método).
+            int sinClasificar = ayudanteBD_Class.repararTipoCuentaDeCuentasSinClasificar(sqliteDatabase_Abstracta);
+            if (sinClasificar > 0) {
+                Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + sinClasificar +
+                        " cuentas quedaron sin tipo_cuenta_id tras reclasificar " +
+                        "(Grupo1 fuera de las 9 clases esperadas — revisar manualmente)");
+            }
+
+            // 2) Si ninguna cuenta quedó marcada como cuenta_seguimiento (se pierde en cada
+            //    restauración completa, igual que tipo_cuenta_id), se vuelve a marcar
+            //    automáticamente "CxC Enrique" si existe — mismo backfill de continuidad que la
+            //    migración v10. Si el usuario ya había marcado otra cuenta distinta, tendrá que
+            //    volver a marcarla manualmente desde Cuentas (el control en la UI llega con la
+            //    tanda 2) — no se puede adivinar cuál era sin ese dato.
+            Cursor marcadaCursor = sqliteDatabase_Abstracta.rawQuery(
+                    "SELECT COUNT(*) FROM cuentas WHERE cuenta_seguimiento = 1", null);
+            boolean hayMarcada = marcadaCursor.moveToFirst() && marcadaCursor.getInt(0) > 0;
+            marcadaCursor.close();
+            if (!hayMarcada) {
+                sqliteDatabase_Abstracta.execSQL(
+                        "UPDATE cuentas SET cuenta_seguimiento = 1 WHERE Cuenta = 'CxC Enrique'");
+                Cursor reMarcadaCursor = sqliteDatabase_Abstracta.rawQuery(
+                        "SELECT COUNT(*) FROM cuentas WHERE cuenta_seguimiento = 1", null);
+                int totalMarcadas = reMarcadaCursor.moveToFirst() ? reMarcadaCursor.getInt(0) : 0;
+                reMarcadaCursor.close();
+                if (totalMarcadas != 1) {
+                    Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " +
+                            totalMarcadas + " cuentas quedaron marcadas como cuenta_seguimiento " +
+                            "tras reintentar con \"CxC Enrique\" (se esperaba 1) — revisar " +
+                            "manualmente desde Cuentas.");
+                }
+            }
+
+            // 3) Reemparejar transacciones.cuenta_id por nombre (ya existía en el fix anterior).
             int huerfanas = A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre(sqliteDatabase_Abstracta);
             sqliteDatabase_Abstracta.close();
             if (huerfanas > 0) {
@@ -1832,7 +1875,7 @@ public class F2_Cuentas extends DialogFragment {
                         "(c3_Cuenta sin match exacto en cuentas.Cuenta)");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error al reemparejar cuenta_id tras restaurar cuentas: " + e.getMessage(), e);
+            Log.e(TAG, "Error al reparar clasificación/referencias tras restaurar cuentas: " + e.getMessage(), e);
         }
     }
 

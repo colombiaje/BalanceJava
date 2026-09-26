@@ -440,6 +440,91 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         return grupo1; // demás clases: clasificación genérica única, mismo nombre que la clase.
     }
 
+    /**
+     * NUEVO — reparación (no es parte de ninguna migración versionada, se puede llamar cuantas
+     * veces haga falta): recalcula tipo_cuenta_id para toda cuenta que hoy lo tenga en NULL,
+     * usando exactamente la misma lógica del backfill de la migración v9 (combinación real de
+     * Grupo1/Grupo2 → clasificacion_contable → tipo_cuenta) — ver el bloque "if (oldVersion < 9)"
+     * en onUpgrade(). Reutiliza el tipo_cuenta si el nombre ya existe en el catálogo (nombre es
+     * UNIQUE) en vez de crear uno nuevo cada vez, así que repetirla no duplica nada.
+     * <p>
+     * Pensada para volver a clasificar las cuentas que quedan con tipo_cuenta_id NULL después de
+     * una restauración completa desde CSV (Sheets/backup local/Drive) — esos 3 flujos reinsertan
+     * "cuentas" sin traer esa columna del CSV todavía (llega con la unificación de la tanda 2 de
+     * la v10). Ver F2_Cuentas.repararReferenciasCuentaIdTrasRestaurarCuentas(), que la llama justo
+     * después de cada restauración.
+     *
+     * @return cuántas cuentas siguieron con tipo_cuenta_id NULL después del intento (Grupo1 fuera
+     * de las 9 clases esperadas — no debería pasar con datos reales).
+     */
+    public int repararTipoCuentaDeCuentasSinClasificar(SQLiteDatabase db) {
+        java.util.List<String[]> combosDistintos = new java.util.ArrayList<>();
+        Cursor combosCursor = db.rawQuery(
+                "SELECT DISTINCT Grupo1, Grupo2 FROM cuentas WHERE tipo_cuenta_id IS NULL", null);
+        while (combosCursor.moveToNext()) {
+            combosDistintos.add(new String[]{combosCursor.getString(0), combosCursor.getString(1)});
+        }
+        combosCursor.close();
+
+        for (String[] combo : combosDistintos) {
+            String grupo1 = combo[0];
+            String grupo2 = combo[1];
+            String clasificacionNombre = clasificacionNombreParaCombo(grupo1, grupo2);
+
+            Long clasificacionId = null;
+            String naturaleza = null;
+            Cursor infoCursor = db.rawQuery(
+                    "SELECT cc.clasificacion_id, cl.naturaleza_normal " +
+                            "FROM " + TABLE_CLASIFICACION_CONTABLE + " cc " +
+                            "JOIN " + TABLE_CLASE_CONTABLE + " cl ON cc.clase_id = cl.clase_id " +
+                            "WHERE cc.nombre = ? AND cl.nombre = ?",
+                    new String[]{clasificacionNombre, grupo1});
+            if (infoCursor.moveToFirst()) {
+                clasificacionId = infoCursor.getLong(0);
+                naturaleza = infoCursor.getString(1);
+            }
+            infoCursor.close();
+
+            if (clasificacionId == null || naturaleza == null) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Reparación tipo_cuenta: no se pudo ubicar clase/clasificación para " +
+                                "Grupo1='" + grupo1 + "', Grupo2='" + grupo2 + "' (clasificación " +
+                                "esperada: '" + clasificacionNombre + "'). Esas cuentas quedan con " +
+                                "tipo_cuenta_id NULL.");
+                continue;
+            }
+
+            String tipoCuentaNombre = grupo1 + " - " + grupo2;
+            long tipoCuentaId;
+            Cursor tipoExistenteCursor = db.rawQuery(
+                    "SELECT tipo_cuenta_id FROM " + TABLE_TIPO_CUENTA + " WHERE nombre = ?",
+                    new String[]{tipoCuentaNombre});
+            if (tipoExistenteCursor.moveToFirst()) {
+                tipoCuentaId = tipoExistenteCursor.getLong(0);
+            } else {
+                ContentValues tipoCv = new ContentValues();
+                tipoCv.put("clasificacion_id", clasificacionId);
+                tipoCv.put("nombre", tipoCuentaNombre);
+                tipoCv.put("naturaleza_normal", naturaleza);
+                tipoCuentaId = db.insert(TABLE_TIPO_CUENTA, null, tipoCv);
+            }
+            tipoExistenteCursor.close();
+
+            db.execSQL("UPDATE cuentas SET tipo_cuenta_id = ? " +
+                            "WHERE Grupo1 = ? AND Grupo2 = ? AND tipo_cuenta_id IS NULL",
+                    new Object[]{tipoCuentaId, grupo1, grupo2});
+        }
+
+        int pendientes = 0;
+        Cursor sinTipoCuenta = db.rawQuery(
+                "SELECT COUNT(*) FROM cuentas WHERE tipo_cuenta_id IS NULL", null);
+        if (sinTipoCuenta.moveToFirst()) {
+            pendientes = sinTipoCuenta.getInt(0);
+        }
+        sinTipoCuenta.close();
+        return pendientes;
+    }
+
     // ─────────────────────────────────────────────
     //  COLUMNAS (para uso en queries de F1)
     // ─────────────────────────────────────────────
