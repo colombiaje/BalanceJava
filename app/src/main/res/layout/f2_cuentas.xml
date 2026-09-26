@@ -390,12 +390,14 @@
             />
 
 
+        <!-- ⭐ CAMBIO — tanda 2 v10: "Grupo 1" pasa a ser el único selector, ahora de
+             tipo_cuenta (ver F2_Cuentas.cargarCatalogoTipoCuenta()) en vez de Grupo1 suelto. -->
         <TextView
             android:id="@+id/vTgrupo"
             android:layout_width="70dp"
             android:layout_height="25dp"
             android:background="@android:color/holo_purple"
-            android:text="Grupo 1"
+            android:text="Tipo cuenta"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:textColor="@android:color/white"
             android:textSize="18dp"
@@ -415,6 +417,10 @@
 
             />
 
+        <!-- ⭐ RETIRADO — tanda 2 v10: el spinner de Grupo 2 (fila 9) queda oculto — el spinner
+             único de tipo_cuenta de arriba lo reemplaza. Se dejan declarados (visibility="gone",
+             en vez de borrarlos) para no tocar más de lo necesario el resto del GridLayout ni el
+             código Java que todavía los castea por id (ver F2_Cuentas). -->
         <TextView
             android:id="@+id/grupo2NuevaCuenta"
             android:layout_width="70dp"
@@ -424,6 +430,7 @@
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:textColor="@android:color/white"
             android:textSize="18dp"
+            android:visibility="gone"
             app:layout_column="1"
             app:layout_gravity="center"
             app:layout_row="9" />
@@ -434,6 +441,7 @@
             android:layout_height="40dp"
             android:background="#F4D7F5"
             android:scrollbarSize="18dp"
+            android:visibility="gone"
             app:layout_column="2"
             app:layout_row="9"
 

@@ -155,8 +155,14 @@ public class F2_Cuentas extends DialogFragment {
     TextInputLayout alertaAlEscribirEnModificar_XTiL;
     ArrayAdapter cuentasPorNombre_ArrayAdapterString;
 
-    String [] nombreGrupo1Cuentas_ArrayString = new String[0];
-    String [] nombreGrupo2Cuentas_ArrayString = new String[0];
+    // ⭐ NUEVO — tanda 2 v10: reemplaza los dos arrays de arriba (uno por Grupo1, otro por
+    // Grupo2). El spinner único de tipo_cuenta (grupo1CuentaNueva_XSp reutilizado — ver
+    // comentario en el spinner de layout) ya no elige texto libre sino una fila real de
+    // "tipo_cuenta"; estos dos arrays quedan paralelos por índice (mismo patrón que los que
+    // reemplazan) — nombreTipoCuentaCuentas_ArrayString es lo que se ve en el spinner,
+    // tipoCuentaIds_ArrayLong es el tipo_cuenta_id real que corresponde a esa posición.
+    long [] tipoCuentaIds_ArrayLong = new long[0];
+    String [] nombreTipoCuentaCuentas_ArrayString = new String[0];
 
     //4 Consultar cuentas
     Spinner cuentasOrdenAzParaVistaDetalleCuenta_XSp;
@@ -536,18 +542,14 @@ public class F2_Cuentas extends DialogFragment {
         a3_operacionesBD = new A1_2_OperacionesBD(getActivity());
         A6_3_CSVDriveUploader csvDriveUploader;
 
-        //arrays de String para los spinner de grupos 1 y 2
-        // ⭐ v4 — Fase 2: ahora se cargan desde la BD (catalogo_grupo1/catalogo_grupo2) en vez
-        // de estar hardcodeados aquí. Si por algún motivo la BD no tiene datos, se cae de vuelta
-        // a los mismos valores de siempre para que el spinner nunca quede vacío.
-        nombreGrupo1Cuentas_ArrayString = cargarCatalogoGrupoConEspacioInicial(
-                ayudante_Class.getReadableDatabase(), TABLE_CATALOGO_GRUPO1);
-        nombreGrupo2Cuentas_ArrayString = cargarCatalogoGrupoConEspacioInicial(
-                ayudante_Class.getReadableDatabase(), TABLE_CATALOGO_GRUPO2);
-
-        //spinners con array adapters para cuentas
-        grupo1CuentaNueva_XSp.setAdapter(new ArrayAdapter<String>(getActivity(),android.R.layout.simple_list_item_multiple_choice, nombreGrupo1Cuentas_ArrayString));
-        grupo2CuentaNueva_XSp.setAdapter(new ArrayAdapter<String>(getActivity(),android.R.layout.simple_list_item_multiple_choice, nombreGrupo2Cuentas_ArrayString));
+        // ⭐ NUEVO — tanda 2 v10: un solo spinner de tipo_cuenta reemplaza los dos de
+        // Grupo1/Grupo2 (ver cargarCatalogoTipoCuenta()). grupo1CuentaNueva_XSp se reutiliza
+        // tal cual (mismo id de layout, ya renombrado ahí a "Tipo cuenta") para no tener que
+        // tocar más código del necesario; grupo2CuentaNueva_XSp queda oculto en el layout y ya
+        // no se usa para nada — se deja declarado/casteado por si algo más lo necesitara, pero
+        // ninguna lectura/escritura de cuentas pasa más por él.
+        cargarCatalogoTipoCuenta(ayudante_Class.getReadableDatabase());
+        grupo1CuentaNueva_XSp.setAdapter(new ArrayAdapter<String>(getActivity(),android.R.layout.simple_list_item_multiple_choice, nombreTipoCuentaCuentas_ArrayString));
 
         //eventos
         clickSave_XBt.setOnClickListener(new View.OnClickListener() {
@@ -595,8 +597,6 @@ public class F2_Cuentas extends DialogFragment {
                     v.clearFocus();
                     grupo1CuentaNueva_XSp.requestFocus();
                     grupo1CuentaNueva_XSp.performClick();
-                    focalizarNuevasSpinerGrupo2();
-
                 }
                 return true;
             }
@@ -848,7 +848,6 @@ public class F2_Cuentas extends DialogFragment {
                         emulateAttributesAccount_XAct.setText("");
                         account_XAct.setText("");
                         grupo1CuentaNueva_XSp.setSelection(0);
-                        grupo2CuentaNueva_XSp.setSelection(0);
                         // ⭐ CORRECCIÓN — Fase 4 (parte B): este botón ya limpiaba Grupo1/Grupo2
                         // al copiar, pero se había quedado sin limpiar Cerrable — se veía en la
                         // pantalla como si la cuenta anterior siguiera marcada Cerrable.
@@ -1146,8 +1145,14 @@ public class F2_Cuentas extends DialogFragment {
         // [...] no controla" — esa cuenta "sin transacciones" era, en los casos vistos, una
         // recién creada con este espacio colado.
         cuentaNueva_String = account_XAct.getText().toString().trim();
-        grupo1CuentaNueva_String = grupo1CuentaNueva_XSp.getSelectedItem().toString();
-        grupo2CuentaNueva_String = grupo2CuentaNueva_XSp.getSelectedItem().toString();
+        // ⭐ CAMBIO — tanda 2 v10: un solo spinner de tipo_cuenta reemplaza los dos de
+        // Grupo1/Grupo2. grupo1CuentaNueva_String/grupo2CuentaNueva_String se siguen llenando
+        // (derivados del nombre del tipo_cuenta elegido) porque "cuentas" todavía tiene esas
+        // columnas y el resto de la app las sigue leyendo — ver dividirNombreTipoCuentaEnGrupos().
+        Long tipoCuentaIdSeleccionado = obtenerTipoCuentaIdSeleccionado(grupo1CuentaNueva_XSp.getSelectedItemPosition());
+        String[] gruposDelTipoCuenta = dividirNombreTipoCuentaEnGrupos(grupo1CuentaNueva_XSp.getSelectedItem().toString());
+        grupo1CuentaNueva_String = gruposDelTipoCuenta[0];
+        grupo2CuentaNueva_String = gruposDelTipoCuenta[1];
         String [] args = new String [] {cuentaNueva_String};
 
         dynamicQuery();
@@ -1162,19 +1167,9 @@ public class F2_Cuentas extends DialogFragment {
             Toast.makeText(getActivity() , "! Este nombre de cuenta ya existe ! ", Toast.LENGTH_SHORT).show();
         }
 
-        //caso 3 falta seleccione grupo y cta mayor
-        else if (grupo1CuentaNueva_XSp.getSelectedItem().toString() == "" && grupo2CuentaNueva_XSp.getSelectedItem().toString() == "") {
-            Toast.makeText(getActivity(), "Falta seleccione Grupo 1 y 2", Toast.LENGTH_LONG).show();
-        }
-
-        //caso 4 falta seleccione grupo
-        else if (grupo1CuentaNueva_XSp.getSelectedItem().toString() == "") {
-            Toast.makeText(getActivity(), "Falta seleccione Grupo1", Toast.LENGTH_LONG).show();
-        }
-
-        //caso 5 falta seleccione cuenta mayor
-        else if (grupo2CuentaNueva_XSp.getSelectedItem().toString() == "") {
-            Toast.makeText(getActivity(), "Falta seleccione Grupo2", Toast.LENGTH_LONG).show();
+        //caso 3 falta seleccionar el tipo de cuenta
+        else if (tipoCuentaIdSeleccionado == null) {
+            Toast.makeText(getActivity(), "Falta seleccione el tipo de cuenta", Toast.LENGTH_LONG).show();
         }
 
         else {
@@ -1183,7 +1178,7 @@ public class F2_Cuentas extends DialogFragment {
             String cerrableCuentaNueva_String = cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null;
             a3_operacionesBD.insertarCuentas(itemCuentaNueva_String, cuentaNueva_String,
                     grupo1CuentaNueva_String, grupo2CuentaNueva_String, fechaCuentaNueva_String,
-                    cerrableCuentaNueva_String);
+                    cerrableCuentaNueva_String, tipoCuentaIdSeleccionado);
 
             cleanClickFieldsAccount();
             Toast.makeText(getActivity(), "! Registro de cuenta nueva guardado ! ", Toast.LENGTH_SHORT).show();
@@ -1204,34 +1199,69 @@ public class F2_Cuentas extends DialogFragment {
         LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(intent);
     }
 
-    // ⭐ NUEVO v4 — Fase 2: lee el catálogo de Grupo1 o Grupo2 desde la BD (tabla "tabla"),
-    // en el orden guardado, con un "" al inicio (la opción vacía del spinner, igual que siempre).
-    // Si la tabla no tiene filas (no debería pasar, es sembrada en onCreate/onUpgrade), cae de
-    // vuelta a los valores hardcodeados de siempre para que el spinner nunca quede vacío.
-    private String[] cargarCatalogoGrupoConEspacioInicial(SQLiteDatabase db, String tabla) {
+    // ⭐ RETIRADO — tanda 2 v10: cargarCatalogoGrupoConEspacioInicial() (Grupo1/Grupo2 por
+    // separado) ya no se usa — el spinner único de abajo la reemplaza. Los catálogos
+    // catalogo_grupo1/catalogo_grupo2 en la BD no se tocan (los sigue leyendo/escribiendo el
+    // resto de la app vía Grupo1/Grupo2 en "cuentas" hasta que la v11 retire esas columnas).
+
+    // ⭐ NUEVO — tanda 2 v10: carga el catálogo de tipo_cuenta con un "" al inicio (misma
+    // convención que el catálogo que reemplaza), agrupado por clase/clasificación contable
+    // (todas las variantes de Activo juntas, luego Pasivo, etc. — en vez de alfabético, que
+    // mezclaría clases distintas). A diferencia de Grupo1/Grupo2 no hay valores hardcodeados
+    // de respaldo posibles aquí: tipo_cuenta se siembra dinámicamente por dispositivo (v9) a
+    // partir de las cuentas reales que ya existían, así que no hay un catálogo "de siempre"
+    // universal que devolver si estuviera vacío — si eso pasara (no debería, ver
+    // A1_1_AyudanteBD) el spinner simplemente queda solo con la opción en blanco.
+    private void cargarCatalogoTipoCuenta(SQLiteDatabase db) {
+        ArrayList<Long> ids = new ArrayList<>();
         ArrayList<String> nombres = new ArrayList<>();
+        ids.add(0L);
         nombres.add("");
-        Cursor cursor = db.rawQuery("SELECT nombre FROM " + tabla + " ORDER BY orden", null);
+
+        Cursor cursor = db.rawQuery(
+                "SELECT tc.tipo_cuenta_id, tc.nombre " +
+                        "FROM " + A1_1_AyudanteBD.TABLE_TIPO_CUENTA + " tc " +
+                        "JOIN " + A1_1_AyudanteBD.TABLE_CLASIFICACION_CONTABLE + " cc ON cc.clasificacion_id = tc.clasificacion_id " +
+                        "JOIN " + A1_1_AyudanteBD.TABLE_CLASE_CONTABLE + " cl ON cl.clase_id = cc.clase_id " +
+                        "ORDER BY cl.clase_id, cc.clasificacion_id, tc.nombre", null);
         while (cursor.moveToNext()) {
-            nombres.add(cursor.getString(0));
+            ids.add(cursor.getLong(0));
+            nombres.add(cursor.getString(1));
         }
         cursor.close();
 
-        if (nombres.size() > 1) {
-            return nombres.toArray(new String[0]);
+        tipoCuentaIds_ArrayLong = new long[ids.size()];
+        for (int i = 0; i < ids.size(); i++) {
+            tipoCuentaIds_ArrayLong[i] = ids.get(i);
         }
+        nombreTipoCuentaCuentas_ArrayString = nombres.toArray(new String[0]);
+    }
 
-        // Salvaguarda: la BD no tenía datos del catálogo — valores de siempre, tal cual.
-        if (TABLE_CATALOGO_GRUPO1.equals(tabla)) {
-            return new String[]{"", "Activo", "Pasivo", "Patrimonio", "Ingresos", "Costo de ventas",
-                    "Gastos", "Costos de produccion", "Cuentas de orden Db", "Cuentas de orden Cr"};
-        } else {
-            // ⭐ CAMBIO — Fase 4 (parte A): se quitan las dos combinaciones que mezclaban Grupo2
-            // con "Cerrable" (ver A1_1_AyudanteBD.SEED_GRUPO2, misma migración).
-            return new String[]{"", "Exigible Conciliable",
-                    "Exigible No conciliable", "No exigible Conciliable",
-                    "No exigible No conciliable"};
+    // ⭐ NUEVO — tanda 2 v10: dado el nombre de un tipo_cuenta ("{Grupo1} - {Grupo2}", el mismo
+    // formato que ya generan la migración v9 y A1_1_AyudanteBD.repararTipoCuentaDeCuentasSinClasificar()),
+    // recupera el Grupo1/Grupo2 originales — todavía hace falta escribirlos en "cuentas" (esas
+    // columnas las retira recién la v11) para no romper pantallas/CSV que hoy siguen
+    // leyéndolos como texto. Separador fijo " - ": ninguno de los 9 Grupo1 ni de los 4 Grupo2
+    // reales lo contiene (catálogo cerrado — ver A1_1_AyudanteBD); si no lo encuentra, devuelve
+    // ambos en blanco en vez de adivinar mal.
+    private String[] dividirNombreTipoCuentaEnGrupos(String nombreTipoCuenta) {
+        if (nombreTipoCuenta == null) return new String[]{"", ""};
+        int separador = nombreTipoCuenta.indexOf(" - ");
+        if (separador < 0) return new String[]{"", ""};
+        return new String[]{
+                nombreTipoCuenta.substring(0, separador),
+                nombreTipoCuenta.substring(separador + 3)
+        };
+    }
+
+    // ⭐ NUEVO — tanda 2 v10: dada la posición seleccionada en el spinner de tipo_cuenta,
+    // devuelve el tipo_cuenta_id real (null si es la opción en blanco, posición 0, o si la
+    // posición no calza con el array por algún motivo — nunca debería pasar).
+    private Long obtenerTipoCuentaIdSeleccionado(int posicion) {
+        if (posicion <= 0 || posicion >= tipoCuentaIds_ArrayLong.length) {
+            return null;
         }
+        return tipoCuentaIds_ArrayLong[posicion];
     }
 
     public void interrelationsAccountsGroups () {
@@ -1243,8 +1273,11 @@ public class F2_Cuentas extends DialogFragment {
             // checkbox nuevo con el estado real de la cuenta al abrirla en Modificar.
             // ⭐ CAMBIO — Fase 4 Objetivo 2: se agrega cuenta_id (índice 4) — se usa para
             // identificar la cuenta al renombrar y para mostrarlo como "Item" en Modificar.
+            // ⭐ CAMBIO — tanda 2 v10: se agrega tipo_cuenta_id (índice 5) — reemplaza a Grupo1/
+            // Grupo2 (índices 1 y 2, que se conservan en el SELECT solo porque otros lugares de
+            // este mismo archivo todavía los usan) para posicionar el spinner único de abajo.
             Cursor fila = db.rawQuery
-                    ("select Item, Grupo1, Grupo2, Cerrable, cuenta_id from" +
+                    ("select Item, Grupo1, Grupo2, Cerrable, cuenta_id, tipo_cuenta_id from" +
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1255,21 +1288,23 @@ public class F2_Cuentas extends DialogFragment {
                 // previsto, Modificar usa el cuenta_id real de la cuenta cargada).
                 long cuentaIdCargada_Long = fila.getLong(4);
 
-                String nombreCursorAbuscarEnArrayG1= fila.getString(1);
-                int indiceEnArrayG1 = 0;
-                for (int i = 0; i < nombreGrupo1Cuentas_ArrayString.length; i++) {
-                    if (nombreGrupo1Cuentas_ArrayString[i].equals(nombreCursorAbuscarEnArrayG1))
-                        indiceEnArrayG1 = i;
+                // ⭐ CAMBIO — tanda 2 v10: se posiciona el spinner único por tipo_cuenta_id en
+                // vez de por el texto de Grupo1/Grupo2 por separado. Si la cuenta todavía no
+                // tiene tipo_cuenta_id (por ejemplo la cuenta placeholder "n a", o una cuenta
+                // restaurada antes de que corriera la reparación automática) queda en la
+                // posición 0 (en blanco) — el usuario tendrá que elegir un tipo de cuenta antes
+                // de poder guardar cambios, en vez de arrastrar una clasificación adivinada.
+                int indiceTipoCuenta = 0;
+                if (!fila.isNull(5)) {
+                    long tipoCuentaIdCargado = fila.getLong(5);
+                    for (int i = 0; i < tipoCuentaIds_ArrayLong.length; i++) {
+                        if (tipoCuentaIds_ArrayLong[i] == tipoCuentaIdCargado) {
+                            indiceTipoCuenta = i;
+                            break;
+                        }
+                    }
                 }
-                grupo1CuentaNueva_XSp.setSelection(indiceEnArrayG1);
-
-                String nombreCursorAbuscarEnArrayG2= fila.getString(2);
-                int indiceEnArrayG2=0;
-                for (int i = 0; i < nombreGrupo2Cuentas_ArrayString.length; i++) {
-                    if (nombreGrupo2Cuentas_ArrayString[i].equals(nombreCursorAbuscarEnArrayG2))
-                        indiceEnArrayG2 = i;
-                }
-                grupo2CuentaNueva_XSp.setSelection(indiceEnArrayG2);
+                grupo1CuentaNueva_XSp.setSelection(indiceTipoCuenta);
 
                 // ⭐ NUEVO — Fase 4 (parte B).
                 cerrableCuentaNueva_XChB.setChecked("Cerrable".equals(fila.getString(3)));
@@ -1420,24 +1455,8 @@ public class F2_Cuentas extends DialogFragment {
         }
     }
 
-    public void focalizarNuevasSpinerGrupo2 () {
-
-        grupo1CuentaNueva_XSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                ocultarTeclado();
-                grupo1CuentaNueva_XSp.clearFocus();
-                grupo2CuentaNueva_XSp.requestFocus();
-                grupo2CuentaNueva_XSp.performClick();
-            }
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
-        grupo2CuentaNueva_XSp.setSelection(0);
-        grupo2CuentaNueva_XSp.clearFocus();
-
-    }
+    // ⭐ RETIRADO — tanda 2 v10: focalizarNuevasSpinerGrupo2() encadenaba el foco del spinner
+    // de Grupo1 hacia el de Grupo2 al elegir algo — ya no hace falta, solo queda un spinner.
 
     public void cleanClickFieldsAccount () {
 
@@ -1446,7 +1465,6 @@ public class F2_Cuentas extends DialogFragment {
         item_XTv.setText("");
         account_XAct.setText("");
         grupo1CuentaNueva_XSp.setSelection(0);
-        grupo2CuentaNueva_XSp.setSelection(0);
         cerrableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — Fase 4 (parte B)
 
         // ⭐ NUEVO — Fase 4 Objetivo 2: se limpian junto con el resto de los campos, para
@@ -1593,10 +1611,14 @@ public class F2_Cuentas extends DialogFragment {
     public void clickModify () {
 
         String cuenta = account_XAct.getText().toString().trim();
-        String g1 = grupo1CuentaNueva_XSp.getSelectedItem().toString();
-        String g2 = grupo2CuentaNueva_XSp.getSelectedItem().toString();
+        // ⭐ CAMBIO — tanda 2 v10: un solo spinner de tipo_cuenta reemplaza los dos de
+        // Grupo1/Grupo2 — ver el mismo cambio en registrarNuevas().
+        Long tipoCuentaIdSeleccionado = obtenerTipoCuentaIdSeleccionado(grupo1CuentaNueva_XSp.getSelectedItemPosition());
+        String[] gruposDelTipoCuenta = dividirNombreTipoCuentaEnGrupos(grupo1CuentaNueva_XSp.getSelectedItem().toString());
+        String g1 = gruposDelTipoCuenta[0];
+        String g2 = gruposDelTipoCuenta[1];
 
-        if (!cuenta.isEmpty() && !g1.isEmpty() && !g2.isEmpty()) {
+        if (!cuenta.isEmpty() && tipoCuentaIdSeleccionado != null) {
 
             // ⭐ NUEVO — Fase 4 Objetivo 2: sin el cuenta_id de la cuenta que se cargó en
             // esta pantalla no hay una llave segura para identificar qué fila actualizar
@@ -1626,6 +1648,13 @@ public class F2_Cuentas extends DialogFragment {
             contenedor_ContentValues.put("Cuenta", cuenta);
             contenedor_ContentValues.put("Grupo1", g1);
             contenedor_ContentValues.put("Grupo2", g2);
+            // ⭐ NUEVO — tanda 2 v10: al modificar una cuenta, tipo_cuenta_id ahora se
+            // actualiza junto con Grupo1/Grupo2 — antes solo lo llenaba el backfill de la
+            // migración v9, así que una cuenta editada después quedaba con tipo_cuenta_id
+            // desactualizado (todavía el de antes de la edición) aunque Grupo1/Grupo2 sí
+            // cambiaran. Cierra el hallazgo de "deriva de clasificación" (tipo_cuenta_id vs
+            // Grupo1/Grupo2 real de la cuenta) encontrado al auditar el alcance de la v10.
+            contenedor_ContentValues.put("tipo_cuenta_id", tipoCuentaIdSeleccionado);
             // ⭐ NUEVO — Fase 4 (parte B): checkbox Cerrable → "Cerrable" o null.
             contenedor_ContentValues.put("Cerrable", cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null);
 
@@ -1648,7 +1677,7 @@ public class F2_Cuentas extends DialogFragment {
         }
 
         else {
-            Toast.makeText(getActivity(), "Debes escriba el nombre de la cuenta", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), "Debes escribir el nombre y seleccionar el tipo de cuenta", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -1906,24 +1935,16 @@ public class F2_Cuentas extends DialogFragment {
                 FileReader leerArchivo_FileReader = new FileReader(nombreArchivo_String);
                 BufferedReader lecturaDeCadaLineaDelArchivo_BufferedReader = new BufferedReader(leerArchivo_FileReader);
 
+                // ⭐ CAMBIO — tanda 2 v10: se reemplaza el insert manual (5 columnas fijas, sin
+                // cuenta_id/codigo_cuenta/Cerrable) por el mismo insertarCuenta(String[]) que ya
+                // usa la restauración desde Drive — unifica los 3 flujos de importación de
+                // cuentas en un único método (ver también _3_starBackupAndRestore()), en vez de
+                // tener 3 copias del mismo insert con columnas distintas. Si el CSV de Sheets
+                // trae 8 columnas más adelante (cuando la tanda 3 unifique también el formato
+                // de exportación), esto ya lo aprovecha sin más cambios.
                 while ((lecturaDeCadaLineaDelArchivo_String = lecturaDeCadaLineaDelArchivo_BufferedReader.readLine()) != null) {
-
                     lineasLeidasDelArchivo_ArrayString = lecturaDeCadaLineaDelArchivo_String.split(",");
-
-                    A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,  version1BalanceSqlite_int_PSF);
-                    SQLiteDatabase sqLiteDatabase_Abstracta = ayudanteBD_Class.getWritableDatabase();
-
-                    ContentValues contenedor_ContentValues = new ContentValues();
-
-                    contenedor_ContentValues.put("Item", lineasLeidasDelArchivo_ArrayString[0]);
-                    contenedor_ContentValues.put("Cuenta", lineasLeidasDelArchivo_ArrayString[1]);
-                    contenedor_ContentValues.put("Grupo1", lineasLeidasDelArchivo_ArrayString[2]);
-                    contenedor_ContentValues.put("Grupo2", lineasLeidasDelArchivo_ArrayString[3]);
-                    contenedor_ContentValues.put("Fecha", lineasLeidasDelArchivo_ArrayString[4]);
-
-                    // los inserto en la base de datos
-                    sqLiteDatabase_Abstracta.insert("cuentas", null, contenedor_ContentValues);
-                    sqLiteDatabase_Abstracta.close();
+                    insertarCuenta(lineasLeidasDelArchivo_ArrayString);
                 }
 
                 repararReferenciasCuentaIdTrasRestaurarCuentas("Sheets");
@@ -2071,26 +2092,11 @@ public class F2_Cuentas extends DialogFragment {
                 FileReader leerArchivo_FileReader = new FileReader(nombreArchivo_String);
                 BufferedReader lecturaDeCadaLineaDelArchivo_BufferedReader = new BufferedReader(leerArchivo_FileReader);
 
+                // ⭐ CAMBIO — tanda 2 v10: mismo cambio que en
+                // iniciarCierreConCSVCuentasDeGoogleSheets() — se unifica con insertarCuenta(String[]).
                 while ((lecturaDeCadaLineaDelArchivo_String = lecturaDeCadaLineaDelArchivo_BufferedReader.readLine()) != null) {
-
                     lineasLeidasDelArchivo_ArrayString = lecturaDeCadaLineaDelArchivo_String.split(",");
-
-                    A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,  version1BalanceSqlite_int_PSF);
-                    SQLiteDatabase sqliteDatabase_Abstracta = ayudanteBD_Class.getWritableDatabase();
-
-                    ContentValues contenedor_ContentValues = new ContentValues();
-
-                    contenedor_ContentValues.put("Item", lineasLeidasDelArchivo_ArrayString[0]);
-                    contenedor_ContentValues.put("Cuenta", lineasLeidasDelArchivo_ArrayString[1]);
-                    contenedor_ContentValues.put("Grupo1", lineasLeidasDelArchivo_ArrayString[2]);
-                    contenedor_ContentValues.put("Grupo2", lineasLeidasDelArchivo_ArrayString[3]);
-                    contenedor_ContentValues.put("Fecha", lineasLeidasDelArchivo_ArrayString[4]);
-
-
-                    // los inserto en la base de datos
-                    sqliteDatabase_Abstracta.insert("cuentas", null, contenedor_ContentValues);
-                    sqliteDatabase_Abstracta.close();
-
+                    insertarCuenta(lineasLeidasDelArchivo_ArrayString);
                 }
 
                 repararReferenciasCuentaIdTrasRestaurarCuentas("backup local");
