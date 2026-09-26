@@ -88,6 +88,26 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   se actualiza según su combinación de Grupo1/Grupo2. Ver el bloque "if (oldVersion < 9)" en
 //   onUpgrade() para el detalle completo, y sembrarClaseYClasificacionContable()/
 //   clasificacionNombreParaCombo() para la lógica de nombres.
+// ⭐ MODIFICADO: Versión 10 — Fase 6 (parte B): el único cambio de ESQUEMA de esta versión es
+//   "cuentas" ganando cuenta_seguimiento (INTEGER, valor 1 o NULL — mismo estilo que Cerrable).
+//   Reemplaza el nombre de cuenta fijo "CxC Enrique", que F5_1_Indicadores/
+//   F5_3_GraficasIndicadores tenían hardcodeado como "la cuenta de gasto diario a seguir", por
+//   una marca de datos: la cuenta que hoy se llame "CxC Enrique" se marca automáticamente con
+//   cuenta_seguimiento = 1 en la migración (ver el bloque "if (oldVersion < 10)" en onUpgrade()),
+//   para que el panel de Indicadores siga funcionando exactamente igual sin ningún paso manual;
+//   de ahí en adelante, si Jorge quiere seguir otra cuenta, la marca él mismo desde F2_Cuentas en
+//   vez de que quede fija en el código. El resto de la versión 10 es reescritura de CÓDIGO (no de
+//   esquema): F2_Cuentas pasa de dos spinners (Grupo1/Grupo2) a un spinner único de tipo_cuenta;
+//   A21/A22 agregan tipo_cuenta_id al final del arreglo de queryAttributesByAccount (índice 7,
+//   puramente aditivo, mismo criterio que cuenta_id/Cerrable en las versiones 3/6) y una consulta
+//   nueva que suma transacciones por clasificacion_contable (reemplaza el filtro de texto
+//   "Activo"/"Pasivo" + variantes de Grupo2 que tenía F5_1_Indicadores); A5_1_BackupManager y las
+//   rutas de CSV de cuentas quedan unificadas para no perder cuenta_id/codigo_cuenta/Cerrable/
+//   tipo_cuenta_id en ningún camino de restauración, y los dos generadores de CSV de "resumen
+//   antes de cerrar" pasan a unir transacciones con cuentas por cuenta_id en vez de por nombre
+//   (más seguro ahora que F2_Cuentas permite renombrar cuentas). Grupo1/Grupo2 siguen sin tocarse
+//   ni borrarse (eso es la v11); B11_DocumentCalculator/B12_DocumentPersistence — el lado que
+//   ESCRIBE una transacción nueva — tampoco se toca en esta versión.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -96,8 +116,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 8 → 9 para disparar onUpgrade en dispositivos existentes (ver Fase 6 arriba).
-    public static final int version1BalanceSqlite_int_PSF = 9;
+    // ⭐ CAMBIO: versión 9 → 10 para disparar onUpgrade en dispositivos existentes (ver Fase 6, parte B, arriba).
+    public static final int version1BalanceSqlite_int_PSF = 10;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -183,7 +203,14 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // versión futura). En dispositivos que actualizan desde una versión anterior,
                     // la migración v9 la agrega con ALTER TABLE y la llena vía backfill — ver
                     // el bloque "if (oldVersion < 9)" en onUpgrade().
-                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))";
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id), " +
+                    // ⭐ NUEVO v10 — Fase 6 (parte B): marca la cuenta que el panel de
+                    // Indicadores debe seguir como "gasto diario" (antes fija por nombre,
+                    // "CxC Enrique", en el código de F5_1_Indicadores/F5_3_GraficasIndicadores).
+                    // Valor 1 = marcada, NULL = no aplica (mismo estilo que Cerrable). En
+                    // instalaciones frescas nace NULL en todas — el usuario la marca desde
+                    // F2_Cuentas cuando cree la cuenta que quiera seguir.
+                    "cuenta_seguimiento INTEGER)";
 
     // ─────────────────────────────────────────────
     //  DDL — NUEVAS TABLAS DE CACHÉ  ⭐ NUEVO
@@ -850,6 +877,45 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 " cuentas quedaron con tipo_cuenta_id NULL (no debería pasar)");
             }
             sinTipoCuenta.close();
+        }
+
+        // ⭐ NUEVO v10 — Fase 6 (parte B): agrega cuentas.cuenta_seguimiento (ver comentario de
+        // clase arriba) y marca automáticamente la cuenta que hoy se llame "CxC Enrique" — el
+        // nombre que F5_1_Indicadores/F5_3_GraficasIndicadores tenían hardcodeado — para que el
+        // panel de Indicadores siga funcionando igual sin que Jorge tenga que hacer nada manual.
+        // Si no existe ninguna cuenta con ese nombre exacto (dispositivo nuevo, o la cuenta fue
+        // renombrada antes de esta migración), NO se marca ninguna — se registra en el log en
+        // vez de adivinar, y el panel de Indicadores queda sin cuenta de seguimiento hasta que
+        // el usuario marque una manualmente desde F2_Cuentas.
+        if (oldVersion < 10) {
+
+            // 1) cuentas: agregar la columna nueva (ALTER TABLE simple, sin recrear la tabla).
+            db.execSQL("ALTER TABLE cuentas ADD COLUMN cuenta_seguimiento INTEGER");
+
+            // 2) Backfill de continuidad: marcar "CxC Enrique" si existe, para no romper el
+            //    panel de Indicadores que ya dependía de ese nombre fijo.
+            db.execSQL("UPDATE cuentas SET cuenta_seguimiento = 1 WHERE Cuenta = 'CxC Enrique'");
+
+            // 3) Diagnóstico: confirmar que quedó marcada exactamente una cuenta (lo esperado).
+            //    Si queda en 0, el panel de Indicadores no tendrá cuenta de seguimiento hasta que
+            //    el usuario marque una manualmente; si queda en más de 1 (nombres duplicados),
+            //    conviene revisar cuál de ellas es la correcta.
+            Cursor cuentasSeguimiento = db.rawQuery(
+                    "SELECT COUNT(*) FROM cuentas WHERE cuenta_seguimiento = 1", null);
+            if (cuentasSeguimiento.moveToFirst()) {
+                int total = cuentasSeguimiento.getInt(0);
+                if (total == 1) {
+                    android.util.Log.w("A1_1_AyudanteBD",
+                            "Migración v10: 1 cuenta marcada como cuenta_seguimiento (\"CxC " +
+                                    "Enrique\" encontrada y migrada correctamente)");
+                } else {
+                    android.util.Log.w("A1_1_AyudanteBD",
+                            "Migración v10: " + total + " cuentas marcadas como cuenta_seguimiento " +
+                                    "(se esperaba exactamente 1 — revisar si \"CxC Enrique\" no " +
+                                    "existe con ese nombre exacto, o si hay nombres duplicados)");
+                }
+            }
+            cuentasSeguimiento.close();
         }
     }
 

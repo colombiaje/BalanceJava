@@ -441,6 +441,71 @@ public class A21_OptimizedQuery {
         if (indiceCerrable != -1) {
             item.tipoTsetCuenta_8Cerrable(cursor.getString(indiceCerrable));
         }
+        // ⭐ NUEVO v10 — Fase 6 (parte B): tipo_cuenta_id (de la v9) y cuenta_seguimiento (de esta
+        // versión), mismo criterio aditivo que cuenta_id/codigo_cuenta/Cerrable arriba.
+        int indiceTipoCuentaId = cursor.getColumnIndex("tipo_cuenta_id");
+        if (indiceTipoCuentaId != -1 && !cursor.isNull(indiceTipoCuentaId)) {
+            item.tipoTsetCuenta_9TipoCuentaId(cursor.getLong(indiceTipoCuentaId));
+        }
+        int indiceCuentaSeguimiento = cursor.getColumnIndex("cuenta_seguimiento");
+        if (indiceCuentaSeguimiento != -1 && !cursor.isNull(indiceCuentaSeguimiento)) {
+            item.tipoTsetCuenta_10CuentaSeguimiento(cursor.getInt(indiceCuentaSeguimiento) == 1);
+        }
         return item;
+    }
+
+    /**
+     * ⭐ NUEVO v10 — Fase 6 (parte B): suma transacciones filtrando por clasificacion_contable
+     * (p.ej. "Activo corriente", "Pasivo corriente") en vez del texto libre Grupo1/Grupo2 que
+     * usaba F5_1_Indicadores. Se une transacciones → cuentas (por cuenta_id, el vínculo estable,
+     * igual que obtenerSumaNetoCuentaPorCuenta) → tipo_cuenta → clasificacion_contable, y se
+     * filtra por el nombre exacto de la clasificación — sin substrings ni variantes de texto.
+     * Devuelve 0 si no hay ninguna transacción que califique (mismo comportamiento que
+     * consultarSuma con SUM sobre cero filas).
+     */
+    public int consultarSumaPorClasificacionContable(String nombreClasificacion) {
+        int suma = 0;
+        Cursor cursor = null;
+        try {
+            openDB();
+            String query = "SELECT SUM(t.c5_Valor) " +
+                    "FROM transacciones t " +
+                    "JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
+                    "JOIN tipo_cuenta tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id " +
+                    "JOIN clasificacion_contable cc ON cc.clasificacion_id = tc.clasificacion_id " +
+                    "WHERE cc.nombre = ?";
+            cursor = db.rawQuery(query, new String[]{nombreClasificacion});
+            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                suma = cursor.getInt(0);
+            }
+        } finally {
+            if (cursor != null) cursor.close();
+            closeDB();
+        }
+        return suma;
+    }
+
+    /**
+     * ⭐ NUEVO v10 — Fase 6 (parte B): ubica la cuenta marcada como "cuenta_seguimiento" (ver
+     * A1_1_AyudanteBD, migración v10) — reemplaza el nombre fijo "CxC Enrique" que tenían
+     * hardcodeado F5_1_Indicadores/F5_3_GraficasIndicadores. Devuelve null si ninguna cuenta está
+     * marcada (dispositivo nuevo, o el usuario nunca marcó una) — quien llame debe tolerar ese
+     * caso sin caerse, mostrando el panel de Indicadores vacío en vez de un error.
+     */
+    public String obtenerNombreCuentaSeguimiento() {
+        String nombreCuenta = null;
+        Cursor cursor = null;
+        try {
+            openDB();
+            cursor = db.rawQuery(
+                    "SELECT Cuenta FROM cuentas WHERE cuenta_seguimiento = 1 LIMIT 1", null);
+            if (cursor.moveToFirst()) {
+                nombreCuenta = cursor.getString(0);
+            }
+        } finally {
+            if (cursor != null) cursor.close();
+            closeDB();
+        }
+        return nombreCuenta;
     }
 }

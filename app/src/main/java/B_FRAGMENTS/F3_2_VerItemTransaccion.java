@@ -866,10 +866,15 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                     c3_Cuenta_XTv.setText(receivedAccount);
                 }
 
-                // Atajo a las gráficas de Indicadores: solo para la cuenta "CxC Enrique"
+                // ⭐ CAMBIO v10 — Fase 6 (parte B): el atajo a las gráficas de Indicadores ya no
+                // depende del nombre fijo "CxC Enrique" — se muestra cuando la cuenta consultada
+                // es la que esté marcada como "cuenta_seguimiento" (ver A1_1_AyudanteBD,
+                // migración v10). Si ninguna cuenta está marcada, el atajo queda oculto.
                 if (graficasIndicadores_XBt != null) {
+                    String cuentaSeguimiento = a22QueryManager.queryNombreCuentaSeguimiento();
                     graficasIndicadores_XBt.setVisibility(
-                            "CxC Enrique".equals(receivedAccount) ? View.VISIBLE : View.GONE);
+                            cuentaSeguimiento != null && cuentaSeguimiento.equals(receivedAccount)
+                                    ? View.VISIBLE : View.GONE);
                 }
 
                 Log.d("BundleRecibido", "Cuenta: " + receivedAccount +

@@ -19,6 +19,12 @@ public class A3_1_TipoCuentasGetsYSets {
     public String tipoT_7CodigoCuenta_String;
     public String tipoT_8Cerrable_String;
 
+    // ⭐ NUEVO v10 — Fase 6 (parte B): tipo_cuenta_id (de la migración v9) y cuenta_seguimiento
+    // (de esta versión), ambas de "cuentas". Mismo criterio aditivo que arriba: se llenan con
+    // setters DESPUÉS de construir el objeto (ver A21_OptimizedQuery.mapCuentasFromCursor).
+    public Long tipoT_9TipoCuentaId_Long;
+    public Boolean tipoT_10CuentaSeguimiento_Boolean;
+
 // metodo constructor
     public A3_1_TipoCuentasGetsYSets(String tipoT_1Item_String, String tipoT_2Cuenta_String, String tipoT_3G1_String, String tipoT_4G2_String,
                                      String tipoT_5Fecha_String) {
@@ -47,5 +53,11 @@ public class A3_1_TipoCuentasGetsYSets {
     public void tipoTsetCuenta_6CuentaId(Long tipoT_6CuentaId_Long) {this.tipoT_6CuentaId_Long = tipoT_6CuentaId_Long;}
     public void tipoTsetCuenta_7CodigoCuenta(String tipoT_7CodigoCuenta_String) {this.tipoT_7CodigoCuenta_String = tipoT_7CodigoCuenta_String;}
     public void tipoTsetCuenta_8Cerrable(String tipoT_8Cerrable_String) {this.tipoT_8Cerrable_String = tipoT_8Cerrable_String;}
+
+    public Long tipoTgetCuenta_9TipoCuentaId() {return tipoT_9TipoCuentaId_Long;}
+    public Boolean tipoTgetCuenta_10CuentaSeguimiento() {return tipoT_10CuentaSeguimiento_Boolean;}
+
+    public void tipoTsetCuenta_9TipoCuentaId(Long tipoT_9TipoCuentaId_Long) {this.tipoT_9TipoCuentaId_Long = tipoT_9TipoCuentaId_Long;}
+    public void tipoTsetCuenta_10CuentaSeguimiento(Boolean tipoT_10CuentaSeguimiento_Boolean) {this.tipoT_10CuentaSeguimiento_Boolean = tipoT_10CuentaSeguimiento_Boolean;}
 
 }

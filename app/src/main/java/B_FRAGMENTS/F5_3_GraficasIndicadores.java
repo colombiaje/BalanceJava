@@ -57,7 +57,8 @@ import A2QueryBD.A23_QueryResult;
  * Diálogo independiente con las gráficas de Indicadores (antes incrustadas al final de
  * F5_1_Indicadores, movidas aquí para que esa pantalla vuelva a ser una vista rápida).
  * Se abre desde el ícono 📊 en el encabezado de F5_1_Indicadores, y también desde
- * F3_2_VerItemTransaccion cuando la cuenta consultada es "CxC Enrique". Es autocontenido:
+ * F3_2_VerItemTransaccion cuando la cuenta consultada es la marcada como "cuenta_seguimiento"
+ * (ver A1_1_AyudanteBD, migración v10 — antes era el nombre fijo "CxC Enrique"). Es autocontenido:
  * consulta y calcula sus propios datos exactamente igual que F5_1_Indicadores, así que
  * no depende de que haya una instancia de Indicadores abierta — puede lanzarse solo.
  */
@@ -66,7 +67,10 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
     private static final String PREFS_NAME = "IndicadoresPrefs";
     private static final String KEY_PRESUPUESTO = "presupuesto_mensual";
     private static final int PRESUPUESTO_DEFAULT = 3000;
-    private static final String CUENTA_ENRIQUE = "CxC Enrique";
+    // ⭐ CAMBIO v10 — Fase 6 (parte B): ya no es una constante fija — se resuelve dinámicamente
+    // desde la cuenta marcada como "cuenta_seguimiento" (ver A1_1_AyudanteBD, migración v10, y
+    // el mismo cambio en F5_1_Indicadores). Puede quedar null si ninguna cuenta está marcada.
+    private String cuentaSeguimiento_String;
     private static final String ARG_VIENE_DE_PANEL_CIFRAS = "argVieneDePanelCifras";
 
     // true si se abrió desde el ícono 📊 de F5_1_Indicadores (panel de cifras ya abierto
@@ -196,8 +200,17 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
      */
     private void calcularYMostrarGraficas() {
         try {
-            A23_QueryResult sumaEnrique_Result = a22QueryManager.querySumTransactionsByAccount(CUENTA_ENRIQUE);
-            saldoEnrique = sumaEnrique_Result.getSuma();
+            cuentaSeguimiento_String = a22QueryManager.queryNombreCuentaSeguimiento();
+            if (cuentaSeguimiento_String != null) {
+                A23_QueryResult sumaEnrique_Result =
+                        a22QueryManager.querySumTransactionsByAccount(cuentaSeguimiento_String);
+                saldoEnrique = sumaEnrique_Result.getSuma();
+            } else {
+                saldoEnrique = 0;
+                Log.w("F5_3_Graficas", "Ninguna cuenta está marcada como cuenta_seguimiento — " +
+                        "las gráficas quedan sin cuenta de gasto diario hasta que el usuario " +
+                        "marque una desde F2_Cuentas.");
+            }
 
             A99_MetodosVarios metodosVarios_Class = new A99_MetodosVarios(getActivity());
             Integer[] dateCurrent_ArrayInteger = metodosVarios_Class.fechasYHoras();
@@ -252,10 +265,12 @@ public class F5_3_GraficasIndicadores extends DialogFragment {
     private void calcularGastosDepurados(int año, int mes) {
         a101CalculoDepuradoIndicadores = new A10_1_CalculoDepuradoIndicadores();
 
-        A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> resultado =
-                a22QueryManager.queryTransactionsByAccount(CUENTA_ENRIQUE);
-
-        ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = resultado.getDatos();
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = null;
+        if (cuentaSeguimiento_String != null) {
+            A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> resultado =
+                    a22QueryManager.queryTransactionsByAccount(cuentaSeguimiento_String);
+            transacciones = resultado.getDatos();
+        }
 
         boolean hoyYaRegistrado = false;
 

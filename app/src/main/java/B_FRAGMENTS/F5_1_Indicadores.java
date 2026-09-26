@@ -79,6 +79,13 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
 
     // Variables de cálculo
     int sumaActivo, sumaPasivo, saldoEnrique, presupuestoTotal;
+
+    // ⭐ NUEVO v10 — Fase 6 (parte B): nombre de la cuenta marcada como "cuenta_seguimiento" (ver
+    // A1_1_AyudanteBD, migración v10) — reemplaza el nombre fijo "CxC Enrique" que este panel
+    // tenía hardcodeado en tres lugares distintos. Se resuelve una vez en dynamicQuery$Values()
+    // y se reutiliza; puede quedar null si ninguna cuenta está marcada (dispositivo nuevo, o el
+    // usuario nunca marcó una) — todo el código que lo usa debe tolerar ese caso sin caerse.
+    String cuentaSeguimiento_String;
     int diasMes, diaHoy, diasRestantes, diasTranscurridosReales;
     A10_1_CalculoDepuradoIndicadores a101CalculoDepuradoIndicadores;
 
@@ -248,29 +255,36 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
     }
 
     public void dynamicQuery$Values() {
-        // Activo Exigible
-        // ⭐ CAMBIO — Fase 4 (parte A): se quita "Exigible Conciliable Cerrable" de la lista.
-        // Desde la migración v6, ningún Grupo2 guardado vuelve a tener esa palabra mezclada
-        // (ver A1_1_AyudanteBD) — esta rama ya no podía volver a coincidir con nada, así que se
-        // limpia en vez de dejarla como código muerto.
-        String argumento1WhereActivo_String = "c10_Grupo1 = ? AND (c11_Grupo2 = ? OR c11_Grupo2 = ? OR c11_Grupo2= ?)";
-        String[] argumento2WhereArgs = new String[]{"Activo", "Exigible", "Exigible Conciliable",
-                "Exigible No conciliable"};
-        A23_QueryResult sumaActivo_Result = a22QueryManager.querySumTransactionsForStringWhere(
-                argumento1WhereActivo_String, argumento2WhereArgs);
+        // ⭐ CAMBIO v10 — Fase 6 (parte B): "Activo Exigible"/"Pasivo Exigible" dejan de filtrar
+        // por el texto libre Grupo1/Grupo2 de la copia guardada en transacciones (frágil: exigía
+        // repetir a mano las 4 variantes exactas de Grupo2, y quedó código muerto cuando la v6
+        // quitó "Cerrable" del texto — ver el comentario que había aquí antes). Ahora se filtra
+        // por clasificacion_contable ("Activo corriente"/"Pasivo corriente", ver A1_1_AyudanteBD
+        // migración v9), uniendo por cuenta_id igual que ya hacía obtenerSumaNetoCuentaPorCuenta.
+        A23_QueryResult sumaActivo_Result =
+                a22QueryManager.querySumTransactionsByClasificacionContable("Activo corriente");
         sumaActivo = sumaActivo_Result.getSuma();
 
-        // Pasivo exigible
-        String argumento1WhereActivo_String2 = "c10_Grupo1 = ? AND (c11_Grupo2 = ? OR c11_Grupo2 = ? OR c11_Grupo2= ?)";
-        String[] argumento2WhereArgs2 = new String[]{"Pasivo", "Exigible", "Exigible Conciliable",
-                "Exigible No conciliable"};
-        A23_QueryResult sumaPasivo_Result = a22QueryManager.querySumTransactionsForStringWhere(
-                argumento1WhereActivo_String2, argumento2WhereArgs2);
+        A23_QueryResult sumaPasivo_Result =
+                a22QueryManager.querySumTransactionsByClasificacionContable("Pasivo corriente");
         sumaPasivo = sumaPasivo_Result.getSuma();
 
-        // Saldo CxC Enrique
-        A23_QueryResult sumaEnrique_Result = a22QueryManager.querySumTransactionsByAccount("CxC Enrique");
-        saldoEnrique = sumaEnrique_Result.getSuma();
+        // ⭐ CAMBIO v10 — Fase 6 (parte B): "CxC Enrique" deja de estar fijo en el código; se
+        // resuelve dinámicamente desde la cuenta que el usuario haya marcado como
+        // "cuenta_seguimiento" en F2_Cuentas (ver A1_1_AyudanteBD, migración v10 — la cuenta que
+        // hoy se llama "CxC Enrique" quedó marcada automáticamente al migrar). Si ninguna cuenta
+        // está marcada, saldoEnrique queda en 0 en vez de fallar.
+        cuentaSeguimiento_String = a22QueryManager.queryNombreCuentaSeguimiento();
+        if (cuentaSeguimiento_String != null) {
+            A23_QueryResult sumaEnrique_Result =
+                    a22QueryManager.querySumTransactionsByAccount(cuentaSeguimiento_String);
+            saldoEnrique = sumaEnrique_Result.getSuma();
+        } else {
+            saldoEnrique = 0;
+            Log.w("F5_Indicadores", "Ninguna cuenta está marcada como cuenta_seguimiento — " +
+                    "el panel de Indicadores queda sin cuenta de gasto diario hasta que el " +
+                    "usuario marque una desde F2_Cuentas.");
+        }
     }
 
     public void calcularIndicadores() {
@@ -293,10 +307,14 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         a101CalculoDepuradoIndicadores = new A10_1_CalculoDepuradoIndicadores();
 
         try {
-            A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> resultado =
-                    a22QueryManager.queryTransactionsByAccount("CxC Enrique");
-
-            ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = resultado.getDatos();
+            // ⭐ CAMBIO v10 — Fase 6 (parte B): usa la cuenta_seguimiento resuelta en
+            // dynamicQuery$Values() en vez del nombre fijo "CxC Enrique" (ver comentario ahí).
+            ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = null;
+            if (cuentaSeguimiento_String != null) {
+                A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> resultado =
+                        a22QueryManager.queryTransactionsByAccount(cuentaSeguimiento_String);
+                transacciones = resultado.getDatos();
+            }
 
             // Aproximación "hoy/ayer": si ya hay una transacción registrada exactamente
             // con fecha de hoy, se asume que el día de hoy ya quedó contabilizado y se
@@ -483,7 +501,18 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
 
     public void verTransaccionesLanzandoBundle() {
         try {
-            String accountToQuery = "CxC Enrique";
+            // ⭐ CAMBIO v10 — Fase 6 (parte B): usa la cuenta_seguimiento ya resuelta (o la
+            // vuelve a resolver si por algún motivo todavía no se había hecho) en vez del nombre
+            // fijo "CxC Enrique".
+            String accountToQuery = cuentaSeguimiento_String != null
+                    ? cuentaSeguimiento_String
+                    : a22QueryManager.queryNombreCuentaSeguimiento();
+            if (accountToQuery == null) {
+                Toast.makeText(getActivity(),
+                        "No hay ninguna cuenta marcada como cuenta de seguimiento",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
             Fragment fragment = new F3_2_VerItemTransaccion();
 
             Bundle bundle = new Bundle();

@@ -192,6 +192,22 @@ public class A22_QueryManager {
         return new A23_QueryResult<>(0, null, "Consulta de suma exitosa", suma);
     }
 
+    // ⭐ NUEVO v10 — Fase 6 (parte B): suma transacciones por clasificacion_contable (p.ej.
+    // "Activo corriente"/"Pasivo corriente") — reemplaza el filtro de texto libre Grupo1/Grupo2
+    // que usaba F5_1_Indicadores para calcular "Activo Exigible"/"Pasivo Exigible". Ver
+    // A21_OptimizedQuery.consultarSumaPorClasificacionContable() para la consulta real.
+    public A23_QueryResult<Void> querySumTransactionsByClasificacionContable(String nombreClasificacion) {
+        int suma = a3_2_consultas_para_queryManager.consultarSumaPorClasificacionContable(nombreClasificacion);
+        return new A23_QueryResult<>(0, null, "Consulta de suma exitosa", suma);
+    }
+
+    // ⭐ NUEVO v10 — Fase 6 (parte B): nombre de la cuenta marcada como "cuenta_seguimiento" (o
+    // null si ninguna está marcada) — reemplaza el nombre fijo "CxC Enrique" que tenían
+    // hardcodeado F5_1_Indicadores/F5_3_GraficasIndicadores.
+    public String queryNombreCuentaSeguimiento() {
+        return a3_2_consultas_para_queryManager.obtenerNombreCuentaSeguimiento();
+    }
+
     // Método para sumar transacciones por cuenta específica
     /*public QueryResult<Void> querySumTransactionsForStringWhere(String stringWhereClause, String StringWhere) {
         //String whereClauseRecibida = "c10_Grupo1 = ?";
@@ -297,8 +313,13 @@ public class A22_QueryManager {
         // ⭐ NUEVO — Fase 4 (parte B): se agrega Cerrable como 7mo elemento (índice 6), mismo
         // criterio aditivo. Viene de cuentas.Cerrable (ver A1_1_AyudanteBD, migración v6):
         // "Cerrable" o null.
+        // ⭐ NUEVO v10 — Fase 6 (parte B): se agrega tipo_cuenta_id como 8vo elemento (índice 7),
+        // mismo criterio aditivo — nada que lea este arreglo por índice 0-6 o por longitudes
+        // menores se ve afectado (B11_DocumentCalculator/B12_DocumentPersistence ya validan
+        // ".length" antes de leer). Viene de cuentas.tipo_cuenta_id (ver A1_1_AyudanteBD,
+        // migración v9) — puede venir null si la cuenta todavía no tiene tipo_cuenta asignado.
         A21_OptimizedQuery.QueryBuilder queryBuilder = new A21_OptimizedQuery.QueryBuilder()
-                .select("Item", "Cuenta", "Grupo1", "Grupo2", "Fecha", "cuenta_id", "Cerrable")
+                .select("Item", "Cuenta", "Grupo1", "Grupo2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id")
                 .from("cuentas")
                 .where("Cuenta = ?", nombreCuenta);
 
@@ -318,7 +339,8 @@ public class A22_QueryManager {
                 cursor.getString(cursor.getColumnIndexOrThrow("Grupo2")),
                 cursor.getString(cursor.getColumnIndexOrThrow("Fecha")),
                 cursor.getString(cursor.getColumnIndexOrThrow("cuenta_id")), // ⭐ NUEVO — índice 5
-                cursor.getString(cursor.getColumnIndexOrThrow("Cerrable"))  // ⭐ NUEVO — índice 6
+                cursor.getString(cursor.getColumnIndexOrThrow("Cerrable")), // ⭐ NUEVO — índice 6
+                cursor.getString(cursor.getColumnIndexOrThrow("tipo_cuenta_id")) // ⭐ NUEVO v10 — índice 7
         });
 
         // Retornar el primer resultado como un QueryResult
