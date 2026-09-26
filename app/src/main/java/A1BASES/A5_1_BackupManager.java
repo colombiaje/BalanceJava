@@ -257,19 +257,50 @@ public class A5_1_BackupManager {
                 // (la fuente autoritativa), igual que ya hace B11_DocumentCalculator para
                 // cualquier transacción nueva. LEFT JOIN (no INNER) para que una cuenta sin match
                 // exacto por nombre siga apareciendo en el resumen, igual que antes.
+                // ⭐ CAMBIO — tanda 3 v10: el JOIN por nombre (c.Cuenta = t.c3_Cuenta) fallaba en
+                // silencio siempre que el nombre guardado en la transacción no calzara EXACTO con
+                // el nombre actual de la cuenta — por una cuenta renombrada después, o por una
+                // simple diferencia de codificación (confirmado que existen nombres duplicados así
+                // en datos reales, p.ej. "García" vs "GarcÃ­a"). Se cambia a cuenta_id, el mismo
+                // identificador técnico estable que ya usa el resto de la v10, y que cada
+                // transacción nueva recibe desde que se guarda (ver B12_DocumentPersistence). Se
+                // conserva el match por nombre SOLO como respaldo para filas viejas que todavía
+                // tengan cuenta_id NULL, para no perder ninguna fila que antes sí aparecía.
                 final Cursor transacciones_Cursor = sqliteDatabase_Abstracta.rawQuery
                         ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable " +
-                                "FROM transacciones t LEFT JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
+                                "FROM transacciones t LEFT JOIN cuentas c " +
+                                "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
                                 "WHERE t.c4_Signo != '?' GROUP BY t.c3_Cuenta;", null);
 
                 a99_metodosVarios = new A99_MetodosVarios();
                 dateCurrent_ArrayInteger= a99_metodosVarios.fechasYHoras();
 
+                // ⭐ CAMBIO — tanda 3 v10: antes esta función escribía Item="00" para TODAS las
+                // cuentas del resumen — como Documento se queda fijo en "0" (convención ya
+                // existente para saldo inicial), todas esas filas terminaban con la misma llave
+                // (Documento,Item), chocando entre sí y con las de cualquier cierre anterior (esto
+                // es justo lo que detectamos en el cruce de CSVs: 13 filas con Documento=0,Item=0
+                // en el teléfono). Documento sigue en "0" (no se toca esa convención); Item ahora
+                // continúa desde el máximo ItemDoc que ya exista bajo Documento=0, en vez de
+                // reiniciar en 0 cada vez.
+                int siguienteItemDocCero = 1;
+                Cursor maxItemDocCero_Cursor = sqliteDatabase_Abstracta.rawQuery(
+                        "SELECT MAX(CAST(c2_ItemDoc AS INTEGER)) FROM transacciones " +
+                                "WHERE CAST(c1_Documento AS INTEGER) = 0", null);
+                if (maxItemDocCero_Cursor != null && maxItemDocCero_Cursor.moveToFirst()
+                        && !maxItemDocCero_Cursor.isNull(0)) {
+                    siguienteItemDocCero = maxItemDocCero_Cursor.getInt(0) + 1;
+                }
+                if (maxItemDocCero_Cursor != null) {
+                    maxItemDocCero_Cursor.close();
+                }
+
                 if (transacciones_Cursor != null & transacciones_Cursor.getCount() !=0) {
                     transacciones_Cursor.moveToFirst();
                     do {
                         escrituraDeArchivo_FileWriter.append("0000");escrituraDeArchivo_FileWriter.append(","); //1 documento
-                        escrituraDeArchivo_FileWriter.append("00");escrituraDeArchivo_FileWriter.append(","); //2 item documento
+                        escrituraDeArchivo_FileWriter.append(String.valueOf(siguienteItemDocCero));escrituraDeArchivo_FileWriter.append(","); //2 item documento
+                        siguienteItemDocCero++;
                         escrituraDeArchivo_FileWriter.append(transacciones_Cursor.getString(0));escrituraDeArchivo_FileWriter.append(",");//3cuenta
                         escrituraDeArchivo_FileWriter.append( transacciones_Cursor.getString(1) );escrituraDeArchivo_FileWriter.append(",");// 4 mas menos
                         escrituraDeArchivo_FileWriter.append(String.valueOf(transacciones_Cursor.getInt(2)));escrituraDeArchivo_FileWriter.append(",");//5 valor
@@ -333,20 +364,42 @@ public class A5_1_BackupManager {
                 // Cerrable real en vez de "n a" fijo. Aquí, por el WHERE, en la práctica todas
                 // las filas ya deberían ser Cerrable — se lee igual del JOIN, no del filtro, para
                 // que quede consistente si alguna cuenta cambiara de estado justo antes de cerrar.
+                // ⭐ CAMBIO — tanda 3 v10: mismo cambio que en
+                // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — JOIN por cuenta_id en vez
+                // de por nombre, con el nombre como respaldo solo si cuenta_id viene NULL.
                 final Cursor transaccionesCursor = sqliteDatabase.rawQuery(
                         "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable " +
-                                "FROM transacciones t LEFT JOIN cuentas c ON c.Cuenta = t.c3_Cuenta " +
+                                "FROM transacciones t LEFT JOIN cuentas c " +
+                                "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
                                 "WHERE t.c4_Signo != '?' AND t.c12_ColumnaDisponible = 'Cerrable' " +
                                 "GROUP BY t.c3_Cuenta;", null);
 
                 A99_MetodosVarios metodosVarios = new A99_MetodosVarios();
                 dateCurrent_ArrayInteger = metodosVarios.fechasYHoras();
 
+                // ⭐ CAMBIO — tanda 3 v10: mismo fix que en
+                // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — Item ya no se repite fijo
+                // en "00" para cada cuenta reseteada, sino que continúa desde el máximo ItemDoc
+                // que ya exista bajo Documento=0 (evita el choque de (Documento,Item) que causaba
+                // el bug de cuentas duplicadas al hacer "cierre parcial de algunas cuentas").
+                int siguienteItemDocCero = 1;
+                Cursor maxItemDocCero_Cursor2 = sqliteDatabase.rawQuery(
+                        "SELECT MAX(CAST(c2_ItemDoc AS INTEGER)) FROM transacciones " +
+                                "WHERE CAST(c1_Documento AS INTEGER) = 0", null);
+                if (maxItemDocCero_Cursor2 != null && maxItemDocCero_Cursor2.moveToFirst()
+                        && !maxItemDocCero_Cursor2.isNull(0)) {
+                    siguienteItemDocCero = maxItemDocCero_Cursor2.getInt(0) + 1;
+                }
+                if (maxItemDocCero_Cursor2 != null) {
+                    maxItemDocCero_Cursor2.close();
+                }
+
                 if (transaccionesCursor != null && transaccionesCursor.getCount() != 0) {
                     transaccionesCursor.moveToFirst();
                     do {
                         escrituraDeArchivo.append("0000"); escrituraDeArchivo.append(","); // 1 documento
-                        escrituraDeArchivo.append("00"); escrituraDeArchivo.append(","); // 2 item documento
+                        escrituraDeArchivo.append(String.valueOf(siguienteItemDocCero)); escrituraDeArchivo.append(","); // 2 item documento
+                        siguienteItemDocCero++;
                         escrituraDeArchivo.append(transaccionesCursor.getString(0)); escrituraDeArchivo.append(","); // 3 cuenta
                         escrituraDeArchivo.append(transaccionesCursor.getString(1)); escrituraDeArchivo.append(","); // 4 mas menos
                         escrituraDeArchivo.append(String.valueOf(transaccionesCursor.getInt(2))); escrituraDeArchivo.append(","); // 5 valor
