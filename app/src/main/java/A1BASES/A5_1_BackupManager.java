@@ -93,6 +93,12 @@ public class A5_1_BackupManager {
                 // mismo orden, así que un restaurador viejo que solo lea las primeras 5 sigue
                 // funcionando igual. Ver F2_Cuentas.insertarCuenta(), que ya sabe leer estas 3
                 // columnas nuevas si están presentes.
+                // ⭐ NUEVO — v11 (prep): se agregan tipo_cuenta_id y cuenta_seguimiento al final
+                // (columnas 9 y 10), para que las 3 restauraciones por CSV (Sheets, backup local,
+                // Drive) puedan traer la clasificación directamente en vez de reconstruirla
+                // adivinando por Grupo1/Grupo2 después de reinsertar. Mismo criterio: puramente
+                // aditivo al final, así que un backup viejo de 8 columnas se sigue leyendo igual
+                // (F2_Cuentas.insertarCuenta() detecta cuántas columnas trae la línea).
                 for (A3_1_TipoCuentasGetsYSets cuenta : todasLasCuentas_List_Result) {
                     String linea = cuenta.tipoTgetCuenta_1Item() + "," +
                             cuenta.tipoTgetCuenta_2Cuenta() + "," +
@@ -101,7 +107,9 @@ public class A5_1_BackupManager {
                             cuenta.tipoTgetCuenta_5Fecha() + "," +
                             (cuenta.tipoTgetCuenta_6CuentaId() == null ? "" : cuenta.tipoTgetCuenta_6CuentaId()) + "," +
                             (cuenta.tipoTgetCuenta_7CodigoCuenta() == null ? "" : cuenta.tipoTgetCuenta_7CodigoCuenta()) + "," +
-                            (cuenta.tipoTgetCuenta_8Cerrable() == null ? "" : cuenta.tipoTgetCuenta_8Cerrable()) + "\n";
+                            (cuenta.tipoTgetCuenta_8Cerrable() == null ? "" : cuenta.tipoTgetCuenta_8Cerrable()) + "," +
+                            (cuenta.tipoTgetCuenta_9TipoCuentaId() == null ? "" : cuenta.tipoTgetCuenta_9TipoCuentaId()) + "," +
+                            (cuenta.tipoTgetCuenta_10CuentaSeguimiento() == null ? "" : (cuenta.tipoTgetCuenta_10CuentaSeguimiento() ? "1" : "0")) + "\n";
 
                     salidaArchivo.write(linea);
                     Log.d("BackupManager", "Escribiendo línea: " + linea.trim());

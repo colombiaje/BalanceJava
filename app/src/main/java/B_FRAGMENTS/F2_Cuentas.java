@@ -2749,6 +2749,29 @@ public class F2_Cuentas extends DialogFragment {
                 }
             }
 
+            // ⭐ NUEVO — v11 (prep): tipo_cuenta_id y cuenta_seguimiento, si el CSV los trae
+            // (backup nuevo de A5_1_BackupManager.backupCuentasArchivoCSV, columnas 9 y 10). Con
+            // esto, las 3 restauraciones (Sheets, backup local, Drive) ya no dependen de que
+            // A1_1_AyudanteBD.repararTipoCuentaDeCuentasSinClasificar() adivine la clasificación
+            // reconstruyéndola desde Grupo1/Grupo2 — cada cuenta llega ya clasificada. Compatible
+            // con CSVs de 8 columnas (o menos): si estas 2 no vienen, simplemente no se ponen, y
+            // el reparo automático que ya corre después de cada restauración (ver
+            // repararReferenciasCuentaIdTrasRestaurarCuentas()) las completa igual que hoy — ese
+            // reparo solo toca cuentas con tipo_cuenta_id NULL / sin ninguna cuenta_seguimiento
+            // marcada, así que no hay riesgo de pisar lo que ya llegó del CSV.
+            if (datos.length >= 10) {
+                if (datos[8] != null && !datos[8].trim().isEmpty()) {
+                    try {
+                        valores.put("tipo_cuenta_id", Long.parseLong(datos[8].trim()));
+                    } catch (NumberFormatException nfe) {
+                        Log.e(TAG, "tipo_cuenta_id inválido en CSV, se omite: " + datos[8]);
+                    }
+                }
+                if (datos[9] != null && !datos[9].trim().isEmpty()) {
+                    valores.put("cuenta_seguimiento", "1".equals(datos[9].trim()) ? 1 : 0);
+                }
+            }
+
             db.insert("cuentas", null, valores);
             db.close();
         } catch (Exception e) {
