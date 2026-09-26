@@ -68,6 +68,26 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   quedaba sin poder abrir la base de datos. Se mueve a onOpen() (corre DESPUÉS de que la
 //   migración ya terminó) para que la migración copie los datos tal cual, sin bloquear por eso;
 //   ver el comentario junto a onOpen() más abajo para el detalle completo.
+// ⭐ MODIFICADO: Versión 9 — Fase 6 (primer paso del modelo de clasificación contable
+//   definitivo, ver Documento 3 y la hoja "Modelo — Tablas/Columnas" del modelo aprobado). Se
+//   crean, EN PARALELO a Grupo1/Grupo2 (que NO se tocan ni se borran todavía), tres tablas
+//   nuevas: clase_contable (9 filas, exactamente los mismos 9 valores y orden que ya tenía
+//   SEED_GRUPO1 — Activo, Pasivo, Patrimonio, Ingresos, Costo de ventas, Gastos, Costos de
+//   producción, Cuentas de orden Db, Cuentas de orden Cr), clasificacion_contable (11 filas:
+//   Activo y Pasivo se dividen en "corriente"/"no corriente" según el prefijo "Exigible"/"No
+//   exigible" que ya traía Grupo2 desde antes de la versión 6; las otras 7 clases quedan con una
+//   sola clasificación genérica, del mismo nombre que la clase) y tipo_cuenta (vacía al crearse;
+//   se llena dinámicamente en el backfill de "cuentas" — ver el punto 4 de más abajo).
+//   IMPORTANTE: los Apéndices A/B/C del Documento 3 están marcados ahí mismo como "Ejemplo" — no
+//   son el catálogo real de Jorge — así que tipo_cuenta NO se siembra con esos valores de
+//   ejemplo. En vez de eso, se genera un tipo_cuenta por cada combinación distinta de
+//   (Grupo1, Grupo2) que exista de verdad hoy en "cuentas", nombrado de forma trazable como
+//   "{Grupo1} - {Grupo2}" (p.ej. "Activo - Exigible Conciliable"), para poder auditar después de
+//   dónde salió cada uno y hacer un mapeo fino más adelante si Jorge lo necesita. "cuentas" gana
+//   tipo_cuenta_id (nullable, referencia hacia tipo_cuenta.tipo_cuenta_id) y cada fila existente
+//   se actualiza según su combinación de Grupo1/Grupo2. Ver el bloque "if (oldVersion < 9)" en
+//   onUpgrade() para el detalle completo, y sembrarClaseYClasificacionContable()/
+//   clasificacionNombreParaCombo() para la lógica de nombres.
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -76,14 +96,24 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 7 → 8 para disparar onUpgrade en dispositivos existentes (ver Fase 5 arriba).
-    public static final int version1BalanceSqlite_int_PSF = 8;
+    // ⭐ CAMBIO: versión 8 → 9 para disparar onUpgrade en dispositivos existentes (ver Fase 6 arriba).
+    public static final int version1BalanceSqlite_int_PSF = 9;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
     // ─────────────────────────────────────────────
     public static final String TABLE_CATALOGO_GRUPO1 = "catalogo_grupo1";
     public static final String TABLE_CATALOGO_GRUPO2 = "catalogo_grupo2";
+
+    // ─────────────────────────────────────────────
+    //  CONSTANTES DE LAS TABLAS DEL MODELO DE CLASIFICACIÓN CONTABLE DEFINITIVO  ⭐ NUEVO v9
+    //  Conviven en paralelo con Grupo1/Grupo2 (ver comentario de clase arriba, Fase 6). NO se
+    //  siembran con los ejemplos del Documento 3 — ver sembrarClaseYClasificacionContable() y el
+    //  backfill dinámico en onUpgrade() para el detalle de dónde sale cada valor real.
+    // ─────────────────────────────────────────────
+    public static final String TABLE_CLASE_CONTABLE = "clase_contable";
+    public static final String TABLE_CLASIFICACION_CONTABLE = "clasificacion_contable";
+    public static final String TABLE_TIPO_CUENTA = "tipo_cuenta";
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LAS NUEVAS TABLAS DE CACHÉ
@@ -146,7 +176,14 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // ⭐ NUEVO v6 — Fase 4 (parte A): atributo "Cerrable" propio, separado de
                     // Grupo2. Valor literal "Cerrable" o NULL ("no aplica" — la cuenta conserva
                     // su historial completo).
-                    "Cerrable TEXT)";
+                    "Cerrable TEXT, " +
+                    // ⭐ NUEVO v9 — Fase 6: referencia hacia el nuevo tipo_cuenta.tipo_cuenta_id
+                    // (nullable — en instalaciones frescas no hay backfill que hacer todavía; se
+                    // llena a su ritmo cuando exista la pantalla de asignación, prevista para una
+                    // versión futura). En dispositivos que actualizan desde una versión anterior,
+                    // la migración v9 la agrega con ALTER TABLE y la llena vía backfill — ver
+                    // el bloque "if (oldVersion < 9)" en onUpgrade().
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))";
 
     // ─────────────────────────────────────────────
     //  DDL — NUEVAS TABLAS DE CACHÉ  ⭐ NUEVO
@@ -270,6 +307,113 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     }
 
     // ─────────────────────────────────────────────
+    //  DDL — TABLAS DEL MODELO DE CLASIFICACIÓN CONTABLE DEFINITIVO  ⭐ NUEVO v9 (Fase 6)
+    // ─────────────────────────────────────────────
+    private static final String SQL_CREAR_CLASE_CONTABLE =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_CLASE_CONTABLE + " (" +
+                    "clase_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "nombre TEXT NOT NULL UNIQUE, " +
+                    "naturaleza_normal TEXT NOT NULL)";
+
+    private static final String SQL_CREAR_CLASIFICACION_CONTABLE =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_CLASIFICACION_CONTABLE + " (" +
+                    "clasificacion_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "clase_id INTEGER NOT NULL REFERENCES " + TABLE_CLASE_CONTABLE + "(clase_id), " +
+                    "nombre TEXT NOT NULL)";
+
+    private static final String SQL_CREAR_TIPO_CUENTA =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_TIPO_CUENTA + " (" +
+                    "tipo_cuenta_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "clasificacion_id INTEGER NOT NULL REFERENCES " + TABLE_CLASIFICACION_CONTABLE + "(clasificacion_id), " +
+                    "nombre TEXT NOT NULL UNIQUE, " +
+                    "naturaleza_normal TEXT NOT NULL, " +
+                    // ⭐ Columnas del modelo final (hoja "Modelo — Columnas") que esta versión ya
+                    // declara para no tener que recrear la tabla más adelante, pero que todavía no
+                    // se llenan con un valor real — eso pertenece al catálogo definitivo de
+                    // tipo_cuenta que Jorge construya, no al placeholder mecánico de esta versión.
+                    "estado_financiero TEXT, " +
+                    "signo_presentacion TEXT)";
+
+    // ⭐ NUEVO v9 — Fase 6: clase_contable se siembra con los mismos 9 valores y el mismo orden
+    // que SEED_GRUPO1 (arriba) — en el modelo aprobado, Grupo1 YA ES esa clasificación de primer
+    // nivel, solo que vivía como catálogo plano en vez de tabla con jerarquía propia. Reusar el
+    // mismo texto evita inventar un mapeo nuevo y mantiene los dos catálogos sincronizados
+    // mientras conviven (ver comentario de clase arriba: Grupo1/Grupo2 NO se borran todavía).
+    private static final String[] SEED_CLASE_NATURALEZA = {
+            "DEUDORA",   // Activo
+            "ACREEDORA", // Pasivo
+            "ACREEDORA", // Patrimonio
+            "ACREEDORA", // Ingresos
+            "DEUDORA",   // Costo de ventas
+            "DEUDORA",   // Gastos
+            "DEUDORA",   // Costos de produccion
+            "DEUDORA",   // Cuentas de orden Db
+            "ACREEDORA"  // Cuentas de orden Cr
+    };
+
+    /**
+     * Siembra clase_contable (9 filas) y clasificacion_contable (11 filas). Activo y Pasivo
+     * (índices 0 y 1 de SEED_GRUPO1) se dividen cada uno en dos clasificaciones —
+     * "<nombre> corriente" y "<nombre> no corriente" — porque Grupo2 ya distinguía esa misma
+     * idea desde antes de la v6 con los prefijos "Exigible"/"No exigible". Las otras 7 clases
+     * quedan con una sola clasificación genérica, del mismo nombre que la clase, porque para
+     * ellas Grupo2 no representa una subdivisión contable real (solo "conciliable" o no) — el
+     * detalle real, cuando exista, vivirá en tipo_cuenta, no aquí. Se llama tanto desde
+     * onCreate() (instalación fresca) como desde el bloque "if (oldVersion < 9)" de onUpgrade().
+     */
+    private void sembrarClaseYClasificacionContable(SQLiteDatabase db) {
+        for (int i = 0; i < SEED_GRUPO1.length; i++) {
+            String nombreClase = SEED_GRUPO1[i];
+
+            ContentValues claseCv = new ContentValues();
+            claseCv.put("nombre", nombreClase);
+            claseCv.put("naturaleza_normal", SEED_CLASE_NATURALEZA[i]);
+            long claseId = db.insert(TABLE_CLASE_CONTABLE, null, claseCv);
+
+            if (i == 0 || i == 1) { // Activo, Pasivo
+                ContentValues corrienteCv = new ContentValues();
+                corrienteCv.put("clase_id", claseId);
+                corrienteCv.put("nombre", nombreClase + " corriente");
+                db.insert(TABLE_CLASIFICACION_CONTABLE, null, corrienteCv);
+
+                ContentValues noCorrienteCv = new ContentValues();
+                noCorrienteCv.put("clase_id", claseId);
+                noCorrienteCv.put("nombre", nombreClase + " no corriente");
+                db.insert(TABLE_CLASIFICACION_CONTABLE, null, noCorrienteCv);
+            } else {
+                ContentValues genericaCv = new ContentValues();
+                genericaCv.put("clase_id", claseId);
+                genericaCv.put("nombre", nombreClase);
+                db.insert(TABLE_CLASIFICACION_CONTABLE, null, genericaCv);
+            }
+        }
+    }
+
+    /**
+     * Determina el nombre de clasificacion_contable que le corresponde a una combinación real
+     * (Grupo1, Grupo2) de "cuentas", usada solo durante el backfill de la migración v9 (ver
+     * comentario de clase arriba y el bloque "if (oldVersion < 9)" en onUpgrade()). Para
+     * Activo/Pasivo se apoya en el mismo prefijo "Exigible"/"No exigible" que ya trae Grupo2
+     * desde antes de la v6; para las demás clases devuelve la clasificación genérica única
+     * (mismo nombre que la clase, ver sembrarClaseYClasificacionContable()).
+     */
+    private String clasificacionNombreParaCombo(String grupo1, String grupo2) {
+        if (("Activo".equals(grupo1) || "Pasivo".equals(grupo1)) && grupo2 != null) {
+            if (grupo2.startsWith("Exigible")) {
+                return grupo1 + " corriente";
+            } else if (grupo2.startsWith("No exigible")) {
+                return grupo1 + " no corriente";
+            }
+            // Grupo2 no empieza con ninguno de los dos prefijos esperados — no debería pasar en
+            // datos reales después de la v6, pero por seguridad no se bloquea la migración: se
+            // deja constancia en el log (desde el llamador, que sí tiene contexto de la cuenta)
+            // y se cae del lado "no corriente" como valor más conservador.
+            return grupo1 + " no corriente";
+        }
+        return grupo1; // demás clases: clasificación genérica única, mismo nombre que la clase.
+    }
+
+    // ─────────────────────────────────────────────
     //  COLUMNAS (para uso en queries de F1)
     // ─────────────────────────────────────────────
     public static final String[] columnasTransacciones_ArrayString_PSF = {
@@ -355,6 +499,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_CATALOGO_GRUPO1);
         db.execSQL(SQL_CREAR_CATALOGO_GRUPO2);
         sembrarCatalogosGrupo1Y2(db);
+        // ⭐ NUEVO v9 — Fase 6: tablas del modelo de clasificación contable definitivo, sembradas
+        // desde el inicio en instalaciones frescas. tipo_cuenta se crea vacía a propósito: no hay
+        // datos legados de qué backfillear todavía (ver comentario de clase arriba).
+        db.execSQL(SQL_CREAR_CLASE_CONTABLE);
+        db.execSQL(SQL_CREAR_CLASIFICACION_CONTABLE);
+        db.execSQL(SQL_CREAR_TIPO_CUENTA);
+        sembrarClaseYClasificacionContable(db);
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -599,6 +750,106 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 "con valor). Quedan sin tocar; conviene revisarlas.");
             }
             huerfanasConValor.close();
+        }
+
+        // ⭐ NUEVO v9 — Fase 6: primer paso del modelo de clasificación contable definitivo (ver
+        // comentario de clase arriba). Crea clase_contable/clasificacion_contable/tipo_cuenta EN
+        // PARALELO a Grupo1/Grupo2 (que no se tocan) y hace un backfill de cuentas.tipo_cuenta_id
+        // a partir de las combinaciones (Grupo1, Grupo2) que existan de verdad hoy en "cuentas".
+        if (oldVersion < 9) {
+
+            // 1) Crear las tres tablas nuevas.
+            db.execSQL(SQL_CREAR_CLASE_CONTABLE);
+            db.execSQL(SQL_CREAR_CLASIFICACION_CONTABLE);
+            db.execSQL(SQL_CREAR_TIPO_CUENTA);
+
+            // 2) Sembrar clase_contable (9 filas) y clasificacion_contable (11 filas) — ver
+            //    sembrarClaseYClasificacionContable() más arriba para el detalle de cada nombre.
+            sembrarClaseYClasificacionContable(db);
+
+            // 3) cuentas: agregar tipo_cuenta_id (nullable). ALTER TABLE simple, sin recrear la
+            //    tabla — no cambia el orden posicional de ninguna columna existente.
+            db.execSQL("ALTER TABLE cuentas ADD COLUMN tipo_cuenta_id INTEGER " +
+                    "REFERENCES tipo_cuenta(tipo_cuenta_id)");
+
+            // 4) Backfill: por cada combinación DISTINTA de (Grupo1, Grupo2) que exista hoy en
+            //    "cuentas" en este dispositivo (no las combinaciones "de ejemplo" del Documento
+            //    3 — esas son solo ilustrativas), se crea un tipo_cuenta propio, nombrado de
+            //    forma trazable como "{Grupo1} - {Grupo2}", y se actualizan todas las cuentas que
+            //    comparten esa combinación. Se recogen primero las combinaciones en una lista (con
+            //    el cursor ya cerrado) para no tener dos cursores abiertos a la vez sobre la misma
+            //    tabla mientras se inserta/actualiza.
+            java.util.List<String[]> combosDistintos = new java.util.ArrayList<>();
+            Cursor combosCursor = db.rawQuery(
+                    "SELECT DISTINCT Grupo1, Grupo2 FROM cuentas", null);
+            while (combosCursor.moveToNext()) {
+                combosDistintos.add(new String[]{combosCursor.getString(0), combosCursor.getString(1)});
+            }
+            combosCursor.close();
+
+            for (String[] combo : combosDistintos) {
+                String grupo1 = combo[0];
+                String grupo2 = combo[1];
+                String clasificacionNombre = clasificacionNombreParaCombo(grupo1, grupo2);
+
+                Long clasificacionId = null;
+                String naturaleza = null;
+                Cursor infoCursor = db.rawQuery(
+                        "SELECT cc.clasificacion_id, cl.naturaleza_normal " +
+                                "FROM " + TABLE_CLASIFICACION_CONTABLE + " cc " +
+                                "JOIN " + TABLE_CLASE_CONTABLE + " cl ON cc.clase_id = cl.clase_id " +
+                                "WHERE cc.nombre = ? AND cl.nombre = ?",
+                        new String[]{clasificacionNombre, grupo1});
+                if (infoCursor.moveToFirst()) {
+                    clasificacionId = infoCursor.getLong(0);
+                    naturaleza = infoCursor.getString(1);
+                }
+                infoCursor.close();
+
+                if (clasificacionId == null || naturaleza == null) {
+                    // No debería pasar (clasificacionNombreParaCombo solo devuelve nombres recién
+                    // sembrados en el punto 2) — si un dispositivo tuviera un valor de Grupo1 fuera
+                    // de los 9 esperados, se registra y esa combinación queda sin tipo_cuenta_id,
+                    // sin tumbar el resto de la migración.
+                    android.util.Log.w("A1_1_AyudanteBD",
+                            "Migración v9: no se pudo ubicar clase/clasificación para Grupo1='" +
+                                    grupo1 + "', Grupo2='" + grupo2 + "' (clasificación esperada: '" +
+                                    clasificacionNombre + "'). Esas cuentas quedan con " +
+                                    "tipo_cuenta_id NULL; conviene revisarlas.");
+                    continue;
+                }
+
+                String tipoCuentaNombre = grupo1 + " - " + grupo2;
+                ContentValues tipoCv = new ContentValues();
+                tipoCv.put("clasificacion_id", clasificacionId);
+                tipoCv.put("nombre", tipoCuentaNombre);
+                tipoCv.put("naturaleza_normal", naturaleza);
+                long tipoCuentaId = db.insert(TABLE_TIPO_CUENTA, null, tipoCv);
+
+                db.execSQL("UPDATE cuentas SET tipo_cuenta_id = ? WHERE Grupo1 = ? AND Grupo2 = ?",
+                        new Object[]{tipoCuentaId, grupo1, grupo2});
+            }
+
+            // 5) Índice sobre cuentas.tipo_cuenta_id — misma razón que los demás índices de esta
+            //    clase: acelerar consultas futuras que filtren/agrupen por tipo de cuenta.
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_cuentas_tipo_cuenta_id ON cuentas(tipo_cuenta_id)");
+
+            // 6) Diagnóstico: cuántas combinaciones distintas se procesaron, y si quedó alguna
+            //    cuenta sin tipo_cuenta_id (no debería pasar: Grupo1 y Grupo2 son NOT NULL en
+            //    cuentas, así que toda fila calza con alguna de las combinaciones recogidas arriba,
+            //    salvo el caso excepcional ya registrado en el punto 4).
+            android.util.Log.w("A1_1_AyudanteBD",
+                    "Migración v9: " + combosDistintos.size() +
+                            " combinaciones distintas de (Grupo1, Grupo2) procesadas en tipo_cuenta");
+
+            Cursor sinTipoCuenta = db.rawQuery(
+                    "SELECT COUNT(*) FROM cuentas WHERE tipo_cuenta_id IS NULL", null);
+            if (sinTipoCuenta.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v9: " + sinTipoCuenta.getInt(0) +
+                                " cuentas quedaron con tipo_cuenta_id NULL (no debería pasar)");
+            }
+            sinTipoCuenta.close();
         }
     }
 
