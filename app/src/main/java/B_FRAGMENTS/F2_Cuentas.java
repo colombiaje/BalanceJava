@@ -1762,8 +1762,12 @@ public class F2_Cuentas extends DialogFragment {
         // cuentaSeleccionadaAqui_ArrayS_Result.length e indexa este arreglo con el mismo índice,
         // así que desde entonces cualquier cuenta con cuenta_id (o sea, todas) lanzaba
         // ArrayIndexOutOfBoundsException al seleccionarla aquí. Se completa con las etiquetas que
-        // faltaban (cuenta_id de la Fase 3, Cerrable de esta fase) para que no truene.
-        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable"};
+        // faltaban (cuenta_id de la Fase 3, Cerrable de esta fase).
+        // ⭐ CORRECCIÓN — v10: mismo problema otra vez — A22_QueryManager.queryAttributesByAccount()
+        // agregó tipo_cuenta_id como 8vo elemento (índice 7), pero este arreglo de etiquetas se
+        // quedó en 7. Cualquier cuenta volvía a lanzar ArrayIndexOutOfBoundsException al abrir su
+        // detalle desde "Ver Cuentas". Se agrega la etiqueta que faltaba.
+        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id"};
         // Crear un ArrayList de HashMaps
         ArrayList<HashMap<String, String>> listaConColumnas = new ArrayList<>();
 
