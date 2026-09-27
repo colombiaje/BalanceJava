@@ -1426,7 +1426,8 @@ public class F4_Cierres extends Fragment {
         progressDialog.show();
 
         // ID de tu archivo Sheets
-        String sheetsId = "1fxxl97K0Mt1-sWQ9pDZ6k6qMuvL3g9ksg3gNszqwWBo";
+        //String sheetsId = "1fxxl97K0Mt1-sWQ9pDZ6k6qMuvL3g9ksg3gNszqwWBo";// anterior que borre en sheets
+        String sheetsId = "1jw1CNS7agSTV8-hQWGE9SGsQWyV3Wd_Jvf2tr0CiU-c";
         //String nombreArchivo = "440 Backup Balance_desde_Sheets.csv";
         String nombreArchivo = CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName();
         //String SheetsAApp = "balance_sheets_a_app";
