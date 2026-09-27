@@ -88,6 +88,28 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   se actualiza según su combinación de Grupo1/Grupo2. Ver el bloque "if (oldVersion < 9)" en
 //   onUpgrade() para el detalle completo, y sembrarClaseYClasificacionContable()/
 //   clasificacionNombreParaCombo() para la lógica de nombres.
+// ⭐ MODIFICADO: Versión 11 — Fase 6 (parte C) / v11 tanda 2 (real): "transacciones" gana
+//   tipo_cuenta_id (nullable, referencia hacia tipo_cuenta.tipo_cuenta_id) — una FOTO de la
+//   clasificación de la cuenta en el momento de crear/editar la transacción, en el mismo
+//   espíritu que c10_Grupo1/c11_Grupo2 (que NO se tocan ni se borran todavía — eso es v11
+//   tanda 3, aparte). No es redundante con la relación cuenta_id → cuentas.tipo_cuenta_id: sin
+//   esta foto, reclasificar una cuenta (o un bug que la reasigne por error) reescribiría en
+//   silencio el historial de TODAS sus transacciones pasadas con solo un JOIN. Con la foto, el
+//   historial queda fijo tal como fue, y el comparador de auditoría (ver
+//   obtenerTransaccionesDesalineadas() en A21_OptimizedQuery) puede seguir avisando cuándo la
+//   foto guardada ya no coincide con el valor actual de la cuenta — ahora comparando también
+//   este id, no solo Grupo1/Grupo2. Backfill en dispositivos existentes: se toma el
+//   tipo_cuenta_id ACTUAL de la cuenta de cada transacción (vía cuenta_id) como mejor punto de
+//   partida disponible — no hay forma de reconstruir cuál era en el pasado si nunca se guardó.
+//   Se agrega, igual que cuenta_id/transaccion_id en las versiones 3/8, leída por NOMBRE (no
+//   por posición) en A21_OptimizedQuery.mapTransactionFromCursor, así que no hay riesgo de
+//   desalinear el mapeo posicional de c1..c13. El lado que ESCRIBE (B11_DocumentCalculator /
+//   B12_DocumentPersistence) se ajusta en esta misma versión: toda transacción nueva la recibe
+//   de atributosCuenta[7] (tipo_cuenta_id, ya disponible desde la v10) al crearse, y
+//   guardarModificacion() la refresca junto con Grupo1/Grupo2 cuando cambia la cuenta durante
+//   una edición — ver el comentario en ese método para el detalle. Queda pendiente, aparte y
+//   NO en esta versión (ver checklist), auditar el código de esa misma ruta de edición para
+//   encontrar la causa raíz de una reasignación indebida que Jorge reportó como intermitente.
 // ⭐ MODIFICADO: Versión 10 — Fase 6 (parte B): el único cambio de ESQUEMA de esta versión es
 //   "cuentas" ganando cuenta_seguimiento (INTEGER, valor 1 o NULL — mismo estilo que Cerrable).
 //   Reemplaza el nombre de cuenta fijo "CxC Enrique", que F5_1_Indicadores/
@@ -116,8 +138,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 9 → 10 para disparar onUpgrade en dispositivos existentes (ver Fase 6, parte B, arriba).
-    public static final int version1BalanceSqlite_int_PSF = 10;
+    // ⭐ CAMBIO: versión 10 → 11 para disparar onUpgrade en dispositivos existentes (ver Fase 6, parte C, arriba).
+    public static final int version1BalanceSqlite_int_PSF = 11;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -183,7 +205,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // "if (oldVersion < 8)" en onUpgrade() para cómo se agrega en dispositivos que
                     // ya tienen la tabla creada, y mapTransactionFromCursor (A21_OptimizedQuery) para
                     // cómo se lee de vuelta.
-                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT)";
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    // ⭐ NUEVO v11 — Fase 6 (parte C): foto de tipo_cuenta_id al momento de crear o
+                    // editar la transacción (ver comentario de clase arriba). Al final, después de
+                    // transaccion_id, por la misma razón de siempre: se lee por NOMBRE, no por
+                    // posición (ver mapTransactionFromCursor), así que su posición exacta no
+                    // importa para nada del mapeo existente.
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))";
 
     String crearCuentas_String =
             "CREATE TABLE IF NOT EXISTS cuentas (" +
@@ -1001,6 +1029,59 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 }
             }
             cuentasSeguimiento.close();
+        }
+
+        // ⭐ NUEVO v11 — Fase 6 (parte C) / v11 tanda 2 (real): agrega transacciones.tipo_cuenta_id
+        // (ver comentario de clase arriba para el porqué completo) y hace un backfill de mejor
+        // esfuerzo: cada transacción existente recibe el tipo_cuenta_id ACTUAL de su cuenta (vía
+        // cuenta_id). No es una reconstrucción histórica real (no hay forma de saber cuál era en
+        // el pasado si nunca se guardó) — es el punto de partida más razonable disponible, y
+        // corregible después con las herramientas de Sheets si hiciera falta ajustar algo puntual.
+        if (oldVersion < 11) {
+
+            // 1) transacciones: agregar la columna nueva (ALTER TABLE simple, sin recrear la
+            //    tabla — mismo criterio que tipo_cuenta_id en cuentas, v9, y cuenta_seguimiento
+            //    en cuentas, v10; no cambia el orden posicional de ninguna columna existente).
+            db.execSQL("ALTER TABLE transacciones ADD COLUMN tipo_cuenta_id INTEGER " +
+                    "REFERENCES tipo_cuenta(tipo_cuenta_id)");
+
+            // 2) Backfill: para cada transacción con cuenta_id conocido, copiar el
+            //    tipo_cuenta_id ACTUAL de esa cuenta. Las transacciones con cuenta_id NULL
+            //    (huérfanas, ya diagnosticadas en versiones anteriores) quedan con
+            //    tipo_cuenta_id NULL también — no hay de dónde tomarlo.
+            db.execSQL(
+                    "UPDATE transacciones SET tipo_cuenta_id = (" +
+                            "SELECT c.tipo_cuenta_id FROM cuentas c " +
+                            "WHERE c.cuenta_id = transacciones.cuenta_id" +
+                            ") WHERE cuenta_id IS NOT NULL");
+
+            // 3) Índice — misma razón que los demás: acelerar el comparador de auditoría
+            //    (obtenerTransaccionesDesalineadas) y cualquier consulta futura que filtre o
+            //    agrupe por tipo de cuenta a nivel de transacción.
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_tipo_cuenta_id " +
+                    "ON transacciones(tipo_cuenta_id)");
+
+            // 4) Diagnóstico: cuántas transacciones quedaron con el backfill aplicado vs. cuántas
+            //    quedaron en NULL (esperado solo para las huérfanas sin cuenta_id, o para cuentas
+            //    cuyo propio tipo_cuenta_id todavía sea NULL).
+            Cursor conTipoCuenta = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE tipo_cuenta_id IS NOT NULL", null);
+            if (conTipoCuenta.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v11: " + conTipoCuenta.getInt(0) +
+                                " transacciones recibieron tipo_cuenta_id por backfill");
+            }
+            conTipoCuenta.close();
+
+            Cursor sinTipoCuentaTransacciones = db.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE tipo_cuenta_id IS NULL", null);
+            if (sinTipoCuentaTransacciones.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v11: " + sinTipoCuentaTransacciones.getInt(0) +
+                                " transacciones quedaron con tipo_cuenta_id NULL (esperado solo " +
+                                "para huérfanas sin cuenta_id, o cuentas sin tipo_cuenta_id propio)");
+            }
+            sinTipoCuentaTransacciones.close();
         }
     }
 

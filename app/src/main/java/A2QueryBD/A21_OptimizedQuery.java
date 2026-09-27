@@ -282,11 +282,20 @@ public class A21_OptimizedQuery {
         Cursor cursor = null;
         try {
             openDB();
+            // ⭐ NUEVO v11 — Fase 6 (parte C): se agrega tipo_cuenta_id como condición ADICIONAL
+            // de desalineación (con OR, no en reemplazo de Grupo1/Grupo2 — esas columnas siguen
+            // existiendo y poblándose igual que siempre; se borran aparte, en v11 tanda 3). Se
+            // muestran también los nombres de tipo_cuenta (vía LEFT JOIN, tolerante a NULL) para
+            // que el diálogo de auditoría sea legible sin tener que interpretar el id a mano.
             String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, t.c3_Cuenta, t.c5_Valor, " +
-                    "t.c10_Grupo1, t.c11_Grupo2, c.Grupo1, c.Grupo2 " +
+                    "t.c10_Grupo1, t.c11_Grupo2, c.Grupo1, c.Grupo2, " +
+                    "tcGuardado.nombre, tcActual.nombre " +
                     "FROM transacciones t " +
                     "JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
+                    "LEFT JOIN tipo_cuenta tcGuardado ON tcGuardado.tipo_cuenta_id = t.tipo_cuenta_id " +
+                    "LEFT JOIN tipo_cuenta tcActual ON tcActual.tipo_cuenta_id = c.tipo_cuenta_id " +
                     "WHERE t.c10_Grupo1 IS NOT c.Grupo1 OR t.c11_Grupo2 IS NOT c.Grupo2 " +
+                    "OR t.tipo_cuenta_id IS NOT c.tipo_cuenta_id " +
                     "ORDER BY t.c3_Cuenta, t.c1_Documento, t.c2_ItemDoc";
             cursor = db.rawQuery(query, null);
 
@@ -299,7 +308,9 @@ public class A21_OptimizedQuery {
                         cursor.getString(4), // Grupo1 guardado en la transacción
                         cursor.getString(5), // Grupo2 guardado en la transacción
                         cursor.getString(6), // Grupo1 correcto (según cuentas)
-                        cursor.getString(7)  // Grupo2 correcto (según cuentas)
+                        cursor.getString(7), // Grupo2 correcto (según cuentas)
+                        cursor.getString(8), // tipo_cuenta guardado en la transacción (nombre)
+                        cursor.getString(9)  // tipo_cuenta correcto (según cuentas, nombre)
                 });
             }
         } finally {
@@ -410,6 +421,16 @@ public class A21_OptimizedQuery {
         int indiceTransaccionId = cursor.getColumnIndex("transaccion_id");
         if (indiceTransaccionId != -1 && !cursor.isNull(indiceTransaccionId)) {
             item.tipoTset_15TransaccionIdMetodoEnA5(cursor.getLong(indiceTransaccionId));
+        }
+        // ⭐ NUEVO v11 — Fase 6 (parte C): tipo_cuenta_id (agregado al final de "transacciones",
+        // igual que cuenta_id/transaccion_id arriba), leído por nombre por la misma razón: no
+        // desalinear el mapeo posicional de c1..c13. Necesario para que un documento cargado
+        // para editar/usar como plantilla conserve, en memoria, la foto de clasificación tal
+        // como está guardada — y no se pierda al volver a insertarse (ver
+        // B12_DocumentPersistence.baseParaGuardarEnLaEnBDConListaDocumento).
+        int indiceTipoCuentaIdTransaccion = cursor.getColumnIndex("tipo_cuenta_id");
+        if (indiceTipoCuentaIdTransaccion != -1 && !cursor.isNull(indiceTipoCuentaIdTransaccion)) {
+            item.tipoTset_16TipoCuentaIdMetodoEnA5(cursor.getLong(indiceTipoCuentaIdTransaccion));
         }
         return item;
     }

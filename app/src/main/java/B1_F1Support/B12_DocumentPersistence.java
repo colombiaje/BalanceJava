@@ -65,12 +65,30 @@ public class B12_DocumentPersistence {
                 }
                 cCuentaId.close();
 
+                // ⭐ NUEVO v11 — Fase 6 (parte C): tipo_cuenta_id se toma del OBJETO (no se
+                // reconsulta aquí por nombre de cuenta, a diferencia de cuenta_id arriba). Es a
+                // propósito: cuenta_id es un simple enlace de identidad y debe reflejar siempre
+                // la cuenta real por nombre; tipo_cuenta_id es una FOTO de clasificación (mismo
+                // criterio que c10_Grupo1/c11_Grupo2, que también se toman del objeto) — si se
+                // reconsultara aquí en vez de leerla del objeto, un documento con VARIOS ítems se
+                // reescribiría completo (ver eliminarTransacciones + reinserción en
+                // ExecuteButtonsUnit) cada vez que se edita CUALQUIER ítem, y los ítems NO
+                // tocados de ese mismo documento perderían su foto histórica y quedarían con la
+                // clasificación actual de su cuenta — exactamente el efecto que la foto existe
+                // para evitar. El objeto ya trae el valor correcto: para un ítem nuevo, desde
+                // B11_DocumentCalculator (atributosCuenta[7]); para un ítem cargado de la BD
+                // (edición/plantilla), desde A21_OptimizedQuery.mapTransactionFromCursor; y para
+                // el ítem que sí cambió de cuenta en esta edición, desde el refresco en
+                // guardarModificacion() (ver ahí).
+                Long tipoCuentaIdParaGuardar = p.tipoTget_16TipoCuentaIdMetodoEnA5();
+
                 db.execSQL(
                         "INSERT INTO transacciones (" +
                                 "c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
                                 "c6_Descripcion, c7_FechaYhora, c8_FechaInicial, " +
                                 "c9_FechaModificacion, c10_Grupo1, c11_Grupo2, " +
-                                "c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id) " +
+                                "c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id, " +
+                                "tipo_cuenta_id) " +
                                 "VALUES ('" +
                                 p.tipoTget_1DocumentoMetodoEnA5()          + "','" +
                                 p.tipoTget_2ItemDocMetodoEnA5()            + "','" +
@@ -85,7 +103,8 @@ public class B12_DocumentPersistence {
                                 p.tipoTget_11Grupo2MetodoEnA5()            + "','" +
                                 p.tipoTget_12ColumnaDisponibleMetodoEnA5() + "','" +
                                 p.tipoTget_13ColumnaDisponibleMetodoEnA5() + "'," +
-                                (cuentaIdParaGuardar != null ? cuentaIdParaGuardar : "NULL") +
+                                (cuentaIdParaGuardar != null ? cuentaIdParaGuardar : "NULL") + "," +
+                                (tipoCuentaIdParaGuardar != null ? tipoCuentaIdParaGuardar : "NULL") +
                                 ")"
                 );
             }
@@ -410,6 +429,23 @@ public class B12_DocumentPersistence {
                         .tipoTset_10Grupo1MetodoEnA5(atributos[2]);
                 f1.listaDocumento_ArrayLTT.get(posicion)
                         .tipoTset_11Grupo2MetodoEnA5(atributos[3]);
+
+                // ⭐ NUEVO v11 — Fase 6 (parte C): mismo refresco de arriba, pero para
+                // tipo_cuenta_id (índice 7, disponible desde la v10). Sin esto, el ítem editado
+                // se reinsertaría (ver el comentario en el INSERT de
+                // baseParaGuardarEnLaEnBDConListaDocumento) con la foto de tipo_cuenta_id de la
+                // cuenta ORIGINAL con la que se creó, en vez de la cuenta nueva elegida en esta
+                // edición — mismo riesgo que el de Grupo1/Grupo2 de arriba.
+                Long tipoCuentaIdNuevo = null;
+                if (atributos.length >= 8 && atributos[7] != null && !atributos[7].isEmpty()) {
+                    try {
+                        tipoCuentaIdNuevo = Long.valueOf(atributos[7]);
+                    } catch (NumberFormatException e) {
+                        Log.w(TAG, "tipo_cuenta_id no numérico en atributos[7]: " + atributos[7]);
+                    }
+                }
+                f1.listaDocumento_ArrayLTT.get(posicion)
+                        .tipoTset_16TipoCuentaIdMetodoEnA5(tipoCuentaIdNuevo);
             }
 
             f1.valor_XEt.setText("");

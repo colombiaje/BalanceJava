@@ -293,6 +293,7 @@ public class B11_DocumentCalculator {
                 "na"
         );
         item.tipoTset_14CuentaIdMetodoEnA5(parseCuentaId(atributosCuenta));
+        item.tipoTset_16TipoCuentaIdMetodoEnA5(parseTipoCuentaId(atributosCuenta));
         return item;
     }
 
@@ -323,6 +324,24 @@ public class B11_DocumentCalculator {
             return "No Aplica";
         }
         return "Cerrable".equals(atributosCuenta[6]) ? "Cerrable" : "No Aplica";
+    }
+
+    // ⭐ NUEVO v11 — Fase 6 (parte C): lee tipo_cuenta_id (índice 7, agregado en
+    // A22_QueryManager.queryAttributesByAccount desde la v10) para que cada transacción NUEVA
+    // guarde, desde su creación, la foto de clasificación en el nuevo modelo — mismo criterio
+    // conservador que parseCuentaId con cuenta_id: si el arreglo todavía no trae ese índice
+    // (llamadas viejas) o no es numérico, se deja null sin romper nada (queda igual que antes
+    // de esta versión).
+    private Long parseTipoCuentaId(String[] atributosCuenta) {
+        if (atributosCuenta.length < 8 || atributosCuenta[7] == null || atributosCuenta[7].isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(atributosCuenta[7]);
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "tipo_cuenta_id no numérico en atributosCuenta[7]: " + atributosCuenta[7]);
+            return null;
+        }
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -377,6 +396,7 @@ public class B11_DocumentCalculator {
                 "na"
         );
         item.tipoTset_14CuentaIdMetodoEnA5(parseCuentaId(atributosCuenta));
+        item.tipoTset_16TipoCuentaIdMetodoEnA5(parseTipoCuentaId(atributosCuenta));
         return item;
     }
 }

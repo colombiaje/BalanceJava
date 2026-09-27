@@ -31,10 +31,14 @@ import B_FRAGMENTS.F1_CrudDocumento;
 /**
  * A11_AuditoriaClasificacionDialogo
  *
- * Muestra las transacciones cuyo Grupo1/Grupo2 guardado (copia interna en
- * "transacciones") ya no coincide con el valor actual y autoritativo de
- * "cuentas". Esta era la causa raíz de que una misma cuenta apareciera
- * partida en varias filas en el Informe (Informes).
+ * Muestra las transacciones cuya clasificación guardada (copia interna en
+ * "transacciones": Grupo1/Grupo2, y desde v11 también tipo_cuenta_id) ya no
+ * coincide con el valor actual y autoritativo de "cuentas". Grupo1/Grupo2 y
+ * tipo_cuenta_id se auditan en paralelo (basta con que uno de los dos no
+ * coincida) mientras conviven los dos modelos — ver A21_OptimizedQuery.
+ * obtenerTransaccionesDesalineadas() y A1_1_AyudanteBD (migración v11) para
+ * el detalle. Esta desalineación era la causa raíz de que una misma cuenta
+ * apareciera partida en varias filas en el Informe (Informes).
  *
  * Desde que obtenerSumaNetoCuentaPorCuenta() lee Grupo1/Grupo2 siempre
  * desde "cuentas" (LEFT JOIN), el Informe ya no se parte visualmente por
@@ -92,9 +96,10 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
         root.addView(construirBarraTitulo(context));
 
         TextView tvNota = new TextView(context);
-        tvNota.setText("Estas transacciones tienen guardada una clasificación (Grupo1/Grupo2) " +
-                "distinta a la que hoy tiene su cuenta en \"Cuentas\". Las dos últimas columnas " +
-                "(\"Cuentas\") son el valor correcto — corrige la transacción para que quede igual.");
+        tvNota.setText("Estas transacciones tienen guardada una clasificación (Grupo1/Grupo2 " +
+                "y/o tipo de cuenta) distinta a la que hoy tiene su cuenta en \"Cuentas\". Las " +
+                "columnas marcadas \"(Cuentas)\" son el valor correcto — corrige la transacción " +
+                "para que quede igual.");
         tvNota.setTextSize(12);
         tvNota.setTextColor(Color.parseColor("#546E7A"));
         tvNota.setPadding(20, 12, 20, 6);
@@ -145,7 +150,8 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
             String[] encabezados = {
                     "Doc.", "Item", "Cuenta", "Valor",
                     "G1\n(transacción)", "G2\n(transacción)",
-                    "G1\n(Cuentas)", "G2\n(Cuentas)"
+                    "G1\n(Cuentas)", "G2\n(Cuentas)",
+                    "Tipo cuenta\n(transacción)", "Tipo cuenta\n(Cuentas)"
             };
             TableRow filaEncabezado = new TableRow(context);
             filaEncabezado.setBackgroundColor(Color.parseColor("#FFCCBC"));
@@ -180,7 +186,7 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
         bar.setPadding(24, 10, 16, 10);
 
         TextView tvTitulo = new TextView(context);
-        tvTitulo.setText("✅ Auditoría de Clasificación (Grupo1/Grupo2)");
+        tvTitulo.setText("✅ Auditoría de Clasificación");
         tvTitulo.setTextSize(15);
         tvTitulo.setTextColor(Color.WHITE);
         tvTitulo.setTypeface(null, Typeface.BOLD);
