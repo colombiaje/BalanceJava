@@ -521,19 +521,58 @@ public class F4_Cierres extends Fragment {
 
         // Importar desde el archivo encontrado
         int lineasImportadas = 0;
+        // ⭐ NUEVO — diagnóstico (27-sep) para el bug de "faltan transacciones" al restaurar
+        // desde Google Drive. No cambia ningún comportamiento existente: solo cuenta, en base
+        // al valor de retorno de insertarTransaccion() (ya existía, antes se ignoraba), cuántas
+        // líneas terminaron insertadas de verdad contra cuántas fueron encabezado o fallaron.
+        int insertadasOk = 0;
+        int fallidasDuplicado = 0;
+        int encabezados = 0;
+        int otrosErrores = 0;
         try (FileReader fileReader = new FileReader(rutaFinal);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
 
             String linea;
             while ((linea = bufferedReader.readLine()) != null) {
                 String[] datos = linea.split(",");
-                insertarTransaccion(datos);
+                long resultado = insertarTransaccion(datos);
                 lineasImportadas++;
+                if (resultado == RESULTADO_ENCABEZADO) {
+                    encabezados++;
+                } else if (resultado == RESULTADO_ERROR) {
+                    otrosErrores++;
+                } else if (resultado == -1L) {
+                    // db.insert() devolvió -1: la fila no se pudo insertar (típicamente,
+                    // choque con la restricción UNIQUE de (c1_Documento, c2_ItemDoc))
+                    fallidasDuplicado++;
+                } else {
+                    insertadasOk++;
+                }
             }
 
             Log.d(TAG, "=== IMPORTACIÓN COMPLETADA ===");
-            Log.d(TAG, "Líneas importadas: " + lineasImportadas);
+            Log.d(TAG, "Líneas leídas: " + lineasImportadas);
+            Log.d(TAG, "Insertadas correctamente: " + insertadasOk);
+            Log.d(TAG, "Encabezados detectados: " + encabezados);
+            Log.d(TAG, "Fallidas (posible duplicado): " + fallidasDuplicado);
+            Log.d(TAG, "Otros errores: " + otrosErrores);
             Log.d(TAG, "Desde: " + rutaFinal);
+
+            String origen = (archivoAUsar == archivoApp) ? "Carpeta de la app (Android 10+)" : "Carpeta tradicional";
+            String resumen = "Diagnóstico de importación de transacciones\n\n"
+                    + "Archivo: " + nombreArchivo + "\n"
+                    + "Origen: " + origen + "\n"
+                    + "Ruta: " + rutaFinal + "\n\n"
+                    + "Líneas leídas: " + lineasImportadas + "\n"
+                    + "Insertadas correctamente: " + insertadasOk + "\n"
+                    + "Encabezados (no cuentan): " + encabezados + "\n"
+                    + "Fallidas por posible duplicado: " + fallidasDuplicado + "\n"
+                    + "Otros errores: " + otrosErrores;
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("Diagnóstico de importación")
+                    .setMessage(resumen)
+                    .setPositiveButton("OK", null)
+                    .show();
 
         } catch (Exception e) {
             Log.e(TAG, "Error al importar CSV: " + e.getMessage(), e);
@@ -543,13 +582,22 @@ public class F4_Cierres extends Fragment {
         }
     }
 
+    // ⭐ NUEVO — códigos de resultado de insertarTransaccion(), solo para el diagnóstico de
+    // arriba. No afectan el comportamiento de inserción, que sigue siendo exactamente el mismo.
+    private static final long RESULTADO_ENCABEZADO = -2L;
+    private static final long RESULTADO_ERROR = -3L;
+
     /**
-     * Inserta una transacción en la base de datos
+     * Inserta una transacción en la base de datos.
+     * Devuelve el resultado de db.insert() (id de la fila, o -1 si falló la inserción —
+     * por ejemplo por choque con la restricción UNIQUE de (c1_Documento, c2_ItemDoc)),
+     * o uno de los códigos RESULTADO_* de arriba para los casos especiales. Este valor de
+     * retorno es nuevo (antes el método era void); no cambia qué se inserta ni cómo.
      */
-    private void insertarTransaccion(String[] datos) {
+    private long insertarTransaccion(String[] datos) {
         if (datos == null || datos.length < 13) {
             Log.e(TAG, "Datos insuficientes para insertar transacción");
-            return;
+            return RESULTADO_ERROR;
         }
 
         // ⭐ NUEVO — a pedido de Jorge (27-sep): los CSV de transacciones ahora traen una fila
@@ -560,7 +608,7 @@ public class F4_Cierres extends Fragment {
         // los 6 flujos que llaman a este método con un solo cambio.
         if (datos[0] != null && datos[0].trim().equalsIgnoreCase("c1_Documento")) {
             Log.d(TAG, "Fila de encabezado detectada en el CSV de transacciones, se ignora sin insertar");
-            return;
+            return RESULTADO_ENCABEZADO;
         }
 
         try {
@@ -602,10 +650,16 @@ public class F4_Cierres extends Fragment {
                 }
             }
 
-            db.insert("transacciones", null, valores);
+            long idInsertado = db.insert("transacciones", null, valores);
             db.close();
+            if (idInsertado == -1L) {
+                Log.e(TAG, "db.insert() devolvió -1 para Documento=" + datos[0] + " Item=" + datos[1]
+                        + " (posible choque con la restricción UNIQUE de Documento+Item)");
+            }
+            return idInsertado;
         } catch (Exception e) {
             Log.e(TAG, "Error al insertar transacción: " + e.getMessage(), e);
+            return RESULTADO_ERROR;
         }
     }
 
