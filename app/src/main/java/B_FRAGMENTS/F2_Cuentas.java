@@ -2844,7 +2844,12 @@ public class F2_Cuentas extends DialogFragment {
 
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             try {
-                                A6_3_CSVDriveUploader.guardarYSubirCuentas(
+                                // ⭐ CAMBIO (27-sep): antes llamaba a guardarYSubirCuentas(), que
+                                // sobrescribía este archivo recién descargado de Sheets con un
+                                // export nuevo generado desde la app antes de subirlo a Drive —
+                                // así "2.2 Importar de Sheets" nunca veía el contenido real de
+                                // Sheets. Ahora se sube el archivo tal cual se acaba de descargar.
+                                A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(
                                         requireContext(),
                                         nombreArchivo,  // ✅ CORRECTO - usar nombreArchivo
                                         FOLDER_ID_DRIVE

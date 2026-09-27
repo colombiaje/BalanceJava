@@ -116,4 +116,43 @@ public class A6_3_CSVDriveUploader {
             Toast.makeText(context, "Error al procesar backup de cuentas: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
+
+    /**
+     * ⭐ NUEVO (27-sep) — Sube a Drive un CSV de cuentas que YA EXISTE en la carpeta local,
+     * SIN regenerarlo desde el estado actual de la app. Pensado para "2.1 Sincronizar Cuentas
+     * con Sheets" (F2_Cuentas): ese flujo primero descarga el CSV real desde Google Sheets a
+     * este mismo nombre de archivo, y hasta ahora llamaba a guardarYSubirCuentas() — que
+     * INMEDIATAMENTE sobrescribía ese archivo recién descargado con un export nuevo generado
+     * desde la base de datos local, antes de subirlo. Eso hacía que lo subido a Drive (y lo que
+     * "2.2 Importar de Sheets" termina leyendo) nunca fuera realmente el contenido de Sheets.
+     * Este método hace solo el paso 2 de guardarYSubirCuentas (verificar + subir), dejando el
+     * archivo tal cual quedó. No se toca guardarYSubirCuentas ni su otro uso (subirCsvBackupCrud,
+     * que si necesita generar el CSV desde la BD antes de subir).
+     */
+    public static void subirArchivoCuentasExistenteADrive(Context context, String nombreArchivo, String folderId) {
+        try {
+            String filePath = Environment.getExternalStorageDirectory().getPath() + CARPETA_BALANCE;
+            String filePathAndfileName = filePath + nombreArchivo;
+            File archivo = new File(filePathAndfileName);
+
+            if (archivo.exists()) {
+                A6_1_GoogleDriveManager driveManager = new A6_1_GoogleDriveManager(
+                        context,
+                        filePath,
+                        nombreArchivo,
+                        folderId
+                );
+                driveManager.uploadFileToDrive();
+
+                Log.d(TAG, "Proceso de subida iniciado para cuentas (archivo existente, sin regenerar): " + nombreArchivo);
+            } else {
+                String mensaje = "El archivo no existe: " + nombreArchivo;
+                Log.e(TAG, mensaje);
+                Toast.makeText(context, mensaje, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error en subirArchivoCuentasExistenteADrive: " + e.getMessage(), e);
+            Toast.makeText(context, "Error al subir backup de cuentas: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
 }
