@@ -87,6 +87,13 @@ public class A5_1_BackupManager {
 
                 OutputStreamWriter salidaArchivo = new OutputStreamWriter(new FileOutputStream(archivo));
 
+                // ⭐ NUEVO — a pedido de Jorge (27-sep): fila de encabezado con los nombres de
+                // columna, para que el CSV se entienda solo al abrirlo (revisión de diseño). Los
+                // 3 lectores de este archivo (insertarCuenta(), ver F2_Cuentas) ya saben saltarla
+                // — detectan la fila por su primer campo literal "Item" (nunca un dato real, que
+                // siempre es numérico), así que esto no afecta ninguna cuenta real al restaurar.
+                salidaArchivo.write("Item,Cuenta,Grupo1,Grupo2,Fecha,cuenta_id,codigo_cuenta,Cerrable,tipo_cuenta_id,cuenta_seguimiento\n");
+
                 // Escribir datos
                 // ⭐ CAMBIO — Fase 4 (parte C): se agregan cuenta_id, codigo_cuenta y Cerrable al
                 // final de la línea (columnas 6, 7 y 8) — las 5 columnas de siempre quedan en el
@@ -197,6 +204,12 @@ public class A5_1_BackupManager {
                     // final — las 13 de siempre quedan en el mismo orden y posición. Ver
                     // F4_Cierres.insertarTransaccion(), que ya sabe leer esta columna extra si
                     // está presente.
+                    // ⭐ NUEVO — a pedido de Jorge (27-sep): fila de encabezado. insertarTransaccion()
+                    // ya sabe saltarla (primer campo literal "c1_Documento", nunca un dato real).
+                    salidaArchivo_OutputStreamWriter.write(
+                            "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
+                                    "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
+                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id\n");
                     for (int i = 0; i < todasLasTransacciones_Result_ArrayLTT.size(); i++) {
                         A3_2_TipoTransaccionesGetsYSets TransaccionX = todasLasTransacciones_Result_ArrayLTT.get(i);
                         salidaArchivo_OutputStreamWriter.write(
@@ -254,6 +267,13 @@ public class A5_1_BackupManager {
                 //Con la clase OutputStreamWriter se logra el mismo resultado que con la clase FileWriter
                 //escriba en el archivo_File
                 FileWriter escrituraDeArchivo_FileWriter = new FileWriter(archivo_File);
+
+                // ⭐ NUEVO — a pedido de Jorge (27-sep): fila de encabezado. F4_Cierres.insertarTransaccion()
+                // ya sabe saltarla (primer campo literal "c1_Documento", nunca un dato real).
+                escrituraDeArchivo_FileWriter.append(
+                        "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
+                                "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible\n");
 
                 A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase_Abstracta= ayudanteBD_Class.getWritableDatabase();
@@ -358,6 +378,13 @@ public class A5_1_BackupManager {
 
                 // Escribir en el archivo
                 FileWriter escrituraDeArchivo = new FileWriter(archivo);
+
+                // ⭐ NUEVO — a pedido de Jorge (27-sep): fila de encabezado. F4_Cierres.insertarTransaccion()
+                // ya sabe saltarla (primer campo literal "c1_Documento", nunca un dato real).
+                escrituraDeArchivo.append(
+                        "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
+                                "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible\n");
 
                 A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase = ayudanteBD.getWritableDatabase();

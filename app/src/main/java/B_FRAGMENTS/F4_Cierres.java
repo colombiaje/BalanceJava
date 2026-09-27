@@ -552,6 +552,17 @@ public class F4_Cierres extends Fragment {
             return;
         }
 
+        // ⭐ NUEVO — a pedido de Jorge (27-sep): los CSV de transacciones ahora traen una fila
+        // de encabezado (ver A5_1_BackupManager: guardarTodasLasTransancionsAUnArchivoCSV y los
+        // 2 generadores de saldo inicial). Se detecta por contenido: el primer campo de un
+        // encabezado es siempre el literal "c1_Documento"; el de una fila real siempre es un
+        // número de documento real o el "0000" fijo de saldo inicial — nunca ese texto. Cubre
+        // los 6 flujos que llaman a este método con un solo cambio.
+        if (datos[0] != null && datos[0].trim().equalsIgnoreCase("c1_Documento")) {
+            Log.d(TAG, "Fila de encabezado detectada en el CSV de transacciones, se ignora sin insertar");
+            return;
+        }
+
         try {
             A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
                     getActivity(),

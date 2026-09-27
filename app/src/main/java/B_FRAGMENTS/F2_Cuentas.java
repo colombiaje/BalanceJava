@@ -2710,6 +2710,18 @@ public class F2_Cuentas extends DialogFragment {
             return;
         }
 
+        // ⭐ NUEVO — a pedido de Jorge (27-sep): los CSV ahora traen una fila de encabezado
+        // (ver A5_1_BackupManager.backupCuentasArchivoCSV) para que se entiendan solos al
+        // abrirlos. Se detecta por contenido, no por posición: el primer campo de un
+        // encabezado es siempre el literal "Item", y el de una fila real de datos es siempre
+        // un número (el Item de la cuenta) — nunca coinciden, así que esto no puede confundir
+        // una cuenta real con un encabezado. Cubre los 3 flujos que llaman a este método
+        // (Sheets, backup local, Drive) con un solo cambio.
+        if (datos[0] != null && datos[0].trim().equalsIgnoreCase("Item")) {
+            Log.d(TAG, "Fila de encabezado detectada en el CSV de cuentas, se ignora sin insertar");
+            return;
+        }
+
         try {
             A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
                     getActivity(),
