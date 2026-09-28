@@ -532,6 +532,14 @@ public class A21_OptimizedQuery {
         if (indiceTipoCuentaNombreCuenta != -1 && !cursor.isNull(indiceTipoCuentaNombreCuenta)) {
             item.tipoTsetCuenta_12TipoCuentaNombre(cursor.getString(indiceTipoCuentaNombreCuenta));
         }
+        // ⭐ NUEVO — v12 tanda 3 (a pedido de Jorge, 28-sep): con_inventario (de la migración
+        // v14 / tanda 1), mismo criterio aditivo que cuenta_seguimiento arriba (INTEGER 0/1 →
+        // Boolean). Sin esto, el respaldo de cuentas a CSV (A5_1_BackupManager) no podía
+        // incluir esta columna aunque el SELECT * ya la trajera del cursor.
+        int indiceConInventario = cursor.getColumnIndex("con_inventario");
+        if (indiceConInventario != -1 && !cursor.isNull(indiceConInventario)) {
+            item.tipoTsetCuenta_13ConInventario(cursor.getInt(indiceConInventario) == 1);
+        }
         return item;
     }
 

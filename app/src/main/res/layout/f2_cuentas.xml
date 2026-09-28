@@ -499,20 +499,26 @@
             />
 
         <!-- ⭐ NUEVO — v12 tanda 3: interruptor "con inventario" (modelo de costeo por
-             inventario en cuentas). Mismo patrón que Cerrable/Conciliable arriba, pero SOLO
-             para "Nueva cuenta" — F2_Cuentas.handleClickViewNew()/handleClickViewModify() lo
-             ocultan en modo "Modificar cuenta", porque activar/desactivar inventario después
-             de crear la cuenta no está en el alcance de esta entrega (ver documento de
-             especificación). -->
+             inventario en cuentas). Mismo patrón que Cerrable/Conciliable arriba — visible y
+             editable tanto en "Nueva cuenta" como en "Modificar cuenta" (a pedido de Jorge,
+             28-sep: se puede activar en una cuenta que no lo tenía, o desactivar en una que
+             sí). Ver F2_Cuentas.interrelationsAccountsGroups() (carga el valor real al abrir
+             Modificar) y ejecutarActualizacionCuenta() (detecta la activación 0→1). -->
+        <!-- ⭐ CORRECCIÓN — v12 tanda 3 (encontrado por Jorge en el dispositivo): "Con
+             inventario" partía en 2 líneas dentro de esta celda de 70dp×25dp (como
+             "Cerrable"/"Conciliable"/"Tipo cuenta") y la segunda línea se salía de su
+             espacio, tapando el botón Guardar de abajo. Una sola palabra ("Inventario"),
+             mismo tamaño de letra que las demás etiquetas de esta columna, sí cabe en una
+             línea — mismo criterio que "Conciliable" (más larga) en la fila de arriba. -->
         <TextView
             android:id="@+id/conInventarioCuentaNueva_XTv"
             android:layout_width="70dp"
             android:layout_height="25dp"
             android:background="@android:color/holo_purple"
-            android:text="Con inventario"
+            android:text="Inventario"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:textColor="@android:color/white"
-            android:textSize="14dp"
+            android:textSize="18dp"
             app:layout_column="1"
             app:layout_gravity="center"
             app:layout_row="12" />

@@ -144,10 +144,17 @@ public class F2_Cuentas extends DialogFragment {
     // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox de Conciliable, mismo patrón que Cerrable.
     CheckBox conciliableCuentaNueva_XChB;
     // ⭐ NUEVO — v12 tanda 3: checkbox "con inventario" (modelo de costeo por inventario).
-    // Solo aplica en "Nueva cuenta" — handleClickViewNew()/handleClickViewModify() lo
-    // muestran/ocultan; ver conInventarioCuentaNueva_XTv en el layout.
+    // A pedido de Jorge (28-sep) se muestra y se puede editar tanto en "Nueva cuenta" como
+    // en "Modificar cuenta" — mismo patrón que Cerrable/Conciliable. Se puede activar en
+    // una cuenta que no lo tenía, o desactivar en una que sí (ver ejecutarActualizacionCuenta).
     CheckBox conInventarioCuentaNueva_XChB;
     TextView conInventarioCuentaNueva_XTv;
+    // ⭐ NUEVO — v12 tanda 3 (ajuste a pedido de Jorge, 28-sep): valor real de con_inventario
+    // de la cuenta que se está modificando, cargado por interrelationsAccountsGroups() al
+    // abrirla — permite detectar en ejecutarActualizacionCuenta() si esta edición ACTIVÓ el
+    // inventario (pasó de 0 a 1), para invitar a dar de alta el primer artículo igual que en
+    // una cuenta nueva.
+    boolean conInventarioOriginalEnModificar_boolean = false;
     String itemCuentaNueva_String;
     String cuentaNueva_String;
     String grupo1CuentaNueva_String;
@@ -1106,11 +1113,6 @@ public class F2_Cuentas extends DialogFragment {
             clickSave_XBt.setVisibility(View.GONE);
             clickUpdate_XBt.setVisibility(View.VISIBLE);
             clickDeleteXBt.setVisibility(View.VISIBLE);
-            // ⭐ NUEVO — v12 tanda 3: "con inventario" solo se decide al CREAR la cuenta (ver
-            // documento de especificación, sección 4) — se oculta en Modificar para no dar a
-            // entender que se puede cambiar aquí.
-            conInventarioCuentaNueva_XTv.setVisibility(View.GONE);
-            conInventarioCuentaNueva_XChB.setVisibility(View.GONE);
 
         }
         catch (Exception e) {
@@ -1137,9 +1139,6 @@ public class F2_Cuentas extends DialogFragment {
             clickSave_XBt.setVisibility(View.VISIBLE);
             clickUpdate_XBt.setVisibility(View.GONE);
             clickDeleteXBt.setVisibility(View.GONE);
-            // ⭐ NUEVO — v12 tanda 3.
-            conInventarioCuentaNueva_XTv.setVisibility(View.VISIBLE);
-            conInventarioCuentaNueva_XChB.setVisibility(View.VISIBLE);
 
             //seeModifyXChB.setChecked(false);
         }
@@ -1379,8 +1378,12 @@ public class F2_Cuentas extends DialogFragment {
             // "Nueva cuenta" y en "Modificar cuenta" por igual. Los índices leídos abajo se
             // corren 2 posiciones a la izquierda: Cerrable 3→1, cuenta_id 4→2, tipo_cuenta_id
             // 5→3, conciliable 6→4.
+            // ⭐ NUEVO — v12 tanda 3 (fix a pedido de Jorge, 28-sep): se agrega con_inventario
+            // como 6to elemento (índice 5) — sin esto, el checkbox "Con inventario" quedaba
+            // SIEMPRE en su último estado en pantalla en vez del valor real guardado de la
+            // cuenta al abrirla en "Modificar cuenta" (reportado por Jorge: "no pude probar").
             Cursor fila = db.rawQuery
-                    ("select Item, Cerrable, cuenta_id, tipo_cuenta_id, conciliable from" +
+                    ("select Item, Cerrable, cuenta_id, tipo_cuenta_id, conciliable, con_inventario from" +
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1413,6 +1416,13 @@ public class F2_Cuentas extends DialogFragment {
                 cerrableCuentaNueva_XChB.setChecked("Cerrable".equals(fila.getString(1)));
                 // ⭐ NUEVO — v11 tanda 3 (parte A).
                 conciliableCuentaNueva_XChB.setChecked("Conciliable".equals(fila.getString(4)));
+                // ⭐ NUEVO — v12 tanda 3 (fix a pedido de Jorge, 28-sep): se guarda el valor
+                // ORIGINAL aparte (conInventarioOriginalEnModificar_boolean) para poder
+                // detectar más adelante, en ejecutarActualizacionCuenta(), si esta edición
+                // ACTIVA el inventario (pasa de 0 a 1) e invitar a dar de alta el primer
+                // artículo — igual que al crear una cuenta nueva con el interruptor activado.
+                conInventarioOriginalEnModificar_boolean = !fila.isNull(5) && fila.getLong(5) != 0;
+                conInventarioCuentaNueva_XChB.setChecked(conInventarioOriginalEnModificar_boolean);
 
                 //aplica en nuevas
 
@@ -1580,6 +1590,7 @@ public class F2_Cuentas extends DialogFragment {
         // duplicado y se rehabilitan los botones, por si habían quedado bloqueados.
         cuentaIdEnModificar_Long = null;
         nombreOriginalEnModificar_String = null;
+        conInventarioOriginalEnModificar_boolean = false; // ⭐ NUEVO — v12 tanda 3
         account_XAct.setError(null);
         habilitarBotonesGuardarModificar(true);
 
@@ -1781,6 +1792,11 @@ public class F2_Cuentas extends DialogFragment {
             contenedor_ContentValues.put("Cerrable", cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null);
             // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox Conciliable → "Conciliable" o null.
             contenedor_ContentValues.put("conciliable", conciliableCuentaNueva_XChB.isChecked() ? "Conciliable" : null);
+            // ⭐ NUEVO — v12 tanda 3 (a pedido de Jorge, 28-sep): checkbox "con inventario"
+            // también se puede modificar sobre una cuenta ya existente — se puede activar en
+            // una que no lo tenía, o desactivar en una que sí. ejecutarActualizacionCuenta()
+            // usa este mismo valor para detectar si esta edición lo ACTIVÓ (pasó de 0 a 1).
+            contenedor_ContentValues.put("con_inventario", conInventarioCuentaNueva_XChB.isChecked() ? 1 : 0);
 
             if (seEstaRenombrando) {
                 String nombreViejo = nombreOriginalEnModificar_String;
@@ -1850,6 +1866,17 @@ public class F2_Cuentas extends DialogFragment {
                 notificarActualizacionCuentas();
             }
 
+            // ⭐ NUEVO — v12 tanda 3 (a pedido de Jorge, 28-sep): si esta edición ACTIVÓ el
+            // inventario (la cuenta no lo tenía y ahora sí), se invita a dar de alta el primer
+            // artículo — igual que al crear una cuenta nueva con el interruptor activado. Se
+            // capturan cuenta_id/nombre AQUÍ, antes de cleanClickFieldsAccount() (unas líneas
+            // más abajo), que limpia cuentaIdEnModificar_Long.
+            Integer conInventarioNuevo_Integer = valores.getAsInteger("con_inventario");
+            boolean seActivoInventarioAhora = !conInventarioOriginalEnModificar_boolean
+                    && conInventarioNuevo_Integer != null && conInventarioNuevo_Integer == 1;
+            long cuentaIdParaDialogoInventario = cuentaIdEnModificar_Long;
+            String nombreCuentaParaDialogoInventario = (String) valores.get("Cuenta");
+
             // ⭐ CAMBIO — Fase 4 Objetivo 2 (fix): estas dos llamadas vivían en el listener de
             // clickUpdate_XBt, justo después de clickModify(), sin condición. Para un
             // renombrado eso era un error: clickModify() solo abre el diálogo "Confirmar
@@ -1863,6 +1890,10 @@ public class F2_Cuentas extends DialogFragment {
             // (renombrando).
             verItemsPorCuenta();
             cleanClickFieldsAccount();
+
+            if (seActivoInventarioAhora) {
+                mostrarDialogoPrimerArticulo(cuentaIdParaDialogoInventario, nombreCuentaParaDialogoInventario);
+            }
         } else {
             Toast.makeText(getActivity(), "La cuenta no existe", Toast.LENGTH_SHORT).show();
         }
@@ -2918,6 +2949,16 @@ public class F2_Cuentas extends DialogFragment {
             if (datos.length >= 11) {
                 if (datos[10] != null && !datos[10].trim().isEmpty()) {
                     valores.put("conciliable", datos[10].trim());
+                }
+            }
+
+            // ⭐ NUEVO — v12 tanda 3 (a pedido de Jorge, 28-sep): con_inventario, si el CSV lo
+            // trae (backup nuevo de A5_1_BackupManager.backupCuentasArchivoCSV, columna 12).
+            // Compatible con CSVs de 11 columnas (o menos): si no viene, no se pone y la cuenta
+            // queda con con_inventario en su valor por defecto (0 — ver A1_1_AyudanteBD).
+            if (datos.length >= 12) {
+                if (datos[11] != null && !datos[11].trim().isEmpty()) {
+                    valores.put("con_inventario", "1".equals(datos[11].trim()) ? 1 : 0);
                 }
             }
 

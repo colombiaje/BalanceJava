@@ -39,6 +39,12 @@ public class A3_1_TipoCuentasGetsYSets {
     // D_F2_AdaptadorCuentas), ahora que Grupo1/Grupo2 se retiran de "cuentas" en esta parte D.
     public String tipoT_12TipoCuentaNombre_String;
 
+    // ⭐ NUEVO — v12 tanda 3 (a pedido de Jorge, 28-sep: faltaba en el CSV de respaldo de
+    // cuentas). con_inventario, de "cuentas" (migración v14 / tanda 1). Mismo criterio
+    // aditivo que arriba: se llena con setter DESPUÉS de construir el objeto (ver
+    // A21_OptimizedQuery.mapCuentasFromCursor).
+    public Boolean tipoT_13ConInventario_Boolean;
+
 // metodo constructor
     public A3_1_TipoCuentasGetsYSets(String tipoT_1Item_String, String tipoT_2Cuenta_String, String tipoT_3G1_String, String tipoT_4G2_String,
                                      String tipoT_5Fecha_String) {
@@ -79,5 +85,8 @@ public class A3_1_TipoCuentasGetsYSets {
 
     public String tipoTgetCuenta_12TipoCuentaNombre() {return tipoT_12TipoCuentaNombre_String;}
     public void tipoTsetCuenta_12TipoCuentaNombre(String tipoT_12TipoCuentaNombre_String) {this.tipoT_12TipoCuentaNombre_String = tipoT_12TipoCuentaNombre_String;}
+
+    public Boolean tipoTgetCuenta_13ConInventario() {return tipoT_13ConInventario_Boolean;}
+    public void tipoTsetCuenta_13ConInventario(Boolean tipoT_13ConInventario_Boolean) {this.tipoT_13ConInventario_Boolean = tipoT_13ConInventario_Boolean;}
 
 }

@@ -48,24 +48,41 @@ public class B12_DocumentPersistence {
         // documento apunta a una cuenta con inventario, se bloquea el guardado COMPLETO
         // antes de tocar la base — nunca a medias — para que nunca pueda quedar una
         // transacción sin su fila correspondiente en transacciones_inventario.
+        // ⭐ CORRECCIÓN — v12 tanda 3 (fix, 28-sep: Jorge reportó que el aviso no aparecía al
+        // probar con una cuenta con inventario real): se agrega .trim() al nombre antes de
+        // comparar contra "cuentas.Cuenta" — c3_Cuenta se guarda tal cual viene del campo de
+        // texto de este formulario (a diferencia de F2_Cuentas.registrarNuevas(), que SÍ
+        // recorta espacios al crear la cuenta), así que un espacio de más al escribir o
+        // pegar el nombre de la cuenta en ESTE formulario hacía que la comparación exacta no
+        // encontrara la cuenta y el bloqueo se saltara en silencio. Se deja además un log de
+        // diagnóstico por si con esto no queda resuelto del todo.
         for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
             String nombreCuentaAVerificar = p.tipoTget_3CuentaMetodoEnA5();
+            String nombreCuentaAVerificarRecortado =
+                    nombreCuentaAVerificar == null ? null : nombreCuentaAVerificar.trim();
             Cursor cConInventario = db.rawQuery(
                     "SELECT con_inventario FROM cuentas WHERE Cuenta = ?",
-                    new String[]{nombreCuentaAVerificar});
+                    new String[]{nombreCuentaAVerificarRecortado});
             boolean esConInventario = false;
             try {
                 if (cConInventario.moveToFirst() && !cConInventario.isNull(0)) {
                     esConInventario = cConInventario.getInt(0) != 0;
+                } else {
+                    Log.w(TAG, "Bloqueo de inventario: no se encontró la cuenta \"" +
+                            nombreCuentaAVerificarRecortado + "\" al verificar con_inventario " +
+                            "— si esta cuenta SÍ existe y SÍ tiene inventario, revisar si el " +
+                            "nombre guardado en el ítem del documento no coincide exactamente " +
+                            "(mayúsculas/espacios) con el de \"cuentas\".");
                 }
             } finally {
                 cConInventario.close();
             }
             if (esConInventario) {
                 Toast.makeText(f1.getActivity(),
-                        "\"" + nombreCuentaAVerificar + "\" maneja inventario — el registro " +
-                                "de transacciones para cuentas con inventario todavía está " +
-                                "en construcción, no se puede guardar aquí por ahora.",
+                        "\"" + nombreCuentaAVerificarRecortado + "\" maneja inventario — el " +
+                                "registro de transacciones para cuentas con inventario " +
+                                "todavía está en construcción, no se puede guardar aquí por " +
+                                "ahora.",
                         Toast.LENGTH_LONG).show();
                 return;
             }
