@@ -206,10 +206,15 @@ public class A5_1_BackupManager {
                     // está presente.
                     // ⭐ NUEVO — a pedido de Jorge (27-sep): fila de encabezado. insertarTransaccion()
                     // ya sabe saltarla (primer campo literal "c1_Documento", nunca un dato real).
+                    // ⭐ NUEVO v11 — a pedido de Jorge (28-sep): "la idea de los CSV y sus columnas
+                    // es que reflejen los campos completos como los de sus tablas" — se agrega
+                    // tipo_cuenta_id como 15ta columna (cuenta_id ya era la 14ta). Puramente
+                    // aditivo al final, igual criterio que cuenta_id: F4_Cierres.insertarTransaccion()
+                    // ya sabe leerla si está presente y no rompe CSVs viejos de 13/14 columnas.
                     salidaArchivo_OutputStreamWriter.write(
                             "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                     "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id\n");
+                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id\n");
                     for (int i = 0; i < todasLasTransacciones_Result_ArrayLTT.size(); i++) {
                         A3_2_TipoTransaccionesGetsYSets TransaccionX = todasLasTransacciones_Result_ArrayLTT.get(i);
                         salidaArchivo_OutputStreamWriter.write(
@@ -226,7 +231,8 @@ public class A5_1_BackupManager {
                                         TransaccionX.tipoTget_11Grupo2MetodoEnA5() + "," +
                                         TransaccionX.tipoTget_12ColumnaDisponibleMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_13ColumnaDisponibleMetodoEnA5() + "," +
-                                        (TransaccionX.tipoTget_14CuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_14CuentaIdMetodoEnA5()) +
+                                        (TransaccionX.tipoTget_14CuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_14CuentaIdMetodoEnA5()) + "," +
+                                        (TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5()) +
                                         "\n");
                     }
 
@@ -270,10 +276,15 @@ public class A5_1_BackupManager {
 
                 // ⭐ NUEVO — a pedido de Jorge (27-sep): fila de encabezado. F4_Cierres.insertarTransaccion()
                 // ya sabe saltarla (primer campo literal "c1_Documento", nunca un dato real).
+                // ⭐ NUEVO v11 — a pedido de Jorge (28-sep): "la idea de los CSV y sus columnas es
+                // que reflejen los campos completos como los de sus tablas" — hasta ahora este
+                // resumen no traía cuenta_id NI tipo_cuenta_id (a diferencia del backup completo
+                // de guardarTodasLasTransancionsAUnArchivoCSV, que ya traía cuenta_id desde la
+                // Fase 4 parte C). Se agregan ambas al final, en el mismo orden que allá.
                 escrituraDeArchivo_FileWriter.append(
                         "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                 "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible\n");
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id\n");
 
                 A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase_Abstracta= ayudanteBD_Class.getWritableDatabase();
@@ -294,8 +305,12 @@ public class A5_1_BackupManager {
                 // transacción nueva recibe desde que se guarda (ver B12_DocumentPersistence). Se
                 // conserva el match por nombre SOLO como respaldo para filas viejas que todavía
                 // tengan cuenta_id NULL, para no perder ninguna fila que antes sí aparecía.
+                // ⭐ NUEVO v11 (28-sep): se agregan c.cuenta_id y c.tipo_cuenta_id al SELECT
+                // (columnas 6 y 7 del cursor) — mismo criterio que Cerrable arriba: constantes
+                // por cuenta, así que agrupar por t.c3_Cuenta no las hace ambiguas.
                 final Cursor transacciones_Cursor = sqliteDatabase_Abstracta.rawQuery
-                        ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable " +
+                        ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable, " +
+                                "c.cuenta_id, c.tipo_cuenta_id " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
                                 "WHERE t.c4_Signo != '?' GROUP BY t.c3_Cuenta;", null);
@@ -341,7 +356,11 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo_FileWriter.append( transacciones_Cursor.getString(4) );escrituraDeArchivo_FileWriter.append(",");// 11 grupo 2
                         // ⭐ CAMBIO — Fase 4 (parte C): antes "n a" fijo; ahora el Cerrable real de "cuentas".
                         escrituraDeArchivo_FileWriter.append("Cerrable".equals(transacciones_Cursor.getString(5)) ? "Cerrable" : "No Aplica");escrituraDeArchivo_FileWriter.append(","); // 12 columna disponible 1
-                        escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append("\n"); // 13 columna disponible 2
+                        escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append(","); // 13 columna disponible 2
+                        // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN (columnas
+                        // 6 y 7 del cursor) — mismo criterio nullable-safe que en el backup completo.
+                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(6) ? "" : transacciones_Cursor.getString(6));escrituraDeArchivo_FileWriter.append(","); // 14 cuenta_id
+                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(7) ? "" : transacciones_Cursor.getString(7));escrituraDeArchivo_FileWriter.append("\n"); // 15 tipo_cuenta_id
 
                     } while (transacciones_Cursor.moveToNext());
 
@@ -381,10 +400,13 @@ public class A5_1_BackupManager {
 
                 // ⭐ NUEVO — a pedido de Jorge (27-sep): fila de encabezado. F4_Cierres.insertarTransaccion()
                 // ya sabe saltarla (primer campo literal "c1_Documento", nunca un dato real).
+                // ⭐ NUEVO v11 — a pedido de Jorge (28-sep): mismo criterio que en
+                // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — se agregan cuenta_id y
+                // tipo_cuenta_id al final, que este resumen tampoco traía todavía.
                 escrituraDeArchivo.append(
                         "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                 "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible\n");
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id\n");
 
                 A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase = ayudanteBD.getWritableDatabase();
@@ -402,8 +424,11 @@ public class A5_1_BackupManager {
                 // ⭐ CAMBIO — tanda 3 v10: mismo cambio que en
                 // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — JOIN por cuenta_id en vez
                 // de por nombre, con el nombre como respaldo solo si cuenta_id viene NULL.
+                // ⭐ NUEVO v11 (28-sep): c.cuenta_id y c.tipo_cuenta_id al SELECT (columnas 6 y 7),
+                // mismo criterio que en el otro resumen.
                 final Cursor transaccionesCursor = sqliteDatabase.rawQuery(
-                        "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable " +
+                        "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable, " +
+                                "c.cuenta_id, c.tipo_cuenta_id " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
                                 "WHERE t.c4_Signo != '?' AND t.c12_ColumnaDisponible = 'Cerrable' " +
@@ -448,7 +473,10 @@ public class A5_1_BackupManager {
                         // ⭐ CAMBIO — Fase 4 (parte C): antes escribía "n a" fijo; ahora usa el
                         // Cerrable real leído del JOIN a "cuentas" (columna 5 del cursor).
                         escrituraDeArchivo.append("Cerrable".equals(transaccionesCursor.getString(5)) ? "Cerrable" : "No Aplica"); escrituraDeArchivo.append(","); // 12 columna disponible 1
-                        escrituraDeArchivo.append("n a"); escrituraDeArchivo.append("\n"); // 13 columna disponible 2 (sin cambios, espacio libre genuino)
+                        escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 13 columna disponible 2 (sin cambios, espacio libre genuino)
+                        // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN.
+                        escrituraDeArchivo.append(transaccionesCursor.isNull(6) ? "" : transaccionesCursor.getString(6)); escrituraDeArchivo.append(","); // 14 cuenta_id
+                        escrituraDeArchivo.append(transaccionesCursor.isNull(7) ? "" : transaccionesCursor.getString(7)); escrituraDeArchivo.append("\n"); // 15 tipo_cuenta_id
 
                     } while (transaccionesCursor.moveToNext());
 

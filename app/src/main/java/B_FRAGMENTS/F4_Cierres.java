@@ -650,6 +650,18 @@ public class F4_Cierres extends Fragment {
                 }
             }
 
+            // ⭐ NUEVO v11 — a pedido de Jorge (28-sep): tipo_cuenta_id (columna 15), si el CSV
+            // lo trae. Mismo criterio que cuenta_id arriba: compatible con CSVs de 13/14
+            // columnas (no viene, queda sin poner, NULL). Los 3 generadores de
+            // A5_1_BackupManager ya la escriben desde esta misma versión.
+            if (datos.length >= 15 && datos[14] != null && !datos[14].trim().isEmpty()) {
+                try {
+                    valores.put("tipo_cuenta_id", Long.parseLong(datos[14].trim()));
+                } catch (NumberFormatException nfe) {
+                    Log.e(TAG, "tipo_cuenta_id inválido en CSV, se omite: " + datos[14]);
+                }
+            }
+
             long idInsertado = db.insert("transacciones", null, valores);
             db.close();
             if (idInsertado == -1L) {
