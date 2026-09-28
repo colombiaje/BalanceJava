@@ -373,8 +373,13 @@ public class A22_QueryManager {
         // de leerse del cursor — mismo criterio ya usado desde la parte C para las escrituras
         // nuevas, ahora también aquí porque de lo contrario el SELECT explícito de estas 2
         // columnas revienta con SQLiteException "no such column" en cuanto se dropean.
+        // ⭐ NUEVO — v12 tanda 3: se agrega con_inventario como 9no elemento (índice 8), mismo
+        // criterio aditivo que cuenta_id/Cerrable/tipo_cuenta_id arriba — nada que lea este
+        // arreglo por índice 0-7 o por longitudes menores se ve afectado. Lo usa
+        // B12_DocumentPersistence para bloquear el registro de transacciones sobre cuentas
+        // con inventario hasta que exista esa UX (tanda 4).
         A21_OptimizedQuery.QueryBuilder queryBuilder = new A21_OptimizedQuery.QueryBuilder()
-                .select("Item", "Cuenta", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id")
+                .select("Item", "Cuenta", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id", "con_inventario")
                 .from("cuentas")
                 .where("Cuenta = ?", nombreCuenta);
 
@@ -387,7 +392,8 @@ public class A22_QueryManager {
                 cursor.getString(cursor.getColumnIndexOrThrow("Fecha")),
                 cursor.getString(cursor.getColumnIndexOrThrow("cuenta_id")), // ⭐ NUEVO — índice 5
                 cursor.getString(cursor.getColumnIndexOrThrow("Cerrable")), // ⭐ NUEVO — índice 6
-                cursor.getString(cursor.getColumnIndexOrThrow("tipo_cuenta_id")) // ⭐ NUEVO v10 — índice 7
+                cursor.getString(cursor.getColumnIndexOrThrow("tipo_cuenta_id")), // ⭐ NUEVO v10 — índice 7
+                cursor.getString(cursor.getColumnIndexOrThrow("con_inventario")) // ⭐ NUEVO v12 tanda 3 — índice 8
         });
 
         // Retornar el primer resultado como un QueryResult

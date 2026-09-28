@@ -55,6 +55,7 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -93,6 +94,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import A1BASES.A12_InventarioHelper;
 import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A1_2_OperacionesBD;
 import A1BASES.A3_1_TipoCuentasGetsYSets;
@@ -141,6 +143,11 @@ public class F2_Cuentas extends DialogFragment {
     CheckBox cerrableCuentaNueva_XChB;
     // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox de Conciliable, mismo patrón que Cerrable.
     CheckBox conciliableCuentaNueva_XChB;
+    // ⭐ NUEVO — v12 tanda 3: checkbox "con inventario" (modelo de costeo por inventario).
+    // Solo aplica en "Nueva cuenta" — handleClickViewNew()/handleClickViewModify() lo
+    // muestran/ocultan; ver conInventarioCuentaNueva_XTv en el layout.
+    CheckBox conInventarioCuentaNueva_XChB;
+    TextView conInventarioCuentaNueva_XTv;
     String itemCuentaNueva_String;
     String cuentaNueva_String;
     String grupo1CuentaNueva_String;
@@ -501,6 +508,9 @@ public class F2_Cuentas extends DialogFragment {
         grupo2CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo2CuentaNueva_XSp);
         cerrableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.cerrableCuentaNueva_XChB);
         conciliableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conciliableCuentaNueva_XChB);
+        // ⭐ NUEVO — v12 tanda 3.
+        conInventarioCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XChB);
+        conInventarioCuentaNueva_XTv=(TextView) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XTv);
         cuentasOrdenAzParaVistaDetalleCuenta_XSp=(Spinner) inflarViews_View.findViewById(R.id.cuentasOrdenAzParaVistaDetalleCuenta_XSp);
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
@@ -1096,6 +1106,11 @@ public class F2_Cuentas extends DialogFragment {
             clickSave_XBt.setVisibility(View.GONE);
             clickUpdate_XBt.setVisibility(View.VISIBLE);
             clickDeleteXBt.setVisibility(View.VISIBLE);
+            // ⭐ NUEVO — v12 tanda 3: "con inventario" solo se decide al CREAR la cuenta (ver
+            // documento de especificación, sección 4) — se oculta en Modificar para no dar a
+            // entender que se puede cambiar aquí.
+            conInventarioCuentaNueva_XTv.setVisibility(View.GONE);
+            conInventarioCuentaNueva_XChB.setVisibility(View.GONE);
 
         }
         catch (Exception e) {
@@ -1122,6 +1137,9 @@ public class F2_Cuentas extends DialogFragment {
             clickSave_XBt.setVisibility(View.VISIBLE);
             clickUpdate_XBt.setVisibility(View.GONE);
             clickDeleteXBt.setVisibility(View.GONE);
+            // ⭐ NUEVO — v12 tanda 3.
+            conInventarioCuentaNueva_XTv.setVisibility(View.VISIBLE);
+            conInventarioCuentaNueva_XChB.setVisibility(View.VISIBLE);
 
             //seeModifyXChB.setChecked(false);
         }
@@ -1185,9 +1203,13 @@ public class F2_Cuentas extends DialogFragment {
             String cerrableCuentaNueva_String = cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null;
             // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox Conciliable → "Conciliable" o null.
             String conciliableCuentaNueva_String = conciliableCuentaNueva_XChB.isChecked() ? "Conciliable" : null;
+            // ⭐ NUEVO — v12 tanda 3: checkbox "con inventario". Se lee ANTES de
+            // cleanClickFieldsAccount() (más abajo), que lo vuelve a dejar en false.
+            boolean conInventarioCuentaNueva_boolean = conInventarioCuentaNueva_XChB.isChecked();
             a3_operacionesBD.insertarCuentas(itemCuentaNueva_String, cuentaNueva_String,
                     grupo1CuentaNueva_String, grupo2CuentaNueva_String, fechaCuentaNueva_String,
-                    cerrableCuentaNueva_String, tipoCuentaIdSeleccionado, conciliableCuentaNueva_String);
+                    cerrableCuentaNueva_String, tipoCuentaIdSeleccionado, conciliableCuentaNueva_String,
+                    conInventarioCuentaNueva_boolean);
 
             cleanClickFieldsAccount();
             Toast.makeText(getActivity(), "! Registro de cuenta nueva guardado ! ", Toast.LENGTH_SHORT).show();
@@ -1198,7 +1220,70 @@ public class F2_Cuentas extends DialogFragment {
             notificarActualizacionCuentas();
 
             dynamicQuery();
+
+            // ⭐ NUEVO — v12 tanda 3: si la cuenta se creó con inventario, se invita a dar de
+            // alta el primer artículo de una vez (documento de especificación, sección 4).
+            // "proximoCuentaId" (calculado arriba, antes de guardar) es el cuenta_id real que
+            // acaba de recibir esta cuenta — mismo criterio ya usado para "Item" (ver el
+            // comentario de Fase 4 Objetivo 2 al principio de este método).
+            if (conInventarioCuentaNueva_boolean) {
+                mostrarDialogoPrimerArticulo(proximoCuentaId, cuentaNueva_String);
+            }
         }
+    }
+
+    // ⭐ NUEVO — v12 tanda 3: diálogo simple para dar de alta el primer artículo de una
+    // cuenta con inventario recién creada (nombre obligatorio, unidad opcional). Se puede
+    // cancelar sin bloquear nada — si se deja para después, se puede crear igual al
+    // registrar la primera transacción en la tanda 4 (su selector de artículo va a incluir
+    // "crear uno nuevo en el momento", según el documento de especificación).
+    private void mostrarDialogoPrimerArticulo(long cuentaId, String nombreCuenta) {
+        LinearLayout contenedor = new LinearLayout(getActivity());
+        contenedor.setOrientation(LinearLayout.VERTICAL);
+        int paddingPx = (int) (16 * getResources().getDisplayMetrics().density);
+        contenedor.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+
+        final EditText nombreArticulo_XEt = new EditText(getActivity());
+        nombreArticulo_XEt.setHint("Nombre del artículo (obligatorio)");
+        contenedor.addView(nombreArticulo_XEt);
+
+        final EditText unidadArticulo_XEt = new EditText(getActivity());
+        unidadArticulo_XEt.setHint("Unidad (opcional)");
+        contenedor.addView(unidadArticulo_XEt);
+
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Primer artículo de \"" + nombreCuenta + "\"")
+                .setMessage("Esta cuenta maneja inventario — da de alta al menos un artículo " +
+                        "(por ejemplo, \"Ecopetrol\" o \"USD\").")
+                .setView(contenedor)
+                .setCancelable(false)
+                .setPositiveButton("Guardar artículo", (dialog, which) -> {
+                    String nombre = nombreArticulo_XEt.getText().toString().trim();
+                    if (nombre.isEmpty()) {
+                        Toast.makeText(getActivity(), "Falta el nombre del artículo",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String unidad = unidadArticulo_XEt.getText().toString().trim();
+                    A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
+                            getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
+                    SQLiteDatabase db = ayudanteBD.getWritableDatabase();
+                    try {
+                        new A12_InventarioHelper().insertarItemInventario(
+                                db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
+                        Toast.makeText(getActivity(), "Artículo \"" + nombre + "\" guardado",
+                                Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        Log.e("F2_DEBUG", "Error al guardar el primer artículo de inventario", e);
+                        Toast.makeText(getActivity(),
+                                "Error al guardar el artículo: " + e.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                    } finally {
+                        db.close();
+                    }
+                })
+                .setNegativeButton("Ahora no", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     // ⭐ NUEVO MÉTODO para notificar actualización
@@ -1487,6 +1572,7 @@ public class F2_Cuentas extends DialogFragment {
         grupo1CuentaNueva_XSp.setSelection(0);
         cerrableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — Fase 4 (parte B)
         conciliableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v11 tanda 3 (parte A)
+        conInventarioCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v12 tanda 3
 
         // ⭐ NUEVO — Fase 4 Objetivo 2: se limpian junto con el resto de los campos, para
         // que no quede un cuenta_id de una cuenta ya no visible listo para reutilizarse

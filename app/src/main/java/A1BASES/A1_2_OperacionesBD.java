@@ -78,7 +78,7 @@ public class A1_2_OperacionesBD extends Activity {
     public void insertarCuentas(String stringItemDoc, String cuenta_String,
                                 String grupo1_String, String grupo2_String, String fecha_String,
                                 String cerrable_String, Long tipoCuentaId_Long,
-                                String conciliable_String) {
+                                String conciliable_String, boolean conInventario_boolean) {
         abrirBaseDatos();
         ContentValues contenedor_ContentValues = new ContentValues();
         contenedor_ContentValues.put("Item", stringItemDoc);
@@ -100,6 +100,10 @@ public class A1_2_OperacionesBD extends Activity {
         if (tipoCuentaId_Long != null) {
             contenedor_ContentValues.put("tipo_cuenta_id", tipoCuentaId_Long);
         }
+        // ⭐ NUEVO — v12 tanda 3: interruptor "con inventario" (ver A1_1_AyudanteBD, migración
+        // v14 / tanda 1). Solo se escribe al CREAR — F2_Cuentas.clickModify() no toca esta
+        // columna, así que modificar una cuenta existente nunca cambia su con_inventario.
+        contenedor_ContentValues.put("con_inventario", conInventario_boolean ? 1 : 0);
         sqliteDatabase_Abstracta.insert("cuentas", null, contenedor_ContentValues);
 
         // ⭐ AGREGAR ESTO:

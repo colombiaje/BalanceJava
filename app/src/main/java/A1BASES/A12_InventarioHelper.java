@@ -26,6 +26,13 @@ import android.database.sqlite.SQLiteDatabase;
  *   forma atómica, con el monto siempre consistente con unidades × precio_unitario (reglas
  *   de negocio #1 y #2) — para una salida, el precio_unitario se calcula solo como el
  *   costo promedio vigente (nunca lo recibe del llamador), tal como Jorge confirmó.
+ *
+ * ⭐ NUEVO v12 tanda 3: insertarItemInventario y existenItemsPorCuenta — CRUD mínimo de
+ * items_inventario, usado por F2_Cuentas al crear una cuenta con inventario (sección 4 del
+ * documento: "al guardar la cuenta la app debe llevarlo a dar de alta al menos un
+ * artículo"). SIGUE sin usarse guardarTransaccionConInventario desde ninguna pantalla — el
+ * registro de transacciones sobre cuentas con inventario sigue bloqueado hasta la tanda 4
+ * (ver el bloqueo agregado en B12_DocumentPersistence).
  */
 public class A12_InventarioHelper {
 
@@ -201,6 +208,55 @@ public class A12_InventarioHelper {
             return transaccionId;
         } finally {
             db.endTransaction();
+        }
+    }
+
+    /**
+     * Da de alta un artículo nuevo en items_inventario para una cuenta con inventario (tanda
+     * 3: alta del primer artículo al crear la cuenta; también sirve para la tanda 4, cuando
+     * el selector de artículo del registro de transacciones permita "crear uno nuevo en el
+     * momento", tal como pide el documento de especificación).
+     *
+     * @param db        base de datos escribible.
+     * @param cuentaId  cuenta dueña del artículo — se asume ya con con_inventario = 1; este
+     *                  método no lo valida (a diferencia de guardarTransaccionConInventario,
+     *                  que sí valida el artículo contra su cuenta antes de guardar una
+     *                  transacción) porque aquí el llamador acaba de crear o ya conoce esa
+     *                  cuenta.
+     * @param nombre    nombre del artículo — obligatorio, no puede quedar vacío.
+     * @param unidad    unidad del artículo (ej. "acciones", "USD") — opcional, puede ser
+     *                  null o vacío.
+     * @return el item_id recién creado.
+     * @throws IllegalArgumentException si nombre viene vacío o null.
+     * @throws android.database.sqlite.SQLiteConstraintException si ya existe un artículo con
+     *         ese mismo nombre en esa cuenta (UNIQUE cuenta_id + nombre).
+     */
+    public long insertarItemInventario(SQLiteDatabase db, long cuentaId, String nombre, String unidad) {
+        if (nombre == null || nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre del artículo no puede estar vacío.");
+        }
+        ContentValues valores = new ContentValues();
+        valores.put("cuenta_id", cuentaId);
+        valores.put("nombre", nombre.trim());
+        if (unidad != null && !unidad.trim().isEmpty()) {
+            valores.put("unidad", unidad.trim());
+        }
+        return db.insertOrThrow("items_inventario", null, valores);
+    }
+
+    /**
+     * true si la cuenta ya tiene al menos un artículo dado de alta (activo o no) en
+     * items_inventario. Pensado para que una futura pantalla (tanda 4/5) pueda avisar si una
+     * cuenta con inventario todavía no tiene ningún artículo.
+     */
+    public boolean existenItemsPorCuenta(SQLiteDatabase db, long cuentaId) {
+        Cursor c = db.rawQuery(
+                "SELECT COUNT(*) FROM items_inventario WHERE cuenta_id = ?",
+                new String[]{String.valueOf(cuentaId)});
+        try {
+            return c.moveToFirst() && c.getLong(0) > 0;
+        } finally {
+            c.close();
         }
     }
 }

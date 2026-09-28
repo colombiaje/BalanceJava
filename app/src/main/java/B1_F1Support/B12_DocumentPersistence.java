@@ -40,6 +40,37 @@ public class B12_DocumentPersistence {
         f1.renumerarItemsListaDocumento();
 
         SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
+
+        // ⭐ NUEVO — v12 tanda 3: este formulario (el de siempre) todavía no sabe pedir
+        // item/unidades/precio_unitario para una cuenta con con_inventario = 1 — eso llega
+        // en la tanda 4, que va a conectar aquí la lógica ya lista y probada de
+        // A12_InventarioHelper (tanda 2). Mientras tanto, si CUALQUIER ítem de este
+        // documento apunta a una cuenta con inventario, se bloquea el guardado COMPLETO
+        // antes de tocar la base — nunca a medias — para que nunca pueda quedar una
+        // transacción sin su fila correspondiente en transacciones_inventario.
+        for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
+            String nombreCuentaAVerificar = p.tipoTget_3CuentaMetodoEnA5();
+            Cursor cConInventario = db.rawQuery(
+                    "SELECT con_inventario FROM cuentas WHERE Cuenta = ?",
+                    new String[]{nombreCuentaAVerificar});
+            boolean esConInventario = false;
+            try {
+                if (cConInventario.moveToFirst() && !cConInventario.isNull(0)) {
+                    esConInventario = cConInventario.getInt(0) != 0;
+                }
+            } finally {
+                cConInventario.close();
+            }
+            if (esConInventario) {
+                Toast.makeText(f1.getActivity(),
+                        "\"" + nombreCuentaAVerificar + "\" maneja inventario — el registro " +
+                                "de transacciones para cuentas con inventario todavía está " +
+                                "en construcción, no se puede guardar aquí por ahora.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+        }
+
         db.beginTransaction();
         try {
             for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
