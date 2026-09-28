@@ -1280,15 +1280,22 @@ public class F2_Cuentas extends DialogFragment {
         if (!existingText.isEmpty()) {
             // ⭐ CAMBIO — Fase 4 (parte B): se agrega Cerrable al SELECT para poder marcar el
             // checkbox nuevo con el estado real de la cuenta al abrirla en Modificar.
-            // ⭐ CAMBIO — Fase 4 Objetivo 2: se agrega cuenta_id (índice 4) — se usa para
+            // ⭐ CAMBIO — Fase 4 Objetivo 2: se agrega cuenta_id — se usa para
             // identificar la cuenta al renombrar y para mostrarlo como "Item" en Modificar.
-            // ⭐ CAMBIO — tanda 2 v10: se agrega tipo_cuenta_id (índice 5) — reemplaza a Grupo1/
-            // Grupo2 (índices 1 y 2, que se conservan en el SELECT solo porque otros lugares de
-            // este mismo archivo todavía los usan) para posicionar el spinner único de abajo.
-            // ⭐ NUEVO — v11 tanda 3 (parte A): se agrega conciliable (índice 6), mismo criterio
+            // ⭐ CAMBIO — tanda 2 v10: se agrega tipo_cuenta_id — reemplaza a Grupo1/
+            // Grupo2 para posicionar el spinner único de abajo.
+            // ⭐ NUEVO — v11 tanda 3 (parte A): se agrega conciliable, mismo criterio
             // aditivo que Cerrable — para poder marcar el checkbox nuevo al abrir en Modificar.
+            // ⭐ CORRECCIÓN — v11 tanda 3 (fix post-parte D, encontrado por Jorge al probar en
+            // el dispositivo): Grupo1/Grupo2 se retiran del SELECT — ya no existen en "cuentas"
+            // desde la migración v13 (ver A1_1_AyudanteBD) y este SELECT explícito por nombre
+            // se me había escapado en la revisión de la parte D — hacía fallar la app (no such
+            // column: Grupo1) cada vez que se elegía una cuenta de la lista de sugerencias, en
+            // "Nueva cuenta" y en "Modificar cuenta" por igual. Los índices leídos abajo se
+            // corren 2 posiciones a la izquierda: Cerrable 3→1, cuenta_id 4→2, tipo_cuenta_id
+            // 5→3, conciliable 6→4.
             Cursor fila = db.rawQuery
-                    ("select Item, Grupo1, Grupo2, Cerrable, cuenta_id, tipo_cuenta_id, conciliable from" +
+                    ("select Item, Cerrable, cuenta_id, tipo_cuenta_id, conciliable from" +
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1297,7 +1304,7 @@ public class F2_Cuentas extends DialogFragment {
                 // ⭐ CAMBIO — Fase 4 Objetivo 2: el Item mostrado ya no es el texto histórico
                 // de la columna Item — ver el bloque de abajo (Nueva usa el próximo cuenta_id
                 // previsto, Modificar usa el cuenta_id real de la cuenta cargada).
-                long cuentaIdCargada_Long = fila.getLong(4);
+                long cuentaIdCargada_Long = fila.getLong(2);
 
                 // ⭐ CAMBIO — tanda 2 v10: se posiciona el spinner único por tipo_cuenta_id en
                 // vez de por el texto de Grupo1/Grupo2 por separado. Si la cuenta todavía no
@@ -1306,8 +1313,8 @@ public class F2_Cuentas extends DialogFragment {
                 // posición 0 (en blanco) — el usuario tendrá que elegir un tipo de cuenta antes
                 // de poder guardar cambios, en vez de arrastrar una clasificación adivinada.
                 int indiceTipoCuenta = 0;
-                if (!fila.isNull(5)) {
-                    long tipoCuentaIdCargado = fila.getLong(5);
+                if (!fila.isNull(3)) {
+                    long tipoCuentaIdCargado = fila.getLong(3);
                     for (int i = 0; i < tipoCuentaIds_ArrayLong.length; i++) {
                         if (tipoCuentaIds_ArrayLong[i] == tipoCuentaIdCargado) {
                             indiceTipoCuenta = i;
@@ -1318,9 +1325,9 @@ public class F2_Cuentas extends DialogFragment {
                 grupo1CuentaNueva_XSp.setSelection(indiceTipoCuenta);
 
                 // ⭐ NUEVO — Fase 4 (parte B).
-                cerrableCuentaNueva_XChB.setChecked("Cerrable".equals(fila.getString(3)));
+                cerrableCuentaNueva_XChB.setChecked("Cerrable".equals(fila.getString(1)));
                 // ⭐ NUEVO — v11 tanda 3 (parte A).
-                conciliableCuentaNueva_XChB.setChecked("Conciliable".equals(fila.getString(6)));
+                conciliableCuentaNueva_XChB.setChecked("Conciliable".equals(fila.getString(4)));
 
                 //aplica en nuevas
 
