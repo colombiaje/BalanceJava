@@ -1668,8 +1668,15 @@ public class F2_Cuentas extends DialogFragment {
 
             ContentValues contenedor_ContentValues = new ContentValues();
             contenedor_ContentValues.put("Cuenta", cuenta);
-            contenedor_ContentValues.put("Grupo1", g1);
-            contenedor_ContentValues.put("Grupo2", g2);
+            // ⭐ CAMBIO — v11 tanda 3 (parte D): "cuentas" pierde Grupo1/Grupo2 (ver
+            // A1_1_AyudanteBD, migración v13) — se quitan los 2 .put("Grupo1"/"Grupo2", ...) que
+            // había aquí. A diferencia de la parte C (que dejó este método intacto a propósito,
+            // ver NOTA arriba: ahí no había ningún problema de NOT NULL/auditoría que resolver),
+            // aquí sí es obligatorio: una vez que la columna deja de existir, seguir
+            // escribiéndola revienta con SQLiteException "no such column" sin importar el valor.
+            // g1/g2 quedan calculados (dividirNombreTipoCuentaEnGrupos()) pero sin usarse —
+            // tipoCuentaIdSeleccionado, guardado justo abajo, ya es la fuente real de
+            // clasificación desde la tanda 2 v10.
             // ⭐ NUEVO — tanda 2 v10: al modificar una cuenta, tipo_cuenta_id ahora se
             // actualiza junto con Grupo1/Grupo2 — antes solo lo llenaba el backfill de la
             // migración v9, así que una cuenta editada después quedaba con tipo_cuenta_id
@@ -2758,8 +2765,11 @@ public class F2_Cuentas extends DialogFragment {
             ContentValues valores = new ContentValues();
             valores.put("Item", datos[0]);
             valores.put("Cuenta", datos[1]);
-            valores.put("Grupo1", datos[2]);
-            valores.put("Grupo2", datos[3]);
+            // ⭐ CAMBIO — v11 tanda 3 (parte D): "cuentas" pierde Grupo1/Grupo2 (ver
+            // A1_1_AyudanteBD, migración v13) — se quitan estos 2 .put(). datos[2]/datos[3]
+            // (las columnas Grupo1/Grupo2 del CSV, que se mantienen en blanco para siempre —
+            // ver A5_1_BackupManager) ya no se leen aquí; el resto de posiciones del array
+            // (datos[4] en adelante) no se ve afectado.
             valores.put("Fecha", datos[4]);
 
             // ⭐ NUEVO — Fase 4 (parte C): cuenta_id, codigo_cuenta y Cerrable, si el CSV los

@@ -82,11 +82,16 @@ public class B12_DocumentPersistence {
                 // guardarModificacion() (ver ahí).
                 Long tipoCuentaIdParaGuardar = p.tipoTget_16TipoCuentaIdMetodoEnA5();
 
+                // ⭐ CAMBIO — v11 tanda 3 (parte D): "transacciones" pierde c10_Grupo1/c11_Grupo2
+                // (ver A1_1_AyudanteBD, migración v13) — se quitan de la lista de columnas y de
+                // los VALUES; ya no se escriben (desde parte C solo se guardaba "" de todas
+                // formas). p.tipoTget_10Grupo1MetodoEnA5()/p.tipoTget_11Grupo2MetodoEnA5() dejan
+                // de leerse aquí.
                 db.execSQL(
                         "INSERT INTO transacciones (" +
                                 "c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
                                 "c6_Descripcion, c7_FechaYhora, c8_FechaInicial, " +
-                                "c9_FechaModificacion, c10_Grupo1, c11_Grupo2, " +
+                                "c9_FechaModificacion, " +
                                 "c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id, " +
                                 "tipo_cuenta_id) " +
                                 "VALUES ('" +
@@ -99,8 +104,6 @@ public class B12_DocumentPersistence {
                                 p.tipoTget_7FechaYHoraMetodoEnA5()         + "','" +
                                 p.tipoTget_8FechaInicialMetodoEnA5()       + "','" +
                                 p.tipoTget_9FechaModificacionMetodoEnA5()  + "','" +
-                                p.tipoTget_10Grupo1MetodoEnA5()            + "','" +
-                                p.tipoTget_11Grupo2MetodoEnA5()            + "','" +
                                 p.tipoTget_12ColumnaDisponibleMetodoEnA5() + "','" +
                                 p.tipoTget_13ColumnaDisponibleMetodoEnA5() + "'," +
                                 (cuentaIdParaGuardar != null ? cuentaIdParaGuardar : "NULL") + "," +

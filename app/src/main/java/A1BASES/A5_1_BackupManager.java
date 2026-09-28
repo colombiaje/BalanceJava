@@ -326,10 +326,15 @@ public class A5_1_BackupManager {
                 // conserva el match por nombre SOLO como respaldo para filas viejas que todavía
                 // tengan cuenta_id NULL, para no perder ninguna fila que antes sí aparecía.
                 // ⭐ NUEVO v11 (28-sep): se agregan c.cuenta_id y c.tipo_cuenta_id al SELECT
-                // (columnas 6 y 7 del cursor) — mismo criterio que Cerrable arriba: constantes
+                // (columnas 4 y 5 del cursor) — mismo criterio que Cerrable arriba: constantes
                 // por cuenta, así que agrupar por t.c3_Cuenta no las hace ambiguas.
+                // ⭐ CAMBIO — v11 tanda 3 (parte D): t.c10_Grupo1/t.c11_Grupo2 se retiran del
+                // SELECT — la columna ya no existe en "transacciones" (ver A1_1_AyudanteBD,
+                // migración v13). El resto de columnas del cursor se recorren 2 posiciones a la
+                // izquierda (Cerrable: 5→3, cuenta_id: 6→4, tipo_cuenta_id: 7→5 — ver más abajo,
+                // donde se escriben "" literales para las columnas 10/11 del CSV en su lugar).
                 final Cursor transacciones_Cursor = sqliteDatabase_Abstracta.rawQuery
-                        ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable, " +
+                        ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), c.Cerrable, " +
                                 "c.cuenta_id, c.tipo_cuenta_id " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
@@ -372,15 +377,19 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo_FileWriter.append(""+dateCurrent_ArrayInteger[5]);escrituraDeArchivo_FileWriter.append(","); // 8 fecha inicial
                         //escrituraDeArchivo_FileWriter.append(dateCurrent_ArrayInteger[0] + "/"+dateCurrent_ArrayInteger[1] + "/"+dateCurrent_ArrayInteger[2] );escrituraDeArchivo_FileWriter.append(","); // 8 fecha inicial
                         escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append(","); //9 fecha de modificacion
-                        escrituraDeArchivo_FileWriter.append( transacciones_Cursor.getString(3) );escrituraDeArchivo_FileWriter.append(",");// 10 grupo 1
-                        escrituraDeArchivo_FileWriter.append( transacciones_Cursor.getString(4) );escrituraDeArchivo_FileWriter.append(",");// 11 grupo 2
+                        // ⭐ CAMBIO — v11 tanda 3 (parte D): Grupo1/Grupo2 ya no se leen del cursor
+                        // (ver el SELECT más arriba) — el CSV conserva estas 2 columnas en blanco
+                        // para siempre (formato congelado, ver A5_1_BackupManager arriba).
+                        escrituraDeArchivo_FileWriter.append("");escrituraDeArchivo_FileWriter.append(",");// 10 grupo 1
+                        escrituraDeArchivo_FileWriter.append("");escrituraDeArchivo_FileWriter.append(",");// 11 grupo 2
                         // ⭐ CAMBIO — Fase 4 (parte C): antes "n a" fijo; ahora el Cerrable real de "cuentas".
-                        escrituraDeArchivo_FileWriter.append("Cerrable".equals(transacciones_Cursor.getString(5)) ? "Cerrable" : "No Aplica");escrituraDeArchivo_FileWriter.append(","); // 12 columna disponible 1
+                        escrituraDeArchivo_FileWriter.append("Cerrable".equals(transacciones_Cursor.getString(3)) ? "Cerrable" : "No Aplica");escrituraDeArchivo_FileWriter.append(","); // 12 columna disponible 1
                         escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append(","); // 13 columna disponible 2
                         // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN (columnas
-                        // 6 y 7 del cursor) — mismo criterio nullable-safe que en el backup completo.
-                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(6) ? "" : transacciones_Cursor.getString(6));escrituraDeArchivo_FileWriter.append(","); // 14 cuenta_id
-                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(7) ? "" : transacciones_Cursor.getString(7));escrituraDeArchivo_FileWriter.append(","); // 15 tipo_cuenta_id
+                        // 4 y 5 del cursor, tras retirar Grupo1/Grupo2 del SELECT — parte D) — mismo
+                        // criterio nullable-safe que en el backup completo.
+                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(4) ? "" : transacciones_Cursor.getString(4));escrituraDeArchivo_FileWriter.append(","); // 14 cuenta_id
+                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(5) ? "" : transacciones_Cursor.getString(5));escrituraDeArchivo_FileWriter.append(","); // 15 tipo_cuenta_id
                         // ⭐ NUEVO v11 (28-sep, tercera ronda) — a pedido de Jorge: transaccion_id
                         // como 16ta columna, por consistencia de conteo de columnas entre los 3
                         // CSV de transacciones (facilita comparar/homologar CSVs de distintas
@@ -457,10 +466,15 @@ public class A5_1_BackupManager {
                 // ⭐ CAMBIO — tanda 3 v10: mismo cambio que en
                 // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — JOIN por cuenta_id en vez
                 // de por nombre, con el nombre como respaldo solo si cuenta_id viene NULL.
-                // ⭐ NUEVO v11 (28-sep): c.cuenta_id y c.tipo_cuenta_id al SELECT (columnas 6 y 7),
-                // mismo criterio que en el otro resumen.
+                // ⭐ NUEVO v11 (28-sep): c.cuenta_id y c.tipo_cuenta_id al SELECT (columnas 4 y 5,
+                // tras retirar Grupo1/Grupo2 en la parte D — ver abajo), mismo criterio que en el
+                // otro resumen.
+                // ⭐ CAMBIO — v11 tanda 3 (parte D): t.c10_Grupo1/t.c11_Grupo2 se retiran del
+                // SELECT — la columna ya no existe en "transacciones" (ver A1_1_AyudanteBD,
+                // migración v13). El resto de columnas del cursor se recorren 2 posiciones a la
+                // izquierda (Cerrable: 5→3, cuenta_id: 6→4, tipo_cuenta_id: 7→5).
                 final Cursor transaccionesCursor = sqliteDatabase.rawQuery(
-                        "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), t.c10_Grupo1, t.c11_Grupo2, c.Cerrable, " +
+                        "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), c.Cerrable, " +
                                 "c.cuenta_id, c.tipo_cuenta_id " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
@@ -501,15 +515,20 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo.append("" + dateCurrent_ArrayInteger[5]); escrituraDeArchivo.append(","); // 8 fecha inicial
                         // escrituraDeArchivo.append(dateCurrent_ArrayInteger[0] + "/" + dateCurrent_ArrayInteger[1] + "/" + dateCurrent_ArrayInteger[2]); escrituraDeArchivo.append(","); // 8 fecha inicial
                         escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 9 fecha de modificacion
-                        escrituraDeArchivo.append(transaccionesCursor.getString(3)); escrituraDeArchivo.append(","); // 10 grupo 1
-                        escrituraDeArchivo.append(transaccionesCursor.getString(4)); escrituraDeArchivo.append(","); // 11 grupo 2
+                        // ⭐ CAMBIO — v11 tanda 3 (parte D): Grupo1/Grupo2 ya no se leen del cursor
+                        // (ver el SELECT más arriba) — el CSV conserva estas 2 columnas en blanco
+                        // para siempre (formato congelado).
+                        escrituraDeArchivo.append(""); escrituraDeArchivo.append(","); // 10 grupo 1
+                        escrituraDeArchivo.append(""); escrituraDeArchivo.append(","); // 11 grupo 2
                         // ⭐ CAMBIO — Fase 4 (parte C): antes escribía "n a" fijo; ahora usa el
-                        // Cerrable real leído del JOIN a "cuentas" (columna 5 del cursor).
-                        escrituraDeArchivo.append("Cerrable".equals(transaccionesCursor.getString(5)) ? "Cerrable" : "No Aplica"); escrituraDeArchivo.append(","); // 12 columna disponible 1
+                        // Cerrable real leído del JOIN a "cuentas" (columna 3 del cursor, tras
+                        // retirar Grupo1/Grupo2 del SELECT — parte D).
+                        escrituraDeArchivo.append("Cerrable".equals(transaccionesCursor.getString(3)) ? "Cerrable" : "No Aplica"); escrituraDeArchivo.append(","); // 12 columna disponible 1
                         escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 13 columna disponible 2 (sin cambios, espacio libre genuino)
-                        // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN.
-                        escrituraDeArchivo.append(transaccionesCursor.isNull(6) ? "" : transaccionesCursor.getString(6)); escrituraDeArchivo.append(","); // 14 cuenta_id
-                        escrituraDeArchivo.append(transaccionesCursor.isNull(7) ? "" : transaccionesCursor.getString(7)); escrituraDeArchivo.append(","); // 15 tipo_cuenta_id
+                        // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN
+                        // (columnas 4 y 5 del cursor, tras retirar Grupo1/Grupo2 — parte D).
+                        escrituraDeArchivo.append(transaccionesCursor.isNull(4) ? "" : transaccionesCursor.getString(4)); escrituraDeArchivo.append(","); // 14 cuenta_id
+                        escrituraDeArchivo.append(transaccionesCursor.isNull(5) ? "" : transaccionesCursor.getString(5)); escrituraDeArchivo.append(","); // 15 tipo_cuenta_id
                         // ⭐ NUEVO v11 (28-sep, tercera ronda) — a pedido de Jorge: transaccion_id
                         // como 16ta columna, siempre vacía (mismo criterio que en
                         // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — fila NUEVA de saldo

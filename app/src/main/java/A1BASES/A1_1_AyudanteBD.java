@@ -130,6 +130,24 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   (más seguro ahora que F2_Cuentas permite renombrar cuentas). Grupo1/Grupo2 siguen sin tocarse
 //   ni borrarse (eso es la v11); B11_DocumentCalculator/B12_DocumentPersistence — el lado que
 //   ESCRIBE una transacción nueva — tampoco se toca en esta versión.
+// ⭐ MODIFICADO: Versión 13 — v11 tanda 3 (parte D, paso final): se retiran definitivamente
+//   cuentas.Grupo1/Grupo2 y transacciones.c10_Grupo1/c11_Grupo2 — el modelo de clasificación
+//   contable (tipo_cuenta_id) es, desde ahora, la única fuente de verdad. Ambas tablas se
+//   recrean (SQLite en minSdk 27 no soporta DROP COLUMN de forma confiable), preservando
+//   cuenta_id/transaccion_id exactos — ver el bloque "if (oldVersion < 13)" en onUpgrade() para
+//   el detalle completo. También se dropean los 2 catálogos de Grupo1/Grupo2 (Fase 2, v4), sin
+//   uso desde ahora. Del lado del código: mapTransactionFromCursor/mapCuentasFromCursor
+//   (A21_OptimizedQuery) ajustan su lectura posicional; los 5 puntos de escritura que nombraban
+//   estas columnas explícitamente (INSERT/ContentValues en B12_DocumentPersistence,
+//   A1_2_OperacionesBD, F2_Cuentas —registrarNuevas() y clickModify()—, F4_Cierres y
+//   F1_CrudDocumento) dejan de referenciarlas; A22_QueryManager.queryAttributesByAccount() deja
+//   de seleccionarlas por nombre (SELECT explícito, no *); A5_1_BackupManager deja de leerlas de
+//   "transacciones" en los 2 resúmenes de cierre (los backups CSV conservan las columnas
+//   Grupo1/Grupo2 en blanco para siempre — formato congelado). De paso, aprovechando esta misma
+//   recreación de tabla, la pantalla "Ver Cuentas" (D_F2_AdaptadorCuentas) recibe el mismo
+//   tratamiento ya aplicado en la parte B a las 3 pantallas de lista de transacciones: la columna
+//   que mostraba Grupo1 ahora muestra el nombre de tipo_cuenta (JOIN nuevo en
+//   A22_QueryManager.queryAllAccounts()).
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -138,8 +156,10 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 10 → 11 para disparar onUpgrade en dispositivos existentes (ver Fase 6, parte C, arriba).
-    public static final int version1BalanceSqlite_int_PSF = 12;
+    // ⭐ CAMBIO: versión 12 → 13 para disparar onUpgrade en dispositivos existentes — retira
+    // cuentas.Grupo1/Grupo2 y transacciones.c10_Grupo1/c11_Grupo2 (ver v11 tanda 3, parte D,
+    // y la migración "if (oldVersion < 13)" en onUpgrade()).
+    public static final int version1BalanceSqlite_int_PSF = 13;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -177,14 +197,17 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     //  DDL — TABLAS ORIGINALES (sin cambios)
     // ─────────────────────────────────────────────
+    // ⭐ CAMBIO — v11 tanda 3 (parte D): c10_Grupo1/c11_Grupo2 se retiran de la DDL de
+    // instalaciones frescas (ver comentario de clase arriba y la migración v13 en onUpgrade(),
+    // que aplica el mismo cambio en dispositivos existentes vía recreación de tabla).
     String crearTransacciones_String =
             "CREATE TABLE IF NOT EXISTS transacciones(" +
                     "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
                     "c3_Cuenta TEXT NOT NULL, c4_Signo TEXT NOT NULL, " +
                     "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
                     "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
-                    "c9_FechaModificacion TEXT NOT NULL, c10_Grupo1 TEXT NOT NULL, " +
-                    "c11_Grupo2 TEXT NOT NULL, c12_ColumnaDisponible TEXT NOT NULL, " +
+                    "c9_FechaModificacion TEXT NOT NULL, " +
+                    "c12_ColumnaDisponible TEXT NOT NULL, " +
                     "c13_ColumnaDisponible TEXT NOT NULL, " +
                     // ⭐ NUEVO v3: referencia real hacia cuentas.cuenta_id (ver Fase 1).
                     "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
@@ -213,10 +236,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // importa para nada del mapeo existente.
                     "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))";
 
+    // ⭐ CAMBIO — v11 tanda 3 (parte D): Grupo1/Grupo2 se retiran de la DDL de instalaciones
+    // frescas (ver comentario de clase arriba y la migración v13 en onUpgrade()).
     String crearCuentas_String =
             "CREATE TABLE IF NOT EXISTS cuentas (" +
-                    "Item TEXT NOT NULL, Cuenta TEXT NOT NULL, Grupo1 TEXT NOT NULL, " +
-                    "Grupo2 TEXT NOT NULL, Fecha TEXT NOT NULL, " +
+                    "Item TEXT NOT NULL, Cuenta TEXT NOT NULL, Fecha TEXT NOT NULL, " +
                     // ⭐ NUEVO v3: llave primaria técnica + código de plan de cuentas, ambas al
                     // final para no correr el orden posicional de ningún query existente (Fase 1).
                     "cuenta_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -563,10 +587,14 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     //  COLUMNAS (para uso en queries de F1)
     // ─────────────────────────────────────────────
+    // ⭐ CAMBIO — v11 tanda 3 (parte D): c10_Grupo1/c11_Grupo2 se quitan de este arreglo — ya no
+    // existen en "transacciones" (ver migración v13 en onUpgrade()). Sin llamadores hoy (arreglo
+    // sin uso en el resto del código), se corrige de todas formas para que no quede
+    // desactualizado si algo empieza a usarlo más adelante.
     public static final String[] columnasTransacciones_ArrayString_PSF = {
             "c1_Documento", "c2_ItemDoc", "c3_Cuenta", "c4_Signo", "c5_Valor",
             "c6_Descripcion", "c7_FechaYhora", "c8_FechaInicial", "c9_FechaModificacion",
-            "c10_Grupo1", "c11_Grupo2", "c12_ColumnaDisponible", "c13_ColumnaDisponible"};
+            "c12_ColumnaDisponible", "c13_ColumnaDisponible"};
 
     // ─────────────────────────────────────────────
     //  LIFECYCLE DE LA BD
@@ -642,10 +670,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // ⭐ NUEVO: crear tablas de caché desde el inicio en instalaciones frescas
         db.execSQL(SQL_CREAR_CACHE_HEADER);
         db.execSQL(SQL_CREAR_CACHE_RECORDS);
-        // ⭐ NUEVO v4 — Fase 2: catálogos de Grupo1/Grupo2, sembrados desde el inicio.
-        db.execSQL(SQL_CREAR_CATALOGO_GRUPO1);
-        db.execSQL(SQL_CREAR_CATALOGO_GRUPO2);
-        sembrarCatalogosGrupo1Y2(db);
+        // ⭐ RETIRADO — v11 tanda 3 (parte D): los catálogos de Grupo1/Grupo2 (TABLE_CATALOGO_GRUPO1/
+        // GRUPO2) ya no se crean ni se siembran en instalaciones frescas — eran soporte para
+        // Grupo1/Grupo2, que se retiran en esta misma parte D (ver comentario de clase arriba).
+        // Las constantes, la DDL (SQL_CREAR_CATALOGO_GRUPO1/GRUPO2) y sembrarCatalogosGrupo1Y2()
+        // se conservan intactas: las sigue usando el bloque histórico "if (oldVersion < 4)" de
+        // onUpgrade(), que no se toca (ver más abajo, y la migración v13 que dropea estas 2
+        // tablas para dispositivos existentes).
         // ⭐ NUEVO v9 — Fase 6: tablas del modelo de clasificación contable definitivo, sembradas
         // desde el inicio en instalaciones frescas. tipo_cuenta se crea vacía a propósito: no hay
         // datos legados de qué backfillear todavía (ver comentario de clase arriba).
@@ -1138,6 +1169,108 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 " cuentas quedaron con conciliable NULL (Grupo2 'No conciliable')");
             }
             noConciliablesCount.close();
+        }
+
+        // ⭐ NUEVO v13 — v11 tanda 3 (parte D): retira definitivamente cuentas.Grupo1/Grupo2 y
+        // transacciones.c10_Grupo1/c11_Grupo2 (ver comentario de clase arriba — este es el paso
+        // final de la tanda 3: desde la parte C ya no se escribían valores reales en estas
+        // columnas, solo "" — el modelo de clasificación vive por completo en tipo_cuenta_id
+        // desde entonces). SQLite en minSdk 27 no soporta ALTER TABLE DROP COLUMN de forma
+        // confiable, así que se recrean ambas tablas — mismo patrón ya usado en v3 (cuenta_id/
+        // codigo_cuenta) y v8 (transaccion_id): tabla temporal con el esquema final → copiar
+        // filas preservando exactamente los valores de las llaves primarias (cuenta_id,
+        // transaccion_id) → DROP de la original → RENAME de la temporal. También se dropean los
+        // 2 catálogos de Grupo1/Grupo2 (TABLE_CATALOGO_GRUPO1/GRUPO2 — ver Fase 2, v4), que ya no
+        // tienen ningún propósito sin Grupo1/Grupo2 que catalogar.
+        if (oldVersion < 13) {
+
+            // 1) Diagnóstico previo: cuántas filas tiene cada tabla ANTES de recrearla, para
+            //    poder comparar después que no se perdió ni duplicó ninguna.
+            int cuentasAntes = 0;
+            Cursor cuentasAntesCursor = db.rawQuery("SELECT COUNT(*) FROM cuentas", null);
+            if (cuentasAntesCursor.moveToFirst()) cuentasAntes = cuentasAntesCursor.getInt(0);
+            cuentasAntesCursor.close();
+
+            int transaccionesAntes = 0;
+            Cursor transaccionesAntesCursor = db.rawQuery("SELECT COUNT(*) FROM transacciones", null);
+            if (transaccionesAntesCursor.moveToFirst()) transaccionesAntes = transaccionesAntesCursor.getInt(0);
+            transaccionesAntesCursor.close();
+
+            // 2) Recrear "cuentas" sin Grupo1/Grupo2, preservando cuenta_id EXACTO (se inserta
+            //    explícitamente en vez de dejar que AUTOINCREMENT numere de nuevo — mismo criterio
+            //    que transaccion_id en la migración v8 — para no romper ninguna referencia
+            //    existente hacia cuenta_id, empezando por transacciones.cuenta_id).
+            db.execSQL("CREATE TABLE cuentas_temp_v13 (" +
+                    "Item TEXT NOT NULL, Cuenta TEXT NOT NULL, Fecha TEXT NOT NULL, " +
+                    "cuenta_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "codigo_cuenta TEXT, " +
+                    "Cerrable TEXT, " +
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id), " +
+                    "cuenta_seguimiento INTEGER, " +
+                    "conciliable TEXT)");
+            db.execSQL("INSERT INTO cuentas_temp_v13 (" +
+                    "cuenta_id, Item, Cuenta, Fecha, codigo_cuenta, Cerrable, tipo_cuenta_id, " +
+                    "cuenta_seguimiento, conciliable) " +
+                    "SELECT cuenta_id, Item, Cuenta, Fecha, codigo_cuenta, Cerrable, tipo_cuenta_id, " +
+                    "cuenta_seguimiento, conciliable FROM cuentas");
+            db.execSQL("DROP TABLE cuentas");
+            db.execSQL("ALTER TABLE cuentas_temp_v13 RENAME TO cuentas");
+
+            // 3) Recrear "transacciones" sin c10_Grupo1/c11_Grupo2, preservando transaccion_id
+            //    EXACTO (mismo criterio que en el paso anterior, y que ya usó la propia v8 para
+            //    esta misma tabla).
+            db.execSQL("CREATE TABLE transacciones_temp_v13(" +
+                    "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
+                    "c3_Cuenta TEXT NOT NULL, c4_Signo TEXT NOT NULL, " +
+                    "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
+                    "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
+                    "c9_FechaModificacion TEXT NOT NULL, c12_ColumnaDisponible TEXT NOT NULL, " +
+                    "c13_ColumnaDisponible TEXT NOT NULL, " +
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))");
+            db.execSQL("INSERT INTO transacciones_temp_v13 (" +
+                    "transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id, tipo_cuenta_id) " +
+                    "SELECT transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id, tipo_cuenta_id " +
+                    "FROM transacciones");
+            db.execSQL("DROP TABLE transacciones");
+            db.execSQL("ALTER TABLE transacciones_temp_v13 RENAME TO transacciones");
+
+            // 4) Índices — DROP TABLE se los lleva consigo, así que se recrean todos (mismos
+            //    helpers que onCreate y las migraciones v8/v9/v11).
+            crearIndiceUnicoDocumentoItem(db);
+            crearIndicesTransacciones(db);
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_cuentas_tipo_cuenta_id ON cuentas(tipo_cuenta_id)");
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_tipo_cuenta_id " +
+                    "ON transacciones(tipo_cuenta_id)");
+
+            // 5) Los catálogos de Grupo1/Grupo2 (Fase 2, v4) ya no tienen propósito — se dropean.
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_CATALOGO_GRUPO1);
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_CATALOGO_GRUPO2);
+
+            // 6) Diagnóstico posterior: confirmar que ninguna tabla perdió o duplicó filas al
+            //    recrearse.
+            int cuentasDespues = 0;
+            Cursor cuentasDespuesCursor = db.rawQuery("SELECT COUNT(*) FROM cuentas", null);
+            if (cuentasDespuesCursor.moveToFirst()) cuentasDespues = cuentasDespuesCursor.getInt(0);
+            cuentasDespuesCursor.close();
+            android.util.Log.w("A1_1_AyudanteBD",
+                    "Migración v13: cuentas tenía " + cuentasAntes + " filas antes, " +
+                            cuentasDespues + " después de retirar Grupo1/Grupo2" +
+                            (cuentasAntes == cuentasDespues ? " (coincide)" : " (¡NO COINCIDE!)"));
+
+            int transaccionesDespues = 0;
+            Cursor transaccionesDespuesCursor = db.rawQuery("SELECT COUNT(*) FROM transacciones", null);
+            if (transaccionesDespuesCursor.moveToFirst()) transaccionesDespues = transaccionesDespuesCursor.getInt(0);
+            transaccionesDespuesCursor.close();
+            android.util.Log.w("A1_1_AyudanteBD",
+                    "Migración v13: transacciones tenía " + transaccionesAntes + " filas antes, " +
+                            transaccionesDespues + " después de retirar c10_Grupo1/c11_Grupo2" +
+                            (transaccionesAntes == transaccionesDespues ? " (coincide)" : " (¡NO COINCIDE!)"));
         }
     }
 

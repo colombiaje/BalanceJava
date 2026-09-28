@@ -630,8 +630,11 @@ public class F4_Cierres extends Fragment {
             valores.put("c7_FechaYhora", datos[6]);
             valores.put("c8_FechaInicial", datos[7]);
             valores.put("c9_FechaModificacion", datos[8]);
-            valores.put("c10_Grupo1", datos[9]);
-            valores.put("c11_Grupo2", datos[10]);
+            // ⭐ CAMBIO — v11 tanda 3 (parte D): "transacciones" pierde c10_Grupo1/c11_Grupo2
+            // (ver A1_1_AyudanteBD, migración v13) — se quitan estos 2 .put(). datos[9]/datos[10]
+            // (las columnas Grupo1/Grupo2 del CSV, que se mantienen en blanco para siempre — ver
+            // A5_1_BackupManager) ya no se leen aquí; el resto de posiciones del array
+            // (datos[11] en adelante) no se ve afectado.
             valores.put("c12_ColumnaDisponible", datos[11]);
             valores.put("c13_ColumnaDisponible", datos[12]);
 

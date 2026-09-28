@@ -30,6 +30,15 @@ public class A3_1_TipoCuentasGetsYSets {
     // A21_OptimizedQuery.mapCuentasFromCursor).
     public String tipoT_11Conciliable_String;
 
+    // ⭐ NUEVO — v11 tanda 3 (parte D): nombre de tipo_cuenta, si el SELECT que llamó al mapeo
+    // trae el JOIN a "tipo_cuenta" (ver A22_QueryManager.queryAllAccounts() y
+    // A21_OptimizedQuery.mapCuentasFromCursor) — mismo criterio aditivo, y mismo campo que ya
+    // existe en A3_2_TipoTransaccionesGetsYSets (tipoT_17TipoCuentaNombre_String) para las 3
+    // pantallas de lista de transacciones desde la parte B de esta misma tanda. Null-safe: puede
+    // no haber tipo_cuenta_id asignado. Reemplaza a Grupo1 en la pantalla "Ver Cuentas" (ver
+    // D_F2_AdaptadorCuentas), ahora que Grupo1/Grupo2 se retiran de "cuentas" en esta parte D.
+    public String tipoT_12TipoCuentaNombre_String;
+
 // metodo constructor
     public A3_1_TipoCuentasGetsYSets(String tipoT_1Item_String, String tipoT_2Cuenta_String, String tipoT_3G1_String, String tipoT_4G2_String,
                                      String tipoT_5Fecha_String) {
@@ -67,5 +76,8 @@ public class A3_1_TipoCuentasGetsYSets {
 
     public String tipoTgetCuenta_11Conciliable() {return tipoT_11Conciliable_String;}
     public void tipoTsetCuenta_11Conciliable(String tipoT_11Conciliable_String) {this.tipoT_11Conciliable_String = tipoT_11Conciliable_String;}
+
+    public String tipoTgetCuenta_12TipoCuentaNombre() {return tipoT_12TipoCuentaNombre_String;}
+    public void tipoTsetCuenta_12TipoCuentaNombre(String tipoT_12TipoCuentaNombre_String) {this.tipoT_12TipoCuentaNombre_String = tipoT_12TipoCuentaNombre_String;}
 
 }

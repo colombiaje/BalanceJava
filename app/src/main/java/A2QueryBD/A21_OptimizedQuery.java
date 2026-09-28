@@ -155,24 +155,29 @@ public class A21_OptimizedQuery {
 
     // Método para obtener todas las sumas por cuenta
     //**Suma aparte positivos aparte negativos
+    // ⭐ CAMBIO — v11 tanda 3 (parte D): "transacciones" pierde c10_Grupo1/c11_Grupo2 (ver
+    // A1_1_AyudanteBD, migración v13) — se quitan del SELECT/GROUP BY (agruparían por columnas
+    // que ya no existen) y se pasa "" literal al constructor en su lugar. Nota: este método no
+    // tiene ningún llamador real hoy (su único wrapper,
+    // A22_QueryManager.obtenerConsultaSumaPorSignoCuentaPorCuenta(), tampoco se usa en ninguna
+    // pantalla) — se corrige de todas formas para que no quede como una trampa que reviente con
+    // SQLiteException si algo lo llama en el futuro.
     public ArrayList<A3_2_TipoTransaccionesGetsYSets> obtenerSumaPorSignoCuentaPorCuenta() {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> cuentasSumadas = new ArrayList<>();
         Cursor cursor = null;
         try {
             openDB();
             // Consulta para obtener las cuentas y sus detalles
-            String query = "SELECT DISTINCT c3_Cuenta, c4_Signo, SUM(c5_Valor) AS suma, c10_Grupo1, c11_Grupo2 " +
-                    "FROM transacciones GROUP BY c3_Cuenta, c4_Signo, c10_Grupo1, c11_Grupo2";
+            String query = "SELECT DISTINCT c3_Cuenta, c4_Signo, SUM(c5_Valor) AS suma " +
+                    "FROM transacciones GROUP BY c3_Cuenta, c4_Signo";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
                 String nombreCuenta = cursor.getString(cursor.getColumnIndex("c3_Cuenta"));
                 String signo = cursor.getString(cursor.getColumnIndex("c4_Signo"));
                 int suma = cursor.getInt(cursor.getColumnIndex("suma"));
-                String grupo1 = cursor.getString(cursor.getColumnIndex("c10_Grupo1"));
-                String grupo2 = cursor.getString(cursor.getColumnIndex("c11_Grupo2"));
 
-                cuentasSumadas.add(new A3_2_TipoTransaccionesGetsYSets(nombreCuenta, signo, suma, grupo1, grupo2));
+                cuentasSumadas.add(new A3_2_TipoTransaccionesGetsYSets(nombreCuenta, signo, suma, "", ""));
             }
         } finally {
             if (cursor != null) cursor.close();
@@ -232,11 +237,13 @@ public class A21_OptimizedQuery {
             // ⭐ CAMBIO — v11 tanda 3 (parte B): se agrega un segundo LEFT JOIN a "tipo_cuenta"
             // (por c.tipo_cuenta_id, ya resuelto arriba desde "cuentas") para traer también el
             // nombre de tipo_cuenta — es lo que ahora muestra el Informe en vez de Grupo1 (ver
-            // D_F3_1_AdaptadorTransaccionesInformes). Grupo1/Grupo2 se conservan en el SELECT
-            // sin cambios (siguen siendo la fuente autoritativa hasta que se retiren en la parte
-            // D de esta misma tanda); tipo_cuenta_nombre es puramente aditivo.
+            // D_F3_1_AdaptadorTransaccionesInformes).
+            // ⭐ CAMBIO — v11 tanda 3 (parte D): c.Grupo1/c.Grupo2 se retiran del SELECT — la
+            // columna ya no existe en "cuentas" (ver A1_1_AyudanteBD, migración v13). Se pasa ""
+            // literal al constructor en su lugar; sin impacto visible, porque la parte B ya dejó
+            // de mostrar estos 2 campos en el Informe (los reemplazó tipo_cuenta_nombre).
             String query = "SELECT COALESCE(c.Cuenta, t.c3_Cuenta) AS c3_Cuenta, t.c4_Signo AS c4_Signo, " +
-                    "SUM(t.c5_Valor) AS suma, c.Grupo1 AS c10_Grupo1, c.Grupo2 AS c11_Grupo2, " +
+                    "SUM(t.c5_Valor) AS suma, " +
                     "tc.nombre AS tipo_cuenta_nombre " +
                     "FROM transacciones t " +
                     "LEFT JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
@@ -249,12 +256,10 @@ public class A21_OptimizedQuery {
                 String nombreCuenta = cursor.getString(cursor.getColumnIndex("c3_Cuenta"));
                 String signo = cursor.getString(cursor.getColumnIndex("c4_Signo"));
                 int suma = cursor.getInt(cursor.getColumnIndex("suma"));
-                String grupo1 = cursor.getString(cursor.getColumnIndex("c10_Grupo1"));
-                String grupo2 = cursor.getString(cursor.getColumnIndex("c11_Grupo2"));
 
                 // Agregar a la lista como un objeto CuentaSuma
                 A3_2_TipoTransaccionesGetsYSets item =
-                        new A3_2_TipoTransaccionesGetsYSets(nombreCuenta, signo, suma, grupo1, grupo2);
+                        new A3_2_TipoTransaccionesGetsYSets(nombreCuenta, signo, suma, "", "");
 
                 // ⭐ NUEVO — v11 tanda 3 (parte B).
                 int indiceTipoCuentaNombre = cursor.getColumnIndex("tipo_cuenta_nombre");
@@ -413,21 +418,28 @@ public class A21_OptimizedQuery {
     // leía: por eso los respaldos/exportaciones a CSV que pasan por aquí (A5_1_BackupManager)
     // venían sin cuenta_id. Se agrega con un set() después de construir, igual que ya se hace
     // en B11_DocumentCalculator, sin tocar el constructor de 13 parámetros.
+    // ⭐ CAMBIO — v11 tanda 3 (parte D): "transacciones" pierde las columnas c10_Grupo1/c11_Grupo2
+    // (ver A1_1_AyudanteBD, migración v13) — el SELECT * de quien llama a este mapeo ahora trae
+    // solo 11 columnas c1..c13 (sin las 2 retiradas), así que c12_ColumnaDisponible/
+    // c13_ColumnaDisponible se recorren 2 posiciones a la izquierda (9,10 en vez de 11,12). El
+    // constructor de 13 parámetros no cambia (el modelo Java conserva los campos Grupo1/Grupo2,
+    // ver A3_2_TipoTransaccionesGetsYSets) — simplemente se le pasa "" en vez de leerlos del
+    // cursor, igual que ya se hace desde parte C para las transacciones NUEVAS.
     private A3_2_TipoTransaccionesGetsYSets mapTransactionFromCursor(Cursor cursor) {
         A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
-                cursor.getString(0),  // documento
-                cursor.getString(1),  // tipo
-                cursor.getString(2),  // fecha
-                cursor.getString(3),  // cuenta
-                cursor.getInt(4),    // valor
-                cursor.getString(5),  // descripcion
-                cursor.getString(6),  // conciliacion
-                cursor.getInt(7),    // fechaInicial
-                cursor.getString(8),  // fechaFinal
-                cursor.getString(9),  // documento_soporte
-                cursor.getString(10), // grupo1
-                cursor.getString(11), // grupo2
-                cursor.getString(12)  // grupo3
+                cursor.getString(0),  // c1_Documento
+                cursor.getString(1),  // c2_ItemDoc
+                cursor.getString(2),  // c3_Cuenta
+                cursor.getString(3),  // c4_Signo
+                cursor.getInt(4),    // c5_Valor
+                cursor.getString(5),  // c6_Descripcion
+                cursor.getString(6),  // c7_FechaYHora
+                cursor.getInt(7),    // c8_FechaInicial
+                cursor.getString(8),  // c9_FechaModificacion
+                "",                    // Grupo1 — retirado v13 (antes c10_Grupo1, columna 9)
+                "",                    // Grupo2 — retirado v13 (antes c11_Grupo2, columna 10)
+                cursor.getString(9),  // c12_ColumnaDisponible (antes columna 11)
+                cursor.getString(10)  // c13_ColumnaDisponible (antes columna 12)
         );
         int indiceCuentaId = cursor.getColumnIndex("cuenta_id");
         if (indiceCuentaId != -1 && !cursor.isNull(indiceCuentaId)) {
@@ -469,13 +481,19 @@ public class A21_OptimizedQuery {
     // cuenta_id, codigo_cuenta y Cerrable (agregadas en las Fases 1 y 4), y este método nunca las
     // leía — por eso el respaldo de cuentas a CSV las omitía. Se agregan con set() después de
     // construir, sin tocar el constructor de 5 parámetros.
+    // ⭐ CAMBIO — v11 tanda 3 (parte D): "cuentas" pierde las columnas Grupo1/Grupo2 (ver
+    // A1_1_AyudanteBD, migración v13) — el SELECT * de quien llama a este mapeo ahora trae solo
+    // 3 columnas propias (Item, Cuenta, Fecha) en vez de 5, así que Fecha se recorre 2 posiciones
+    // a la izquierda (columna 2 en vez de 4). El constructor de 5 parámetros no cambia (el
+    // modelo Java conserva los campos Grupo1/Grupo2) — se le pasa "" en vez de leerlos del
+    // cursor, igual que ya se hace desde parte C para las cuentas NUEVAS.
     private A3_1_TipoCuentasGetsYSets mapCuentasFromCursor(Cursor cursor) {
         A3_1_TipoCuentasGetsYSets item = new A3_1_TipoCuentasGetsYSets(
-                cursor.getString(0),  // documento
-                cursor.getString(1),  // tipo
-                cursor.getString(2),  // fecha
-                cursor.getString(3),  // cuenta
-                cursor.getString(4)   // valor
+                cursor.getString(0),  // Item
+                cursor.getString(1),  // Cuenta
+                "",                    // Grupo1 — retirado v13 (antes columna 2)
+                "",                    // Grupo2 — retirado v13 (antes columna 3)
+                cursor.getString(2)   // Fecha (antes columna 4)
 
         );
         int indiceCuentaId = cursor.getColumnIndex("cuenta_id");
@@ -505,6 +523,14 @@ public class A21_OptimizedQuery {
         int indiceConciliable = cursor.getColumnIndex("conciliable");
         if (indiceConciliable != -1) {
             item.tipoTsetCuenta_11Conciliable(cursor.getString(indiceConciliable));
+        }
+        // ⭐ NUEVO — v11 tanda 3 (parte D): nombre de tipo_cuenta, si el SELECT que llamó a este
+        // mapeo trae el JOIN a "tipo_cuenta" (ver A22_QueryManager.queryAllAccounts()). Mismo
+        // criterio que tipo_cuenta_nombre en mapTransactionFromCursor — ausente/NULL si el
+        // SELECT no lo trae, no rompe nada.
+        int indiceTipoCuentaNombreCuenta = cursor.getColumnIndex("tipo_cuenta_nombre");
+        if (indiceTipoCuentaNombreCuenta != -1 && !cursor.isNull(indiceTipoCuentaNombreCuenta)) {
+            item.tipoTsetCuenta_12TipoCuentaNombre(cursor.getString(indiceTipoCuentaNombreCuenta));
         }
         return item;
     }

@@ -50,8 +50,16 @@ public class D_F2_AdaptadorCuentas extends ArrayAdapter<A3_1_TipoCuentasGetsYSet
         // Set text to the TextViews
         vTlistItem_1.setText(""+registroTablaCuentas.tipoT_1Item_String);
         vTlistItem_2.setText(" "+registroTablaCuentas.tipoT_2Cuenta_String);
-        vTlistItem_3.setText(registroTablaCuentas.tipoT_3G1_String);
-        vTlistItem_4.setText(" "+registroTablaCuentas.tipoT_4G2_String);
+        // ⭐ CAMBIO — v11 tanda 3 (parte D): esta columna mostraba Grupo1; ahora muestra el
+        // nombre de tipo_cuenta (ver A22_QueryManager.queryAllAccounts(), que ahora trae un
+        // LEFT JOIN a "tipo_cuenta" — mismo tratamiento ya usado en la parte B para las 3
+        // pantallas de lista de transacciones). Null-safe: puede no haber tipo_cuenta_id
+        // asignado.
+        String tipoCuentaNombre = registroTablaCuentas.tipoT_12TipoCuentaNombre_String;
+        vTlistItem_3.setText(tipoCuentaNombre == null ? "" : tipoCuentaNombre);
+        // ⭐ CAMBIO — v11 tanda 3 (parte D): Grupo2 ya no tiene un campo sucesor único (mismo
+        // criterio que en la parte B) — se deja en blanco.
+        vTlistItem_4.setText("");
         vTlistItem_5.setText(" "+registroTablaCuentas.tipoT_5Fecha_String);
 
         // Alternar colores de fondo
@@ -77,10 +85,14 @@ public class D_F2_AdaptadorCuentas extends ArrayAdapter<A3_1_TipoCuentasGetsYSet
 
             for (A3_1_TipoCuentasGetsYSets listaDelaCopia : copyDelArrayList) {
 
+                // ⭐ CAMBIO — v11 tanda 3 (parte D): antes buscaba también en Grupo1/Grupo2
+                // (tipoT_3G1_String/tipoT_4G2_String) — ahora busca en tipoT_12TipoCuentaNombre_String,
+                // que es lo que la columna realmente muestra desde este mismo cambio (ver getView()
+                // arriba). Null-safe: puede no haber tipo_cuenta_id asignado.
                 if (listaDelaCopia.tipoT_1Item_String.contains(texto)
                         || String.valueOf(listaDelaCopia.tipoT_2Cuenta_String).contains(texto)
-                        ||listaDelaCopia.tipoT_3G1_String.contains(texto)
-                        ||listaDelaCopia.tipoT_4G2_String.contains(texto)
+                        || (listaDelaCopia.tipoT_12TipoCuentaNombre_String != null
+                            && listaDelaCopia.tipoT_12TipoCuentaNombre_String.contains(texto))
                         ||listaDelaCopia.tipoT_5Fecha_String.contains(texto)
 
                 )

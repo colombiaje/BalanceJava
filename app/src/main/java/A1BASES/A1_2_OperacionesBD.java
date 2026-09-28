@@ -83,8 +83,10 @@ public class A1_2_OperacionesBD extends Activity {
         ContentValues contenedor_ContentValues = new ContentValues();
         contenedor_ContentValues.put("Item", stringItemDoc);
         contenedor_ContentValues.put("Cuenta", cuenta_String);
-        contenedor_ContentValues.put("Grupo1", grupo1_String);
-        contenedor_ContentValues.put("Grupo2", grupo2_String);
+        // ⭐ CAMBIO — v11 tanda 3 (parte D): "cuentas" pierde Grupo1/Grupo2 (ver A1_1_AyudanteBD,
+        // migración v13) — se quitan estos 2 .put(); ya no se escriben (desde parte C
+        // grupo1_String/grupo2_String llegaban siempre como "" de todas formas). La firma del
+        // método se deja intacta para no tocar a sus llamadores.
         contenedor_ContentValues.put("Fecha", fecha_String);
         // ⭐ NUEVO — Fase 4 (parte B): "Cerrable" o null (ver A1_1_AyudanteBD, migración v6).
         contenedor_ContentValues.put("Cerrable", cerrable_String);

@@ -1970,8 +1970,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 sqliteDatabase_Abstracta = ayudante_Class.getWritableDatabase();
 
 
-                sqliteDatabase_Abstracta.execSQL("INSERT INTO " + "cuentas" + "(Item, Cuenta, Grupo1, Grupo2, Fecha ) " +
-                        "VALUES ('0','','n a','n a','27/12/2020')");
+                // ⭐ CAMBIO — v11 tanda 3 (parte D): "cuentas" pierde Grupo1/Grupo2 (ver
+                // A1_1_AyudanteBD, migración v13) — se quitan de esta cuenta placeholder de
+                // seguridad (usada solo cuando la lista de cuentas está vacía).
+                sqliteDatabase_Abstracta.execSQL("INSERT INTO " + "cuentas" + "(Item, Cuenta, Fecha ) " +
+                        "VALUES ('0','','27/12/2020')");
             } catch (Exception e) {
 
             }

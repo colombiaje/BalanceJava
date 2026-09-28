@@ -42,6 +42,18 @@ public class A22_QueryManager {
     private static final String FROM_TRANSACCIONES_CON_TIPO_CUENTA =
             "transacciones LEFT JOIN tipo_cuenta ON transacciones.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id";
 
+    // ⭐ NUEVO — v11 tanda 3 (parte D): mismo criterio que SELECT/FROM_TRANSACCIONES_CON_TIPO_CUENTA
+    // de arriba, pero para "cuentas" — usado por queryAllAccounts() (pantalla "Ver Cuentas", ver
+    // D_F2_AdaptadorCuentas). Con Grupo1/Grupo2 retirados de "cuentas" en esta misma parte D, esa
+    // pantalla necesita otra fuente para lo que mostraba en la columna de Grupo1: el nombre de
+    // tipo_cuenta, igual que ya se hizo en la parte B para las 3 pantallas de lista de
+    // transacciones. Puramente aditivo: cuentas.* conserva las mismas columnas, solo se agrega
+    // tipo_cuenta_nombre al final.
+    private static final String SELECT_CUENTAS_CON_TIPO_CUENTA =
+            "cuentas.*, tipo_cuenta.nombre AS tipo_cuenta_nombre";
+    private static final String FROM_CUENTAS_CON_TIPO_CUENTA =
+            "cuentas LEFT JOIN tipo_cuenta ON cuentas.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id";
+
     //Inicio metodos
     public A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> queryAllTransactions() {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> todasLasTransacciones = a3_2_consultas_para_queryManager.consultarTransacciones(
@@ -168,8 +180,8 @@ public class A22_QueryManager {
     public A23_QueryResult<A3_1_TipoCuentasGetsYSets> queryAllAccounts() {
         ArrayList<A3_1_TipoCuentasGetsYSets> todasLasCuentas = a3_2_consultas_para_queryManager.consultarCuentas(
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
-                        .select("*")
-                        .from("cuentas")
+                        .select(SELECT_CUENTAS_CON_TIPO_CUENTA)
+                        .from(FROM_CUENTAS_CON_TIPO_CUENTA)
         );
         return new A23_QueryResult<>(todasLasCuentas.size(), todasLasCuentas, "Consulta exitosa");
     }
@@ -338,25 +350,25 @@ public class A22_QueryManager {
         // menores se ve afectado (B11_DocumentCalculator/B12_DocumentPersistence ya validan
         // ".length" antes de leer). Viene de cuentas.tipo_cuenta_id (ver A1_1_AyudanteBD,
         // migración v9) — puede venir null si la cuenta todavía no tiene tipo_cuenta asignado.
+        // ⭐ CAMBIO — v11 tanda 3 (parte D): "cuentas" pierde Grupo1/Grupo2 (ver A1_1_AyudanteBD,
+        // migración v13) — se quitan del SELECT (columnas que ya no existen). El arreglo
+        // devuelto conserva EXACTAMENTE la misma forma de 8 elementos que ya esperan sus 4
+        // llamadores (B11_DocumentCalculator, B12_DocumentPersistence, F2_Cuentas,
+        // F1_CrudDocumento): los índices 2 y 3 (antes Grupo1/Grupo2) quedan en "" literal en vez
+        // de leerse del cursor — mismo criterio ya usado desde la parte C para las escrituras
+        // nuevas, ahora también aquí porque de lo contrario el SELECT explícito de estas 2
+        // columnas revienta con SQLiteException "no such column" en cuanto se dropean.
         A21_OptimizedQuery.QueryBuilder queryBuilder = new A21_OptimizedQuery.QueryBuilder()
-                .select("Item", "Cuenta", "Grupo1", "Grupo2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id")
+                .select("Item", "Cuenta", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id")
                 .from("cuentas")
                 .where("Cuenta = ?", nombreCuenta);
 
         // Ejecutar la consulta y mapear el resultado
-        /*List<String[]> resultado = a3_2_consultas_para_queryManager.executeQuery(queryBuilder, cursor -> new String[]{
-                cursor.getString(0), // Item
-                cursor.getString(1), // Cuenta
-                cursor.getString(2), // Grupo1
-                cursor.getString(3), // Grupo2
-                cursor.getString(4)  // Fecha
-        });*/
-
         List<String[]> resultado = a3_2_consultas_para_queryManager.executeQuery(queryBuilder, cursor -> new String[]{
                 cursor.getString(cursor.getColumnIndexOrThrow("Item")),
                 cursor.getString(cursor.getColumnIndexOrThrow("Cuenta")),
-                cursor.getString(cursor.getColumnIndexOrThrow("Grupo1")),
-                cursor.getString(cursor.getColumnIndexOrThrow("Grupo2")),
+                "", // Grupo1 — retirado v13 (índice 2, se conserva por compatibilidad posicional)
+                "", // Grupo2 — retirado v13 (índice 3, se conserva por compatibilidad posicional)
                 cursor.getString(cursor.getColumnIndexOrThrow("Fecha")),
                 cursor.getString(cursor.getColumnIndexOrThrow("cuenta_id")), // ⭐ NUEVO — índice 5
                 cursor.getString(cursor.getColumnIndexOrThrow("Cerrable")), // ⭐ NUEVO — índice 6
