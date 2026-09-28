@@ -148,6 +148,26 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   tratamiento ya aplicado en la parte B a las 3 pantallas de lista de transacciones: la columna
 //   que mostraba Grupo1 ahora muestra el nombre de tipo_cuenta (JOIN nuevo en
 //   A22_QueryManager.queryAllAccounts()).
+// ⭐ MODIFICADO: Versión 14 — Tanda 1 del "Modelo de Costeo por Inventario en Cuentas"
+//   (especificación técnica aprobada, 22-sep). Objetivo: dejar el esquema listo para que
+//   cualquier cuenta cuyo saldo esté compuesto por unidades de algo con precio variable
+//   (divisas, acciones, mercancías) pueda llevar costeo por promedio ponderado, activable por
+//   cuenta y sin alterar en nada el comportamiento de las cuentas que no lo usan. Esta tanda es
+//   SOLO esquema — no cambia ninguna pantalla ni flujo todavía (eso son las tandas siguientes).
+//   "cuentas" gana con_inventario (INTEGER NOT NULL DEFAULT 0 — 0 = comportamiento idéntico al
+//   de hoy). Dos tablas nuevas, vacías en toda instalación existente: items_inventario (los
+//   artículos concretos de una cuenta con inventario — p.ej. la cuenta "Inversiones" puede
+//   tener Ecopetrol, Bancolombia, Apple, cada uno con su propio saldo — con FK a
+//   cuentas.cuenta_id, ON DELETE RESTRICT, y un UNIQUE (cuenta_id, nombre)) y
+//   transacciones_inventario (extiende 1 a 1 cada transacción de una cuenta con inventario,
+//   guardando unidades y precio_unitario — transaccion_id es a la vez PK y FK hacia
+//   transacciones.transaccion_id, sin AUTOINCREMENT propio: toma el id de la transacción que
+//   extiende; FK hacia items_inventario.item_id con ON DELETE RESTRICT; CHECK unidades <> 0 y
+//   CHECK precio_unitario > 0 — ambos exigibles de verdad porque el cumplimiento de llaves
+//   foráneas y CHECK ya está activo desde la v8, vía onOpen()). Ver el bloque
+//   "if (oldVersion < 14)" en onUpgrade() para el detalle de la migración en dispositivos
+//   existentes (ALTER TABLE + 2 CREATE TABLE, nada que recrear ni backfillear: son columnas y
+//   tablas nuevas, no hay datos legados que migrar todavía).
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -156,10 +176,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 12 → 13 para disparar onUpgrade en dispositivos existentes — retira
-    // cuentas.Grupo1/Grupo2 y transacciones.c10_Grupo1/c11_Grupo2 (ver v11 tanda 3, parte D,
-    // y la migración "if (oldVersion < 13)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 13;
+    // ⭐ CAMBIO: versión 13 → 14 para disparar onUpgrade en dispositivos existentes — agrega
+    // cuentas.con_inventario y las tablas items_inventario/transacciones_inventario (Tanda 1 del
+    // modelo de costeo por inventario, ver comentario de clase arriba y la migración
+    // "if (oldVersion < 14)" en onUpgrade()).
+    public static final int version1BalanceSqlite_int_PSF = 14;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -269,7 +290,56 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // todas — el usuario la marca desde F2_Cuentas al crear la cuenta. En
                     // dispositivos que actualizan, la migración v12 la agrega con ALTER TABLE y
                     // la llena vía backfill — ver el bloque "if (oldVersion < 12)" en onUpgrade().
-                    "conciliable TEXT)";
+                    "conciliable TEXT, " +
+                    // ⭐ NUEVO v14 — Tanda 1 del modelo de costeo por inventario (ver comentario de
+                    // clase arriba). 0 = cuenta normal, comportamiento idéntico al de hoy (valor
+                    // por defecto, así que ninguna cuenta existente ni nueva cambia de
+                    // comportamiento en esta tanda). 1 = cuenta con inventario por unidades —
+                    // habilitada para tener artículos propios en items_inventario.
+                    "con_inventario INTEGER NOT NULL DEFAULT 0)";
+
+    // ─────────────────────────────────────────────
+    //  DDL — MODELO DE COSTEO POR INVENTARIO  ⭐ NUEVO v14
+    //  Ver "Modelo de Costeo por Inventario en Cuentas" (especificación técnica, 22-sep) y el
+    //  comentario de clase arriba (Versión 14). Ambas tablas nacen vacías en toda instalación
+    //  existente — no hay datos legados que backfillear en esta tanda.
+    // ─────────────────────────────────────────────
+    private static final String SQL_CREAR_ITEMS_INVENTARIO =
+            "CREATE TABLE IF NOT EXISTS items_inventario (" +
+                    "item_id     INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "cuenta_id   INTEGER NOT NULL, " +
+                    "nombre      TEXT NOT NULL, " +
+                    "unidad      TEXT, " +
+                    // activo permite retirar un artículo de la lista de selección sin borrarlo,
+                    // para conservar su historial cuando el usuario ya no tiene unidades de ese
+                    // artículo (ver especificación, sección 2).
+                    "activo      INTEGER NOT NULL DEFAULT 1, " +
+                    "FOREIGN KEY (cuenta_id) REFERENCES cuentas(cuenta_id) " +
+                    "ON DELETE RESTRICT ON UPDATE CASCADE, " +
+                    "UNIQUE (cuenta_id, nombre))";
+
+    private static final String SQL_CREAR_TRANSACCIONES_INVENTARIO =
+            "CREATE TABLE IF NOT EXISTS transacciones_inventario (" +
+                    // transaccion_id es PK y a la vez FK hacia transacciones.transaccion_id, SIN
+                    // AUTOINCREMENT propio: toma el id de la transacción que extiende (relación
+                    // 1 a 1 — ver especificación, sección 2).
+                    "transaccion_id   INTEGER PRIMARY KEY, " +
+                    "item_id          INTEGER NOT NULL, " +
+                    // unidades sigue la misma convención de signo que transacciones.c5_Valor
+                    // (positivo al entrar, negativo al salir).
+                    "unidades         INTEGER NOT NULL, " +
+                    // precio_unitario es siempre positivo, en pesos colombianos (COP). Para una
+                    // salida, quien lo calcula es la app (costo promedio ponderado vigente del
+                    // artículo, no el precio de esa transacción) — ver reglas de negocio de la
+                    // especificación; el formulario (tanda de UX, más adelante) lo deja de solo
+                    // lectura en ese caso.
+                    "precio_unitario  INTEGER NOT NULL, " +
+                    "FOREIGN KEY (transaccion_id) REFERENCES transacciones(transaccion_id) " +
+                    "ON DELETE CASCADE, " +
+                    "FOREIGN KEY (item_id) REFERENCES items_inventario(item_id) " +
+                    "ON DELETE RESTRICT, " +
+                    "CHECK (unidades <> 0), " +
+                    "CHECK (precio_unitario > 0))";
 
     // ─────────────────────────────────────────────
     //  DDL — NUEVAS TABLAS DE CACHÉ  ⭐ NUEVO
@@ -656,6 +726,15 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_c8_fecha_inicial ON transacciones(c8_FechaInicial)");
     }
 
+    // ⭐ NUEVO v14 — Tanda 1 del modelo de costeo por inventario: índices simples sobre las 2
+    // tablas nuevas (misma razón que crearIndicesTransacciones — aceleran las consultas por
+    // cuenta/por artículo que van a necesitar las tandas siguientes). Se comparte entre onCreate
+    // y la migración v14 por la misma razón que los demás índices de esta clase.
+    private void crearIndicesInventario(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_items_inventario_cuenta ON items_inventario(cuenta_id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_inventario_item ON transacciones_inventario(item_id)");
+    }
+
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("PRAGMA encoding = 'UTF-8'");
@@ -684,6 +763,12 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_CLASIFICACION_CONTABLE);
         db.execSQL(SQL_CREAR_TIPO_CUENTA);
         sembrarClaseYClasificacionContable(db);
+        // ⭐ NUEVO v14 — Tanda 1 del modelo de costeo por inventario: tablas nuevas, vacías en
+        // toda instalación fresca (con_inventario en "cuentas" ya nace en 0 por su propio
+        // DEFAULT, dentro de crearCuentas_String — ver comentario de clase arriba).
+        db.execSQL(SQL_CREAR_ITEMS_INVENTARIO);
+        db.execSQL(SQL_CREAR_TRANSACCIONES_INVENTARIO);
+        crearIndicesInventario(db);
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -1271,6 +1356,18 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "Migración v13: transacciones tenía " + transaccionesAntes + " filas antes, " +
                             transaccionesDespues + " después de retirar c10_Grupo1/c11_Grupo2" +
                             (transaccionesAntes == transaccionesDespues ? " (coincide)" : " (¡NO COINCIDE!)"));
+        }
+
+        // ⭐ NUEVO v14 — Tanda 1 del "Modelo de Costeo por Inventario en Cuentas" (ver comentario
+        // de clase arriba). A diferencia de la v13, esto NO recrea ninguna tabla existente: solo
+        // agrega una columna nueva con DEFAULT (ALTER TABLE, soportado sin problema por SQLite a
+        // diferencia de DROP COLUMN) y crea 2 tablas nuevas, ambas vacías — no hay ningún dato
+        // legado que backfillear en esta tanda.
+        if (oldVersion < 14) {
+            db.execSQL("ALTER TABLE cuentas ADD COLUMN con_inventario INTEGER NOT NULL DEFAULT 0");
+            db.execSQL(SQL_CREAR_ITEMS_INVENTARIO);
+            db.execSQL(SQL_CREAR_TRANSACCIONES_INVENTARIO);
+            crearIndicesInventario(db);
         }
     }
 
