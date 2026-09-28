@@ -55,11 +55,23 @@ public class A22_QueryManager {
             "cuentas LEFT JOIN tipo_cuenta ON cuentas.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id";
 
     //Inicio metodos
+    // ⭐ CORRECCIÓN — encontrado por Jorge (28-sep): estas 4 consultas nunca tuvieron ORDER BY
+    // — SQLite devolvía las filas en el orden físico que le resultara más conveniente para cada
+    // consulta (normalmente cercano al orden de inserción, pero sin ninguna garantía real), así
+    // que cualquier pantalla o CSV que las use podía mostrar las transacciones fuera de orden.
+    // Se agrega orden ascendente por documento y, dentro de un mismo documento, por ítem — mismo
+    // criterio numérico (CAST ... AS INTEGER, para que "10" no quede antes que "2") que ya usa
+    // queryTransactionsEndDocument() más abajo. Puramente de presentación: no cambia ningún dato,
+    // ni qué filas trae cada consulta, solo el orden en que llegan.
+    private static final String ORDEN_ASCENDENTE_DOCUMENTO_ITEM =
+            "CAST(c1_Documento AS INTEGER), CAST(c2_ItemDoc AS INTEGER)";
+
     public A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> queryAllTransactions() {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> todasLasTransacciones = a3_2_consultas_para_queryManager.consultarTransacciones(
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
                         .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
                         .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
+                        .orderBy(ORDEN_ASCENDENTE_DOCUMENTO_ITEM, true)
         );
         return new A23_QueryResult<>(todasLasTransacciones.size(), todasLasTransacciones, "Consulta exitosa");
     }
@@ -70,7 +82,8 @@ public class A22_QueryManager {
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
                         .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
                         .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
-                        .where("c1_Documento LIKE ?", "%" + documentoABuscar + "%"); // Permite búsqueda parcial
+                        .where("c1_Documento LIKE ?", "%" + documentoABuscar + "%") // Permite búsqueda parcial
+                        .orderBy(ORDEN_ASCENDENTE_DOCUMENTO_ITEM, true);
 
         // Ejecutar la consulta y obtener los resultados
         ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = a3_2_consultas_para_queryManager.consultarTransacciones(queryBuilder);
@@ -86,7 +99,8 @@ public class A22_QueryManager {
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
                         .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
                         .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
-                        .where("c3_Cuenta = ?" ,cuentaDeConsulta);
+                        .where("c3_Cuenta = ?" ,cuentaDeConsulta)
+                        .orderBy(ORDEN_ASCENDENTE_DOCUMENTO_ITEM, true);
 
         // Ejecutar la consulta y obtener los resultados
         ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = a3_2_consultas_para_queryManager.consultarTransacciones(queryBuilder);
@@ -106,7 +120,8 @@ public class A22_QueryManager {
                         .where("c3_Cuenta = ? AND c8_FechaInicial >= ? AND c8_FechaInicial <= ?",
                                 cuentaDeConsulta,  // Filtro exacto para cuenta
                                 String.valueOf(fechaInicio), // Filtro exacto para la fecha de inicio
-                                String.valueOf(fechaFin)); // Filtro exacto para la fecha de fin
+                                String.valueOf(fechaFin)) // Filtro exacto para la fecha de fin
+                        .orderBy(ORDEN_ASCENDENTE_DOCUMENTO_ITEM, true);
 
         // Ejecutar la consulta y obtener los resultados
         ArrayList<A3_2_TipoTransaccionesGetsYSets> transacciones = a3_2_consultas_para_queryManager.consultarTransacciones(queryBuilder);
