@@ -293,10 +293,14 @@ public class A5_1_BackupManager {
                 // resumen no traía cuenta_id NI tipo_cuenta_id (a diferencia del backup completo
                 // de guardarTodasLasTransancionsAUnArchivoCSV, que ya traía cuenta_id desde la
                 // Fase 4 parte C). Se agregan ambas al final, en el mismo orden que allá.
+                // ⭐ NUEVO v11 (28-sep, tercera ronda) — a pedido de Jorge: transaccion_id como
+                // 16ta columna, para que los 3 CSV de transacciones queden con el mismo número de
+                // columnas (facilita comparar/homologar entre opciones del menú). Siempre vacía en
+                // este resumen (ver comentario junto a la escritura de la fila, más abajo).
                 escrituraDeArchivo_FileWriter.append(
                         "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                 "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id\n");
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id\n");
 
                 A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase_Abstracta= ayudanteBD_Class.getWritableDatabase();
@@ -372,7 +376,17 @@ public class A5_1_BackupManager {
                         // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN (columnas
                         // 6 y 7 del cursor) — mismo criterio nullable-safe que en el backup completo.
                         escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(6) ? "" : transacciones_Cursor.getString(6));escrituraDeArchivo_FileWriter.append(","); // 14 cuenta_id
-                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(7) ? "" : transacciones_Cursor.getString(7));escrituraDeArchivo_FileWriter.append("\n"); // 15 tipo_cuenta_id
+                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(7) ? "" : transacciones_Cursor.getString(7));escrituraDeArchivo_FileWriter.append(","); // 15 tipo_cuenta_id
+                        // ⭐ NUEVO v11 (28-sep, tercera ronda) — a pedido de Jorge: transaccion_id
+                        // como 16ta columna, por consistencia de conteo de columnas entre los 3
+                        // CSV de transacciones (facilita comparar/homologar CSVs de distintas
+                        // opciones del menú). Siempre vacía aquí a propósito: esta fila es NUEVA
+                        // (saldo inicial agregado por SUM(), no corresponde a ninguna transacción
+                        // real existente), así que no hay un transaccion_id original que escribir
+                        // — igual de vacía que cuenta_id/tipo_cuenta_id lo estarían para una cuenta
+                        // sin match. insertarTransaccion() ya trata una columna 16 vacía igual que
+                        // ausente: autogenera un id nuevo, que es lo correcto para una fila nueva.
+                        escrituraDeArchivo_FileWriter.append("\n"); // 16 transaccion_id (vacía)
 
                     } while (transacciones_Cursor.moveToNext());
 
@@ -415,10 +429,13 @@ public class A5_1_BackupManager {
                 // ⭐ NUEVO v11 — a pedido de Jorge (28-sep): mismo criterio que en
                 // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — se agregan cuenta_id y
                 // tipo_cuenta_id al final, que este resumen tampoco traía todavía.
+                // ⭐ NUEVO v11 (28-sep, tercera ronda) — a pedido de Jorge: transaccion_id como
+                // 16ta columna, mismo criterio que en _2csvConsultaResumenTodasLasCuentasAntesDeCerrar...
+                // (siempre vacía aquí — ver comentario junto a la escritura de la fila).
                 escrituraDeArchivo.append(
                         "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                 "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id\n");
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id\n");
 
                 A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase = ayudanteBD.getWritableDatabase();
@@ -488,7 +505,12 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 13 columna disponible 2 (sin cambios, espacio libre genuino)
                         // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN.
                         escrituraDeArchivo.append(transaccionesCursor.isNull(6) ? "" : transaccionesCursor.getString(6)); escrituraDeArchivo.append(","); // 14 cuenta_id
-                        escrituraDeArchivo.append(transaccionesCursor.isNull(7) ? "" : transaccionesCursor.getString(7)); escrituraDeArchivo.append("\n"); // 15 tipo_cuenta_id
+                        escrituraDeArchivo.append(transaccionesCursor.isNull(7) ? "" : transaccionesCursor.getString(7)); escrituraDeArchivo.append(","); // 15 tipo_cuenta_id
+                        // ⭐ NUEVO v11 (28-sep, tercera ronda) — a pedido de Jorge: transaccion_id
+                        // como 16ta columna, siempre vacía (mismo criterio que en
+                        // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — fila NUEVA de saldo
+                        // inicial, sin transaccion_id original que escribir).
+                        escrituraDeArchivo.append("\n"); // 16 transaccion_id (vacía)
 
                     } while (transaccionesCursor.moveToNext());
 
