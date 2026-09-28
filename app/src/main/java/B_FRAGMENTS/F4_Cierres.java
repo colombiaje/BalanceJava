@@ -662,6 +662,24 @@ public class F4_Cierres extends Fragment {
                 }
             }
 
+            // ⭐ NUEVO v11 (28-sep, segunda ronda) — a pedido de Jorge: transaccion_id (columna
+            // 16), solo presente en el backup completo (A5_1_BackupManager.
+            // guardarTodasLasTransancionsAUnArchivoCSV — los 2 resúmenes de cierre nunca la
+            // traen, son filas nuevas de saldo inicial). Si viene, se reusa el id ORIGINAL en vez
+            // de dejar que AUTOINCREMENT genere uno nuevo — mantiene transaccion_id estable entre
+            // backup y restauración (necesario si más adelante "transacciones_inventario" lo
+            // referencia como FK). Seguro: los 6 flujos que restauran este backup completo
+            // siempre vacían la tabla antes (ver _7borrarHistorialTransacciones), así que no hay
+            // riesgo de choque con una fila existente. Si no viene (CSV de 13/14/15 columnas, o
+            // los resúmenes de cierre), se omite y se sigue autogenerando como hasta ahora.
+            if (datos.length >= 16 && datos[15] != null && !datos[15].trim().isEmpty()) {
+                try {
+                    valores.put("transaccion_id", Long.parseLong(datos[15].trim()));
+                } catch (NumberFormatException nfe) {
+                    Log.e(TAG, "transaccion_id inválido en CSV, se omite (se autogenerará uno nuevo): " + datos[15]);
+                }
+            }
+
             long idInsertado = db.insert("transacciones", null, valores);
             db.close();
             if (idInsertado == -1L) {

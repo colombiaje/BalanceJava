@@ -211,10 +211,21 @@ public class A5_1_BackupManager {
                     // tipo_cuenta_id como 15ta columna (cuenta_id ya era la 14ta). Puramente
                     // aditivo al final, igual criterio que cuenta_id: F4_Cierres.insertarTransaccion()
                     // ya sabe leerla si está presente y no rompe CSVs viejos de 13/14 columnas.
+                    // ⭐ NUEVO v11 (28-sep, segunda ronda): transaccion_id como 16ta columna — solo
+                    // en ESTE backup completo (no en los resúmenes de cierre _2/_3: esos generan
+                    // filas NUEVAS de saldo inicial vía SUM(), sin transaccion_id original que
+                    // preservar). Objetivo: hoy, restaurar un backup completo vacía la tabla y
+                    // reinserta todo con ids NUEVOS (AUTOINCREMENT nunca reutiliza los viejos), así
+                    // que transaccion_id no era estable entre backup y restauración. Guardando el id
+                    // original aquí y reusándolo al reinsertar (ver insertarTransaccion), queda
+                    // estable — necesario si más adelante "transacciones_inventario" lo referencia
+                    // como FK. Seguro: los 6 flujos de restauración que leen este backup completo
+                    // siempre vacían la tabla antes de reinsertar, así que no hay riesgo de choque
+                    // de PK al reusar el id original.
                     salidaArchivo_OutputStreamWriter.write(
                             "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                     "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id\n");
+                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id\n");
                     for (int i = 0; i < todasLasTransacciones_Result_ArrayLTT.size(); i++) {
                         A3_2_TipoTransaccionesGetsYSets TransaccionX = todasLasTransacciones_Result_ArrayLTT.get(i);
                         salidaArchivo_OutputStreamWriter.write(
@@ -232,7 +243,8 @@ public class A5_1_BackupManager {
                                         TransaccionX.tipoTget_12ColumnaDisponibleMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_13ColumnaDisponibleMetodoEnA5() + "," +
                                         (TransaccionX.tipoTget_14CuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_14CuentaIdMetodoEnA5()) + "," +
-                                        (TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5()) +
+                                        (TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5()) + "," +
+                                        (TransaccionX.tipoTget_15TransaccionIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_15TransaccionIdMetodoEnA5()) +
                                         "\n");
                     }
 
