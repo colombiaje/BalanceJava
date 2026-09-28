@@ -472,6 +472,12 @@ public class A21_OptimizedQuery {
         if (indiceCuentaSeguimiento != -1 && !cursor.isNull(indiceCuentaSeguimiento)) {
             item.tipoTsetCuenta_10CuentaSeguimiento(cursor.getInt(indiceCuentaSeguimiento) == 1);
         }
+        // ⭐ NUEVO — v11 tanda 3 (parte A): conciliable (de la migración v12), mismo criterio
+        // aditivo que Cerrable arriba (String "Conciliable" o NULL, no booleano).
+        int indiceConciliable = cursor.getColumnIndex("conciliable");
+        if (indiceConciliable != -1) {
+            item.tipoTsetCuenta_11Conciliable(cursor.getString(indiceConciliable));
+        }
         return item;
     }
 

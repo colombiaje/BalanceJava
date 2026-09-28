@@ -77,7 +77,8 @@ public class A1_2_OperacionesBD extends Activity {
 
     public void insertarCuentas(String stringItemDoc, String cuenta_String,
                                 String grupo1_String, String grupo2_String, String fecha_String,
-                                String cerrable_String, Long tipoCuentaId_Long) {
+                                String cerrable_String, Long tipoCuentaId_Long,
+                                String conciliable_String) {
         abrirBaseDatos();
         ContentValues contenedor_ContentValues = new ContentValues();
         contenedor_ContentValues.put("Item", stringItemDoc);
@@ -87,6 +88,9 @@ public class A1_2_OperacionesBD extends Activity {
         contenedor_ContentValues.put("Fecha", fecha_String);
         // ⭐ NUEVO — Fase 4 (parte B): "Cerrable" o null (ver A1_1_AyudanteBD, migración v6).
         contenedor_ContentValues.put("Cerrable", cerrable_String);
+        // ⭐ NUEVO — v11 tanda 3 (parte A): "Conciliable" o null (ver A1_1_AyudanteBD,
+        // migración v12) — mismo criterio que Cerrable arriba.
+        contenedor_ContentValues.put("conciliable", conciliable_String);
         // ⭐ NUEVO — tanda 2 v10: tipo_cuenta_id ya se llena desde que la cuenta se crea (antes
         // de esto solo lo llenaba, una sola vez, el backfill de la migración v9 — cualquier
         // cuenta creada después quedaba con tipo_cuenta_id NULL hasta que se editara desde el

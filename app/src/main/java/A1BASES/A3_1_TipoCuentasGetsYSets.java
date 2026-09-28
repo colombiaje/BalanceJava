@@ -25,6 +25,11 @@ public class A3_1_TipoCuentasGetsYSets {
     public Long tipoT_9TipoCuentaId_Long;
     public Boolean tipoT_10CuentaSeguimiento_Boolean;
 
+    // ⭐ NUEVO — v11 tanda 3 (parte A): conciliable (de "cuentas", migración v12). Mismo criterio
+    // aditivo: se llena con setter DESPUÉS de construir el objeto (ver
+    // A21_OptimizedQuery.mapCuentasFromCursor).
+    public String tipoT_11Conciliable_String;
+
 // metodo constructor
     public A3_1_TipoCuentasGetsYSets(String tipoT_1Item_String, String tipoT_2Cuenta_String, String tipoT_3G1_String, String tipoT_4G2_String,
                                      String tipoT_5Fecha_String) {
@@ -59,5 +64,8 @@ public class A3_1_TipoCuentasGetsYSets {
 
     public void tipoTsetCuenta_9TipoCuentaId(Long tipoT_9TipoCuentaId_Long) {this.tipoT_9TipoCuentaId_Long = tipoT_9TipoCuentaId_Long;}
     public void tipoTsetCuenta_10CuentaSeguimiento(Boolean tipoT_10CuentaSeguimiento_Boolean) {this.tipoT_10CuentaSeguimiento_Boolean = tipoT_10CuentaSeguimiento_Boolean;}
+
+    public String tipoTgetCuenta_11Conciliable() {return tipoT_11Conciliable_String;}
+    public void tipoTsetCuenta_11Conciliable(String tipoT_11Conciliable_String) {this.tipoT_11Conciliable_String = tipoT_11Conciliable_String;}
 
 }

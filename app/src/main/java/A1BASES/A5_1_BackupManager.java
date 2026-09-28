@@ -92,7 +92,7 @@ public class A5_1_BackupManager {
                 // 3 lectores de este archivo (insertarCuenta(), ver F2_Cuentas) ya saben saltarla
                 // — detectan la fila por su primer campo literal "Item" (nunca un dato real, que
                 // siempre es numérico), así que esto no afecta ninguna cuenta real al restaurar.
-                salidaArchivo.write("Item,Cuenta,Grupo1,Grupo2,Fecha,cuenta_id,codigo_cuenta,Cerrable,tipo_cuenta_id,cuenta_seguimiento\n");
+                salidaArchivo.write("Item,Cuenta,Grupo1,Grupo2,Fecha,cuenta_id,codigo_cuenta,Cerrable,tipo_cuenta_id,cuenta_seguimiento,conciliable\n");
 
                 // Escribir datos
                 // ⭐ CAMBIO — Fase 4 (parte C): se agregan cuenta_id, codigo_cuenta y Cerrable al
@@ -106,6 +106,9 @@ public class A5_1_BackupManager {
                 // adivinando por Grupo1/Grupo2 después de reinsertar. Mismo criterio: puramente
                 // aditivo al final, así que un backup viejo de 8 columnas se sigue leyendo igual
                 // (F2_Cuentas.insertarCuenta() detecta cuántas columnas trae la línea).
+                // ⭐ NUEVO — v11 tanda 3 (parte A): se agrega conciliable al final (columna 11),
+                // mismo criterio aditivo — un backup viejo de hasta 10 columnas se sigue leyendo
+                // igual.
                 for (A3_1_TipoCuentasGetsYSets cuenta : todasLasCuentas_List_Result) {
                     String linea = cuenta.tipoTgetCuenta_1Item() + "," +
                             cuenta.tipoTgetCuenta_2Cuenta() + "," +
@@ -116,7 +119,8 @@ public class A5_1_BackupManager {
                             (cuenta.tipoTgetCuenta_7CodigoCuenta() == null ? "" : cuenta.tipoTgetCuenta_7CodigoCuenta()) + "," +
                             (cuenta.tipoTgetCuenta_8Cerrable() == null ? "" : cuenta.tipoTgetCuenta_8Cerrable()) + "," +
                             (cuenta.tipoTgetCuenta_9TipoCuentaId() == null ? "" : cuenta.tipoTgetCuenta_9TipoCuentaId()) + "," +
-                            (cuenta.tipoTgetCuenta_10CuentaSeguimiento() == null ? "" : (cuenta.tipoTgetCuenta_10CuentaSeguimiento() ? "1" : "0")) + "\n";
+                            (cuenta.tipoTgetCuenta_10CuentaSeguimiento() == null ? "" : (cuenta.tipoTgetCuenta_10CuentaSeguimiento() ? "1" : "0")) + "," +
+                            (cuenta.tipoTgetCuenta_11Conciliable() == null ? "" : cuenta.tipoTgetCuenta_11Conciliable()) + "\n";
 
                     salidaArchivo.write(linea);
                     Log.d("BackupManager", "Escribiendo línea: " + linea.trim());

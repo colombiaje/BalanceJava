@@ -268,10 +268,15 @@ public class A22_QueryManager {
     public A23_QueryResult<String> queryAzConciliablesAccountsWithFilter () {
 
         //A3_2_a3_2_consultas_para_queryManager a3_2_consultas_para_queryManager = new A3_2_a3_2_consultas_para_queryManager(context);
+        // ⭐ CAMBIO — v11 tanda 3 (parte A): antes filtraba por el texto libre de Grupo2
+        // ("Grupo2 LIKE '%Exigible Conciliable%'" — capturaba, por el LIKE case-insensitive de
+        // SQLite, tanto "Exigible Conciliable" como "No exigible Conciliable"). Ahora usa la
+        // columna propia "conciliable" (ver A1_1_AyudanteBD, migración v12), que reproduce
+        // exactamente el mismo resultado vía backfill, sin depender del texto de Grupo1/Grupo2.
         A21_OptimizedQuery.QueryBuilder queryBuilder= new A21_OptimizedQuery.QueryBuilder()
                 .select("Cuenta") // Nombre de la columna que deseas seleccionar
                 .from("cuentas")  // Nombre de la tabla
-                .where("Grupo2 LIKE ?", "%Exigible Conciliable%") // Filtro para palabras que contienen "Conciliable"
+                .where("conciliable = ?", "Conciliable") // Cuentas marcadas conciliables
                 .orderBy("Cuenta", true);
 
         List<String>  cuentasConciliablesOrdenAscendete_List = a3_2_consultas_para_queryManager.executeQuery(queryBuilder, cursor -> cursor.getString(0));

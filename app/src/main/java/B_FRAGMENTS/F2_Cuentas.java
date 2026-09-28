@@ -139,6 +139,8 @@ public class F2_Cuentas extends DialogFragment {
     Spinner grupo1CuentaNueva_XSp,grupo2CuentaNueva_XSp;
     // ⭐ NUEVO — Fase 4 (parte B): checkbox de Cerrable en Nueva Cuenta / Modificar cuenta.
     CheckBox cerrableCuentaNueva_XChB;
+    // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox de Conciliable, mismo patrón que Cerrable.
+    CheckBox conciliableCuentaNueva_XChB;
     String itemCuentaNueva_String;
     String cuentaNueva_String;
     String grupo1CuentaNueva_String;
@@ -498,6 +500,7 @@ public class F2_Cuentas extends DialogFragment {
         grupo1CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo1CuentaNueva_XSp);
         grupo2CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo2CuentaNueva_XSp);
         cerrableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.cerrableCuentaNueva_XChB);
+        conciliableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conciliableCuentaNueva_XChB);
         cuentasOrdenAzParaVistaDetalleCuenta_XSp=(Spinner) inflarViews_View.findViewById(R.id.cuentasOrdenAzParaVistaDetalleCuenta_XSp);
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
@@ -852,6 +855,8 @@ public class F2_Cuentas extends DialogFragment {
                         // al copiar, pero se había quedado sin limpiar Cerrable — se veía en la
                         // pantalla como si la cuenta anterior siguiera marcada Cerrable.
                         cerrableCuentaNueva_XChB.setChecked(false);
+                        // ⭐ NUEVO — v11 tanda 3 (parte A): mismo criterio que Cerrable arriba.
+                        conciliableCuentaNueva_XChB.setChecked(false);
                         copyCuentaABuscarXChb.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_paste,0,0,0);
                         limpiarTextoEnCuentaABuscar();
                         isCopyMode = false;
@@ -1176,9 +1181,11 @@ public class F2_Cuentas extends DialogFragment {
             // Insertar en la base de datos
             // ⭐ NUEVO — Fase 4 (parte B): checkbox Cerrable → "Cerrable" o null.
             String cerrableCuentaNueva_String = cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null;
+            // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox Conciliable → "Conciliable" o null.
+            String conciliableCuentaNueva_String = conciliableCuentaNueva_XChB.isChecked() ? "Conciliable" : null;
             a3_operacionesBD.insertarCuentas(itemCuentaNueva_String, cuentaNueva_String,
                     grupo1CuentaNueva_String, grupo2CuentaNueva_String, fechaCuentaNueva_String,
-                    cerrableCuentaNueva_String, tipoCuentaIdSeleccionado);
+                    cerrableCuentaNueva_String, tipoCuentaIdSeleccionado, conciliableCuentaNueva_String);
 
             cleanClickFieldsAccount();
             Toast.makeText(getActivity(), "! Registro de cuenta nueva guardado ! ", Toast.LENGTH_SHORT).show();
@@ -1276,8 +1283,10 @@ public class F2_Cuentas extends DialogFragment {
             // ⭐ CAMBIO — tanda 2 v10: se agrega tipo_cuenta_id (índice 5) — reemplaza a Grupo1/
             // Grupo2 (índices 1 y 2, que se conservan en el SELECT solo porque otros lugares de
             // este mismo archivo todavía los usan) para posicionar el spinner único de abajo.
+            // ⭐ NUEVO — v11 tanda 3 (parte A): se agrega conciliable (índice 6), mismo criterio
+            // aditivo que Cerrable — para poder marcar el checkbox nuevo al abrir en Modificar.
             Cursor fila = db.rawQuery
-                    ("select Item, Grupo1, Grupo2, Cerrable, cuenta_id, tipo_cuenta_id from" +
+                    ("select Item, Grupo1, Grupo2, Cerrable, cuenta_id, tipo_cuenta_id, conciliable from" +
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1308,6 +1317,8 @@ public class F2_Cuentas extends DialogFragment {
 
                 // ⭐ NUEVO — Fase 4 (parte B).
                 cerrableCuentaNueva_XChB.setChecked("Cerrable".equals(fila.getString(3)));
+                // ⭐ NUEVO — v11 tanda 3 (parte A).
+                conciliableCuentaNueva_XChB.setChecked("Conciliable".equals(fila.getString(6)));
 
                 //aplica en nuevas
 
@@ -1466,6 +1477,7 @@ public class F2_Cuentas extends DialogFragment {
         account_XAct.setText("");
         grupo1CuentaNueva_XSp.setSelection(0);
         cerrableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — Fase 4 (parte B)
+        conciliableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v11 tanda 3 (parte A)
 
         // ⭐ NUEVO — Fase 4 Objetivo 2: se limpian junto con el resto de los campos, para
         // que no quede un cuenta_id de una cuenta ya no visible listo para reutilizarse
@@ -1657,6 +1669,8 @@ public class F2_Cuentas extends DialogFragment {
             contenedor_ContentValues.put("tipo_cuenta_id", tipoCuentaIdSeleccionado);
             // ⭐ NUEVO — Fase 4 (parte B): checkbox Cerrable → "Cerrable" o null.
             contenedor_ContentValues.put("Cerrable", cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null);
+            // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox Conciliable → "Conciliable" o null.
+            contenedor_ContentValues.put("conciliable", conciliableCuentaNueva_XChB.isChecked() ? "Conciliable" : null);
 
             if (seEstaRenombrando) {
                 String nombreViejo = nombreOriginalEnModificar_String;
@@ -2781,6 +2795,16 @@ public class F2_Cuentas extends DialogFragment {
                 }
                 if (datos[9] != null && !datos[9].trim().isEmpty()) {
                     valores.put("cuenta_seguimiento", "1".equals(datos[9].trim()) ? 1 : 0);
+                }
+            }
+
+            // ⭐ NUEVO — v11 tanda 3 (parte A): conciliable, si el CSV lo trae (backup nuevo de
+            // A5_1_BackupManager.backupCuentasArchivoCSV, columna 11). Compatible con CSVs de 10
+            // columnas (o menos): si no viene, simplemente no se pone, y la cuenta queda con
+            // conciliable NULL como cualquier cuenta creada antes de la migración v12.
+            if (datos.length >= 11) {
+                if (datos[10] != null && !datos[10].trim().isEmpty()) {
+                    valores.put("conciliable", datos[10].trim());
                 }
             }
 

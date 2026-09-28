@@ -139,7 +139,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     public static final String balanceSqlite_String_PSF = "balance.db";
 
     // ⭐ CAMBIO: versión 10 → 11 para disparar onUpgrade en dispositivos existentes (ver Fase 6, parte C, arriba).
-    public static final int version1BalanceSqlite_int_PSF = 11;
+    public static final int version1BalanceSqlite_int_PSF = 12;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -238,7 +238,14 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // Valor 1 = marcada, NULL = no aplica (mismo estilo que Cerrable). En
                     // instalaciones frescas nace NULL en todas — el usuario la marca desde
                     // F2_Cuentas cuando cree la cuenta que quiera seguir.
-                    "cuenta_seguimiento INTEGER)";
+                    "cuenta_seguimiento INTEGER, " +
+                    // ⭐ NUEVO v12 — v11 tanda 3 (parte A): atributo "conciliable" propio,
+                    // separado de Grupo1/Grupo2. Valor literal "Conciliable" o NULL ("no
+                    // aplica"), mismo estilo que Cerrable. En instalaciones frescas nace NULL en
+                    // todas — el usuario la marca desde F2_Cuentas al crear la cuenta. En
+                    // dispositivos que actualizan, la migración v12 la agrega con ALTER TABLE y
+                    // la llena vía backfill — ver el bloque "if (oldVersion < 12)" en onUpgrade().
+                    "conciliable TEXT)";
 
     // ─────────────────────────────────────────────
     //  DDL — NUEVAS TABLAS DE CACHÉ  ⭐ NUEVO
@@ -1082,6 +1089,55 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                                 "para huérfanas sin cuenta_id, o cuentas sin tipo_cuenta_id propio)");
             }
             sinTipoCuentaTransacciones.close();
+        }
+
+        // ⭐ NUEVO v12 — v11 tanda 3 (parte A): "cuentas" gana una columna propia "conciliable"
+        // (texto, valor literal "Conciliable" o NULL cuando no aplica) — mismo patrón que
+        // "Cerrable" desde v6. Hasta ahora, si una cuenta era conciliable o no se derivaba
+        // leyendo el texto de Grupo2 ("Exigible Conciliable"/"...No conciliable" — ver
+        // A22_QueryManager.queryAzConciliablesAccountsWithFilter()), el mismo patrón de texto
+        // hardcodeado que se está retirando de "transacciones"/"cuentas" en esta tanda. Se
+        // adelanta este campo ahora, ANTES de tocar Grupo1/Grupo2, para no perder esa
+        // funcionalidad (el spinner de "cuenta de conciliación" al crear/editar una
+        // transacción) cuando Grupo1/Grupo2 se retiren más adelante.
+        if (oldVersion < 12) {
+
+            // 1) ALTER TABLE simple — mismo criterio que Cerrable (v6) y tipo_cuenta_id (v9):
+            //    no recrea la tabla, no cambia el orden posicional de ninguna columna existente.
+            db.execSQL("ALTER TABLE cuentas ADD COLUMN conciliable TEXT");
+
+            // 2) Backfill de mejor esfuerzo: se deriva del mismo texto de Grupo2 que hasta
+            //    ahora usaba el filtro en vivo — "Exigible Conciliable" y "No exigible
+            //    Conciliable" quedan en 'Conciliable'; "...No conciliable" (las otras 2
+            //    combinaciones) quedan en NULL. Reproduce EXACTAMENTE el mismo resultado que
+            //    daba hoy el filtro "Grupo2 LIKE '%Exigible Conciliable%'" (LIKE de SQLite es
+            //    case-insensitive por defecto, así que ya capturaba ambas variantes
+            //    "Exigible"/"No exigible" — la única palabra que distingue es "No" antes de
+            //    "conciliable").
+            db.execSQL(
+                    "UPDATE cuentas SET conciliable = 'Conciliable' " +
+                            "WHERE Grupo2 NOT LIKE '%No conciliable%'");
+
+            // 3) Diagnóstico: cuántas cuentas quedaron marcadas conciliables vs. no, para poder
+            //    comparar a simple vista contra lo que mostraba antes el spinner de "cuenta de
+            //    conciliación".
+            Cursor conciliablesCount = db.rawQuery(
+                    "SELECT COUNT(*) FROM cuentas WHERE conciliable = 'Conciliable'", null);
+            if (conciliablesCount.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v12: " + conciliablesCount.getInt(0) +
+                                " cuentas quedaron marcadas 'Conciliable' por backfill");
+            }
+            conciliablesCount.close();
+
+            Cursor noConciliablesCount = db.rawQuery(
+                    "SELECT COUNT(*) FROM cuentas WHERE conciliable IS NULL", null);
+            if (noConciliablesCount.moveToFirst()) {
+                android.util.Log.w("A1_1_AyudanteBD",
+                        "Migración v12: " + noConciliablesCount.getInt(0) +
+                                " cuentas quedaron con conciliable NULL (Grupo2 'No conciliable')");
+            }
+            noConciliablesCount.close();
         }
     }
 
