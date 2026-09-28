@@ -60,18 +60,42 @@ public class ExecuteButtonsUnit {
                     return;
                 }
 
+                // ⭐ CAMBIO — v12 tanda 3 (segundo fix, 29-sep): guardadoExitoso rastrea si el
+                // documento realmente se guardó, para no llamar a
+                // f1.realizarOperacionesPostSeleccion() cuando el guardado fue bloqueado (esa
+                // función limpia la lista de ítems en pantalla y muestra un Toast de ÉXITO —
+                // "Backup local, en Drive y documento actualizado" — que antes se mostraba
+                // IGUAL aunque el guardado se hubiera bloqueado por una cuenta con inventario,
+                // tapando/contradiciendo el aviso real de bloqueo).
+                boolean guardadoExitoso;
+
                 String radioName = f1.getResources().getResourceEntryName(selectedId);
                 switch (radioName) {
                     case "create_XRb":
                     case "template_XRb":
-                        f1.baseParaGuardarEnLaEnBDConListaDocumento(radioName);
+                        guardadoExitoso = f1.baseParaGuardarEnLaEnBDConListaDocumento(radioName);
                         break;
                     case "updateDelete_XRb":
                         if (!f1.documentoABuscarParaEditar_XATv.getText().toString().isEmpty()) {
-                            f1.a2operacionesBD = new A1_2_OperacionesBD(f1.getActivity());
-                            f1.a2operacionesBD.eliminarTransacciones(
-                                    f1.documentoABuscarParaEditar_XATv.getText().toString());
-                            f1.baseParaGuardarEnLaEnBDConListaDocumento(radioName);
+                            // ⭐ CORRECCIÓN — v12 tanda 3 (segundo fix, 29-sep): la verificación
+                            // de cuenta-con-inventario se hace ANTES de borrar las transacciones
+                            // viejas del documento. Antes de este cambio, el orden era: borrar
+                            // TODO lo viejo del documento (eliminarTransacciones) → recién ahí
+                            // intentar reinsertar la lista completa, que podía bloquearse si
+                            // algún ítem apuntaba a una cuenta con inventario — dejando el
+                            // documento con sus transacciones viejas ya borradas y nada nuevo en
+                            // su lugar (pérdida real de datos de ese documento). Validar primero
+                            // cierra ese hueco: si está bloqueado, no se borra nada.
+                            if (f1.persistence.bloqueadoPorCuentaConInventario()) {
+                                guardadoExitoso = false;
+                            } else {
+                                f1.a2operacionesBD = new A1_2_OperacionesBD(f1.getActivity());
+                                f1.a2operacionesBD.eliminarTransacciones(
+                                        f1.documentoABuscarParaEditar_XATv.getText().toString());
+                                guardadoExitoso = f1.baseParaGuardarEnLaEnBDConListaDocumento(radioName);
+                            }
+                        } else {
+                            guardadoExitoso = false;
                         }
                         break;
                     default:
@@ -80,7 +104,9 @@ public class ExecuteButtonsUnit {
                                 Toast.LENGTH_SHORT).show();
                         return;
                 }
-                f1.realizarOperacionesPostSeleccion(selectedId);
+                if (guardadoExitoso) {
+                    f1.realizarOperacionesPostSeleccion(selectedId);
+                }
 
             } catch (Exception e) {
                 Log.e("ExecuteButtonsUnit", "Error saving document", e);

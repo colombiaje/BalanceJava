@@ -1907,8 +1907,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         return null; // Todas las validaciones pasan
     }
 
-    public void baseParaGuardarEnLaEnBDConListaDocumento(String nombreDelRadioButton) {
-        persistence.baseParaGuardarEnLaEnBDConListaDocumento(nombreDelRadioButton);
+    // ⭐ CAMBIO — v12 tanda 3 (segundo fix, 29-sep): pasa de void a boolean, ver el comentario
+    // completo en B12_DocumentPersistence.baseParaGuardarEnLaEnBDConListaDocumento().
+    public boolean baseParaGuardarEnLaEnBDConListaDocumento(String nombreDelRadioButton) {
+        return persistence.baseParaGuardarEnLaEnBDConListaDocumento(nombreDelRadioButton);
     }
 
     public void digitarFisicoVsSaldoConciliacion() {

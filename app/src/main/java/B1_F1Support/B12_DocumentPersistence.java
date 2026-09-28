@@ -6,6 +6,8 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
+
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A99_MetodosVarios;
 import A2QueryBD.A23_QueryResult;
@@ -35,59 +37,32 @@ public class B12_DocumentPersistence {
     // ═══════════════════════════════════════════════════════════════
     // 1. baseParaGuardarEnLaEnBDConListaDocumento
     // ═══════════════════════════════════════════════════════════════
-    public void baseParaGuardarEnLaEnBDConListaDocumento(String nombreDelRadioButton) {
+    // ⭐ CAMBIO — v12 tanda 3 (segundo fix, 29-sep): pasa de void a boolean (true = se guardó,
+    // false = bloqueado por una cuenta con inventario — nada se guardó). Antes, aunque el
+    // guardado se bloqueara, ExecuteButtonsUnit igual llamaba a continuación a
+    // realizarOperacionesPostSeleccion(), que limpia la lista de ítems en memoria Y muestra
+    // "Backup local, en Drive y documento actualizado" — un mensaje de ÉXITO engañoso
+    // apareciendo justo después (o casi encima) del aviso real de bloqueo, y la lista de
+    // ítems desapareciendo de la pantalla como si sí se hubiera guardado. Esto explica el
+    // reporte de Jorge de "no sale el aviso... y no queda registrado en la BD": el aviso sí
+    // se mostraba, pero quedaba tapado/opacado por el segundo mensaje de "éxito" que llegaba
+    // enseguida, y la pantalla se limpiaba igual que en un guardado real. Con el valor de
+    // retorno, ExecuteButtonsUnit ahora puede saltarse ese post-procesamiento cuando el
+    // guardado fue bloqueado.
+    public boolean baseParaGuardarEnLaEnBDConListaDocumento(String nombreDelRadioButton) {
         assignDocumentDate(nombreDelRadioButton);
         f1.renumerarItemsListaDocumento();
 
-        SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
-
-        // ⭐ NUEVO — v12 tanda 3: este formulario (el de siempre) todavía no sabe pedir
-        // item/unidades/precio_unitario para una cuenta con con_inventario = 1 — eso llega
-        // en la tanda 4, que va a conectar aquí la lógica ya lista y probada de
-        // A12_InventarioHelper (tanda 2). Mientras tanto, si CUALQUIER ítem de este
-        // documento apunta a una cuenta con inventario, se bloquea el guardado COMPLETO
-        // antes de tocar la base — nunca a medias — para que nunca pueda quedar una
-        // transacción sin su fila correspondiente en transacciones_inventario.
-        // ⭐ CORRECCIÓN — v12 tanda 3 (fix, 28-sep: Jorge reportó que el aviso no aparecía al
-        // probar con una cuenta con inventario real): se agrega .trim() al nombre antes de
-        // comparar contra "cuentas.Cuenta" — c3_Cuenta se guarda tal cual viene del campo de
-        // texto de este formulario (a diferencia de F2_Cuentas.registrarNuevas(), que SÍ
-        // recorta espacios al crear la cuenta), así que un espacio de más al escribir o
-        // pegar el nombre de la cuenta en ESTE formulario hacía que la comparación exacta no
-        // encontrara la cuenta y el bloqueo se saltara en silencio. Se deja además un log de
-        // diagnóstico por si con esto no queda resuelto del todo.
-        for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
-            String nombreCuentaAVerificar = p.tipoTget_3CuentaMetodoEnA5();
-            String nombreCuentaAVerificarRecortado =
-                    nombreCuentaAVerificar == null ? null : nombreCuentaAVerificar.trim();
-            Cursor cConInventario = db.rawQuery(
-                    "SELECT con_inventario FROM cuentas WHERE Cuenta = ?",
-                    new String[]{nombreCuentaAVerificarRecortado});
-            boolean esConInventario = false;
-            try {
-                if (cConInventario.moveToFirst() && !cConInventario.isNull(0)) {
-                    esConInventario = cConInventario.getInt(0) != 0;
-                } else {
-                    Log.w(TAG, "Bloqueo de inventario: no se encontró la cuenta \"" +
-                            nombreCuentaAVerificarRecortado + "\" al verificar con_inventario " +
-                            "— si esta cuenta SÍ existe y SÍ tiene inventario, revisar si el " +
-                            "nombre guardado en el ítem del documento no coincide exactamente " +
-                            "(mayúsculas/espacios) con el de \"cuentas\".");
-                }
-            } finally {
-                cConInventario.close();
-            }
-            if (esConInventario) {
-                Toast.makeText(f1.getActivity(),
-                        "\"" + nombreCuentaAVerificarRecortado + "\" maneja inventario — el " +
-                                "registro de transacciones para cuentas con inventario " +
-                                "todavía está en construcción, no se puede guardar aquí por " +
-                                "ahora.",
-                        Toast.LENGTH_LONG).show();
-                return;
-            }
+        // ⭐ CORRECCIÓN — v12 tanda 3 (segundo fix, 29-sep): la verificación se movió a su
+        // propio método público (bloqueadoPorCuentaConInventario(), más abajo) para poder
+        // llamarla TAMBIÉN desde ExecuteButtonsUnit ANTES de borrar las transacciones viejas
+        // del documento en el flujo "Modificar documento" — ver el comentario completo en esa
+        // función.
+        if (bloqueadoPorCuentaConInventario()) {
+            return false;
         }
 
+        SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
         db.beginTransaction();
         try {
             for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
@@ -172,6 +147,98 @@ public class B12_DocumentPersistence {
         f1.numerarDocumentoConsecutivo();
         f1.numeroConsecutivoDocEnEdicion_XTv.setText(f1.documentoRecibido_Resultado_String);
         f1.metodosVarios_Class.fechasYHoras();
+        return true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 1b. bloqueadoPorCuentaConInventario
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO — v12 tanda 3: este formulario (el de siempre) todavía no sabe pedir
+    // item/unidades/precio_unitario para una cuenta con con_inventario = 1 — eso llega en
+    // la tanda 4, que va a conectar aquí la lógica ya lista y probada de
+    // A12_InventarioHelper (tanda 2). Mientras tanto, si CUALQUIER ítem de la lista actual
+    // del documento apunta a una cuenta con inventario, se bloquea el guardado — nunca a
+    // medias — para que nunca pueda quedar una transacción sin su fila correspondiente en
+    // transacciones_inventario.
+    // ⭐ CORRECCIÓN — v12 tanda 3 (fix, 28-sep): se agrega .trim() al nombre antes de
+    // comparar contra "cuentas.Cuenta" — c3_Cuenta se guarda tal cual viene del campo de
+    // texto de este formulario (a diferencia de F2_Cuentas.registrarNuevas(), que SÍ recorta
+    // espacios al crear la cuenta), así que un espacio de más al escribir o pegar el nombre
+    // de la cuenta en ESTE formulario hacía que la comparación exacta no encontrara la
+    // cuenta y el bloqueo se saltara en silencio.
+    // ⭐ CORRECCIÓN — v12 tanda 3 (SEGUNDO fix, 29-sep): dos cambios más, a partir de la
+    // segunda ronda de pruebas de Jorge (el aviso seguía sin verse y las transacciones
+    // seguían sin registrarse):
+    //   1) El aviso pasa de Toast a AlertDialog. Un Toast desaparece solo a los pocos
+    //      segundos y es fácil perdérselo — con un diálogo que hay que cerrar a propósito,
+    //      es imposible que pase inadvertido.
+    //   2) Este método se EXTRAE de baseParaGuardarEnLaEnBDConListaDocumento() a su propia
+    //      función pública para poder llamarlo, desde ExecuteButtonsUnit, ANTES de que el
+    //      flujo "Modificar documento" borre las transacciones viejas del documento
+    //      (A1_2_OperacionesBD.eliminarTransacciones()). Antes de este cambio, el orden real
+    //      era: borrar TODO lo viejo del documento → intentar reinsertar la lista completa →
+    //      SI esa reinserción se bloqueaba por una cuenta con inventario, el documento
+    //      quedaba con sus transacciones viejas ya borradas y nada nuevo en su lugar —
+    //      pérdida real de datos de ese documento, no solo "no se guardó el cambio nuevo".
+    //      Esto probablemente explica lo que Jorge reportó como "no se guarda nada": si
+    //      estaba editando un documento existente (no creando uno nuevo) y alguno de sus
+    //      ítems apuntaba a una cuenta con inventario, el documento completo se vaciaba.
+    // Se agrega también un try/catch alrededor de toda la verificación: si algo inesperado
+    // falla al consultar con_inventario (por ejemplo, en un dispositivo donde la migración
+    // no corrió como se esperaba), se bloquea el guardado POR SEGURIDAD en vez de dejar
+    // pasar la transacción sin verificar, y se avisa con un mensaje claro en vez de fallar
+    // en silencio.
+    public boolean bloqueadoPorCuentaConInventario() {
+        SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
+        try {
+            for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
+                String nombreCuentaAVerificar = p.tipoTget_3CuentaMetodoEnA5();
+                String nombreCuentaAVerificarRecortado =
+                        nombreCuentaAVerificar == null ? null : nombreCuentaAVerificar.trim();
+                Cursor cConInventario = db.rawQuery(
+                        "SELECT con_inventario FROM cuentas WHERE Cuenta = ?",
+                        new String[]{nombreCuentaAVerificarRecortado});
+                boolean esConInventario = false;
+                try {
+                    if (cConInventario.moveToFirst() && !cConInventario.isNull(0)) {
+                        esConInventario = cConInventario.getInt(0) != 0;
+                    } else {
+                        Log.w(TAG, "Bloqueo de inventario: no se encontró la cuenta \"" +
+                                nombreCuentaAVerificarRecortado + "\" al verificar con_inventario " +
+                                "— si esta cuenta SÍ existe y SÍ tiene inventario, revisar si el " +
+                                "nombre guardado en el ítem del documento no coincide exactamente " +
+                                "(mayúsculas/espacios) con el de \"cuentas\".");
+                    }
+                } finally {
+                    cConInventario.close();
+                }
+                if (esConInventario) {
+                    Log.i(TAG, "Bloqueo de inventario ACTIVADO para la cuenta \"" +
+                            nombreCuentaAVerificarRecortado + "\" — se muestra el diálogo y no " +
+                            "se guarda nada.");
+                    new AlertDialog.Builder(f1.getActivity())
+                            .setTitle("Cuenta con inventario")
+                            .setMessage("\"" + nombreCuentaAVerificarRecortado + "\" maneja " +
+                                    "inventario — el registro de transacciones para cuentas " +
+                                    "con inventario todavía está en construcción, no se puede " +
+                                    "guardar aquí por ahora.")
+                            .setPositiveButton("Entendido", null)
+                            .setCancelable(true)
+                            .show();
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Error verificando cuentas con inventario antes de guardar", e);
+            Toast.makeText(f1.getActivity(),
+                    "No se pudo verificar si alguna cuenta maneja inventario — por seguridad, " +
+                            "no se guardó nada. Detalle: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show();
+            return true;
+        } finally {
+            db.close();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
