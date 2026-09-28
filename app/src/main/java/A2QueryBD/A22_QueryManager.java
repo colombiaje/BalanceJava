@@ -37,10 +37,18 @@ public class A22_QueryManager {
     // tipo_cuenta_nombre al final. Sin riesgo de ambigüedad: no se selecciona tipo_cuenta.*, y
     // ningún WHERE/ORDER BY de estas 4 consultas referencia una columna que exista en ambas
     // tablas.
+    // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): se agrega un segundo
+    // LEFT JOIN, ahora a "cuentas" por transacciones.cuenta_id, para traer con_inventario —
+    // mismo criterio aditivo que el JOIN a tipo_cuenta de arriba: transacciones.* y
+    // tipo_cuenta_nombre quedan exactamente igual, solo se agrega esta columna nueva al
+    // final. La usan los 3 CSV de transacciones de A5_1_BackupManager, igual que ya usan
+    // Cerrable/cuenta_id/tipo_cuenta_id (ver A21_OptimizedQuery.mapTransactionFromCursor).
     private static final String SELECT_TRANSACCIONES_CON_TIPO_CUENTA =
-            "transacciones.*, tipo_cuenta.nombre AS tipo_cuenta_nombre";
+            "transacciones.*, tipo_cuenta.nombre AS tipo_cuenta_nombre, cuentas.con_inventario AS con_inventario";
     private static final String FROM_TRANSACCIONES_CON_TIPO_CUENTA =
-            "transacciones LEFT JOIN tipo_cuenta ON transacciones.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id";
+            "transacciones " +
+                    "LEFT JOIN tipo_cuenta ON transacciones.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id " +
+                    "LEFT JOIN cuentas ON transacciones.cuenta_id = cuentas.cuenta_id";
 
     // ⭐ NUEVO — v11 tanda 3 (parte D): mismo criterio que SELECT/FROM_TRANSACCIONES_CON_TIPO_CUENTA
     // de arriba, pero para "cuentas" — usado por queryAllAccounts() (pantalla "Ver Cuentas", ver

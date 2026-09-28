@@ -51,6 +51,20 @@ public class A3_2_TipoTransaccionesGetsYSets {
     // fila no tiene tipo_cuenta_id o el JOIN no encuentra la cuenta.
     public String tipoT_17TipoCuentaNombre_String;
 
+    // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario real de
+    // la cuenta (tabla "cuentas", vía JOIN por transacciones.cuenta_id — ver
+    // A22_QueryManager.SELECT_TRANSACCIONES_CON_TIPO_CUENTA/FROM_TRANSACCIONES_CON_TIPO_CUENTA
+    // y A21_OptimizedQuery.mapTransactionFromCursor), mismo criterio que
+    // tipoT_17TipoCuentaNombre_String arriba: puramente informativo, para los 3 CSV de
+    // transacciones de A5_1_BackupManager (mismo criterio que Cerrable/cuenta_id/
+    // tipo_cuenta_id, ya presentes ahí). NO es una columna de "transacciones" — es el estado
+    // ACTUAL de la cuenta al momento de generar el CSV, no una foto histórica — así que no se
+    // lee de vuelta al restaurar (F4_Cierres.insertarTransaccion() simplemente no la usa,
+    // igual que ya ignora cualquier columna que no le interese). Null si la cuenta no tiene
+    // cuenta_id asignado o el JOIN no la encuentra (misma situación ya posible con
+    // tipoT_17TipoCuentaNombre_String).
+    public Boolean tipoT_18ConInventario_Boolean;
+
     private String columna1;
     private int columna2;
     private String columna3;
@@ -123,6 +137,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public Long tipoTget_15TransaccionIdMetodoEnA5() {return tipoT_15TransaccionId_Long;}
     public Long tipoTget_16TipoCuentaIdMetodoEnA5() {return tipoT_16TipoCuentaId_Long;}
     public String tipoTget_17TipoCuentaNombreMetodoEnA5() {return tipoT_17TipoCuentaNombre_String;}
+    public Boolean tipoTget_18ConInventarioMetodoEnA5() {return tipoT_18ConInventario_Boolean;}
 
     public void tipoTset_1DocumentoMetodoEnA5(String tipoT_1NumberDocument_String) {this.tipoT_1NumberDocument_String = tipoT_1NumberDocument_String;}
     public void tipoTset_2ItemDocMetodoEnA5(String tipoT_2DocumentItems_String) {this.tipoT_2DocumentItems_String = tipoT_2DocumentItems_String;}
@@ -141,6 +156,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public void tipoTset_15TransaccionIdMetodoEnA5(Long tipoT_15TransaccionId_Long) {this.tipoT_15TransaccionId_Long = tipoT_15TransaccionId_Long;}
     public void tipoTset_16TipoCuentaIdMetodoEnA5(Long tipoT_16TipoCuentaId_Long) {this.tipoT_16TipoCuentaId_Long = tipoT_16TipoCuentaId_Long;}
     public void tipoTset_17TipoCuentaNombreMetodoEnA5(String tipoT_17TipoCuentaNombre_String) {this.tipoT_17TipoCuentaNombre_String = tipoT_17TipoCuentaNombre_String;}
+    public void tipoTset_18ConInventarioMetodoEnA5(Boolean tipoT_18ConInventario_Boolean) {this.tipoT_18ConInventario_Boolean = tipoT_18ConInventario_Boolean;}
 
     public A3_2_TipoTransaccionesGetsYSets(String columna1, int columna2, String columna3, int columna4) {
 

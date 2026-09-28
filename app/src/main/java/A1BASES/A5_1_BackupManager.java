@@ -231,10 +231,19 @@ public class A5_1_BackupManager {
                     // como FK. Seguro: los 6 flujos de restauración que leen este backup completo
                     // siempre vacían la tabla antes de reinsertar, así que no hay riesgo de choque
                     // de PK al reusar el id original.
+                    // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): se agrega
+                    // con_inventario como 17ta columna, al final — mismo criterio aditivo que
+                    // las anteriores. Es el con_inventario ACTUAL de la cuenta de esa
+                    // transacción (no una foto histórica, a diferencia de cuenta_id/
+                    // tipo_cuenta_id), igual que ya se hace con Cerrable en los 2 resúmenes de
+                    // cierre de más abajo. No se lee de vuelta al restaurar (no es una columna
+                    // de "transacciones" — ver A3_2_TipoTransaccionesGetsYSets, campo
+                    // tipoT_18ConInventario_Boolean).
                     salidaArchivo_OutputStreamWriter.write(
                             "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                     "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id\n");
+                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id," +
+                                    "con_inventario\n");
                     for (int i = 0; i < todasLasTransacciones_Result_ArrayLTT.size(); i++) {
                         A3_2_TipoTransaccionesGetsYSets TransaccionX = todasLasTransacciones_Result_ArrayLTT.get(i);
                         salidaArchivo_OutputStreamWriter.write(
@@ -253,7 +262,8 @@ public class A5_1_BackupManager {
                                         TransaccionX.tipoTget_13ColumnaDisponibleMetodoEnA5() + "," +
                                         (TransaccionX.tipoTget_14CuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_14CuentaIdMetodoEnA5()) + "," +
                                         (TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5()) + "," +
-                                        (TransaccionX.tipoTget_15TransaccionIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_15TransaccionIdMetodoEnA5()) +
+                                        (TransaccionX.tipoTget_15TransaccionIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_15TransaccionIdMetodoEnA5()) + "," +
+                                        (TransaccionX.tipoTget_18ConInventarioMetodoEnA5() == null ? "" : (TransaccionX.tipoTget_18ConInventarioMetodoEnA5() ? "1" : "0")) +
                                         "\n");
                     }
 
@@ -306,10 +316,13 @@ public class A5_1_BackupManager {
                 // 16ta columna, para que los 3 CSV de transacciones queden con el mismo número de
                 // columnas (facilita comparar/homologar entre opciones del menú). Siempre vacía en
                 // este resumen (ver comentario junto a la escritura de la fila, más abajo).
+                // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario
+                // como 17ma columna — mismo criterio que en el backup completo de arriba.
                 escrituraDeArchivo_FileWriter.append(
                         "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                 "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id\n");
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id," +
+                                "con_inventario\n");
 
                 A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase_Abstracta= ayudanteBD_Class.getWritableDatabase();
@@ -338,9 +351,12 @@ public class A5_1_BackupManager {
                 // migración v13). El resto de columnas del cursor se recorren 2 posiciones a la
                 // izquierda (Cerrable: 5→3, cuenta_id: 6→4, tipo_cuenta_id: 7→5 — ver más abajo,
                 // donde se escriben "" literales para las columnas 10/11 del CSV en su lugar).
+                // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): se agrega
+                // c.con_inventario al SELECT (columna 6 del cursor) — mismo criterio que
+                // Cerrable/cuenta_id/tipo_cuenta_id arriba.
                 final Cursor transacciones_Cursor = sqliteDatabase_Abstracta.rawQuery
                         ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), c.Cerrable, " +
-                                "c.cuenta_id, c.tipo_cuenta_id " +
+                                "c.cuenta_id, c.tipo_cuenta_id, c.con_inventario " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
                                 "WHERE t.c4_Signo != '?' GROUP BY t.c3_Cuenta;", null);
@@ -404,7 +420,12 @@ public class A5_1_BackupManager {
                         // — igual de vacía que cuenta_id/tipo_cuenta_id lo estarían para una cuenta
                         // sin match. insertarTransaccion() ya trata una columna 16 vacía igual que
                         // ausente: autogenera un id nuevo, que es lo correcto para una fila nueva.
-                        escrituraDeArchivo_FileWriter.append("\n"); // 16 transaccion_id (vacía)
+                        escrituraDeArchivo_FileWriter.append(""); escrituraDeArchivo_FileWriter.append(","); // 16 transaccion_id (vacía)
+                        // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge):
+                        // con_inventario, leído del JOIN (columna 6 del cursor) — el estado
+                        // ACTUAL de la cuenta, igual que Cerrable arriba.
+                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.isNull(6) ? "" : transacciones_Cursor.getString(6)); // 17 con_inventario
+                        escrituraDeArchivo_FileWriter.append("\n");
 
                     } while (transacciones_Cursor.moveToNext());
 
@@ -450,10 +471,13 @@ public class A5_1_BackupManager {
                 // ⭐ NUEVO v11 (28-sep, tercera ronda) — a pedido de Jorge: transaccion_id como
                 // 16ta columna, mismo criterio que en _2csvConsultaResumenTodasLasCuentasAntesDeCerrar...
                 // (siempre vacía aquí — ver comentario junto a la escritura de la fila).
+                // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario
+                // como 17ma columna — mismo criterio que en los otros 2 CSV de transacciones.
                 escrituraDeArchivo.append(
                         "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
                                 "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id\n");
+                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id," +
+                                "con_inventario\n");
 
                 A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase = ayudanteBD.getWritableDatabase();
@@ -478,9 +502,12 @@ public class A5_1_BackupManager {
                 // SELECT — la columna ya no existe en "transacciones" (ver A1_1_AyudanteBD,
                 // migración v13). El resto de columnas del cursor se recorren 2 posiciones a la
                 // izquierda (Cerrable: 5→3, cuenta_id: 6→4, tipo_cuenta_id: 7→5).
+                // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): se agrega
+                // c.con_inventario al SELECT (columna 6 del cursor) — mismo criterio que en el
+                // otro resumen de cierre.
                 final Cursor transaccionesCursor = sqliteDatabase.rawQuery(
                         "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), c.Cerrable, " +
-                                "c.cuenta_id, c.tipo_cuenta_id " +
+                                "c.cuenta_id, c.tipo_cuenta_id, c.con_inventario " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
                                 "WHERE t.c4_Signo != '?' AND t.c12_ColumnaDisponible = 'Cerrable' " +
@@ -538,7 +565,12 @@ public class A5_1_BackupManager {
                         // como 16ta columna, siempre vacía (mismo criterio que en
                         // _2csvConsultaResumenTodasLasCuentasAntesDeCerrar... — fila NUEVA de saldo
                         // inicial, sin transaccion_id original que escribir).
-                        escrituraDeArchivo.append("\n"); // 16 transaccion_id (vacía)
+                        escrituraDeArchivo.append(""); escrituraDeArchivo.append(","); // 16 transaccion_id (vacía)
+                        // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge):
+                        // con_inventario, leído del JOIN (columna 6 del cursor) — el estado
+                        // ACTUAL de la cuenta, igual que Cerrable arriba.
+                        escrituraDeArchivo.append(transaccionesCursor.isNull(6) ? "" : transaccionesCursor.getString(6)); // 17 con_inventario
+                        escrituraDeArchivo.append("\n");
 
                     } while (transaccionesCursor.moveToNext());
 

@@ -472,6 +472,14 @@ public class A21_OptimizedQuery {
         if (indiceTipoCuentaNombre != -1 && !cursor.isNull(indiceTipoCuentaNombre)) {
             item.tipoTset_17TipoCuentaNombreMetodoEnA5(cursor.getString(indiceTipoCuentaNombre));
         }
+        // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario de la
+        // cuenta, si el SELECT que llamó a este mapeo trae el JOIN a "cuentas" (ver
+        // A22_QueryManager.SELECT_TRANSACCIONES_CON_TIPO_CUENTA/FROM_TRANSACCIONES_CON_TIPO_CUENTA).
+        // Mismo criterio que tipo_cuenta_nombre arriba: ausente/NULL si el SELECT no lo trae.
+        int indiceConInventario = cursor.getColumnIndex("con_inventario");
+        if (indiceConInventario != -1 && !cursor.isNull(indiceConInventario)) {
+            item.tipoTset_18ConInventarioMetodoEnA5(cursor.getInt(indiceConInventario) != 0);
+        }
         return item;
     }
 
