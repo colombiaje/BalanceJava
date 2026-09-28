@@ -58,8 +58,17 @@ public class D_F4_AdaptadorTransaccionesCierre extends ArrayAdapter<A3_2_TipoTra
         vTlistItem_7.setText(" "+registroTD.tipoTget_7FechaYHoraMetodoEnA5());
         vTlistItem_8.setText(" "+ Integer.toString( registroTD.tipoTget_8FechaInicialMetodoEnA5()));
         vTlistItem_9.setText(" "+registroTD.tipoTget_9FechaModificacionMetodoEnA5());
-        vTlistItem_10.setText(" "+registroTD.tipoTget_10Grupo1MetodoEnA5());
-        vTlistItem_11.setText(" "+registroTD.tipoTget_11Grupo2MetodoEnA5());
+        // ⭐ CAMBIO — v11 tanda 3 (parte B): esta columna mostraba Grupo1 (transacciones.c10_Grupo1,
+        // snapshot de texto libre); ahora muestra el nombre de tipo_cuenta (vía JOIN, ver
+        // A22_QueryManager.queryAllTransactions() — la consulta que alimenta esta lista), para no
+        // depender de Grupo1/Grupo2 antes de que se retiren más adelante en esta misma tanda.
+        // Esta columna sigue oculta hoy (visibility="gone" en el layout) — sin efecto visible
+        // todavía, es preparación. Null-safe.
+        String tipoCuentaNombre = registroTD.tipoTget_17TipoCuentaNombreMetodoEnA5();
+        vTlistItem_10.setText(" " + (tipoCuentaNombre == null ? "" : tipoCuentaNombre));
+        // ⭐ CAMBIO — v11 tanda 3 (parte B): Grupo2 ya no tiene un campo sucesor único — se deja
+        // en blanco (mismo criterio que en las otras 2 pantallas de lista).
+        vTlistItem_11.setText("");
 
         return inflarViews_View;
     }

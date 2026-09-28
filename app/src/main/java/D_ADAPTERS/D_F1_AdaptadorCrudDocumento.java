@@ -115,14 +115,24 @@ public class D_F1_AdaptadorCrudDocumento extends ArrayAdapter<A3_2_TipoTransacci
             vTlistItem_9.setVisibility(View.GONE);
         }
 
+        // ⭐ CAMBIO — v11 tanda 3 (parte B): esta columna mostraba Grupo1 (transacciones.c10_Grupo1,
+        // snapshot de texto libre); ahora muestra el nombre de tipo_cuenta (vía JOIN, ver
+        // A22_QueryManager.queryTransactionsByDocument() — la consulta que alimenta esta lista),
+        // para no depender de Grupo1/Grupo2 antes de que se retiren más adelante en esta misma
+        // tanda. Esta columna sigue oculta hoy (visibility="gone" en el layout, columnasVisibles
+        // nunca la reactiva) — este cambio no tiene efecto visible todavía, es preparación.
         if (columnasVisibles.contains(9)) {
-            vTlistItem_10.setText("" + registroTD.tipoTget_10Grupo1MetodoEnA5());
+            vTlistItem_10.setText("" + registroTD.tipoTget_17TipoCuentaNombreMetodoEnA5());
         } else {
             vTlistItem_10.setVisibility(View.GONE);
         }
 
+        // ⭐ CAMBIO — v11 tanda 3 (parte B): Grupo2 ya no tiene un campo sucesor único (en el
+        // modelo maduro se divide en corriente/no-corriente y conciliable/no-conciliable — ver
+        // A1_1_AyudanteBD, migración v12) — se deja en blanco en vez de leer un campo que se
+        // retirará. Columna igualmente oculta hoy, sin efecto visible.
         if (columnasVisibles.contains(10)) {
-            vTlistItem_11.setText("" + registroTD.tipoTget_11Grupo2MetodoEnA5());
+            vTlistItem_11.setText("");
         } else {
             vTlistItem_11.setVisibility(View.GONE);
         }

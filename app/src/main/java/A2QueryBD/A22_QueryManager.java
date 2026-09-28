@@ -27,22 +27,37 @@ public class A22_QueryManager {
         this.a1AyudanteBD = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF); // Instanciamos A1_AyudanteBD
     }
 
+    // ⭐ NUEVO — v11 tanda 3 (parte B): fragmento SELECT/FROM reutilizado por las 4 consultas de
+    // abajo que alimentan las 3 pantallas de lista (F1_CrudDocumento, F3_1_VerInformePrincipal —
+    // esta última en realidad vía obtenerSumaNetoCuentaPorCuenta, no por aquí — y F4_Cierres) y
+    // también el backup CSV completo (A5_1_BackupManager). Antes: "SELECT * FROM transacciones".
+    // Ahora se agrega un LEFT JOIN a "tipo_cuenta" (por transacciones.tipo_cuenta_id) para traer
+    // también su nombre, puramente aditivo — transacciones.* conserva exactamente las mismas
+    // columnas de antes (incluida su propia tipo_cuenta_id), y solo se agrega la columna nueva
+    // tipo_cuenta_nombre al final. Sin riesgo de ambigüedad: no se selecciona tipo_cuenta.*, y
+    // ningún WHERE/ORDER BY de estas 4 consultas referencia una columna que exista en ambas
+    // tablas.
+    private static final String SELECT_TRANSACCIONES_CON_TIPO_CUENTA =
+            "transacciones.*, tipo_cuenta.nombre AS tipo_cuenta_nombre";
+    private static final String FROM_TRANSACCIONES_CON_TIPO_CUENTA =
+            "transacciones LEFT JOIN tipo_cuenta ON transacciones.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id";
+
     //Inicio metodos
     public A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> queryAllTransactions() {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> todasLasTransacciones = a3_2_consultas_para_queryManager.consultarTransacciones(
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
-                        .select("*")
-                        .from("transacciones")
+                        .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
+                        .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
         );
         return new A23_QueryResult<>(todasLasTransacciones.size(), todasLasTransacciones, "Consulta exitosa");
     }
-    
+
     public A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> queryTransactionsByDocument(String documentoABuscar) {
         // Construir el query builder
         A21_OptimizedQuery.TransactionQueryBuilder queryBuilder =
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
-                        .select("*")
-                        .from("transacciones")
+                        .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
+                        .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
                         .where("c1_Documento LIKE ?", "%" + documentoABuscar + "%"); // Permite búsqueda parcial
 
         // Ejecutar la consulta y obtener los resultados
@@ -57,8 +72,8 @@ public class A22_QueryManager {
         // Construir el query builder con las columnas específicas
         A21_OptimizedQuery.TransactionQueryBuilder queryBuilder =
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
-                        .select("*") // Solo las columnas necesarias
-                        .from("transacciones")
+                        .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
+                        .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
                         .where("c3_Cuenta = ?" ,cuentaDeConsulta);
 
         // Ejecutar la consulta y obtener los resultados
@@ -74,8 +89,8 @@ public class A22_QueryManager {
         // Construir el query builder con las columnas específicas
         A21_OptimizedQuery.TransactionQueryBuilder queryBuilder =
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
-                        .select("*") // Solo las columnas necesarias
-                        .from("transacciones")
+                        .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
+                        .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
                         .where("c3_Cuenta = ? AND c8_FechaInicial >= ? AND c8_FechaInicial <= ?",
                                 cuentaDeConsulta,  // Filtro exacto para cuenta
                                 String.valueOf(fechaInicio), // Filtro exacto para la fecha de inicio

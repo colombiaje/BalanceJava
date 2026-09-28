@@ -52,8 +52,18 @@ public class D_F3_1_AdaptadorTransaccionesInformes extends ArrayAdapter<A3_2_Tip
         vTlistItem_4.setText(" "+registroTD.tipoTget_4MasMenosMetodoEnA5());
         //vTlistItem_5.setText(" $ "+vTlistItem_4.getText().toString()+" "+ Integer.toString(registroTD.tipoTget_5ValorMetodoEnA5()));
         vTlistItem_5.setText(" $ " + Integer.toString(registroTD.tipoTget_5ValorMetodoEnA5()));
-        vTlistItem_10.setText(" "+registroTD.tipoTget_10Grupo1MetodoEnA5());
-        vTlistItem_11.setText(" "+registroTD.tipoTget_11Grupo2MetodoEnA5());
+        // ⭐ CAMBIO — v11 tanda 3 (parte B): esta columna (la única realmente visible de las 3
+        // pantallas de lista — 70dp de ancho) mostraba Grupo1; ahora muestra el nombre de
+        // tipo_cuenta (ver A21_OptimizedQuery.obtenerSumaNetoCuentaPorCuenta(), la consulta que
+        // alimenta este Informe — ya traía Grupo1/Grupo2 vía JOIN a "cuentas", se le agregó un
+        // segundo JOIN a "tipo_cuenta"). Null-safe: puede no haber tipo_cuenta_id asignado.
+        String tipoCuentaNombre = registroTD.tipoTget_17TipoCuentaNombreMetodoEnA5();
+        vTlistItem_10.setText(" " + (tipoCuentaNombre == null ? "" : tipoCuentaNombre));
+        // ⭐ CAMBIO — v11 tanda 3 (parte B): Grupo2 ya no tiene un campo sucesor único (se divide
+        // en corriente/no-corriente y conciliable/no-conciliable en el modelo maduro) — se deja
+        // en blanco. Esta columna ya estaba con ancho 0dp/weight 0 (invisible) antes de este
+        // cambio, así que tampoco tiene efecto visible.
+        vTlistItem_11.setText("");
 
         return inflarViews_View;
     }
@@ -72,10 +82,15 @@ public class D_F3_1_AdaptadorTransaccionesInformes extends ArrayAdapter<A3_2_Tip
 
             for (A3_2_TipoTransaccionesGetsYSets listaDelaCopia : copyDelArrayList) {
                 // Convertir los valores a minúsculas antes de comparar
+                // ⭐ CAMBIO — v11 tanda 3 (parte B): antes buscaba también en Grupo1/Grupo2
+                // (tipoT_10BalanceItems_String/tipoT_11BalanceItemsClassification_String) — ahora
+                // busca en tipo_cuenta_nombre, que es lo que la columna realmente muestra desde
+                // este mismo cambio. Null-safe (a diferencia de Grupo1/Grupo2, tipo_cuenta_nombre
+                // puede no estar asignado).
                 if (listaDelaCopia.tipoT_3Accout_String.toLowerCase().contains(textoLower)
                         || String.valueOf(listaDelaCopia.tipoT_5Value_Integer).toLowerCase().contains(textoLower)
-                        || listaDelaCopia.tipoT_10BalanceItems_String.toLowerCase().contains(textoLower)
-                        || listaDelaCopia.tipoT_11BalanceItemsClassification_String.toLowerCase().contains(textoLower)) {
+                        || (listaDelaCopia.tipoT_17TipoCuentaNombre_String != null
+                            && listaDelaCopia.tipoT_17TipoCuentaNombre_String.toLowerCase().contains(textoLower))) {
 
                     arrayListTipoPersonalizado.add(listaDelaCopia);
                 }

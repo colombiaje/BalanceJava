@@ -56,6 +56,9 @@
             android:text="Valor" />
 
 
+        <!-- ⭐ CAMBIO — v11 tanda 3 (parte B): mostraba Grupo1; ahora el nombre de tipo_cuenta
+             (ver D_F3_1_AdaptadorTransaccionesInformes.getView()). "Grupo 1" abajo es solo texto
+             de diseño — el código siempre lo sobreescribe con setText(). -->
         <TextView
             android:id="@+id/c10_Grupo1_XTv"
             android:layout_width="70dp"
@@ -65,8 +68,11 @@
             android:ellipsize="end"
             android:padding="5dp"
             android:singleLine="true"
-            android:text="Grupo 1" />
+            android:text="Tipo cuenta" />
 
+        <!-- ⭐ CAMBIO — v11 tanda 3 (parte B): Grupo2 ya no tiene un campo sucesor único — se deja
+             en blanco (el código siempre sobreescribe con setText("")). Columna ya invisible
+             (weight 0) desde antes de este cambio. -->
         <TextView
             android:id="@+id/c11_Grupo2_XTv"
             android:layout_width="0dp"
@@ -76,7 +82,7 @@
             android:ellipsize="end"
             android:padding="5dp"
             android:singleLine="true"
-            android:text="Grupo 2" />
+            android:text="" />
 
     </LinearLayout>
 

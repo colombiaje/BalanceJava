@@ -206,6 +206,9 @@
             android:textColor="#ffffff"
             />
 
+        <!-- ⭐ CAMBIO — v11 tanda 3 (parte B): encabezado "G1" (Grupo1) → "Tipo cuenta", ya que
+             la columna de abajo (D_F3_1_AdaptadorTransaccionesInformes) ahora muestra el nombre
+             de tipo_cuenta en vez del texto de Grupo1. -->
         <TextView
             android:id="@+id/c10_Grupo1_XTv"
             android:layout_width="0dp"
@@ -215,12 +218,15 @@
             android:ellipsize="end"
             android:padding="5dp"
             android:singleLine="true"
-            android:text="G1"
+            android:text="Tipo cuenta"
             android:textColor="#ffffff"
 
             />
 
 
+        <!-- ⭐ CAMBIO — v11 tanda 3 (parte B): "G2" (Grupo2) ya no tiene un campo sucesor único
+             (ver A1_1_AyudanteBD, migración v12) — encabezado vaciado. Columna ya invisible
+             (weight 0) desde antes de este cambio. -->
         <TextView
             android:id="@+id/c11_Grupo2_XTv"
             android:layout_width="0dp"
@@ -230,7 +236,7 @@
             android:ellipsize="end"
             android:padding="5dp"
             android:singleLine="true"
-            android:text="G2"
+            android:text=""
             android:textColor="#ffffff"
 
             />

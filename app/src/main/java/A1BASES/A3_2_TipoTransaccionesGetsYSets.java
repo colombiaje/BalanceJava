@@ -42,6 +42,15 @@ public class A3_2_TipoTransaccionesGetsYSets {
     // cambia la cuenta durante una edición, igual que Grupo1/Grupo2.
     public Long tipoT_16TipoCuentaId_Long;
 
+    // ⭐ NUEVO — v11 tanda 3 (parte B): nombre de tipo_cuenta (tabla "tipo_cuenta", vía JOIN por
+    // tipo_cuenta_id), para reemplazar la visualización de Grupo1/Grupo2 en las 3 pantallas de
+    // lista (F1_CrudDocumento, F3_1_VerInformePrincipal, F4_Cierres) sin depender de esas
+    // columnas — se retirarán más adelante en esta misma tanda (parte D). Puramente aditivo:
+    // no reemplaza ningún campo existente. Se llena por nombre desde el cursor (ver
+    // A21_OptimizedQuery.mapTransactionFromCursor/obtenerSumaNetoCuentaPorCuenta), null si la
+    // fila no tiene tipo_cuenta_id o el JOIN no encuentra la cuenta.
+    public String tipoT_17TipoCuentaNombre_String;
+
     private String columna1;
     private int columna2;
     private String columna3;
@@ -113,6 +122,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public Long tipoTget_14CuentaIdMetodoEnA5() {return tipoT_14CuentaId_Long;}
     public Long tipoTget_15TransaccionIdMetodoEnA5() {return tipoT_15TransaccionId_Long;}
     public Long tipoTget_16TipoCuentaIdMetodoEnA5() {return tipoT_16TipoCuentaId_Long;}
+    public String tipoTget_17TipoCuentaNombreMetodoEnA5() {return tipoT_17TipoCuentaNombre_String;}
 
     public void tipoTset_1DocumentoMetodoEnA5(String tipoT_1NumberDocument_String) {this.tipoT_1NumberDocument_String = tipoT_1NumberDocument_String;}
     public void tipoTset_2ItemDocMetodoEnA5(String tipoT_2DocumentItems_String) {this.tipoT_2DocumentItems_String = tipoT_2DocumentItems_String;}
@@ -130,6 +140,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public void tipoTset_14CuentaIdMetodoEnA5(Long tipoT_14CuentaId_Long) {this.tipoT_14CuentaId_Long = tipoT_14CuentaId_Long;}
     public void tipoTset_15TransaccionIdMetodoEnA5(Long tipoT_15TransaccionId_Long) {this.tipoT_15TransaccionId_Long = tipoT_15TransaccionId_Long;}
     public void tipoTset_16TipoCuentaIdMetodoEnA5(Long tipoT_16TipoCuentaId_Long) {this.tipoT_16TipoCuentaId_Long = tipoT_16TipoCuentaId_Long;}
+    public void tipoTset_17TipoCuentaNombreMetodoEnA5(String tipoT_17TipoCuentaNombre_String) {this.tipoT_17TipoCuentaNombre_String = tipoT_17TipoCuentaNombre_String;}
 
     public A3_2_TipoTransaccionesGetsYSets(String columna1, int columna2, String columna3, int columna4) {
 

@@ -229,10 +229,18 @@ public class A21_OptimizedQuery {
             // cuenta (COALESCE). Con los datos de hoy (sin cuentas renombradas ni
             // huérfanas — ver verificación de la parte A) el resultado es idéntico al
             // que daba la versión anterior por nombre.
+            // ⭐ CAMBIO — v11 tanda 3 (parte B): se agrega un segundo LEFT JOIN a "tipo_cuenta"
+            // (por c.tipo_cuenta_id, ya resuelto arriba desde "cuentas") para traer también el
+            // nombre de tipo_cuenta — es lo que ahora muestra el Informe en vez de Grupo1 (ver
+            // D_F3_1_AdaptadorTransaccionesInformes). Grupo1/Grupo2 se conservan en el SELECT
+            // sin cambios (siguen siendo la fuente autoritativa hasta que se retiren en la parte
+            // D de esta misma tanda); tipo_cuenta_nombre es puramente aditivo.
             String query = "SELECT COALESCE(c.Cuenta, t.c3_Cuenta) AS c3_Cuenta, t.c4_Signo AS c4_Signo, " +
-                    "SUM(t.c5_Valor) AS suma, c.Grupo1 AS c10_Grupo1, c.Grupo2 AS c11_Grupo2 " +
+                    "SUM(t.c5_Valor) AS suma, c.Grupo1 AS c10_Grupo1, c.Grupo2 AS c11_Grupo2, " +
+                    "tc.nombre AS tipo_cuenta_nombre " +
                     "FROM transacciones t " +
                     "LEFT JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
+                    "LEFT JOIN tipo_cuenta tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id " +
                     "GROUP BY t.cuenta_id";
             cursor = db.rawQuery(query, null);
 
@@ -245,7 +253,16 @@ public class A21_OptimizedQuery {
                 String grupo2 = cursor.getString(cursor.getColumnIndex("c11_Grupo2"));
 
                 // Agregar a la lista como un objeto CuentaSuma
-                cuentasSumadas.add(new A3_2_TipoTransaccionesGetsYSets(nombreCuenta, signo, suma, grupo1, grupo2));
+                A3_2_TipoTransaccionesGetsYSets item =
+                        new A3_2_TipoTransaccionesGetsYSets(nombreCuenta, signo, suma, grupo1, grupo2);
+
+                // ⭐ NUEVO — v11 tanda 3 (parte B).
+                int indiceTipoCuentaNombre = cursor.getColumnIndex("tipo_cuenta_nombre");
+                if (indiceTipoCuentaNombre != -1 && !cursor.isNull(indiceTipoCuentaNombre)) {
+                    item.tipoTset_17TipoCuentaNombreMetodoEnA5(cursor.getString(indiceTipoCuentaNombre));
+                }
+
+                cuentasSumadas.add(item);
 
             }
         } finally {
@@ -431,6 +448,15 @@ public class A21_OptimizedQuery {
         int indiceTipoCuentaIdTransaccion = cursor.getColumnIndex("tipo_cuenta_id");
         if (indiceTipoCuentaIdTransaccion != -1 && !cursor.isNull(indiceTipoCuentaIdTransaccion)) {
             item.tipoTset_16TipoCuentaIdMetodoEnA5(cursor.getLong(indiceTipoCuentaIdTransaccion));
+        }
+        // ⭐ NUEVO — v11 tanda 3 (parte B): nombre de tipo_cuenta, si el SELECT que llamó a este
+        // mapeo trae el JOIN a "tipo_cuenta" (ver A22_QueryManager — queryAllTransactions(),
+        // queryTransactionsByDocument(), queryTransactionsByAccount(),
+        // queryFilteredTransactionsByAccountAndDateRange()). Ausente/NULL si el SELECT no lo
+        // trae (p.ej. otros usos futuros de este mismo mapeo) — no rompe nada.
+        int indiceTipoCuentaNombre = cursor.getColumnIndex("tipo_cuenta_nombre");
+        if (indiceTipoCuentaNombre != -1 && !cursor.isNull(indiceTipoCuentaNombre)) {
+            item.tipoTset_17TipoCuentaNombreMetodoEnA5(cursor.getString(indiceTipoCuentaNombre));
         }
         return item;
     }
