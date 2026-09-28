@@ -1602,15 +1602,28 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         actualizarListView();
     }
 
+    // ⭐ NUEVO — fix (28-sep): extraído de realizarOperacionesPostSeleccion() para poder reusar
+    // exactamente la misma generación del backup CSV completo (local + Drive,
+    // "121_BackupTodasLasTransaccionesCrud...") desde el botón standalone de eliminar documento
+    // (ver UpdateDeleteUnit.setupDeleteDocumentButton()), que hasta ahora no la generaba — ese
+    // botón vive fuera del flujo del botón GUARDAR/ExecuteButtonsUnit, el único punto que
+    // llamaba a este código. Deliberadamente NO incluye dynamicQueryLastDocument() (eso solo
+    // prepara documentoRecibido_Resultado_String para el TextView de "último documento" que
+    // actualiza realizarOperacionesPostSeleccion() más abajo — el botón de eliminar no usa ese
+    // TextView y ya hace su propio refresco de pantalla).
+    public void generarBackupCsvTransaccionesCrud() {
+        String nombreArchivo = CSV_DOCUMENT_TRANSACTIONS.getFileName();
+        String folderId = "1zQ55zDrNlyr3nmcK-toeBLUKKC4tMZjO";
+        csvDriveUploader = new A6_3_CSVDriveUploader();
+        A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(), nombreArchivo, folderId, 10);
+    }
+
     public void realizarOperacionesPostSeleccion(Object selectedRadioButtonId) {
 
         dynamicQueryLastDocument();
 
         // Código comun después de que se pase la validación
-        String nombreArchivo = CSV_DOCUMENT_TRANSACTIONS.getFileName();
-        String folderId = "1zQ55zDrNlyr3nmcK-toeBLUKKC4tMZjO";
-        csvDriveUploader = new A6_3_CSVDriveUploader();
-        A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(), nombreArchivo, folderId, 10);
+        generarBackupCsvTransaccionesCrud();
 
         clearViewsValuesForInitializeCRUD();
         listaDocumento_ArrayLTT.clear();

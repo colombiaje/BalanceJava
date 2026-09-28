@@ -169,6 +169,13 @@ public class UpdateDeleteUnit {
                     .setPositiveButton("Sí", (dialog, id) -> {
                         f1.a2operacionesBD = new A1BASES.A1_2_OperacionesBD(f1.getActivity());
                         f1.a2operacionesBD.eliminarTransacciones(docAEliminar);
+                        // ⭐ NUEVO — fix (28-sep): este botón borraba de la BD pero nunca
+                        // generaba el backup CSV completo (local + Drive), a diferencia de
+                        // crear/modificar/plantilla, que sí lo hacen siempre a través del botón
+                        // GUARDAR (ver F1_CrudDocumento.realizarOperacionesPostSeleccion()). Se
+                        // agrega la misma llamada aquí para que el CSV quede al día también tras
+                        // un borrado directo desde este botón.
+                        f1.generarBackupCsvTransaccionesCrud();
                         f1.clearViewsValuesForInitializeCRUD();
                         f1.clearArrayListsCRUD();
                         f1.dynamicQueryByDocumentinUpdate();
