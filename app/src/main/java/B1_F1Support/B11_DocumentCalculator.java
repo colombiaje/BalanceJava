@@ -277,6 +277,14 @@ public class B11_DocumentCalculator {
             return null;
         }
 
+        // ⭐ NUEVO v11 — Fase 6 (parte C): se deja de escribir el Grupo1/Grupo2 real
+        // (atributosCuenta[2]/[3]) en transacciones NUEVAS — se guarda "" en su lugar. La
+        // clasificación real ya vive en tipo_cuenta_id (ver parseTipoCuentaId abajo), que
+        // es la foto que usa hoy la Auditoría de Clasificación (ver
+        // A21_OptimizedQuery.obtenerTransaccionesDesalineadas(), ajustada en esta misma
+        // versión para dejar de comparar Grupo1/Grupo2). c10_Grupo1/c11_Grupo2 siguen
+        // siendo NOT NULL en la tabla (ver A1_1_AyudanteBD) — por eso "" y no null —, hasta
+        // que se retiren del todo en v11 tanda 3 (parte D).
         A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
                 numeroDoc,
                 Integer.toString(posicionEnLista),
@@ -287,8 +295,8 @@ public class B11_DocumentCalculator {
                 fechaYHora,
                 dateOfDocument,
                 "No Aplica",
-                atributosCuenta[2],
-                atributosCuenta[3],
+                "",
+                "",
                 resolveCerrable(atributosCuenta),
                 "na"
         );
@@ -380,6 +388,8 @@ public class B11_DocumentCalculator {
             descripcion  = "Entrada del dia";
         }
 
+        // ⭐ NUEVO v11 — Fase 6 (parte C): mismo criterio que en construirItemRegistroNuevo()
+        // de arriba — "" en vez del Grupo1/Grupo2 real para este registro nuevo.
         A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
                 numeroDoc,
                 "1",
@@ -390,8 +400,8 @@ public class B11_DocumentCalculator {
                 fechaYHora,
                 dateOfDocument,
                 "No Aplica",
-                atributosCuenta[2],
-                atributosCuenta[3],
+                "",
+                "",
                 resolveCerrable(atributosCuenta),
                 "na"
         );

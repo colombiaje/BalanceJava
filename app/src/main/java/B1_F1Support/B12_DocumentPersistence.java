@@ -414,11 +414,16 @@ public class B12_DocumentPersistence {
             f1.listaDocumento_ArrayLTT.get(posicion).tipoT_6Description_String =
                     f1.descripcion_XAtv.getText().toString().trim();
 
-            // Refrescar Grupo1/Grupo2 para la cuenta NUEVA — si no se hace,
+            // Refrescar la clasificación para la cuenta NUEVA — si no se hace,
             // el registro se queda con la clasificación de la cuenta
             // ORIGINAL con la que se creó, y con el tiempo una misma cuenta
             // termina con transacciones clasificadas de forma inconsistente
             // (causa raíz de la duplicación vista en el informe de cuentas).
+            // ⭐ NUEVO v11 — Fase 6 (parte C): ya no se refresca Grupo1/Grupo2 con el valor
+            // real de la cuenta nueva (atributos[2]/[3]) — se deja en "" igual que en un
+            // ítem recién creado (ver B11_DocumentCalculator). El refresco que de verdad
+            // importa para la Auditoría de Clasificación es el de tipo_cuenta_id, justo
+            // abajo, que no se toca.
             A23_QueryResult<String[]> atributosCuentaNueva =
                     f1.a22QueryManager.queryAttributesByAccount(cuentaNueva);
             if (atributosCuentaNueva != null
@@ -426,9 +431,9 @@ public class B12_DocumentPersistence {
                     && atributosCuentaNueva.getAtributosCuenta().length >= 4) {
                 String[] atributos = atributosCuentaNueva.getAtributosCuenta();
                 f1.listaDocumento_ArrayLTT.get(posicion)
-                        .tipoTset_10Grupo1MetodoEnA5(atributos[2]);
+                        .tipoTset_10Grupo1MetodoEnA5("");
                 f1.listaDocumento_ArrayLTT.get(posicion)
-                        .tipoTset_11Grupo2MetodoEnA5(atributos[3]);
+                        .tipoTset_11Grupo2MetodoEnA5("");
 
                 // ⭐ NUEVO v11 — Fase 6 (parte C): mismo refresco de arriba, pero para
                 // tipo_cuenta_id (índice 7, disponible desde la v10). Sin esto, el ítem editado

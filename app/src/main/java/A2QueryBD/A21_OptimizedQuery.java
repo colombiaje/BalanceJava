@@ -273,12 +273,12 @@ public class A21_OptimizedQuery {
     }
 
     /**
-     * Auditoría de clasificación: devuelve cada transacción cuyo Grupo1 o
-     * Grupo2 guardado (snapshot en "transacciones") ya NO coincide con el
-     * valor actual en "cuentas" — la causa raíz de la duplicación que se
-     * veía antes en el Informe. Cada fila trae ambos valores (el guardado
-     * en la transacción y el correcto según "cuentas") para poder
-     * corregir el registro puntual desde la app.
+     * Auditoría de clasificación: devuelve cada transacción cuyo tipo_cuenta_id
+     * guardado (snapshot en "transacciones") ya NO coincide con el valor actual
+     * en "cuentas" — la causa raíz de la duplicación que se veía antes en el
+     * Informe. Cada fila trae ambos nombres de tipo_cuenta (el guardado en la
+     * transacción y el correcto según "cuentas") para poder corregir el
+     * registro puntual desde la app.
      *
      * Se usa "IS NOT" (en vez de "!=") para que también se detecten los
      * casos donde uno de los dos valores quedó vacío/nulo — con "!=" una
@@ -293,26 +293,32 @@ public class A21_OptimizedQuery {
      * datos de hoy (ninguna cuenta se ha renombrado todavía) el resultado de esta
      * consulta es idéntico al que daba el JOIN por nombre — ver verificación pedida
      * en el reporte de este cambio.
+     *
+     * ⭐ MODIFICADO v11 — tanda 3 (parte C): se retira del todo la comparación por
+     * Grupo1/Grupo2 (t.c10_Grupo1/c11_Grupo2 vs c.Grupo1/Grupo2) — desde esta
+     * versión, transacciones y cuentas NUEVAS guardan "" en esas columnas (ver
+     * B11_DocumentCalculator y F2_Cuentas.registrarNuevas()), así que esa
+     * comparación empezaría a marcar como "desalineado" cualquier registro
+     * nuevo sin que en realidad haya ningún problema. La comparación por
+     * tipo_cuenta_id (agregada en v11, Fase 6) ya cumple el mismo propósito sin
+     * depender de Grupo1/Grupo2 — queda como la única condición de esta
+     * auditoría, tal como estaba previsto desde que se agregó (ver el
+     * comentario de la migración v11 en A1_1_AyudanteBD).
      */
     public ArrayList<String[]> obtenerTransaccionesDesalineadas() {
         ArrayList<String[]> desalineadas = new ArrayList<>();
         Cursor cursor = null;
         try {
             openDB();
-            // ⭐ NUEVO v11 — Fase 6 (parte C): se agrega tipo_cuenta_id como condición ADICIONAL
-            // de desalineación (con OR, no en reemplazo de Grupo1/Grupo2 — esas columnas siguen
-            // existiendo y poblándose igual que siempre; se borran aparte, en v11 tanda 3). Se
-            // muestran también los nombres de tipo_cuenta (vía LEFT JOIN, tolerante a NULL) para
+            // Se muestran los nombres de tipo_cuenta (vía LEFT JOIN, tolerante a NULL) para
             // que el diálogo de auditoría sea legible sin tener que interpretar el id a mano.
             String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, t.c3_Cuenta, t.c5_Valor, " +
-                    "t.c10_Grupo1, t.c11_Grupo2, c.Grupo1, c.Grupo2, " +
                     "tcGuardado.nombre, tcActual.nombre " +
                     "FROM transacciones t " +
                     "JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
                     "LEFT JOIN tipo_cuenta tcGuardado ON tcGuardado.tipo_cuenta_id = t.tipo_cuenta_id " +
                     "LEFT JOIN tipo_cuenta tcActual ON tcActual.tipo_cuenta_id = c.tipo_cuenta_id " +
-                    "WHERE t.c10_Grupo1 IS NOT c.Grupo1 OR t.c11_Grupo2 IS NOT c.Grupo2 " +
-                    "OR t.tipo_cuenta_id IS NOT c.tipo_cuenta_id " +
+                    "WHERE t.tipo_cuenta_id IS NOT c.tipo_cuenta_id " +
                     "ORDER BY t.c3_Cuenta, t.c1_Documento, t.c2_ItemDoc";
             cursor = db.rawQuery(query, null);
 
@@ -322,12 +328,8 @@ public class A21_OptimizedQuery {
                         cursor.getString(1), // c2_ItemDoc
                         cursor.getString(2), // c3_Cuenta
                         cursor.getString(3), // c5_Valor
-                        cursor.getString(4), // Grupo1 guardado en la transacción
-                        cursor.getString(5), // Grupo2 guardado en la transacción
-                        cursor.getString(6), // Grupo1 correcto (según cuentas)
-                        cursor.getString(7), // Grupo2 correcto (según cuentas)
-                        cursor.getString(8), // tipo_cuenta guardado en la transacción (nombre)
-                        cursor.getString(9)  // tipo_cuenta correcto (según cuentas, nombre)
+                        cursor.getString(4), // tipo_cuenta guardado en la transacción (nombre)
+                        cursor.getString(5)  // tipo_cuenta correcto (según cuentas, nombre)
                 });
             }
         } finally {

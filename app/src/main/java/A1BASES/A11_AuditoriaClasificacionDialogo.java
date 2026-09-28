@@ -31,14 +31,20 @@ import B_FRAGMENTS.F1_CrudDocumento;
 /**
  * A11_AuditoriaClasificacionDialogo
  *
- * Muestra las transacciones cuya clasificación guardada (copia interna en
- * "transacciones": Grupo1/Grupo2, y desde v11 también tipo_cuenta_id) ya no
- * coincide con el valor actual y autoritativo de "cuentas". Grupo1/Grupo2 y
- * tipo_cuenta_id se auditan en paralelo (basta con que uno de los dos no
- * coincida) mientras conviven los dos modelos — ver A21_OptimizedQuery.
+ * Muestra las transacciones cuyo tipo_cuenta_id guardado (copia interna —
+ * "foto" — en "transacciones", agregado en v11) ya no coincide con el valor
+ * actual y autoritativo de "cuentas" — ver A21_OptimizedQuery.
  * obtenerTransaccionesDesalineadas() y A1_1_AyudanteBD (migración v11) para
  * el detalle. Esta desalineación era la causa raíz de que una misma cuenta
  * apareciera partida en varias filas en el Informe (Informes).
+ *
+ * ⭐ MODIFICADO v11 — tanda 3 (parte C): hasta esta versión, esta auditoría
+ * también comparaba Grupo1/Grupo2 en paralelo con tipo_cuenta_id (bastaba con
+ * que uno de los dos no coincidiera). Esa comparación se retiró: desde esta
+ * versión, transacciones y cuentas nuevas guardan "" en Grupo1/Grupo2 (esas
+ * columnas se retiran del todo en la parte D), así que compararlas habría
+ * generado falsos positivos en cada registro nuevo. tipo_cuenta_id, que no
+ * depende de Grupo1/Grupo2 para nada, queda como la única condición.
  *
  * Desde que obtenerSumaNetoCuentaPorCuenta() lee Grupo1/Grupo2 siempre
  * desde "cuentas" (LEFT JOIN), el Informe ya no se parte visualmente por
@@ -147,10 +153,13 @@ public class A11_AuditoriaClasificacionDialogo extends DialogFragment {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
 
+            // ⭐ MODIFICADO v11 — tanda 3 (parte C): se quitan las 4 columnas de Grupo1/Grupo2
+            // ("G1"/"G2" transacción y Cuentas) — obtenerTransaccionesDesalineadas() ya no las
+            // trae, porque esa comparación se retiró (ver el comentario de ese método). Quedan
+            // solo las columnas de tipo_cuenta, que son las que de verdad detectan la
+            // desalineación desde la v11.
             String[] encabezados = {
                     "Doc.", "Item", "Cuenta", "Valor",
-                    "G1\n(transacción)", "G2\n(transacción)",
-                    "G1\n(Cuentas)", "G2\n(Cuentas)",
                     "Tipo cuenta\n(transacción)", "Tipo cuenta\n(Cuentas)"
             };
             TableRow filaEncabezado = new TableRow(context);

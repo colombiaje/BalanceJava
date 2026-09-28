@@ -1151,13 +1151,15 @@ public class F2_Cuentas extends DialogFragment {
         // recién creada con este espacio colado.
         cuentaNueva_String = account_XAct.getText().toString().trim();
         // ⭐ CAMBIO — tanda 2 v10: un solo spinner de tipo_cuenta reemplaza los dos de
-        // Grupo1/Grupo2. grupo1CuentaNueva_String/grupo2CuentaNueva_String se siguen llenando
-        // (derivados del nombre del tipo_cuenta elegido) porque "cuentas" todavía tiene esas
-        // columnas y el resto de la app las sigue leyendo — ver dividirNombreTipoCuentaEnGrupos().
+        // Grupo1/Grupo2.
+        // ⭐ CAMBIO v11 — tanda 3 (parte C): grupo1CuentaNueva_String/grupo2CuentaNueva_String
+        // ya NO se derivan del nombre del tipo_cuenta elegido — quedan en "" para toda cuenta
+        // nueva. La clasificación real de la cuenta vive en tipo_cuenta_id (columna NOT NULL
+        // elegida abajo); Grupo1/Grupo2 siguen existiendo en la tabla solo porque son NOT
+        // NULL hasta que se retiren del todo en la parte D.
         Long tipoCuentaIdSeleccionado = obtenerTipoCuentaIdSeleccionado(grupo1CuentaNueva_XSp.getSelectedItemPosition());
-        String[] gruposDelTipoCuenta = dividirNombreTipoCuentaEnGrupos(grupo1CuentaNueva_XSp.getSelectedItem().toString());
-        grupo1CuentaNueva_String = gruposDelTipoCuenta[0];
-        grupo2CuentaNueva_String = gruposDelTipoCuenta[1];
+        grupo1CuentaNueva_String = "";
+        grupo2CuentaNueva_String = "";
         String [] args = new String [] {cuentaNueva_String};
 
         dynamicQuery();
@@ -1625,6 +1627,14 @@ public class F2_Cuentas extends DialogFragment {
         String cuenta = account_XAct.getText().toString().trim();
         // ⭐ CAMBIO — tanda 2 v10: un solo spinner de tipo_cuenta reemplaza los dos de
         // Grupo1/Grupo2 — ver el mismo cambio en registrarNuevas().
+        // NOTA v11 — tanda 3 (parte C): a propósito NO se toca este cálculo. La parte C
+        // solo deja de escribir Grupo1/Grupo2 en transacciones/cuentas NUEVAS (ver
+        // registrarNuevas() y B11_DocumentCalculator); modificar una cuenta existente
+        // sigue derivando el valor real desde el tipo_cuenta elegido, como siempre — no
+        // hay ningún problema de NOT NULL ni de auditoría que resolver aquí (la
+        // comparación de la auditoría contra Grupo1/Grupo2 se retiró del todo, ver
+        // A21_OptimizedQuery.obtenerTransaccionesDesalineadas()), así que se deja igual
+        // para minimizar el cambio.
         Long tipoCuentaIdSeleccionado = obtenerTipoCuentaIdSeleccionado(grupo1CuentaNueva_XSp.getSelectedItemPosition());
         String[] gruposDelTipoCuenta = dividirNombreTipoCuentaEnGrupos(grupo1CuentaNueva_XSp.getSelectedItem().toString());
         String g1 = gruposDelTipoCuenta[0];
