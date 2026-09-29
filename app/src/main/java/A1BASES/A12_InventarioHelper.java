@@ -26,9 +26,14 @@ import java.util.List;
  * - calcularCostoPromedioPonderado: costo promedio ponderado vigente de un artículo,
  *   recalculado sobre el total acumulado (regla de negocio #4).
  * - guardarTransaccionConInventario: inserta la transacción y su detalle de inventario de
- *   forma atómica, con el monto siempre consistente con unidades × precio_unitario (reglas
- *   de negocio #1 y #2) — para una salida, el precio_unitario se calcula solo como el
- *   costo promedio vigente (nunca lo recibe del llamador), tal como Jorge confirmó.
+ *   forma atómica (reglas de negocio #1 y #2). El monto (c5_Valor) lo trae SIEMPRE el
+ *   llamador, exactamente como lo escribió el usuario — este método nunca lo recalcula ni lo
+ *   sobrescribe, porque es lo que hace cuadrar el documento en cero. precio_unitario es un
+ *   dato DERIVADO e informativo: para una entrada, se deriva del valor ya escrito
+ *   (valor ÷ unidades); para una salida, se calcula solo como el costo promedio vigente
+ *   (nunca lo recibe del llamador) — tal como Jorge confirmó tras la retroalimentación de la
+ *   tanda 4 (tensión resuelta distinguiendo "valor recibido/pagado", que manda para el
+ *   balance, de "costo de inventario", que es el que preserva el promedio ponderado).
  *
  * ⭐ NUEVO v12 tanda 3: insertarItemInventario y existenItemsPorCuenta — CRUD mínimo de
  * items_inventario, usado por F2_Cuentas al crear una cuenta con inventario (sección 4 del
@@ -40,7 +45,9 @@ import java.util.List;
  * (B12_DocumentPersistence.baseParaGuardarEnLaEnBDConListaDocumento), para los ítems nuevos
  * de una cuenta con inventario agregados a través del diálogo nuevo — ver esa clase para el
  * detalle completo del flujo y de qué queda todavía bloqueado (editar un documento que ya
- * tenía ítems de inventario guardados).
+ * tenía ítems de inventario guardados). ⭐ REDISEÑO v12 tanda 4 (fix, 29-sep): el método pasó
+ * de recibir un precio de entrada opcional y sobrescribir c5_Valor, a nunca tocar c5_Valor y
+ * derivar precio_unitario internamente — ver el javadoc del método para el detalle completo.
  */
 public class A12_InventarioHelper {
 
@@ -122,36 +129,51 @@ public class A12_InventarioHelper {
      * detalle correspondiente en transacciones_inventario (regla de negocio #1: si
      * cualquiera de los dos INSERT falla, se revierten ambos).
      *
+     * ⭐ REDISEÑO v12 tanda 4 (fix, tras retroalimentación de Jorge): c5_Valor SIEMPRE es
+     * exactamente lo que el usuario ya escribió en el campo "valor" del formulario — este
+     * método NUNCA lo recalcula ni lo sobrescribe (antes sí lo hacía, con
+     * unidades × precio_unitario, lo cual reemplazaba en silencio el valor ya digitado y
+     * rompía el orden natural del formulario). La razón es que c5_Valor es lo que hace
+     * cuadrar el documento en cero (partida doble) — es el llamador quien debe traerlo ya
+     * puesto en valoresTransaccion.
+     *
+     * precio_unitario pasa a ser un dato DERIVADO, informativo, calculado internamente aquí:
+     * - Entrada (unidades > 0): precio_unitario = round(|c5_Valor| / unidades). El dinero
+     *   pagado (c5_Valor) y el costo agregado al inventario son, económicamente, la misma
+     *   cifra — no hay conflicto en derivar uno del otro.
+     * - Salida (unidades < 0): precio_unitario = costo promedio ponderado vigente (regla de
+     *   negocio #4, sin cambios) — el valor que el usuario recibió por la venta (c5_Valor)
+     *   puede diferir del costo que sale del inventario (esa diferencia es la utilidad o
+     *   pérdida de la venta, que esta tanda todavía no registra aparte); por eso aquí NO se
+     *   deriva de c5_Valor, se sigue calculando solo, igual que antes.
+     *
      * @param db                    base de datos escribible (ya abierta por el llamador).
      * @param valoresTransaccion    columnas de "transacciones" ya armadas por el llamador
      *                              (documento, ítem, cuenta, signo, descripción, fechas,
-     *                              cuenta_id, tipo_cuenta_id, etc.) — TODAS menos el monto:
-     *                              este método pone/sobrescribe c5_Valor con
-     *                              unidades × precio_unitario, para que siempre queden
-     *                              consistentes (regla de negocio #2).
+     *                              cuenta_id, tipo_cuenta_id, etc.) — INCLUYENDO c5_Valor, ya
+     *                              puesto por el llamador exactamente como lo escribió el
+     *                              usuario. Este método NO lo toca.
      * @param itemId                artículo (items_inventario.item_id) al que pertenece el
      *                              movimiento. Debe existir y pertenecer a una cuenta con
      *                              con_inventario = 1.
      * @param unidades              unidades del movimiento, con signo: positivo = entrada,
      *                              negativo = salida. No puede ser 0.
-     * @param precioUnitarioEntrada precio unitario en COP, SOLO para una entrada (unidades
-     *                              positivas) — obligatorio y mayor que 0 en ese caso. Para
-     *                              una salida (unidades negativas) debe venir null: el
-     *                              precio se calcula solo como el costo promedio vigente
-     *                              (así lo confirmó Jorge) y cualquier valor recibido aquí
-     *                              se ignora a propósito, para que la UX de salida no pueda
-     *                              dejarlo inconsistente.
      * @return el transaccion_id recién creado.
      * @throws IllegalArgumentException si el artículo no existe, no pertenece a una cuenta
-     *         con inventario, o los parámetros no son válidos.
+     *         con inventario, valoresTransaccion no trae c5_Valor, o los parámetros no son
+     *         válidos (por ejemplo, una entrada cuyo valor/unidades redondea a 0 o menos).
      */
     public long guardarTransaccionConInventario(SQLiteDatabase db,
                                                   ContentValues valoresTransaccion,
                                                   long itemId,
-                                                  long unidades,
-                                                  Long precioUnitarioEntrada) {
+                                                  long unidades) {
         if (unidades == 0) {
             throw new IllegalArgumentException("Las unidades no pueden ser 0.");
+        }
+        if (!valoresTransaccion.containsKey(COLUMNA_MONTO_TRANSACCION)) {
+            throw new IllegalArgumentException(
+                    "valoresTransaccion debe traer " + COLUMNA_MONTO_TRANSACCION +
+                            " ya puesto por el llamador (el valor tal cual lo escribió el usuario).");
         }
 
         // El artículo debe existir y pertenecer a una cuenta con con_inventario = 1 — evita
@@ -181,21 +203,21 @@ public class A12_InventarioHelper {
 
         long precioUnitario;
         if (unidades > 0) {
-            // Entrada: el precio lo trae el usuario.
-            if (precioUnitarioEntrada == null || precioUnitarioEntrada <= 0) {
+            // Entrada: precio_unitario se DERIVA del valor ya escrito por el usuario — nunca
+            // se pide aparte, para que no pueda quedar en una escala distinta a "valor".
+            long valorTransaccion = valoresTransaccion.getAsLong(COLUMNA_MONTO_TRANSACCION);
+            precioUnitario = Math.round((double) Math.abs(valorTransaccion) / (double) unidades);
+            if (precioUnitario <= 0) {
                 throw new IllegalArgumentException(
-                        "Una entrada necesita un precio_unitario mayor que 0.");
+                        "El precio unitario derivado de valor/unidades no es válido (" +
+                                precioUnitario + ") — revisa el valor y las unidades digitadas.");
             }
-            precioUnitario = precioUnitarioEntrada;
         } else {
-            // Salida: el precio NUNCA lo trae el llamador — se calcula solo, como el costo
+            // Salida: el precio NUNCA se deriva de c5_Valor — se calcula solo, como el costo
             // promedio vigente (decisión ya confirmada). calcularCostoPromedioPonderado ya
             // valida que haya saldo suficiente para vender.
             precioUnitario = calcularCostoPromedioPonderado(db, itemId);
         }
-
-        long monto = unidades * precioUnitario;
-        valoresTransaccion.put(COLUMNA_MONTO_TRANSACCION, monto);
 
         // insertOrThrow (a diferencia de insert) nunca devuelve -1: si algo falla, lanza
         // SQLException — con la transacción abierta y sin setTransactionSuccessful(), el

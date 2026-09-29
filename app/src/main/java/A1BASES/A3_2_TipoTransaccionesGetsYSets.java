@@ -74,13 +74,18 @@ public class A3_2_TipoTransaccionesGetsYSets {
     // tipoT_19ItemInventarioId_Long: items_inventario.item_id del artículo elegido.
     // tipoT_20UnidadesInventario_Long: unidades del movimiento, CON signo (positivo entrada,
     //   negativo salida) — mismo signo que tipoT_5Value_Integer.
-    // tipoT_21PrecioUnitarioInventario_Long: para una ENTRADA, el precio unitario que el
-    //   usuario digitó (autoritativo, se usa tal cual al guardar). Para una SALIDA, se deja en
-    //   null a propósito — A12_InventarioHelper.guardarTransaccionConInventario() calcula el
-    //   costo promedio vigente en el momento real de guardar, nunca antes (ver esa clase para
-    //   el porqué). La ÚNICA excepción es un ítem CARGADO de la BD (ya tiene
-    //   tipoT_15TransaccionId_Long, ver A21_OptimizedQuery.mapTransactionFromCursor): ahí sí
-    //   viene con el precio_unitario histórico ya guardado, tanto para entradas como salidas —
+    // tipoT_21PrecioUnitarioInventario_Long: dato puramente INFORMATIVO/derivado — nunca
+    //   autoritativo. ⭐ REDISEÑO v12 tanda 4 (fix, 29-sep, tras retroalimentación de Jorge):
+    //   antes, para una entrada, este campo era el precio que el usuario digitaba y se usaba
+    //   tal cual al guardar; ahora el usuario nunca digita un precio aparte — tipoT_5Value_Integer
+    //   (el valor ya escrito en el formulario) es siempre el dato autoritativo, y este campo,
+    //   para un ítem NUEVO, es solo la vista previa que se le muestra (entrada: valor ÷
+    //   unidades; salida: costo promedio vigente al momento de agregarlo a la lista) — ver
+    //   B12_DocumentPersistence.mostrarDialogoRegistroInventario. A12_InventarioHelper.
+    //   guardarTransaccionConInventario() vuelve a calcularlo de forma independiente al
+    //   guardar de verdad, sin leer este campo. Para un ítem CARGADO de la BD (ya tiene
+    //   tipoT_15TransaccionId_Long, ver A21_OptimizedQuery.mapTransactionFromCursor), sí viene
+    //   con el precio_unitario histórico realmente guardado, tanto para entradas como salidas —
     //   necesario para que B12_DocumentPersistence pueda distinguir "ítem nuevo" de "ítem ya
     //   persistido" y bloquear el reguardado de este último por ahora (ver el comentario
     //   completo en baseParaGuardarEnLaEnBDConListaDocumento).
