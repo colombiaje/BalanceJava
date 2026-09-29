@@ -1,13 +1,27 @@
 package B1_F1Support;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import A1BASES.A12_InventarioHelper;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A99_MetodosVarios;
 import A2QueryBD.A23_QueryResult;
@@ -105,6 +119,59 @@ public class B12_DocumentPersistence {
                 // guardarModificacion() (ver ahí).
                 Long tipoCuentaIdParaGuardar = p.tipoTget_16TipoCuentaIdMetodoEnA5();
 
+                // ⭐ NUEVO — v12 tanda 4: un ítem de una cuenta con inventario (viene marcado
+                // con tipoTget_19ItemInventarioIdMetodoEnA5() != null, ver
+                // mostrarDialogoRegistroInventario) se guarda distinto: no con el INSERT crudo
+                // de siempre, sino con A12_InventarioHelper.guardarTransaccionConInventario, que
+                // inserta "transacciones" y su fila correspondiente en "transacciones_inventario"
+                // de forma atómica (con su propio db.beginTransaction()/setTransactionSuccessful
+                // anidado dentro de esta transacción de todo el documento — Android soporta
+                // transacciones anidadas: si cualquiera de las dos falla, se revierte TODO el
+                // documento, no solo este ítem — regla de negocio #1 del documento de
+                // especificación). c5_Valor NO se pone aquí: ese método lo calcula y lo
+                // sobreescribe como unidades × precio_unitario, para que quede siempre
+                // consistente (regla de negocio #2).
+                //
+                // bloqueadoPorCuentaConInventario() (llamado arriba, antes de abrir esta
+                // transacción) ya garantiza que, si llegamos aquí con un ítem de inventario, es
+                // uno NUEVO (nunca antes guardado) — nunca uno cargado de la BD para editar —
+                // así que precioUnitarioEntrada (21) siempre es el valor correcto a usar tal
+                // cual para una entrada, y siempre null para una salida (el helper calcula el
+                // costo promedio vigente solo, en este mismo momento).
+                if (p.tipoTget_19ItemInventarioIdMetodoEnA5() != null) {
+                    ContentValues valoresTransaccion = new ContentValues();
+                    valoresTransaccion.put("c1_Documento", p.tipoTget_1DocumentoMetodoEnA5());
+                    valoresTransaccion.put("c2_ItemDoc", p.tipoTget_2ItemDocMetodoEnA5());
+                    valoresTransaccion.put("c3_Cuenta", nombreCuentaParaGuardar);
+                    valoresTransaccion.put("c4_Signo", p.tipoTget_4MasMenosMetodoEnA5());
+                    valoresTransaccion.put("c6_Descripcion", p.tipoTget_6DescripcionMetodoEnA5());
+                    valoresTransaccion.put("c7_FechaYhora", p.tipoTget_7FechaYHoraMetodoEnA5());
+                    valoresTransaccion.put("c8_FechaInicial", p.tipoTget_8FechaInicialMetodoEnA5());
+                    valoresTransaccion.put("c9_FechaModificacion", p.tipoTget_9FechaModificacionMetodoEnA5());
+                    valoresTransaccion.put("c12_ColumnaDisponible", p.tipoTget_12ColumnaDisponibleMetodoEnA5());
+                    valoresTransaccion.put("c13_ColumnaDisponible", p.tipoTget_13ColumnaDisponibleMetodoEnA5());
+                    valoresTransaccion.put("cuenta_id", cuentaIdParaGuardar);
+                    valoresTransaccion.put("tipo_cuenta_id", tipoCuentaIdParaGuardar);
+
+                    try {
+                        new A12_InventarioHelper().guardarTransaccionConInventario(
+                                db,
+                                valoresTransaccion,
+                                p.tipoTget_19ItemInventarioIdMetodoEnA5(),
+                                p.tipoTget_20UnidadesInventarioMetodoEnA5(),
+                                p.tipoTget_21PrecioUnitarioInventarioMetodoEnA5());
+                    } catch (IllegalArgumentException | IllegalStateException e) {
+                        // Error de negocio esperable (p.ej. una salida sin saldo suficiente si
+                        // cambió entre agregar el ítem y guardar) — se relanza como Exception
+                        // genérica para que el catch de más abajo revierta TODO el documento
+                        // (nunca a medias) y muestre un mensaje, con este detalle específico
+                        // adjunto en vez del genérico.
+                        throw new RuntimeException(
+                                "Inventario — \"" + nombreCuentaParaGuardar + "\": " + e.getMessage(), e);
+                    }
+                    continue;
+                }
+
                 // ⭐ CAMBIO — v11 tanda 3 (parte D): "transacciones" pierde c10_Grupo1/c11_Grupo2
                 // (ver A1_1_AyudanteBD, migración v13) — se quitan de la lista de columnas y de
                 // los VALUES; ya no se escriben (desde parte C solo se guardaba "" de todas
@@ -137,8 +204,16 @@ public class B12_DocumentPersistence {
             db.setTransactionSuccessful();
         } catch (Exception e) {
             Log.e(TAG, "Error inserting transactions", e);
+            // ⭐ CAMBIO — v12 tanda 4: si el mensaje trae detalle (ver el guardado de ítems de
+            // inventario arriba), se muestra tal cual en vez del genérico de siempre — sigue
+            // siendo Toast, no AlertDialog, porque este es un error inesperado de guardado (no
+            // el aviso de bloqueo, que sí es AlertDialog desde la tanda 3).
+            String detalle = e.getMessage();
             Toast.makeText(f1.getActivity(),
-                    "Error al guardar las transacciones", Toast.LENGTH_SHORT).show();
+                    (detalle != null && !detalle.isEmpty())
+                            ? "Error al guardar: " + detalle
+                            : "Error al guardar las transacciones",
+                    Toast.LENGTH_LONG).show();
         } finally {
             db.endTransaction();
             db.close();
@@ -188,10 +263,56 @@ public class B12_DocumentPersistence {
     // no corrió como se esperaba), se bloquea el guardado POR SEGURIDAD en vez de dejar
     // pasar la transacción sin verificar, y se avisa con un mensaje claro en vez de fallar
     // en silencio.
+    // ⭐ CAMBIO — v12 tanda 4: la tanda 4 ya conecta el formulario nuevo (diálogo de
+    // artículo/unidades/precio, ver mostrarDialogoRegistroInventario) — así que este bloqueo
+    // deja de ser un bloqueo TOTAL de cualquier ítem de una cuenta con inventario, y pasa a
+    // cubrir 2 casos puntuales que SÍ siguen sin soportarse:
+    //   1) Un ítem de una cuenta con inventario que llegó al guardado SIN pasar por ese
+    //      diálogo (tipoTget_19ItemInventarioIdMetodoEnA5() == null) — no debería poder pasar
+    //      desde la UI ahora que losDemasRegistrosAListaDocumento desvía al diálogo, pero se
+    //      deja el bloqueo como red de seguridad (mismo espíritu que el resto de este método).
+    //   2) Un ítem de inventario que YA estaba guardado en la BD antes de abrir este documento
+    //      para modificarlo (tipoTget_15TransaccionIdMetodoEnA5() != null, es decir, viene
+    //      cargado — ver A21_OptimizedQuery.mapTransactionFromCursor). "Modificar documento"
+    //      borra TODAS las transacciones del documento y reinserta la lista completa (ver
+    //      ExecuteButtonsUnit/baseParaGuardarEnLaEnBDConListaDocumento) — para una entrada esto
+    //      sería seguro (mismo precio de siempre), pero para una SALIDA, volver a calcularle el
+    //      costo promedio en el momento de reinsertar podría no coincidir con lo que se calculó
+    //      la primera vez, reescribiendo silenciosamente un costo histórico. Editar documentos
+    //      que ya tienen movimientos de inventario queda deliberadamente pendiente para una
+    //      tanda aparte (hay que decidir primero cómo debe comportarse esa edición) — por ahora
+    //      se bloquea con un mensaje claro en vez de arriesgar el dato.
     public boolean bloqueadoPorCuentaConInventario() {
+        for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
+            if (p.tipoTget_19ItemInventarioIdMetodoEnA5() != null
+                    && p.tipoTget_15TransaccionIdMetodoEnA5() != null) {
+                Log.i(TAG, "Bloqueo de inventario ACTIVADO: el ítem de \"" +
+                        p.tipoTget_3CuentaMetodoEnA5() + "\" (transaccion_id " +
+                        p.tipoTget_15TransaccionIdMetodoEnA5() + ") ya estaba guardado — " +
+                        "editar documentos con movimientos de inventario todavía no está " +
+                        "soportado.");
+                new AlertDialog.Builder(f1.getActivity())
+                        .setTitle("Documento con inventario")
+                        .setMessage("Este documento ya tiene un movimiento guardado sobre \"" +
+                                p.tipoTget_3CuentaMetodoEnA5() + "\" (cuenta con inventario) — " +
+                                "modificar documentos que ya tienen movimientos de inventario " +
+                                "todavía está en construcción, no se puede guardar aquí por " +
+                                "ahora.")
+                        .setPositiveButton("Entendido", null)
+                        .setCancelable(true)
+                        .show();
+                return true;
+            }
+        }
+
         SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
         try {
             for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
+                if (p.tipoTget_19ItemInventarioIdMetodoEnA5() != null) {
+                    // Ya pasó por el diálogo nuevo — este ítem sabe guardarse (ver el guardado
+                    // en baseParaGuardarEnLaEnBDConListaDocumento), no se bloquea.
+                    continue;
+                }
                 String nombreCuentaAVerificar = p.tipoTget_3CuentaMetodoEnA5();
                 String nombreCuentaAVerificarRecortado =
                         nombreCuentaAVerificar == null ? null : nombreCuentaAVerificar.trim();
@@ -219,9 +340,9 @@ public class B12_DocumentPersistence {
                     new AlertDialog.Builder(f1.getActivity())
                             .setTitle("Cuenta con inventario")
                             .setMessage("\"" + nombreCuentaAVerificarRecortado + "\" maneja " +
-                                    "inventario — el registro de transacciones para cuentas " +
-                                    "con inventario todavía está en construcción, no se puede " +
-                                    "guardar aquí por ahora.")
+                                    "inventario, y este ítem no pasó por el registro de " +
+                                    "inventario (artículo/unidades/precio) — no se puede " +
+                                    "guardar así.")
                             .setPositiveButton("Entendido", null)
                             .setCancelable(true)
                             .show();
@@ -441,6 +562,21 @@ public class B12_DocumentPersistence {
         f1.dynamicQueryByAllAccountAz();
 // ✅ hasta aquí
 
+        // ⭐ NUEVO — v12 tanda 4: si la cuenta elegida maneja inventario (índice 8 del arreglo,
+        // ver A22_QueryManager.queryAttributesByAccount), el formulario de siempre no alcanza
+        // — hace falta además el artículo, las unidades y el precio unitario (documento de
+        // especificación, sección 4). En vez de agregar el ítem de una vez con lo que hay en
+        // pantalla, se abre un diálogo a pedirlos (misma decisión que Jorge ya aprobó para el
+        // bloqueo de la tanda 3: un diálogo, sin tocar el formulario existente) y es ESE
+        // diálogo, al confirmar, el que arma y agrega el ítem — ver
+        // mostrarDialogoRegistroInventario más abajo.
+        boolean cuentaConInventario = f1.atributosCuenta_ArrayS.length > 8
+                && "1".equals(f1.atributosCuenta_ArrayS[8]);
+        if (cuentaConInventario) {
+            mostrarDialogoRegistroInventario(cuentaAlItemList, f1.atributosCuenta_ArrayS);
+            return;
+        }
+
         // Construir ítem via DocumentCalculator
         A3_2_TipoTransaccionesGetsYSets nuevoItem = f1.calculator.construirItemRegistro(
                 f1.nuevoNumeroDocEnAdicionar_String,
@@ -460,6 +596,16 @@ public class B12_DocumentPersistence {
             return;
         }
 
+        agregarItemAListaYRefrescarUI(nuevoItem);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5b. agregarItemAListaYRefrescarUI
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO — v12 tanda 4: extraído de la cola de losDemasRegistrosAListaDocumento (sin
+    // cambiar nada de lo que hacía ahí) para poder reusarlo también desde
+    // mostrarDialogoRegistroInventario, al confirmar el diálogo de artículo/unidades/precio.
+    private void agregarItemAListaYRefrescarUI(A3_2_TipoTransaccionesGetsYSets nuevoItem) {
         f1.listaDocumento_ArrayLTT.add(nuevoItem);
 
         try {
@@ -469,7 +615,7 @@ public class B12_DocumentPersistence {
             f1.listaDocumento_XLv.setAdapter(
                     f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT);
         } catch (Exception e) {
-            Log.e(TAG, "Error setting adapter in losDemasRegistros", e);
+            Log.e(TAG, "Error setting adapter in agregarItemAListaYRefrescarUI", e);
         }
 
         f1.sumarItemListaDocumento();
@@ -478,6 +624,351 @@ public class B12_DocumentPersistence {
         int size = f1.listaDocumento_ArrayLTT.size();
         f1.consecutivoItemRegistro_XTv.setText(
                 size > 0 ? "Item:\n" + size + "/" + size : "0/0");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5c. mostrarDialogoRegistroInventario
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO — v12 tanda 4: pide artículo, unidades y precio unitario para un ítem sobre una
+    // cuenta con inventario, y al confirmar arma el A3_2_TipoTransaccionesGetsYSets (con los 3
+    // campos nuevos: 19 item_id, 20 unidades, 21 precio_unitario) y lo agrega a la lista del
+    // documento, exactamente como losDemasRegistrosAListaDocumento hace para una cuenta normal.
+    // El signo (entrada/salida) ya viene elegido en signo_XSp ANTES de llegar aquí — este
+    // diálogo solo pide la magnitud de las unidades, no su signo, para no pedir el mismo dato
+    // dos veces de forma contradictoria.
+    //
+    // Precio unitario:
+    // - Entrada (signo "+"): el usuario lo digita aquí — obligatorio, mayor que 0.
+    // - Salida (signo "-"): NUNCA lo pide — se muestra de solo lectura el costo promedio
+    //   ponderado vigente del artículo (A12_InventarioHelper.calcularCostoPromedioPonderado),
+    //   tal como Jorge confirmó. Este valor es solo una VISTA PREVIA para calcular el monto
+    //   mostrado en la lista del documento antes de guardar: si el mismo documento (todavía sin
+    //   guardar) tiene más de un movimiento del mismo artículo, el costo real que se guarda al
+    //   final para cada salida se recalcula en el momento real de guardar, en orden — así que
+    //   puede diferir de esta vista previa en ese caso puntual (ver el guardado en
+    //   baseParaGuardarEnLaEnBDConListaDocumento, que por eso vuelve a pasar null como precio
+    //   para toda salida NUEVA, nunca el valor mostrado aquí).
+    private void mostrarDialogoRegistroInventario(String cuentaAlItemList, String[] atributosCuenta) {
+        Long cuentaId = parseLongSeguro(atributosCuenta.length > 5 ? atributosCuenta[5] : null);
+        if (cuentaId == null) {
+            Toast.makeText(f1.getActivity(),
+                    "No se pudo determinar la cuenta para el inventario de \"" +
+                            cuentaAlItemList + "\"", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        boolean esSalida = "-".equals(f1.signo_XSp.getSelectedItem().toString());
+
+        List<A12_InventarioHelper.ItemInventario> items;
+        SQLiteDatabase dbLectura = f1.ayudante_Class.getReadableDatabase();
+        try {
+            items = new A12_InventarioHelper().listarItemsActivosPorCuenta(dbLectura, cuentaId);
+        } catch (Exception e) {
+            Log.e(TAG, "Error listando artículos de inventario", e);
+            Toast.makeText(f1.getActivity(),
+                    "Error al consultar los artículos de \"" + cuentaAlItemList + "\": " +
+                            e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        } finally {
+            dbLectura.close();
+        }
+
+        if (items.isEmpty()) {
+            new AlertDialog.Builder(f1.getActivity())
+                    .setTitle("\"" + cuentaAlItemList + "\" no tiene artículos")
+                    .setMessage("Esta cuenta maneja inventario pero todavía no tiene ningún " +
+                            "artículo dado de alta — da de alta al menos uno para poder " +
+                            "registrar transacciones aquí.")
+                    .setPositiveButton("Crear artículo", (dialog, which) ->
+                            mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId))
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+            return;
+        }
+
+        int paddingPx = (int) (16 * f1.getResources().getDisplayMetrics().density);
+
+        LinearLayout contenedor = new LinearLayout(f1.getActivity());
+        contenedor.setOrientation(LinearLayout.VERTICAL);
+        contenedor.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+
+        List<String> nombresParaSpinner = new ArrayList<>();
+        for (A12_InventarioHelper.ItemInventario item : items) {
+            nombresParaSpinner.add(item.nombre);
+        }
+        final String OPCION_CREAR_NUEVO = "+ Crear nuevo artículo…";
+        nombresParaSpinner.add(OPCION_CREAR_NUEVO);
+
+        TextView etiquetaArticulo = new TextView(f1.getActivity());
+        etiquetaArticulo.setText("Artículo");
+        contenedor.addView(etiquetaArticulo);
+
+        Spinner articuloSpinner = new Spinner(f1.getActivity());
+        ArrayAdapter<String> articuloAdapter = new ArrayAdapter<>(f1.getActivity(),
+                android.R.layout.simple_spinner_dropdown_item, nombresParaSpinner);
+        articuloSpinner.setAdapter(articuloAdapter);
+        contenedor.addView(articuloSpinner);
+
+        TextView etiquetaUnidades = new TextView(f1.getActivity());
+        etiquetaUnidades.setText("Unidades" +
+                (esSalida ? " (salida — solo la cantidad, sin signo)" : " (entrada)"));
+        contenedor.addView(etiquetaUnidades);
+
+        EditText unidadesEt = new EditText(f1.getActivity());
+        unidadesEt.setHint("Unidades");
+        unidadesEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        contenedor.addView(unidadesEt);
+
+        TextView etiquetaPrecio = new TextView(f1.getActivity());
+        etiquetaPrecio.setText(esSalida
+                ? "Precio unitario (costo promedio vigente — automático)"
+                : "Precio unitario (COP)");
+        contenedor.addView(etiquetaPrecio);
+
+        EditText precioEt = new EditText(f1.getActivity());
+        precioEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        if (esSalida) {
+            precioEt.setEnabled(false);
+            precioEt.setFocusable(false);
+        } else {
+            precioEt.setHint("Precio unitario");
+        }
+        contenedor.addView(precioEt);
+
+        TextView montoCalculadoTv = new TextView(f1.getActivity());
+        montoCalculadoTv.setText("Monto: $ 0");
+        montoCalculadoTv.setGravity(Gravity.END);
+        contenedor.addView(montoCalculadoTv);
+
+        SQLiteDatabase dbParaPromedio = f1.ayudante_Class.getReadableDatabase();
+        Runnable actualizarMonto = () -> {
+            try {
+                long unidades = unidadesEt.getText().toString().trim().isEmpty()
+                        ? 0 : Long.parseLong(unidadesEt.getText().toString().trim());
+                long precio;
+                if (esSalida) {
+                    precio = Long.parseLong(
+                            precioEt.getText().toString().isEmpty() ? "0"
+                                    : precioEt.getText().toString());
+                } else {
+                    precio = precioEt.getText().toString().trim().isEmpty()
+                            ? 0 : Long.parseLong(precioEt.getText().toString().trim());
+                }
+                montoCalculadoTv.setText("Monto: $ " + (unidades * precio));
+            } catch (NumberFormatException e) {
+                montoCalculadoTv.setText("Monto: $ 0");
+            }
+        };
+
+        TextWatcher recalcularAlEscribir = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) { actualizarMonto.run(); }
+            @Override public void afterTextChanged(Editable e) {}
+        };
+        unidadesEt.addTextChangedListener(recalcularAlEscribir);
+        precioEt.addTextChangedListener(recalcularAlEscribir);
+
+        // Al elegir un artículo (o cambiar de uno a otro), si es salida se consulta y se
+        // muestra su costo promedio vigente; si es "+ Crear nuevo artículo…", queda pendiente
+        // de resolver al confirmar el diálogo (ver el positive button más abajo).
+        articuloSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (!esSalida || position >= items.size()) return;
+                try {
+                    long costoPromedio = new A12_InventarioHelper()
+                            .calcularCostoPromedioPonderado(dbParaPromedio, items.get(position).itemId);
+                    precioEt.setText(String.valueOf(costoPromedio));
+                } catch (IllegalStateException e) {
+                    precioEt.setText("");
+                    montoCalculadoTv.setText("Monto: $ 0 (sin saldo para vender)");
+                }
+            }
+
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        AlertDialog dialogo = new AlertDialog.Builder(f1.getActivity())
+                .setTitle("Inventario — \"" + cuentaAlItemList + "\"")
+                .setView(contenedor)
+                .setCancelable(true)
+                .setOnDismissListener(d -> dbParaPromedio.close())
+                .setPositiveButton("Agregar", null) // se sobreescribe abajo para no cerrar en error
+                .setNegativeButton("Cancelar", (d, which) -> d.dismiss())
+                .create();
+
+        dialogo.setOnShowListener(dialogInterface -> dialogo
+                .getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    int posicionSeleccionada = articuloSpinner.getSelectedItemPosition();
+
+                    if (posicionSeleccionada == items.size()) {
+                        // "+ Crear nuevo artículo…" — se abre el sub-diálogo y se cierra este;
+                        // al terminar de crear el artículo se vuelve a abrir este mismo diálogo
+                        // (ya con el artículo nuevo en la lista), para no duplicar la lógica de
+                        // arriba.
+                        dialogo.dismiss();
+                        mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId);
+                        return;
+                    }
+
+                    String unidadesTexto = unidadesEt.getText().toString().trim();
+                    if (unidadesTexto.isEmpty()) {
+                        Toast.makeText(f1.getActivity(), "Falta la cantidad de unidades",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    long unidadesMagnitud;
+                    try {
+                        unidadesMagnitud = Long.parseLong(unidadesTexto);
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(f1.getActivity(), "Unidades inválidas",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (unidadesMagnitud <= 0) {
+                        Toast.makeText(f1.getActivity(), "Las unidades deben ser mayores que 0",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    A12_InventarioHelper.ItemInventario itemElegido = items.get(posicionSeleccionada);
+                    long unidadesConSigno = esSalida ? -unidadesMagnitud : unidadesMagnitud;
+
+                    Long precioParaEntrada; // lo que se guardará en el objeto (19/20/21)
+                    long precioParaVistaPrevia; // solo para el monto que se muestra en la lista
+                    if (esSalida) {
+                        try {
+                            precioParaVistaPrevia = new A12_InventarioHelper()
+                                    .calcularCostoPromedioPonderado(dbParaPromedio, itemElegido.itemId);
+                        } catch (IllegalStateException e) {
+                            Toast.makeText(f1.getActivity(),
+                                    "\"" + itemElegido.nombre + "\" no tiene saldo disponible " +
+                                            "para vender.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        // Se pasa null a propósito: el precio real de toda salida NUEVA se
+                        // calcula en el momento real de guardar (ver el comentario de este
+                        // método más arriba y baseParaGuardarEnLaEnBDConListaDocumento).
+                        precioParaEntrada = null;
+                    } else {
+                        String precioTexto = precioEt.getText().toString().trim();
+                        if (precioTexto.isEmpty()) {
+                            Toast.makeText(f1.getActivity(), "Falta el precio unitario",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        long precioIngresado;
+                        try {
+                            precioIngresado = Long.parseLong(precioTexto);
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(f1.getActivity(), "Precio unitario inválido",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        if (precioIngresado <= 0) {
+                            Toast.makeText(f1.getActivity(),
+                                    "El precio unitario debe ser mayor que 0", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        precioParaVistaPrevia = precioIngresado;
+                        precioParaEntrada = precioIngresado;
+                    }
+
+                    long montoVistaPrevia = unidadesMagnitud * precioParaVistaPrevia;
+
+                    A3_2_TipoTransaccionesGetsYSets nuevoItem = f1.calculator.construirItemRegistro(
+                            f1.nuevoNumeroDocEnAdicionar_String,
+                            f1.listaDocumento_ArrayLTT.size() + 1,
+                            cuentaAlItemList,
+                            f1.signo_XSp.getSelectedItem().toString(),
+                            String.valueOf(montoVistaPrevia),
+                            f1.descripcion_XAtv.getText().toString(),
+                            A99_MetodosVarios.stringFechaYHora,
+                            f1.DateOfDocument_Integer,
+                            atributosCuenta);
+
+                    if (nuevoItem == null) {
+                        Toast.makeText(f1.getActivity(),
+                                "Error: Atributos de cuenta no disponibles", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    nuevoItem.tipoTset_19ItemInventarioIdMetodoEnA5(itemElegido.itemId);
+                    nuevoItem.tipoTset_20UnidadesInventarioMetodoEnA5(unidadesConSigno);
+                    nuevoItem.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(precioParaEntrada);
+
+                    agregarItemAListaYRefrescarUI(nuevoItem);
+                    dialogo.dismiss();
+                }));
+
+        dialogo.show();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5d. mostrarDialogoNuevoArticulo
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO — v12 tanda 4: crear un artículo nuevo "en el momento" desde el selector del
+    // registro de transacciones (documento de especificación, sección 4: "con opción de crear
+    // uno nuevo en el momento"). Mismo diálogo simple que F2_Cuentas.mostrarDialogoPrimerArticulo
+    // (nombre obligatorio, unidad opcional). Al guardar, se vuelve a abrir
+    // mostrarDialogoRegistroInventario para que el usuario complete unidades/precio con el
+    // artículo recién creado ya disponible en el selector — evita duplicar esa lógica aquí.
+    private void mostrarDialogoNuevoArticulo(String cuentaAlItemList, String[] atributosCuenta, long cuentaId) {
+        int paddingPx = (int) (16 * f1.getResources().getDisplayMetrics().density);
+        LinearLayout contenedor = new LinearLayout(f1.getActivity());
+        contenedor.setOrientation(LinearLayout.VERTICAL);
+        contenedor.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+
+        final EditText nombreArticuloEt = new EditText(f1.getActivity());
+        nombreArticuloEt.setHint("Nombre del artículo (obligatorio)");
+        contenedor.addView(nombreArticuloEt);
+
+        final EditText unidadArticuloEt = new EditText(f1.getActivity());
+        unidadArticuloEt.setHint("Unidad (opcional)");
+        contenedor.addView(unidadArticuloEt);
+
+        new AlertDialog.Builder(f1.getActivity())
+                .setTitle("Nuevo artículo de \"" + cuentaAlItemList + "\"")
+                .setView(contenedor)
+                .setCancelable(true)
+                .setPositiveButton("Guardar artículo", (dialog, which) -> {
+                    String nombre = nombreArticuloEt.getText().toString().trim();
+                    if (nombre.isEmpty()) {
+                        Toast.makeText(f1.getActivity(), "Falta el nombre del artículo",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String unidad = unidadArticuloEt.getText().toString().trim();
+                    SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
+                    try {
+                        new A12_InventarioHelper().insertarItemInventario(
+                                db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
+                        Toast.makeText(f1.getActivity(), "Artículo \"" + nombre + "\" guardado",
+                                Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error al guardar artículo nuevo de inventario", e);
+                        Toast.makeText(f1.getActivity(),
+                                "Error al guardar el artículo: " + e.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    } finally {
+                        db.close();
+                    }
+                    mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta);
+                })
+                .setNegativeButton("Cancelar", (dialog, which) ->
+                        mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta))
+                .show();
+    }
+
+    private Long parseLongSeguro(String valor) {
+        if (valor == null || valor.isEmpty()) return null;
+        try {
+            return Long.valueOf(valor);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -515,6 +1006,20 @@ public class B12_DocumentPersistence {
         if (posicion == -1) {
             Toast.makeText(f1.getActivity(),
                     "Error: Registro no encontrado", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // ⭐ NUEVO — v12 tanda 4: este método reasigna cuenta/valor/signo/descripción a mano,
+        // sin pasar por mostrarDialogoRegistroInventario — así que no sabe actualizar
+        // item_id/unidades/precio_unitario si el ítem es de inventario (podría, por ejemplo,
+        // cambiarle la cuenta y dejarle el item_id de la cuenta VIEJA). Se bloquea con un
+        // mensaje claro en vez de arriesgar esa inconsistencia; para cambiar un ítem de
+        // inventario, se elimina de la lista y se vuelve a agregar desde el diálogo.
+        if (f1.listaDocumento_ArrayLTT.get(posicion).tipoTget_19ItemInventarioIdMetodoEnA5() != null) {
+            Toast.makeText(f1.getActivity(),
+                    "Este ítem es de una cuenta con inventario — no se puede editar así. " +
+                            "Elimínalo de la lista y agrégalo de nuevo desde el diálogo de " +
+                            "inventario.", Toast.LENGTH_LONG).show();
             return;
         }
 

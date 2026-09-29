@@ -43,12 +43,26 @@ public class A22_QueryManager {
     // tipo_cuenta_nombre quedan exactamente igual, solo se agrega esta columna nueva al
     // final. La usan los 3 CSV de transacciones de A5_1_BackupManager, igual que ya usan
     // Cerrable/cuenta_id/tipo_cuenta_id (ver A21_OptimizedQuery.mapTransactionFromCursor).
+    // ⭐ NUEVO — v12 tanda 4: tercer LEFT JOIN, a "transacciones_inventario" por
+    // transacciones.transaccion_id — relación 1 a 1 (transacciones_inventario.transaccion_id
+    // es su propia PK), así que este JOIN nunca puede duplicar filas, igual que los dos
+    // anteriores. Trae item_id/unidades/precio_unitario del detalle de inventario, si la
+    // transacción es de una cuenta con inventario (NULL en los 3 si no lo es). Necesario para
+    // que un documento con ítems de inventario, cargado para editar/usar como plantilla,
+    // conserve ese detalle en memoria (ver A21_OptimizedQuery.mapTransactionFromCursor y
+    // B12_DocumentPersistence.baseParaGuardarEnLaEnBDConListaDocumento). Sin riesgo de
+    // ambigüedad: ningún WHERE/ORDER BY de estas 4 consultas referencia item_id, unidades ni
+    // precio_unitario.
     private static final String SELECT_TRANSACCIONES_CON_TIPO_CUENTA =
-            "transacciones.*, tipo_cuenta.nombre AS tipo_cuenta_nombre, cuentas.con_inventario AS con_inventario";
+            "transacciones.*, tipo_cuenta.nombre AS tipo_cuenta_nombre, cuentas.con_inventario AS con_inventario, " +
+                    "transacciones_inventario.item_id AS item_id, " +
+                    "transacciones_inventario.unidades AS unidades, " +
+                    "transacciones_inventario.precio_unitario AS precio_unitario";
     private static final String FROM_TRANSACCIONES_CON_TIPO_CUENTA =
             "transacciones " +
                     "LEFT JOIN tipo_cuenta ON transacciones.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id " +
-                    "LEFT JOIN cuentas ON transacciones.cuenta_id = cuentas.cuenta_id";
+                    "LEFT JOIN cuentas ON transacciones.cuenta_id = cuentas.cuenta_id " +
+                    "LEFT JOIN transacciones_inventario ON transacciones.transaccion_id = transacciones_inventario.transaccion_id";
 
     // ⭐ NUEVO — v11 tanda 3 (parte D): mismo criterio que SELECT/FROM_TRANSACCIONES_CON_TIPO_CUENTA
     // de arriba, pero para "cuentas" — usado por queryAllAccounts() (pantalla "Ver Cuentas", ver

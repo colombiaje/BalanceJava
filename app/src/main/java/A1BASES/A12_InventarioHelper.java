@@ -4,6 +4,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A12_InventarioHelper — lógica de costeo del "Modelo de Costeo por Inventario en Cuentas".
  *
@@ -30,9 +33,14 @@ import android.database.sqlite.SQLiteDatabase;
  * ⭐ NUEVO v12 tanda 3: insertarItemInventario y existenItemsPorCuenta — CRUD mínimo de
  * items_inventario, usado por F2_Cuentas al crear una cuenta con inventario (sección 4 del
  * documento: "al guardar la cuenta la app debe llevarlo a dar de alta al menos un
- * artículo"). SIGUE sin usarse guardarTransaccionConInventario desde ninguna pantalla — el
- * registro de transacciones sobre cuentas con inventario sigue bloqueado hasta la tanda 4
- * (ver el bloqueo agregado en B12_DocumentPersistence).
+ * artículo").
+ *
+ * ⭐ NUEVO v12 tanda 4: listarItemsActivosPorCuenta — alimenta el selector de artículo del
+ * registro de transacciones. guardarTransaccionConInventario ya se usa desde ahí
+ * (B12_DocumentPersistence.baseParaGuardarEnLaEnBDConListaDocumento), para los ítems nuevos
+ * de una cuenta con inventario agregados a través del diálogo nuevo — ver esa clase para el
+ * detalle completo del flujo y de qué queda todavía bloqueado (editar un documento que ya
+ * tenía ítems de inventario guardados).
  */
 public class A12_InventarioHelper {
 
@@ -258,5 +266,46 @@ public class A12_InventarioHelper {
         } finally {
             c.close();
         }
+    }
+
+    /**
+     * ⭐ NUEVO — v12 tanda 4. Datos mínimos de un artículo para mostrarlo en el selector del
+     * registro de transacciones: id, nombre y unidad (puede ser null/vacía).
+     */
+    public static class ItemInventario {
+        public final long itemId;
+        public final String nombre;
+        public final String unidad;
+
+        public ItemInventario(long itemId, String nombre, String unidad) {
+            this.itemId = itemId;
+            this.nombre = nombre;
+            this.unidad = unidad;
+        }
+    }
+
+    /**
+     * ⭐ NUEVO — v12 tanda 4: artículos activos (items_inventario.activo = 1) de una cuenta,
+     * ordenados por nombre — alimenta el selector de artículo del registro de transacciones
+     * (B12_DocumentPersistence.mostrarDialogoRegistroInventario). Lista vacía si la cuenta
+     * todavía no tiene ningún artículo activo dado de alta.
+     */
+    public List<ItemInventario> listarItemsActivosPorCuenta(SQLiteDatabase db, long cuentaId) {
+        List<ItemInventario> items = new ArrayList<>();
+        Cursor c = db.rawQuery(
+                "SELECT item_id, nombre, unidad FROM items_inventario " +
+                        "WHERE cuenta_id = ? AND activo = 1 ORDER BY nombre COLLATE NOCASE",
+                new String[]{String.valueOf(cuentaId)});
+        try {
+            while (c.moveToNext()) {
+                items.add(new ItemInventario(
+                        c.getLong(0),
+                        c.getString(1),
+                        c.isNull(2) ? null : c.getString(2)));
+            }
+        } finally {
+            c.close();
+        }
+        return items;
     }
 }

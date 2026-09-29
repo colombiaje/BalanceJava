@@ -65,6 +65,29 @@ public class A3_2_TipoTransaccionesGetsYSets {
     // tipoT_17TipoCuentaNombre_String).
     public Boolean tipoT_18ConInventario_Boolean;
 
+    // ⭐ NUEVO — v12 tanda 4: detalle de inventario del ítem (tabla "transacciones_inventario"),
+    // presente SOLO cuando este ítem pertenece a una cuenta con con_inventario = 1 y fue
+    // registrado (o cargado) a través del flujo nuevo de la tanda 4 — null en cualquier otro
+    // caso (cuenta sin inventario, o ítem viejo de una cuenta sin inventario). Puramente
+    // aditivo: no reemplaza ningún campo existente.
+    //
+    // tipoT_19ItemInventarioId_Long: items_inventario.item_id del artículo elegido.
+    // tipoT_20UnidadesInventario_Long: unidades del movimiento, CON signo (positivo entrada,
+    //   negativo salida) — mismo signo que tipoT_5Value_Integer.
+    // tipoT_21PrecioUnitarioInventario_Long: para una ENTRADA, el precio unitario que el
+    //   usuario digitó (autoritativo, se usa tal cual al guardar). Para una SALIDA, se deja en
+    //   null a propósito — A12_InventarioHelper.guardarTransaccionConInventario() calcula el
+    //   costo promedio vigente en el momento real de guardar, nunca antes (ver esa clase para
+    //   el porqué). La ÚNICA excepción es un ítem CARGADO de la BD (ya tiene
+    //   tipoT_15TransaccionId_Long, ver A21_OptimizedQuery.mapTransactionFromCursor): ahí sí
+    //   viene con el precio_unitario histórico ya guardado, tanto para entradas como salidas —
+    //   necesario para que B12_DocumentPersistence pueda distinguir "ítem nuevo" de "ítem ya
+    //   persistido" y bloquear el reguardado de este último por ahora (ver el comentario
+    //   completo en baseParaGuardarEnLaEnBDConListaDocumento).
+    public Long tipoT_19ItemInventarioId_Long;
+    public Long tipoT_20UnidadesInventario_Long;
+    public Long tipoT_21PrecioUnitarioInventario_Long;
+
     private String columna1;
     private int columna2;
     private String columna3;
@@ -138,6 +161,9 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public Long tipoTget_16TipoCuentaIdMetodoEnA5() {return tipoT_16TipoCuentaId_Long;}
     public String tipoTget_17TipoCuentaNombreMetodoEnA5() {return tipoT_17TipoCuentaNombre_String;}
     public Boolean tipoTget_18ConInventarioMetodoEnA5() {return tipoT_18ConInventario_Boolean;}
+    public Long tipoTget_19ItemInventarioIdMetodoEnA5() {return tipoT_19ItemInventarioId_Long;}
+    public Long tipoTget_20UnidadesInventarioMetodoEnA5() {return tipoT_20UnidadesInventario_Long;}
+    public Long tipoTget_21PrecioUnitarioInventarioMetodoEnA5() {return tipoT_21PrecioUnitarioInventario_Long;}
 
     public void tipoTset_1DocumentoMetodoEnA5(String tipoT_1NumberDocument_String) {this.tipoT_1NumberDocument_String = tipoT_1NumberDocument_String;}
     public void tipoTset_2ItemDocMetodoEnA5(String tipoT_2DocumentItems_String) {this.tipoT_2DocumentItems_String = tipoT_2DocumentItems_String;}
@@ -157,6 +183,9 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public void tipoTset_16TipoCuentaIdMetodoEnA5(Long tipoT_16TipoCuentaId_Long) {this.tipoT_16TipoCuentaId_Long = tipoT_16TipoCuentaId_Long;}
     public void tipoTset_17TipoCuentaNombreMetodoEnA5(String tipoT_17TipoCuentaNombre_String) {this.tipoT_17TipoCuentaNombre_String = tipoT_17TipoCuentaNombre_String;}
     public void tipoTset_18ConInventarioMetodoEnA5(Boolean tipoT_18ConInventario_Boolean) {this.tipoT_18ConInventario_Boolean = tipoT_18ConInventario_Boolean;}
+    public void tipoTset_19ItemInventarioIdMetodoEnA5(Long tipoT_19ItemInventarioId_Long) {this.tipoT_19ItemInventarioId_Long = tipoT_19ItemInventarioId_Long;}
+    public void tipoTset_20UnidadesInventarioMetodoEnA5(Long tipoT_20UnidadesInventario_Long) {this.tipoT_20UnidadesInventario_Long = tipoT_20UnidadesInventario_Long;}
+    public void tipoTset_21PrecioUnitarioInventarioMetodoEnA5(Long tipoT_21PrecioUnitarioInventario_Long) {this.tipoT_21PrecioUnitarioInventario_Long = tipoT_21PrecioUnitarioInventario_Long;}
 
     public A3_2_TipoTransaccionesGetsYSets(String columna1, int columna2, String columna3, int columna4) {
 

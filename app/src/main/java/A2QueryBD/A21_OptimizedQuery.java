@@ -480,6 +480,25 @@ public class A21_OptimizedQuery {
         if (indiceConInventario != -1 && !cursor.isNull(indiceConInventario)) {
             item.tipoTset_18ConInventarioMetodoEnA5(cursor.getInt(indiceConInventario) != 0);
         }
+        // ⭐ NUEVO — v12 tanda 4: item_id/unidades/precio_unitario de transacciones_inventario,
+        // si el SELECT que llamó a este mapeo trae el JOIN a esa tabla (ver
+        // A22_QueryManager.SELECT_TRANSACCIONES_CON_TIPO_CUENTA/FROM_TRANSACCIONES_CON_TIPO_CUENTA).
+        // NULL en los 3 si la transacción no es de una cuenta con inventario — mismo criterio
+        // que tipo_cuenta_nombre/con_inventario arriba. Necesario para que un documento con
+        // ítems de inventario, cargado para editar/usar como plantilla, conserve ese detalle
+        // (ver B12_DocumentPersistence.baseParaGuardarEnLaEnBDConListaDocumento).
+        int indiceItemInventarioId = cursor.getColumnIndex("item_id");
+        if (indiceItemInventarioId != -1 && !cursor.isNull(indiceItemInventarioId)) {
+            item.tipoTset_19ItemInventarioIdMetodoEnA5(cursor.getLong(indiceItemInventarioId));
+        }
+        int indiceUnidadesInventario = cursor.getColumnIndex("unidades");
+        if (indiceUnidadesInventario != -1 && !cursor.isNull(indiceUnidadesInventario)) {
+            item.tipoTset_20UnidadesInventarioMetodoEnA5(cursor.getLong(indiceUnidadesInventario));
+        }
+        int indicePrecioUnitarioInventario = cursor.getColumnIndex("precio_unitario");
+        if (indicePrecioUnitarioInventario != -1 && !cursor.isNull(indicePrecioUnitarioInventario)) {
+            item.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(cursor.getLong(indicePrecioUnitarioInventario));
+        }
         return item;
     }
 
