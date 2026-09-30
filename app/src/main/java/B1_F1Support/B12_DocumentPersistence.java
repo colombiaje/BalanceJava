@@ -782,10 +782,10 @@ public class B12_DocumentPersistence {
                     return;
                 }
                 try {
-                    long costoPromedio = new A12_InventarioHelper()
+                    double costoPromedio = new A12_InventarioHelper()
                             .calcularCostoPromedioPonderado(dbParaPromedio, items.get(posicion).itemId);
-                    precioInfoTv.setText(
-                            "Precio unitario (costo promedio vigente): $ " + costoPromedio);
+                    precioInfoTv.setText("Precio unitario (costo promedio vigente): $ " +
+                            formatearPrecioInformativo(costoPromedio));
                 } catch (IllegalStateException e) {
                     precioInfoTv.setText(
                             "Precio unitario (costo promedio vigente): sin saldo para vender");
@@ -797,9 +797,10 @@ public class B12_DocumentPersistence {
                 }
                 try {
                     long valorMagnitud = Math.abs(Long.parseLong(valorYaEscrito));
-                    long precioImplicito = Math.round((double) valorMagnitud / (double) unidades);
-                    precioInfoTv.setText(
-                            "Precio unitario implícito (valor ÷ unidades): $ " + precioImplicito);
+                    double precioImplicito = Math.round(
+                            (double) valorMagnitud / (double) unidades * 1000.0) / 1000.0;
+                    precioInfoTv.setText("Precio unitario implícito (valor ÷ unidades): $ " +
+                            formatearPrecioInformativo(precioImplicito));
                 } catch (NumberFormatException e) {
                     precioInfoTv.setText("Precio unitario implícito (valor ÷ unidades): —");
                 }
@@ -880,10 +881,12 @@ public class B12_DocumentPersistence {
                     A12_InventarioHelper.ItemInventario itemElegido = items.get(posicionSeleccionada);
                     long unidadesConSigno = esSalida ? -unidadesMagnitud : unidadesMagnitud;
 
-                    // Precio unitario informativo (campo 21) — se calcula aquí SOLO para
-                    // mostrarlo más adelante si hiciera falta; el guardado real (helper) lo
-                    // vuelve a calcular de forma independiente, sin depender de este valor.
-                    Long precioInformativo;
+                    // Precio unitario informativo (campo 21) — ⭐ REDISEÑO v15: es un Double
+                    // (antes Long, redondeado al entero) — se calcula aquí SOLO para mostrarlo
+                    // más adelante si hiciera falta; el guardado real (costo_total, en el
+                    // helper) lo vuelve a calcular de forma independiente, sin depender de este
+                    // valor.
+                    Double precioInformativo;
                     if (esSalida) {
                         try {
                             precioInformativo = new A12_InventarioHelper()
@@ -903,8 +906,8 @@ public class B12_DocumentPersistence {
                                     Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        long precioCalculado = Math.round(
-                                (double) valorMagnitud / (double) unidadesMagnitud);
+                        double precioCalculado = Math.round(
+                                (double) valorMagnitud / (double) unidadesMagnitud * 1000.0) / 1000.0;
                         if (precioCalculado <= 0) {
                             Toast.makeText(f1.getActivity(),
                                     "El precio unitario implícito (valor ÷ unidades) no es " +
@@ -945,6 +948,21 @@ public class B12_DocumentPersistence {
                 }));
 
         dialogo.show();
+    }
+
+    // ⭐ NUEVO v15: formatea un precio unitario informativo (double, hasta 3 decimales) para
+    // mostrarlo en pantalla — sin ceros de relleno. Si el valor es un entero exacto (p.ej.
+    // 8.0), se muestra "8"; si no, se muestra con hasta 3 decimales sin ceros sobrantes al
+    // final (p.ej. 7.7, no "7.700"; 7.333, no "7.3330"). Se usa Locale.US al formatear para
+    // evitar que un locale con coma decimal (como es-CO) produzca "7,7" en vez de "7.7".
+    private static String formatearPrecioInformativo(double valor) {
+        if (valor == Math.rint(valor)) {
+            return String.valueOf((long) valor);
+        }
+        String s = String.format(java.util.Locale.US, "%.3f", valor);
+        while (s.endsWith("0")) s = s.substring(0, s.length() - 1);
+        if (s.endsWith(".")) s = s.substring(0, s.length() - 1);
+        return s;
     }
 
     // ═══════════════════════════════════════════════════════════════

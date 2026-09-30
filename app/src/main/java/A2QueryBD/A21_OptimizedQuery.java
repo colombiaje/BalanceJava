@@ -495,9 +495,11 @@ public class A21_OptimizedQuery {
         if (indiceUnidadesInventario != -1 && !cursor.isNull(indiceUnidadesInventario)) {
             item.tipoTset_20UnidadesInventarioMetodoEnA5(cursor.getLong(indiceUnidadesInventario));
         }
+        // ⭐ REDISEÑO v15: precio_unitario puede traer hasta 3 decimales — se lee como double
+        // (antes getLong) — ver A12_InventarioHelper para el detalle completo.
         int indicePrecioUnitarioInventario = cursor.getColumnIndex("precio_unitario");
         if (indicePrecioUnitarioInventario != -1 && !cursor.isNull(indicePrecioUnitarioInventario)) {
-            item.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(cursor.getLong(indicePrecioUnitarioInventario));
+            item.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(cursor.getDouble(indicePrecioUnitarioInventario));
         }
         return item;
     }

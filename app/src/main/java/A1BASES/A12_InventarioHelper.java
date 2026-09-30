@@ -28,12 +28,13 @@ import java.util.List;
  * - guardarTransaccionConInventario: inserta la transacción y su detalle de inventario de
  *   forma atómica (reglas de negocio #1 y #2). El monto (c5_Valor) lo trae SIEMPRE el
  *   llamador, exactamente como lo escribió el usuario — este método nunca lo recalcula ni lo
- *   sobrescribe, porque es lo que hace cuadrar el documento en cero. precio_unitario es un
- *   dato DERIVADO e informativo: para una entrada, se deriva del valor ya escrito
- *   (valor ÷ unidades); para una salida, se calcula solo como el costo promedio vigente
- *   (nunca lo recibe del llamador) — tal como Jorge confirmó tras la retroalimentación de la
- *   tanda 4 (tensión resuelta distinguiendo "valor recibido/pagado", que manda para el
- *   balance, de "costo de inventario", que es el que preserva el promedio ponderado).
+ *   sobrescribe, porque es lo que hace cuadrar el documento en cero. costo_total (⭐ v15) es
+ *   el costo EXACTO en COP que entra o sale del inventario: para una entrada, es el valor ya
+ *   escrito; para una salida, se calcula sobre el saldo exacto acumulado (nunca lo recibe del
+ *   llamador) — tal como Jorge confirmó tras la retroalimentación de la tanda 4 (tensión
+ *   resuelta distinguiendo "valor recibido/pagado", que manda para el balance, de "costo de
+ *   inventario", que es el que preserva el promedio ponderado). precio_unitario pasa a ser
+ *   PURAMENTE informativo, derivado de costo_total — con hasta 3 decimales.
  *
  * ⭐ NUEVO v12 tanda 3: insertarItemInventario y existenItemsPorCuenta — CRUD mínimo de
  * items_inventario, usado por F2_Cuentas al crear una cuenta con inventario (sección 4 del
@@ -48,6 +49,15 @@ import java.util.List;
  * tenía ítems de inventario guardados). ⭐ REDISEÑO v12 tanda 4 (fix, 29-sep): el método pasó
  * de recibir un precio de entrada opcional y sobrescribir c5_Valor, a nunca tocar c5_Valor y
  * derivar precio_unitario internamente — ver el javadoc del método para el detalle completo.
+ *
+ * ⭐ REDISEÑO v15 (30-sep, retroalimentación de Jorge tras probar la tanda 4): precio_unitario
+ * redondeado a un peso entero generaba diferencias representativas para artículos de precio
+ * bajo (como una divisa), y una salida que agotaba el saldo de un artículo podía dejar un
+ * pequeño residuo de costo (sin unidades) que contaminaba el promedio de una entrada futura.
+ * Se agrega transacciones_inventario.costo_total (el costo exacto de cada movimiento) como
+ * fuente real del costo promedio ponderado; precio_unitario pasa a ser puramente informativo,
+ * con hasta 3 decimales — ver el javadoc de calcularCostoPromedioPonderado y
+ * guardarTransaccionConInventario para el detalle completo.
  */
 public class A12_InventarioHelper {
 
@@ -74,45 +84,66 @@ public class A12_InventarioHelper {
     }
 
     /**
-     * Costo promedio ponderado vigente de un artículo (regla de negocio #4): valor total
-     * acumulado en COP entre unidades totales acumuladas, sobre TODAS las filas
-     * (entradas y salidas) del artículo en transacciones_inventario.
-     *
-     * No hace falta distinguir entradas de salidas ni guardar un promedio "corriente"
-     * aparte: como cada salida se guarda exactamente al costo promedio vigente (nunca a su
-     * propio precio), SUM(unidades × precio_unitario) / SUM(unidades) da, en cualquier
-     * momento, el mismo resultado que recalcular el promedio solo con las entradas — una
-     * salida resta valor y unidades en la misma proporción, así que no mueve el promedio.
-     *
-     * Redondea al peso más cercano (COP no maneja centavos en esta app — ver
-     * transacciones.c5_Valor, que también es INTEGER).
-     *
-     * @throws IllegalStateException si el artículo no tiene saldo en unidades (nada que
-     *         vender, o saldo en 0 o negativo) — no hay costo promedio que calcular.
+     * ⭐ NUEVO v15: saldo acumulado de un artículo — unidades y costo_total — sobre TODAS sus
+     * filas (entradas y salidas) en transacciones_inventario. Reemplaza el cálculo anterior
+     * (SUM(unidades × precio_unitario)), que dependía de precio_unitario redondeado a un peso
+     * entero y podía dejar un pequeño residuo de costo al agotar el saldo de un artículo — ver
+     * el comentario de clase v15 en A1_1_AyudanteBD para el detalle completo del problema que
+     * esto resuelve.
      */
-    public long calcularCostoPromedioPonderado(SQLiteDatabase db, long itemId) {
-        long valorTotal = 0;
+    private static final class SaldoInventario {
+        final long unidadesTotal;
+        final long costoTotal;
+
+        SaldoInventario(long unidadesTotal, long costoTotal) {
+            this.unidadesTotal = unidadesTotal;
+            this.costoTotal = costoTotal;
+        }
+    }
+
+    private SaldoInventario obtenerSaldoInventario(SQLiteDatabase db, long itemId) {
         long unidadesTotal = 0;
+        long costoTotal = 0;
         Cursor c = db.rawQuery(
-                "SELECT SUM(unidades * precio_unitario), SUM(unidades) " +
-                        "FROM transacciones_inventario WHERE item_id = ?",
+                "SELECT SUM(unidades), SUM(costo_total) FROM transacciones_inventario WHERE item_id = ?",
                 new String[]{String.valueOf(itemId)});
         try {
-            if (c.moveToFirst() && !c.isNull(1)) {
-                valorTotal = c.getLong(0);
-                unidadesTotal = c.getLong(1);
+            if (c.moveToFirst() && !c.isNull(0)) {
+                unidadesTotal = c.getLong(0);
+                costoTotal = c.getLong(1);
             }
         } finally {
             c.close();
         }
+        return new SaldoInventario(unidadesTotal, costoTotal);
+    }
 
-        if (unidadesTotal <= 0) {
+    /**
+     * Costo promedio ponderado vigente de un artículo (regla de negocio #4), PURAMENTE
+     * INFORMATIVO desde la v15 — con hasta 3 decimales (antes redondeaba al peso entero, lo
+     * cual generaba diferencias representativas para artículos de precio bajo, como una
+     * divisa — reportado por Jorge). Ya NO es lo que se guarda como costo real del
+     * movimiento (ver guardarTransaccionConInventario/costo_total) — este método es solo para
+     * mostrarle al usuario el costo promedio vigente antes de confirmar una salida.
+     *
+     * SUM(costo_total) / SUM(unidades), sobre TODAS las filas (entradas y salidas) del
+     * artículo — costo_total ya viene exacto en cada fila (ver esa columna), así que este
+     * promedio no arrastra ningún redondeo de filas anteriores.
+     *
+     * @throws IllegalStateException si el artículo no tiene saldo en unidades (nada que
+     *         vender, o saldo en 0 o negativo) — no hay costo promedio que calcular.
+     */
+    public double calcularCostoPromedioPonderado(SQLiteDatabase db, long itemId) {
+        SaldoInventario saldo = obtenerSaldoInventario(db, itemId);
+
+        if (saldo.unidadesTotal <= 0) {
             throw new IllegalStateException(
-                    "El artículo " + itemId + " no tiene saldo en unidades (" + unidadesTotal +
+                    "El artículo " + itemId + " no tiene saldo en unidades (" + saldo.unidadesTotal +
                             ") — no se puede calcular un costo promedio ni registrar una salida.");
         }
 
-        long costoPromedio = Math.round((double) valorTotal / (double) unidadesTotal);
+        double costoPromedio = redondearA3Decimales(
+                (double) saldo.costoTotal / (double) saldo.unidadesTotal);
         if (costoPromedio <= 0) {
             // Defensivo: la tabla exige precio_unitario > 0 (CHECK). En la práctica, con
             // valores en COP, esto no debería pasar — pero si pasara, es mejor fallar aquí
@@ -122,6 +153,14 @@ public class A12_InventarioHelper {
                             " no es válido (" + costoPromedio + ").");
         }
         return costoPromedio;
+    }
+
+    /**
+     * ⭐ NUEVO v15: redondeo a 3 decimales, usado en todo este archivo para el precio unitario
+     * informativo (nunca para costo_total, que siempre es un entero exacto en COP).
+     */
+    private static double redondearA3Decimales(double valor) {
+        return Math.round(valor * 1000.0) / 1000.0;
     }
 
     /**
@@ -137,15 +176,34 @@ public class A12_InventarioHelper {
      * cuadrar el documento en cero (partida doble) — es el llamador quien debe traerlo ya
      * puesto en valoresTransaccion.
      *
-     * precio_unitario pasa a ser un dato DERIVADO, informativo, calculado internamente aquí:
-     * - Entrada (unidades > 0): precio_unitario = round(|c5_Valor| / unidades). El dinero
-     *   pagado (c5_Valor) y el costo agregado al inventario son, económicamente, la misma
-     *   cifra — no hay conflicto en derivar uno del otro.
-     * - Salida (unidades < 0): precio_unitario = costo promedio ponderado vigente (regla de
-     *   negocio #4, sin cambios) — el valor que el usuario recibió por la venta (c5_Valor)
-     *   puede diferir del costo que sale del inventario (esa diferencia es la utilidad o
-     *   pérdida de la venta, que esta tanda todavía no registra aparte); por eso aquí NO se
-     *   deriva de c5_Valor, se sigue calculando solo, igual que antes.
+     * ⭐ REDISEÑO v15 (tras retroalimentación de Jorge sobre precisión y saldos residuales):
+     * costo_total es ahora la fuente real del costo del movimiento — el costo EXACTO en COP
+     * que este movimiento agrega o quita del inventario, con el mismo signo que unidades:
+     * - Entrada (unidades > 0): costo_total = |c5_Valor| (el dinero pagado y el costo agregado
+     *   al inventario son, económicamente, la misma cifra — no hay conflicto en derivar uno
+     *   del otro).
+     * - Salida (unidades < 0): costo_total NUNCA se deriva de c5_Valor (el valor que el
+     *   usuario recibió por la venta puede diferir del costo que sale del inventario — esa
+     *   diferencia es la utilidad o pérdida de la venta, que esta tanda todavía no registra
+     *   aparte). Se calcula sobre el saldo EXACTO acumulado del artículo (unidades y
+     *   costo_total, ver obtenerSaldoInventario), no sobre precio_unitario redondeado:
+     *     · Si esta salida agota EXACTAMENTE el saldo en unidades del artículo (lo deja en
+     *       0), costo_total sale por el costo_total EXACTO que quedaba acumulado, sin
+     *       redondear — así el saldo en costo también queda en EXACTAMENTE 0 al mismo tiempo
+     *       que el saldo en unidades, sin dejar ningún residuo que después contamine el
+     *       promedio de una entrada futura del mismo artículo (esto es lo que Jorge pidió:
+     *       "cuando se ha ido retirando las unidades y su saldo es cero debe salir por el
+     *       valor del saldo").
+     *     · Si es una salida parcial, costo_total sale proporcional al costo promedio vigente
+     *       (costoTotalAntes × unidadesVendidas ÷ unidadesTotalAntes, redondeado UNA sola vez
+     *       aquí — nunca redondeando primero un precio por unidad y multiplicando después, para
+     *       no arrastrar redondeos de una transacción a la siguiente).
+     *
+     * precio_unitario sigue existiendo, pero pasa a ser PURAMENTE informativo/derivado — con
+     * hasta 3 decimales (antes redondeaba al peso entero, generando diferencias representativas
+     * para artículos de precio bajo, como una divisa) — nunca decide nada del guardado ni del
+     * promedio ponderado: se calcula DESPUÉS de costo_total, solo para que quede un dato legible
+     * junto a cada movimiento.
      *
      * @param db                    base de datos escribible (ya abierta por el llamador).
      * @param valoresTransaccion    columnas de "transacciones" ya armadas por el llamador
@@ -201,22 +259,49 @@ public class A12_InventarioHelper {
             cItem.close();
         }
 
-        long precioUnitario;
+        long costoTotal;
         if (unidades > 0) {
-            // Entrada: precio_unitario se DERIVA del valor ya escrito por el usuario — nunca
+            // Entrada: costo_total es exactamente el valor ya escrito por el usuario — nunca
             // se pide aparte, para que no pueda quedar en una escala distinta a "valor".
             long valorTransaccion = valoresTransaccion.getAsLong(COLUMNA_MONTO_TRANSACCION);
-            precioUnitario = Math.round((double) Math.abs(valorTransaccion) / (double) unidades);
-            if (precioUnitario <= 0) {
+            costoTotal = Math.abs(valorTransaccion);
+            if (costoTotal <= 0) {
                 throw new IllegalArgumentException(
-                        "El precio unitario derivado de valor/unidades no es válido (" +
-                                precioUnitario + ") — revisa el valor y las unidades digitadas.");
+                        "El valor de la entrada no puede ser 0 — no hay costo que agregar al inventario.");
             }
         } else {
-            // Salida: el precio NUNCA se deriva de c5_Valor — se calcula solo, como el costo
-            // promedio vigente (decisión ya confirmada). calcularCostoPromedioPonderado ya
-            // valida que haya saldo suficiente para vender.
-            precioUnitario = calcularCostoPromedioPonderado(db, itemId);
+            // Salida: el costo NUNCA se deriva de c5_Valor — se calcula sobre el saldo exacto
+            // acumulado del artículo (nunca sobre precio_unitario redondeado).
+            long unidadesVendidas = -unidades;
+            SaldoInventario saldoAntes = obtenerSaldoInventario(db, itemId);
+            if (saldoAntes.unidadesTotal <= 0) {
+                throw new IllegalStateException(
+                        "El artículo " + itemId + " no tiene saldo en unidades (" +
+                                saldoAntes.unidadesTotal + ") — no se puede registrar una salida.");
+            }
+            boolean agotaElSaldo = (saldoAntes.unidadesTotal + unidades) == 0;
+            if (agotaElSaldo) {
+                // Sale por el costo EXACTO que quedaba acumulado, sin redondear — garantiza
+                // saldo en costo = 0 al mismo tiempo que saldo en unidades = 0 (sin residuales).
+                costoTotal = saldoAntes.costoTotal;
+            } else {
+                costoTotal = Math.round(
+                        (double) saldoAntes.costoTotal * unidadesVendidas / (double) saldoAntes.unidadesTotal);
+            }
+            costoTotal = -costoTotal; // mismo signo que unidades (negativo en una salida)
+            if (costoTotal >= 0) {
+                throw new IllegalStateException(
+                        "El costo calculado para la salida del artículo " + itemId +
+                                " no es válido (" + costoTotal + ").");
+            }
+        }
+
+        double precioUnitarioInformativo = redondearA3Decimales(
+                (double) Math.abs(costoTotal) / (double) Math.abs(unidades));
+        if (precioUnitarioInformativo <= 0) {
+            throw new IllegalArgumentException(
+                    "El precio unitario informativo (costo/unidades) no es válido (" +
+                            precioUnitarioInformativo + ") — revisa el valor y las unidades digitadas.");
         }
 
         // insertOrThrow (a diferencia de insert) nunca devuelve -1: si algo falla, lanza
@@ -231,7 +316,8 @@ public class A12_InventarioHelper {
             valoresInventario.put("transaccion_id", transaccionId);
             valoresInventario.put("item_id", itemId);
             valoresInventario.put("unidades", unidades);
-            valoresInventario.put("precio_unitario", precioUnitario);
+            valoresInventario.put("precio_unitario", precioUnitarioInformativo);
+            valoresInventario.put("costo_total", costoTotal);
             db.insertOrThrow("transacciones_inventario", null, valoresInventario);
 
             db.setTransactionSuccessful();

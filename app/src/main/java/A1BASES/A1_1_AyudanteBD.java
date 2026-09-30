@@ -168,6 +168,24 @@ import android.database.sqlite.SQLiteOpenHelper;
 //   "if (oldVersion < 14)" en onUpgrade() para el detalle de la migración en dispositivos
 //   existentes (ALTER TABLE + 2 CREATE TABLE, nada que recrear ni backfillear: son columnas y
 //   tablas nuevas, no hay datos legados que migrar todavía).
+//
+// ⭐ NUEVO v15 (30-sep, tras retroalimentación de Jorge sobre la tanda 4): se agrega
+//   transacciones_inventario.costo_total — el costo EXACTO en COP que entra o sale del
+//   inventario en cada movimiento, con el mismo signo que unidades (positivo entrada, negativo
+//   salida). Antes, el costo promedio ponderado se calculaba como SUM(unidades × precio_unitario)
+//   / SUM(unidades) — con precio_unitario redondeado a un peso entero, esto podía dejar un
+//   pequeño "saldo residual" en costo (sin unidades) cuando se vendía hasta agotar el saldo de un
+//   artículo, que luego contaminaba el promedio de una entrada futura. Ahora costo_total se
+//   guarda exacto en cada fila, y precio_unitario pasa a ser PURAMENTE informativo (con hasta 3
+//   decimales, ya no limitado a pesos enteros) — el promedio ponderado se calcula como
+//   SUM(costo_total)/SUM(unidades), y la salida que agota exactamente el saldo de un artículo usa
+//   como costo_total el valor EXACTO que quedaba acumulado (sin redondear), para que
+//   SUM(costo_total) llegue a 0 exactamente cuando SUM(unidades) también llega a 0. Ver
+//   A12_InventarioHelper para el detalle completo del cálculo. Ver el bloque
+//   "if (oldVersion < 15)" en onUpgrade() para la migración en dispositivos existentes (ALTER
+//   TABLE + backfill: las filas ya guardadas no tienen forma de recuperar su costo exacto
+//   histórico, así que se backfillean con unidades × precio_unitario, la misma aproximación que
+//   ya se usaba antes de este cambio).
 
 public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
@@ -176,11 +194,10 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ─────────────────────────────────────────────
     public static final String balanceSqlite_String_PSF = "balance.db";
 
-    // ⭐ CAMBIO: versión 13 → 14 para disparar onUpgrade en dispositivos existentes — agrega
-    // cuentas.con_inventario y las tablas items_inventario/transacciones_inventario (Tanda 1 del
-    // modelo de costeo por inventario, ver comentario de clase arriba y la migración
-    // "if (oldVersion < 14)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 14;
+    // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
+    // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
+    // "if (oldVersion < 15)" en onUpgrade()).
+    public static final int version1BalanceSqlite_int_PSF = 15;
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -328,12 +345,23 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // unidades sigue la misma convención de signo que transacciones.c5_Valor
                     // (positivo al entrar, negativo al salir).
                     "unidades         INTEGER NOT NULL, " +
-                    // precio_unitario es siempre positivo, en pesos colombianos (COP). Para una
-                    // salida, quien lo calcula es la app (costo promedio ponderado vigente del
-                    // artículo, no el precio de esa transacción) — ver reglas de negocio de la
-                    // especificación; el formulario (tanda de UX, más adelante) lo deja de solo
-                    // lectura en ese caso.
+                    // precio_unitario es siempre positivo, en pesos colombianos (COP). ⭐
+                    // REDISEÑO v15: es PURAMENTE informativo/derivado (nunca decide nada del
+                    // guardado ni del promedio ponderado — ver A12_InventarioHelper) y puede
+                    // traer hasta 3 decimales; se declara "INTEGER" por herencia de la v14, pero
+                    // SQLite permite guardar un REAL fraccionario en una columna con afinidad
+                    // INTEGER sin perder precisión (afinidad de tipos de SQLite, verificado) —
+                    // así que no hace falta ALTER para cambiar su tipo declarado.
                     "precio_unitario  INTEGER NOT NULL, " +
+                    // costo_total ⭐ NUEVO v15: el costo EXACTO en COP que este movimiento agrega
+                    // o quita del inventario, con el mismo signo que unidades (positivo entrada,
+                    // negativo salida). Reemplaza a "unidades × precio_unitario" como la fuente
+                    // real del costo promedio ponderado (SUM(costo_total)/SUM(unidades)) — ver
+                    // A12_InventarioHelper.calcularCostoPromedioPonderado y
+                    // guardarTransaccionConInventario para el detalle completo, incluida la
+                    // salida que agota el saldo de un artículo (usa el costo_total EXACTO
+                    // acumulado hasta ese momento, para no dejar saldo residual).
+                    "costo_total      INTEGER NOT NULL, " +
                     "FOREIGN KEY (transaccion_id) REFERENCES transacciones(transaccion_id) " +
                     "ON DELETE CASCADE, " +
                     "FOREIGN KEY (item_id) REFERENCES items_inventario(item_id) " +
@@ -1368,6 +1396,18 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             db.execSQL(SQL_CREAR_ITEMS_INVENTARIO);
             db.execSQL(SQL_CREAR_TRANSACCIONES_INVENTARIO);
             crearIndicesInventario(db);
+        }
+
+        // ⭐ NUEVO v15 (ver comentario de clase arriba): un dispositivo que ya estaba en v14
+        // tiene transacciones_inventario SIN costo_total — se agrega y se backfillea con la
+        // misma aproximación que ya se usaba (unidades × precio_unitario, el precio entero que
+        // ya tenían esas filas). Un dispositivo que salta de una versión anterior a 14
+        // directamente a 15 NO pasa por aquí para esta tabla: el bloque "if (oldVersion < 14)"
+        // de arriba ya la crea de cero con SQL_CREAR_TRANSACCIONES_INVENTARIO, que ya incluye
+        // costo_total — así que no hay nada que backfillear ahí (la tabla nace vacía).
+        if (oldVersion < 15) {
+            db.execSQL("ALTER TABLE transacciones_inventario ADD COLUMN costo_total INTEGER NOT NULL DEFAULT 0");
+            db.execSQL("UPDATE transacciones_inventario SET costo_total = unidades * precio_unitario");
         }
     }
 

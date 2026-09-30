@@ -74,7 +74,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     // tipoT_19ItemInventarioId_Long: items_inventario.item_id del artículo elegido.
     // tipoT_20UnidadesInventario_Long: unidades del movimiento, CON signo (positivo entrada,
     //   negativo salida) — mismo signo que tipoT_5Value_Integer.
-    // tipoT_21PrecioUnitarioInventario_Long: dato puramente INFORMATIVO/derivado — nunca
+    // tipoT_21PrecioUnitarioInventario_Double: dato puramente INFORMATIVO/derivado — nunca
     //   autoritativo. ⭐ REDISEÑO v12 tanda 4 (fix, 29-sep, tras retroalimentación de Jorge):
     //   antes, para una entrada, este campo era el precio que el usuario digitaba y se usaba
     //   tal cual al guardar; ahora el usuario nunca digita un precio aparte — tipoT_5Value_Integer
@@ -89,9 +89,12 @@ public class A3_2_TipoTransaccionesGetsYSets {
     //   necesario para que B12_DocumentPersistence pueda distinguir "ítem nuevo" de "ítem ya
     //   persistido" y bloquear el reguardado de este último por ahora (ver el comentario
     //   completo en baseParaGuardarEnLaEnBDConListaDocumento).
+    // ⭐ REDISEÑO v15 (30-sep): el campo pasa de Long a Double — precio_unitario ahora puede
+    //   traer hasta 3 decimales (antes redondeaba al peso entero) — ver A12_InventarioHelper
+    //   para el detalle completo.
     public Long tipoT_19ItemInventarioId_Long;
     public Long tipoT_20UnidadesInventario_Long;
-    public Long tipoT_21PrecioUnitarioInventario_Long;
+    public Double tipoT_21PrecioUnitarioInventario_Double;
 
     private String columna1;
     private int columna2;
@@ -168,7 +171,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public Boolean tipoTget_18ConInventarioMetodoEnA5() {return tipoT_18ConInventario_Boolean;}
     public Long tipoTget_19ItemInventarioIdMetodoEnA5() {return tipoT_19ItemInventarioId_Long;}
     public Long tipoTget_20UnidadesInventarioMetodoEnA5() {return tipoT_20UnidadesInventario_Long;}
-    public Long tipoTget_21PrecioUnitarioInventarioMetodoEnA5() {return tipoT_21PrecioUnitarioInventario_Long;}
+    public Double tipoTget_21PrecioUnitarioInventarioMetodoEnA5() {return tipoT_21PrecioUnitarioInventario_Double;}
 
     public void tipoTset_1DocumentoMetodoEnA5(String tipoT_1NumberDocument_String) {this.tipoT_1NumberDocument_String = tipoT_1NumberDocument_String;}
     public void tipoTset_2ItemDocMetodoEnA5(String tipoT_2DocumentItems_String) {this.tipoT_2DocumentItems_String = tipoT_2DocumentItems_String;}
@@ -190,7 +193,7 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public void tipoTset_18ConInventarioMetodoEnA5(Boolean tipoT_18ConInventario_Boolean) {this.tipoT_18ConInventario_Boolean = tipoT_18ConInventario_Boolean;}
     public void tipoTset_19ItemInventarioIdMetodoEnA5(Long tipoT_19ItemInventarioId_Long) {this.tipoT_19ItemInventarioId_Long = tipoT_19ItemInventarioId_Long;}
     public void tipoTset_20UnidadesInventarioMetodoEnA5(Long tipoT_20UnidadesInventario_Long) {this.tipoT_20UnidadesInventario_Long = tipoT_20UnidadesInventario_Long;}
-    public void tipoTset_21PrecioUnitarioInventarioMetodoEnA5(Long tipoT_21PrecioUnitarioInventario_Long) {this.tipoT_21PrecioUnitarioInventario_Long = tipoT_21PrecioUnitarioInventario_Long;}
+    public void tipoTset_21PrecioUnitarioInventarioMetodoEnA5(Double tipoT_21PrecioUnitarioInventario_Double) {this.tipoT_21PrecioUnitarioInventario_Double = tipoT_21PrecioUnitarioInventario_Double;}
 
     public A3_2_TipoTransaccionesGetsYSets(String columna1, int columna2, String columna3, int columna4) {
 
