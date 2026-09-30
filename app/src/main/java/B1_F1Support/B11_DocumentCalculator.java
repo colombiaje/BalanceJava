@@ -73,6 +73,21 @@ public class B11_DocumentCalculator {
                 if ("-".equals(signo)) s.mTN += valor;
                 if (esConciliable && "+".equals(signo)) s.mCP += valor;
                 if (esConciliable && "-".equals(signo)) s.mCN += valor;
+
+                // ⭐ DIAG — v12 tanda 4 (2º fix, 30-sep): log defensivo, solo si un ítem trae un
+                // signo que no es ni "+" ni "-" (nunca debería pasar — losDemasRegistrosAListaDocumento
+                // valida el signo antes de construir cualquier ítem) — este ítem no suma ni como
+                // positivo ni como negativo, así que el documento se ve cuadrado en pantalla pero
+                // "El documento está descuadrado" bloquea el guardado (raíz del caso reportado por
+                // Jorge con un ítem de cuenta con inventario). Si esto vuelve a aparecer en logcat
+                // tras el fix de mostrarDialogoRegistroInventario (que ya no relee signo_XSp en
+                // vivo al confirmar), significa que la causa real es otra y hace falta seguir
+                // el rastro con este dato.
+                if (!"+".equals(signo) && !"-".equals(signo)) {
+                    Log.w(TAG, "DIAG sumarItems: item con signo no reconocido — cuenta=" + cuenta +
+                            " signo='" + signo + "' valor=" + valor +
+                            " itemDoc=" + item.tipoT_2DocumentItems_String);
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error sumando items de lista", e);

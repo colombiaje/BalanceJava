@@ -670,7 +670,24 @@ public class B12_DocumentPersistence {
             return;
         }
 
-        boolean esSalida = "-".equals(f1.signo_XSp.getSelectedItem().toString());
+        // ⭐ FIX — v12 tanda 4 (2º fix, 30-sep): signo y descripción se capturan AQUÍ, una
+        // sola vez, igual que ya se hacía con "valor" (valorYaEscrito, más abajo) — y de ahí
+        // en adelante el diálogo SOLO usa estas copias capturadas, nunca vuelve a leer
+        // signo_XSp/descripcion_XAtv en vivo. Antes, el ítem se armaba (al confirmar) leyendo
+        // signo_XSp.getSelectedItem() de nuevo en ese momento — esto causó, en pruebas de
+        // Jorge, que un ítem de inventario quedara guardado en la lista SIN signo (ni "+" ni
+        // "-", aparentemente vacío en ese segundo momento), y por lo tanto sin contar en las
+        // sumas del documento (ni como positivo ni como negativo) — el documento se veía
+        // cuadrado en pantalla, pero "El documento está descuadrado" bloqueaba el guardado, y
+        // sin cuentas de inventario el mismo documento sí se guardaba bien. Capturar el signo
+        // (y la descripción, por el mismo motivo) en el mismo instante en que se abre el
+        // diálogo — cuando ya sabemos que son válidos, porque losDemasRegistrosAListaDocumento
+        // los validó no vacíos justo antes de llegar aquí — elimina cualquier ventana en la que
+        // pudieran quedar desincronizados con lo que el usuario ya había decidido en el
+        // formulario.
+        String signoYaElegido = f1.signo_XSp.getSelectedItem().toString();
+        String descripcionYaEscrita = f1.descripcion_XAtv.getText().toString();
+        boolean esSalida = "-".equals(signoYaElegido);
 
         List<A12_InventarioHelper.ItemInventario> items;
         SQLiteDatabase dbLectura = f1.ayudante_Class.getReadableDatabase();
@@ -898,16 +915,17 @@ public class B12_DocumentPersistence {
                         precioInformativo = precioCalculado;
                     }
 
-                    // El monto del ítem es EXACTAMENTE el valor ya escrito por el usuario, sin
-                    // recalcular — igual que el camino normal (losDemasRegistrosAListaDocumento),
-                    // que también pasa f1.valor_XEt tal cual a construirItemRegistro.
+                    // El monto, el signo y la descripción del ítem son EXACTAMENTE los que ya
+                    // estaban en el formulario cuando se abrió este diálogo (valorYaEscrito,
+                    // signoYaElegido, descripcionYaEscrita) — nunca se releen los widgets en
+                    // vivo aquí, igual que el camino normal (losDemasRegistrosAListaDocumento).
                     A3_2_TipoTransaccionesGetsYSets nuevoItem = f1.calculator.construirItemRegistro(
                             f1.nuevoNumeroDocEnAdicionar_String,
                             f1.listaDocumento_ArrayLTT.size() + 1,
                             cuentaAlItemList,
-                            f1.signo_XSp.getSelectedItem().toString(),
+                            signoYaElegido,
                             valorYaEscrito,
-                            f1.descripcion_XAtv.getText().toString(),
+                            descripcionYaEscrita,
                             A99_MetodosVarios.stringFechaYHora,
                             f1.DateOfDocument_Integer,
                             atributosCuenta);
