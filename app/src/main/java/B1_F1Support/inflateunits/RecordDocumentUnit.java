@@ -301,16 +301,32 @@ public class RecordDocumentUnit {
         // Por eso esta validación, que antes exigía valor+signo+descripción (los 3 campos que
         // en el orden viejo ya estaban llenos al llegar aquí), ahora solo exige descripción —
         // valor y signo todavía no se han digitado en el orden nuevo.
-        f1.cuenta_XAtv.setOnItemClickListener((parent, view, i, l) -> {
-            if (f1.descripcion_XAtv.getText().toString().isEmpty()) {
-                f1.cuenta_XSp.setSelection(0);
-                Toast.makeText(f1.getActivity(), "Falta la descripcion", Toast.LENGTH_SHORT).show();
-            } else {
-                f1.cuenta_XSp.setSelection(
-                        f1.accountAllAz_List.indexOf(
-                                f1.cuenta_XAtv.getText().toString()));
-            }
-        });
+        f1.cuenta_XAtv.setOnItemClickListener((parent, view, i, l) -> seleccionarCuentaDesdeTexto());
+    }
+
+    // ⭐ FIX — v16 (reportado por Jorge: "elimino un registro de inventario y al volver a
+    // crearlo no muestra el diálogo"): esta lógica vivía SOLO dentro del onItemClickListener de
+    // arriba, que únicamente se dispara al tocar un ítem de la lista desplegable del
+    // AutoCompleteTextView. Los botones "pegar cuenta anterior" (setupPasteButtons más abajo)
+    // solo hacían cuenta_XAtv.setText(...) — nunca llamaban a cuenta_XSp.setSelection(...), así
+    // que cuenta_XSp.onItemSelected() (el disparador real de
+    // B12_DocumentPersistence.losDemasRegistrosAListaDocumento(), que es quien detecta si la
+    // cuenta maneja inventario y abre el diálogo) nunca se ejecutaba. Resultado: al reusar la
+    // misma cuenta con el botón de pegar (el camino más natural justo después de eliminar y
+    // volver a registrar), el diálogo de inventario nunca se abría — sin crash ni mensaje de
+    // error, simplemente no pasaba nada hasta que el usuario llegaba a signo y recibía el aviso
+    // defensivo de confirmarRegistroAlElegirSigno() ("maneja inventario — completa el
+    // diálogo..."). Se extrae aquí para que CUALQUIER forma de fijar cuenta_XAtv (clic en la
+    // lista, o cualquiera de los botones de pegar) dispare la misma resolución.
+    private void seleccionarCuentaDesdeTexto() {
+        if (f1.descripcion_XAtv.getText().toString().isEmpty()) {
+            f1.cuenta_XSp.setSelection(0);
+            Toast.makeText(f1.getActivity(), "Falta la descripcion", Toast.LENGTH_SHORT).show();
+        } else {
+            f1.cuenta_XSp.setSelection(
+                    f1.accountAllAz_List.indexOf(
+                            f1.cuenta_XAtv.getText().toString()));
+        }
     }
 
     // Spinner cuenta — agrega item al documento al seleccionar cuenta
@@ -431,10 +447,26 @@ public class RecordDocumentUnit {
                 handleCopyPaste(f1.descripcion_XAtv, f1.pegarDescripcion_XChB));
         f1.pegarDescripcionAnterior_XChB.setOnClickListener(v ->
                 f1.descripcion_XAtv.setText(f1.copiarDesripcionAnterior_String));
-        f1.pegarCuentaSpinner_XChB.setOnClickListener(v ->
-                handleCopyPaste(f1.cuenta_XAtv, f1.pegarCuentaSpinner_XChB));
-        f1.pegarCuetaAnterior_XChB.setOnClickListener(v ->
-                f1.cuenta_XAtv.setText(f1.copiarCuentaSpinnerAnterior_String));
+        // ⭐ FIX — v16 (ver el comentario de clase en seleccionarCuentaDesdeTexto()): ambos
+        // botones de "pegar cuenta" ahora también disparan la resolución de cuenta_XSp — antes
+        // solo ponían el texto en cuenta_XAtv, sin nunca seleccionar la cuenta en el spinner, así
+        // que el registro (y la detección de inventario) nunca se disparaba al reusar una cuenta
+        // con estos botones.
+        f1.pegarCuentaSpinner_XChB.setOnClickListener(v -> {
+            boolean eraModoCopiar = f1.isCopyMode;
+            handleCopyPaste(f1.cuenta_XAtv, f1.pegarCuentaSpinner_XChB);
+            // Solo cuando la acción fue "pegar" (no "copiar", que deja el campo vacío) hay un
+            // texto nuevo que resolver.
+            if (!eraModoCopiar) {
+                seleccionarCuentaDesdeTexto();
+            }
+        });
+        f1.pegarCuetaAnterior_XChB.setOnClickListener(v -> {
+            f1.cuenta_XAtv.setText(f1.copiarCuentaSpinnerAnterior_String);
+            if (!TextUtils.isEmpty(f1.copiarCuentaSpinnerAnterior_String)) {
+                seleccionarCuentaDesdeTexto();
+            }
+        });
     }
 
     // Lógica compartida copiar/pegar usada por los 3 pares de botones

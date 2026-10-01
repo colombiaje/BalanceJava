@@ -834,10 +834,17 @@ public class B12_DocumentPersistence {
         tipoMovimientoSpinner.setAdapter(tipoAdapter);
         filaMovimiento.addView(tipoMovimientoSpinner);
 
+        // ⭐ NUEVO (a pedido de Jorge): los campos donde el usuario digita — Unidades y Valor
+        // total — en fucsia (#F4D7F5), el mismo color de fondo que ya se usa en el resto del
+        // formulario para un campo editable (p.ej. valor_XEt). El resto de la matriz
+        // (encabezados, etiquetas de fila y celdas calculadas) va en azul rey (#425DF6), el
+        // mismo color de texto ya usado en el formulario para lo no editable.
         EditText unidadesEt = new EditText(f1.getActivity());
         unidadesEt.setHint("Unidades");
         unidadesEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         unidadesEt.setPadding(padCeldaPx, padCeldaPx, padCeldaPx, padCeldaPx);
+        unidadesEt.setBackgroundColor(Color.parseColor("#F4D7F5"));
+        unidadesEt.setTextColor(Color.parseColor("#425DF6"));
         filaMovimiento.addView(unidadesEt);
 
         // Entrada: el usuario la digita. Salida: queda deshabilitada — la calcula la app (ver
@@ -846,6 +853,8 @@ public class B12_DocumentPersistence {
         valorTotalEt.setHint("Valor total");
         valorTotalEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         valorTotalEt.setPadding(padCeldaPx, padCeldaPx, padCeldaPx, padCeldaPx);
+        valorTotalEt.setBackgroundColor(Color.parseColor("#F4D7F5"));
+        valorTotalEt.setTextColor(Color.parseColor("#425DF6"));
         filaMovimiento.addView(valorTotalEt);
 
         TextView precioMovimientoTv = celdaTexto("—", padCeldaPx, false);
@@ -1150,6 +1159,10 @@ public class B12_DocumentPersistence {
         TextView tv = new TextView(f1.getActivity());
         tv.setText(texto);
         tv.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+        // ⭐ NUEVO (a pedido de Jorge): azul rey, el mismo color de texto ya usado en el
+        // formulario para lo que no es editable (ver el comentario junto a unidadesEt/
+        // valorTotalEt, que sí llevan fucsia).
+        tv.setTextColor(Color.parseColor("#425DF6"));
         if (negrita) {
             tv.setTypeface(tv.getTypeface(), Typeface.BOLD);
         }
