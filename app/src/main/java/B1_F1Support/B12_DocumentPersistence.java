@@ -710,10 +710,14 @@ public class B12_DocumentPersistence {
     // ═══════════════════════════════════════════════════════════════
     // ⭐ NUEVO — contraparte de agregarItemAListaYRefrescarUI para el modo edición del diálogo
     // de inventario (B.a, pedido de Jorge): REEMPLAZA el ítem en su misma posición de la lista
-    // (.set, no .add) — el documento no gana un ítem nuevo, se modifica uno que ya estaba. No
-    // toca los campos del formulario principal (clearViewValuesAreaRecords/consecutivo), porque
-    // este flujo no los usa — a diferencia de "agregar nuevo", se entra aquí desde "Modificar"
-    // (long-press sobre un ítem ya en la lista), no desde el formulario de registro.
+    // (.set, no .add) — el documento no gana un ítem nuevo, se modifica uno que ya estaba.
+    // ⭐ CORRECCIÓN (1-oct, reportado por Jorge, punto "a"): esta función NO llamaba a
+    // clearViewValuesAreaRecords() — se asumió que no hacía falta porque este flujo (se entra
+    // desde "Modificar", no desde el formulario de registro) nunca ESCRIBE en esos 4 campos.
+    // Pero Jorge espera que, igual que al agregar un ítem nuevo, los 4 campos del formulario
+    // (cuenta/descripción/valor/signo) queden limpios después de confirmar — así nunca se ve
+    // texto suelto de una interacción anterior sin terminar. Se agrega la misma llamada que ya
+    // usa agregarItemAListaYRefrescarUI, por consistencia.
     private void actualizarItemEnListaYRefrescarUI(int posicion, A3_2_TipoTransaccionesGetsYSets itemActualizado) {
         f1.listaDocumento_ArrayLTT.set(posicion, itemActualizado);
 
@@ -728,6 +732,7 @@ public class B12_DocumentPersistence {
         }
 
         f1.sumarItemListaDocumento();
+        f1.clearViewValuesAreaRecords();
         Toast.makeText(f1.getActivity(), "✅ Registro de inventario modificado", Toast.LENGTH_SHORT).show();
     }
 
@@ -869,7 +874,7 @@ public class B12_DocumentPersistence {
                             "artículo dado de alta — da de alta al menos uno para poder " +
                             "registrar transacciones aquí.")
                     .setPositiveButton("Crear artículo", (dialog, which) ->
-                            mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId))
+                            mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId, posicionAEditar))
                     .setNegativeButton("Cancelar", null)
                     .show();
             return;
@@ -1249,9 +1254,10 @@ public class B12_DocumentPersistence {
                         // "+ Crear nuevo artículo…" — se abre el sub-diálogo y se cierra este;
                         // al terminar de crear el artículo se vuelve a abrir este mismo diálogo
                         // (ya con el artículo nuevo en la lista), para no duplicar la lógica de
-                        // arriba.
+                        // arriba. Se pasa posicionAEditar para volver al MISMO modo del que se
+                        // vino (ver el comentario de mostrarDialogoNuevoArticulo).
                         dialogo.dismiss();
-                        mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId);
+                        mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId, posicionAEditar);
                         return;
                     }
 
@@ -1424,7 +1430,17 @@ public class B12_DocumentPersistence {
     // (nombre obligatorio, unidad opcional). Al guardar, se vuelve a abrir
     // mostrarDialogoRegistroInventario para que el usuario complete unidades/precio con el
     // artículo recién creado ya disponible en el selector — evita duplicar esa lógica aquí.
-    private void mostrarDialogoNuevoArticulo(String cuentaAlItemList, String[] atributosCuenta, long cuentaId) {
+    // ⭐ CORRECCIÓN (1-oct, reportado por Jorge, puntos "b"/"d"): este método SIEMPRE reabría
+    // mostrarDialogoRegistroInventario en modo "agregar nuevo" (2 parámetros), sin importar
+    // desde cuál modo se había llegado — así que crear un artículo nuevo DURANTE una edición
+    // (modo editar, fix 3) cerraba la edición en curso sin guardarla y la reemplazaba por un
+    // diálogo de "agregar" vacío: el artículo sí quedaba creado en la base de datos, pero daba
+    // la impresión de que "no dejaba crear uno nuevo", porque la edición que se estaba haciendo
+    // se perdía. Se agrega "posicionAEditar" para volver al MISMO modo del que se vino (edición
+    // del mismo ítem, o agregar nuevo) — con el artículo recién creado ya disponible en el
+    // selector en cualquiera de los dos casos.
+    private void mostrarDialogoNuevoArticulo(
+            String cuentaAlItemList, String[] atributosCuenta, long cuentaId, Integer posicionAEditar) {
         int paddingPx = (int) (16 * f1.getResources().getDisplayMetrics().density);
         LinearLayout contenedor = new LinearLayout(f1.getActivity());
         contenedor.setOrientation(LinearLayout.VERTICAL);
@@ -1465,10 +1481,10 @@ public class B12_DocumentPersistence {
                     } finally {
                         db.close();
                     }
-                    mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta);
+                    mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar);
                 })
                 .setNegativeButton("Cancelar", (dialog, which) ->
-                        mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta))
+                        mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar))
                 .show();
     }
 
