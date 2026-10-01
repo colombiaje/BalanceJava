@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import A1BASES.A12_InventarioHelper;
+import A1BASES.A13_HistorialInventarioDialogo;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A99_MetodosVarios;
 import A2QueryBD.A23_QueryResult;
@@ -920,6 +921,18 @@ public class B12_DocumentPersistence {
         contenedor.setOrientation(LinearLayout.VERTICAL);
         contenedor.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
         scroll.addView(contenedor);
+
+        // ⭐ NUEVO (1-oct, pedido de Jorge, punto a.1 de su retroalimentación sobre el informe de
+        // historial): botón para abrir el mismo historial básico de inventario (Tanda 5,
+        // A13_HistorialInventarioDialogo) desde ACÁ, mientras se está registrando un movimiento —
+        // útil para que el usuario verifique el historial del artículo antes de confirmar, sin
+        // tener que cancelar y salir a Cuentas → Modificar cuenta.
+        Button verHistorialDesdeRegistroBtn = new Button(f1.getActivity());
+        verHistorialDesdeRegistroBtn.setText("Ver historial de inventario de esta cuenta");
+        verHistorialDesdeRegistroBtn.setOnClickListener(v ->
+                new A13_HistorialInventarioDialogo().mostrar(
+                        f1.getActivity(), cuentaId, cuentaAlItemList));
+        contenedor.addView(verHistorialDesdeRegistroBtn);
 
         // ⭐ NUEVO (1-oct, pedido de Jorge, punto "1.b" de su retroalimentación sobre edición de
         // inventario ya guardado): aviso informativo, visible en CADA registro de este diálogo,

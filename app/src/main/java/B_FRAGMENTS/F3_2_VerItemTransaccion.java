@@ -161,6 +161,12 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     // Atajo a F5_3_GraficasIndicadores: solo visible cuando la cuenta consultada es "CxC Enrique"
     Button graficasIndicadores_XBt;
 
+    // ⭐ NUEVO — Tanda 5 (1-oct, pedido de Jorge, punto b): atajo al historial básico de
+    // inventario (A13_HistorialInventarioDialogo) — solo visible cuando la cuenta consultada
+    // tiene con_inventario = 1 (ver recibirBundle()).
+    Button historialInventarioDesdeInforme_XBt;
+    Long cuentaIdParaHistorialInventario;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -214,6 +220,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
         calculadora_Fragment = new F6_Calculadora();
         calculadoraLibre_XBt = inflarViews_View.findViewById(R.id.calculadoraLibre_XBt);
         graficasIndicadores_XBt = inflarViews_View.findViewById(R.id.graficasIndicadores_XBt);
+        historialInventarioDesdeInforme_XBt = inflarViews_View.findViewById(R.id.historialInventarioDesdeInforme_XBt);
 
         // TODO TU CASTING EXISTENTE (sin cambios)
         limpiarChecks_XBt = inflarViews_View.findViewById(R.id.limpiarChecks_XBt);
@@ -288,6 +295,19 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
 
         if (graficasIndicadores_XBt != null) {
             graficasIndicadores_XBt.setOnClickListener(v -> mostrarGraficasIndicadores());
+        }
+
+        // ⭐ NUEVO — Tanda 5 (1-oct, pedido de Jorge, punto b): abre el mismo historial básico de
+        // inventario (A13_HistorialInventarioDialogo) que ya existe en Cuentas → Modificar cuenta
+        // — cuentaIdParaHistorialInventario se calcula en recibirBundle() cuando la cuenta
+        // consultada tiene con_inventario = 1 (null en cualquier otro caso).
+        if (historialInventarioDesdeInforme_XBt != null) {
+            historialInventarioDesdeInforme_XBt.setOnClickListener(v -> {
+                if (cuentaIdParaHistorialInventario != null) {
+                    new A1BASES.A13_HistorialInventarioDialogo().mostrar(
+                            getActivity(), cuentaIdParaHistorialInventario, receivedAccount);
+                }
+            });
         }
 
         return inflarViews_View;
@@ -875,6 +895,28 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                     graficasIndicadores_XBt.setVisibility(
                             cuentaSeguimiento != null && cuentaSeguimiento.equals(receivedAccount)
                                     ? View.VISIBLE : View.GONE);
+                }
+
+                // ⭐ NUEVO — Tanda 5 (1-oct, pedido de Jorge, punto b): mismo patrón que el atajo
+                // de arriba, pero para mostrar/ocultar el botón de historial de inventario según
+                // si receivedAccount tiene con_inventario = 1 (índice 8 del arreglo) — también
+                // guarda su cuenta_id (índice 5) para el click listener de arriba.
+                cuentaIdParaHistorialInventario = null;
+                if (historialInventarioDesdeInforme_XBt != null && receivedAccount != null) {
+                    A23_QueryResult<String[]> atributosCuenta =
+                            a22QueryManager.queryAttributesByAccount(receivedAccount);
+                    String[] datos = atributosCuenta != null ? atributosCuenta.getAtributosCuenta() : null;
+                    boolean conInventario = datos != null && datos.length > 8
+                            && "1".equals(datos[8]);
+                    if (conInventario) {
+                        try {
+                            cuentaIdParaHistorialInventario = Long.parseLong(datos[5]);
+                        } catch (NumberFormatException | NullPointerException e) {
+                            cuentaIdParaHistorialInventario = null;
+                        }
+                    }
+                    historialInventarioDesdeInforme_XBt.setVisibility(
+                            cuentaIdParaHistorialInventario != null ? View.VISIBLE : View.GONE);
                 }
 
                 Log.d("BundleRecibido", "Cuenta: " + receivedAccount +

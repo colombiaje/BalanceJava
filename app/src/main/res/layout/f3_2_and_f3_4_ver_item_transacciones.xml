@@ -69,6 +69,20 @@
             android:visibility="gone"
             android:contentDescription="Ver gráficas de Indicadores"/>
 
+        <!-- ⭐ NUEVO — Tanda 5 (1-oct, pedido de Jorge, punto b): solo visible cuando la cuenta
+             consultada tiene con_inventario = 1 — atajo al historial básico de inventario
+             (A13_HistorialInventarioDialogo), mismo patrón que graficasIndicadores_XBt. -->
+        <Button
+            android:id="@+id/historialInventarioDesdeInforme_XBt"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackground"
+            android:text="📦"
+            android:textAllCaps="false"
+            android:textSize="24sp"
+            android:visibility="gone"
+            android:contentDescription="Ver historial de inventario"/>
+
     </LinearLayout>
 
     <LinearLayout
