@@ -200,6 +200,9 @@ public class B13_NavigationManager {
         f1.setVisibilityGoneTodo();
         f1.currentRadioButtonId = R.id.updateDelete_XRb;
         f1.setVisibilityVisibleAreasForUpdateAndDelete();
+        // ⭐ NUEVO (1-oct, reportado por Jorge): mismo refresco del desplegable de documentos
+        // que en mostrarAreaLimpia()/restoreBackups() — también al entrar por Canal D.
+        f1.dynamicQueryByDocumentinUpdate();
         f1.colocarDocConsultadoEnListaItemDoc();
         f1.pasarItemListaTodoResumidoAItemListaRevision();
 
@@ -452,6 +455,11 @@ public class B13_NavigationManager {
         } else if (radioButtonId == R.id.template_XRb) {
             f1.setInvisibleTemplateAntesDeEditar();
         } else if (radioButtonId == R.id.updateDelete_XRb) {
+            // ⭐ NUEVO (1-oct, reportado por Jorge): el desplegable de documentos
+            // (adapterConsecutivoDocAz) solo se reconstruía al crear la vista desde cero —
+            // se refresca aquí también, contra la BD, cada vez que se entra a esta área sin
+            // caché (ver además restoreBackups(), que cubre el caso CON caché).
+            f1.dynamicQueryByDocumentinUpdate();
             if (f1.documentoABuscarParaEditar_XATv != null
                     && f1.documentoABuscarParaEditar_XATv.length() > 0) {
                 f1.setvisibleUpdateAndDeleteDespuesDeRecibirBundle();

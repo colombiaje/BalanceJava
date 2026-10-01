@@ -1532,7 +1532,14 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         consecutivoNuevoDocEnPLantilla_XTv.setText(enc.campo_5_numDocPlantilla);
         dateInTemplate_XTv.setText(enc.campo_6_fechaTemplate);
         documentoYFechaInicialBaseDeLaPLantilla_XTv.setText(enc.campo_7_docFechaBase);
-        documentoABuscarParaEditar_XATv.setText(enc.campo_8_docBuscarEditar);
+        // ⭐ CAMBIO (1-oct, reportado por Jorge): campo_8_docBuscarEditar YA NO se restaura aquí
+        // a ciegas — ver restoreBackups(), que ahora solo lo restaura cuando de verdad hay un
+        // documento cargado (listaDocumento_ArrayLTT no vacía tras el paso 3), y si no, lo deja
+        // vacío. Antes, este setText() ponía en el cuadro de búsqueda "Editar Doc. #" un número
+        // de una sesión vieja (ej. "278", de cuando ese era el último documento) cada vez que se
+        // restauraba esta área, aunque no hubiera ningún documento real detrás — Jorge lo
+        // reportó como "número anormal... no se ha consultado este documento". Se mueve la
+        // decisión a restoreBackups() porque ahí sí se sabe si hay contenido real o no.
         changeOfDateInUpdate_XTv.setText(enc.campo_10_cambioFechaUp);
 
         // Restauración de Spinners (Ajustar según tu lógica de posición)
@@ -2244,6 +2251,30 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
         if (listaDocumento_ArrayLTT == null) {
             listaDocumento_ArrayLTT = new ArrayList<>(); // Inicialización de seguridad
+        }
+
+        // ⭐ NUEVO (1-oct, reportado por Jorge): el cuadro "Editar Doc. #" (documentoABuscarParaEditar_XATv)
+        // también es el marcador real de "qué documento hay en este slot" que usa el botón verde
+        // del Canal D (ver B13_NavigationManager.obtenerNumeroDocDeSlot) — no es solo cosmético,
+        // así que no se puede vaciar siempre sin revisar primero. Ahora solo se restaura con el
+        // número guardado en caché (campo_8_docBuscarEditar) cuando de verdad hay contenido
+        // cargado (listaDocumento_ArrayLTT no vacía, recién calculado arriba); si no hay nada
+        // cargado, se deja vacío en vez de mostrar un número suelto de una sesión vieja sin
+        // documento real detrás.
+        if (radioButtonId == R.id.updateDelete_XRb) {
+            if (!listaDocumento_ArrayLTT.isEmpty() && enc != null
+                    && enc.campo_8_docBuscarEditar != null
+                    && !enc.campo_8_docBuscarEditar.isEmpty()) {
+                documentoABuscarParaEditar_XATv.setText(enc.campo_8_docBuscarEditar);
+                documentoABuscarParaEditar_XATv.setBackgroundColor(Color.parseColor("#90E0D8"));
+            } else {
+                documentoABuscarParaEditar_XATv.setText("");
+                documentoABuscarParaEditar_XATv.setBackgroundColor(Color.parseColor("#FDFDF9"));
+            }
+            // La lista de documentos del desplegable (adapterConsecutivoDocAz) también quedaba
+            // desactualizada hasta que la pantalla se recreaba por completo — se refresca aquí
+            // contra la BD cada vez que se entra/restaura esta área.
+            dynamicQueryByDocumentinUpdate();
         }
 
         actualizarListView();
