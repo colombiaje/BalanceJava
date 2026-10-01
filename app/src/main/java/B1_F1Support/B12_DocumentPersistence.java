@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -705,6 +706,53 @@ public class B12_DocumentPersistence {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 5b-bis. actualizarItemEnListaYRefrescarUI
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO — contraparte de agregarItemAListaYRefrescarUI para el modo edición del diálogo
+    // de inventario (B.a, pedido de Jorge): REEMPLAZA el ítem en su misma posición de la lista
+    // (.set, no .add) — el documento no gana un ítem nuevo, se modifica uno que ya estaba. No
+    // toca los campos del formulario principal (clearViewValuesAreaRecords/consecutivo), porque
+    // este flujo no los usa — a diferencia de "agregar nuevo", se entra aquí desde "Modificar"
+    // (long-press sobre un ítem ya en la lista), no desde el formulario de registro.
+    private void actualizarItemEnListaYRefrescarUI(int posicion, A3_2_TipoTransaccionesGetsYSets itemActualizado) {
+        f1.listaDocumento_ArrayLTT.set(posicion, itemActualizado);
+
+        try {
+            f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
+                    new D_F1_AdaptadorCrudDocumento(
+                            f1.getActivity(), f1.listaDocumento_ArrayLTT, null);
+            f1.listaDocumento_XLv.setAdapter(
+                    f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT);
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting adapter in actualizarItemEnListaYRefrescarUI", e);
+        }
+
+        f1.sumarItemListaDocumento();
+        Toast.makeText(f1.getActivity(), "✅ Registro de inventario modificado", Toast.LENGTH_SHORT).show();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5b-ter. buscarPosicionDuplicado
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO — A.1 (pedido de Jorge): busca, en la lista actual del documento, otro ítem con
+    // la misma cuenta + mismo artículo de inventario. "posicionAExcluir" (puede ser null) es la
+    // posición del ítem que se está editando — se excluye de la búsqueda para no detectarlo
+    // como duplicado de sí mismo. Devuelve el índice encontrado, o -1 si no hay duplicado.
+    private int buscarPosicionDuplicado(String cuenta, long itemId, Integer posicionAExcluir) {
+        for (int i = 0; i < f1.listaDocumento_ArrayLTT.size(); i++) {
+            if (posicionAExcluir != null && i == posicionAExcluir) continue;
+            A3_2_TipoTransaccionesGetsYSets p = f1.listaDocumento_ArrayLTT.get(i);
+            Long itemIdDelItem = p.tipoTget_19ItemInventarioIdMetodoEnA5();
+            if (itemIdDelItem != null
+                    && itemIdDelItem == itemId
+                    && cuenta.equals(p.tipoTget_3CuentaMetodoEnA5())) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 5c. mostrarDialogoRegistroInventario
     // ═══════════════════════════════════════════════════════════════
     // ⭐ REDISEÑO — v16 (1-oct, mockup en matriz pedido por Jorge): con el reorden de campos del
@@ -743,6 +791,45 @@ public class B12_DocumentPersistence {
     // existencia), que antes no existía en ningún lado — ver el detalle en el Javadoc de
     // A12_InventarioHelper.calcularCostoSalida().
     private void mostrarDialogoRegistroInventario(String cuentaAlItemList, String[] atributosCuenta) {
+        mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, null);
+    }
+
+    // ⭐ NUEVO — combinado A.1 (duplicados) / B.a (editar ítem de inventario ya en la lista),
+    // pedido de Jorge. Punto de entrada público para abrir este mismo diálogo en MODO EDICIÓN,
+    // desde SeeDocumentUnit.iniciarModificacionItemInventario() (opción "Modificar" del
+    // long-press). "posicion" es el índice en f1.listaDocumento_ArrayLTT del ítem a editar —
+    // quien llama YA verificó que ese ítem no está guardado en la BD todavía
+    // (tipoTget_15TransaccionIdMetodoEnA5() == null), que es la condición que hace seguro
+    // editarlo aquí (ver el comentario de clase completo más abajo, en el overload de 3
+    // parámetros).
+    public void mostrarDialogoRegistroInventarioParaEditar(
+            String cuentaAlItemList, String[] atributosCuenta, int posicion) {
+        mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicion);
+    }
+
+    // ⭐ NUEVO — "posicionAEditar": null = modo "agregar ítem nuevo" (comportamiento de siempre,
+    // sin cambios). No-null = modo "editar ítem ya en la lista" (índice en
+    // f1.listaDocumento_ArrayLTT) — Jorge pidió que en este modo TODO sea editable, incluido el
+    // artículo (A/B, retroalimentación "debe ser flexible"), y que "saldo anterior"/"nuevo
+    // saldo" se recalculen en vivo igual que al agregar uno nuevo.
+    //
+    // Por qué es seguro (verificado antes de implementar, explicado a Jorge): el ítem que se
+    // edita aquí TODAVÍA no tiene fila en transacciones_inventario — solo existe en la lista en
+    // memoria del documento que se está armando. obtenerSaldoUnidadesYCosto()/
+    // calcularCostoSalida() leen el saldo SOLO de lo ya guardado en la BD, así que nunca cuentan
+    // este ítem (ni ningún otro ítem sin guardar) al recalcular — es exactamente el mismo
+    // cálculo de "saldo antes de este movimiento" que ya usa el modo "agregar nuevo". El caso
+    // aparte — editar un ítem de inventario que SÍ ya está guardado (documento reabierto con
+    // "Editar documento") — sigue bloqueado como ya lo estaba desde antes
+    // (bloqueadoPorCuentaConInventario()); quien llama a este método con posicionAEditar ya
+    // verificó eso y nunca debe llamar aquí para un ítem ya guardado.
+    //
+    // A.1) Detección de duplicados: si el artículo elegido (en cualquiera de los dos modos) ya
+    // tiene otro registro para la misma cuenta en este documento, se muestra un aviso con color
+    // que resalta, se bloquea "Agregar"/"Guardar cambios", y se ofrece un botón para cerrar este
+    // diálogo y abrir el existente en modo edición — ver buscarPosicionDuplicado() más abajo.
+    private void mostrarDialogoRegistroInventario(
+            String cuentaAlItemList, String[] atributosCuenta, Integer posicionAEditar) {
         Long cuentaId = parseLongSeguro(atributosCuenta.length > 5 ? atributosCuenta[5] : null);
         if (cuentaId == null) {
             Toast.makeText(f1.getActivity(),
@@ -751,10 +838,15 @@ public class B12_DocumentPersistence {
             return;
         }
 
-        // Descripción ya escrita y validada por losDemasRegistrosAListaDocumento justo antes de
-        // llegar aquí — se captura una sola vez y se usa tal cual al confirmar, sin volver a
-        // leer el widget en vivo (mismo criterio que ya se usaba en versiones anteriores).
-        final String descripcionYaEscrita = f1.descripcion_XAtv.getText().toString();
+        // ⭐ CAMBIO — antes se capturaba una sola vez de f1.descripcion_XAtv (ya validada por
+        // losDemasRegistrosAListaDocumento justo antes de llegar aquí) y se usaba tal cual al
+        // confirmar. Ahora ese valor es solo el PRELLENADO inicial de un campo propio del
+        // diálogo (descripcionEt, más abajo) — en modo edición no existe tal validación previa
+        // (se entra directo desde "Modificar"), y Jorge pidió que la descripción también sea
+        // editable aquí igual que el resto de los campos.
+        final String descripcionInicial = posicionAEditar != null
+                ? f1.listaDocumento_ArrayLTT.get(posicionAEditar).tipoTget_6DescripcionMetodoEnA5()
+                : f1.descripcion_XAtv.getText().toString();
 
         List<A12_InventarioHelper.ItemInventario> items;
         SQLiteDatabase dbLectura = f1.ayudante_Class.getReadableDatabase();
@@ -792,6 +884,23 @@ public class B12_DocumentPersistence {
         contenedor.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
         scroll.addView(contenedor);
 
+        // ⭐ NUEVO — A.1 (pedido de Jorge): aviso de duplicado, en la parte SUPERIOR del
+        // diálogo, con un color que resalte (distinto del fucsia/azul rey ya usados, para que
+        // no se confunda con esos). Oculto mientras no haya duplicado — ver
+        // actualizarAvisoDuplicado más abajo.
+        TextView avisoDuplicadoTv = new TextView(f1.getActivity());
+        avisoDuplicadoTv.setBackgroundColor(Color.parseColor("#FFC107"));
+        avisoDuplicadoTv.setTextColor(Color.BLACK);
+        avisoDuplicadoTv.setTypeface(avisoDuplicadoTv.getTypeface(), Typeface.BOLD);
+        avisoDuplicadoTv.setPadding(padCeldaPx * 3, padCeldaPx * 3, padCeldaPx * 3, padCeldaPx * 3);
+        avisoDuplicadoTv.setVisibility(View.GONE);
+        contenedor.addView(avisoDuplicadoTv);
+
+        Button editarExistenteBtn = new Button(f1.getActivity());
+        editarExistenteBtn.setText("Editar el registro existente");
+        editarExistenteBtn.setVisibility(View.GONE);
+        contenedor.addView(editarExistenteBtn);
+
         List<String> nombresParaSpinner = new ArrayList<>();
         for (A12_InventarioHelper.ItemInventario item : items) {
             nombresParaSpinner.add(item.nombre);
@@ -808,6 +917,21 @@ public class B12_DocumentPersistence {
                 android.R.layout.simple_spinner_dropdown_item, nombresParaSpinner);
         articuloSpinner.setAdapter(articuloAdapter);
         contenedor.addView(articuloSpinner);
+
+        // ⭐ NUEVO — campo de descripción propio del diálogo (ver el comentario junto a
+        // descripcionInicial, arriba): en modo "agregar nuevo" viene prellenado con lo que el
+        // usuario ya escribió en el formulario (comportamiento de siempre, ahora también
+        // editable aquí sin tener que cerrar el diálogo); en modo edición, con la descripción
+        // que tenía el ítem.
+        TextView etiquetaDescripcion = new TextView(f1.getActivity());
+        etiquetaDescripcion.setText("Descripción");
+        contenedor.addView(etiquetaDescripcion);
+
+        EditText descripcionEt = new EditText(f1.getActivity());
+        descripcionEt.setText(descripcionInicial);
+        descripcionEt.setBackgroundColor(Color.parseColor("#F4D7F5"));
+        descripcionEt.setTextColor(Color.parseColor("#425DF6"));
+        contenedor.addView(descripcionEt);
 
         // ⭐ NUEVO v16: matriz pedida por Jorge — ver el comentario de clase arriba.
         TableLayout tabla = new TableLayout(f1.getActivity());
@@ -1004,7 +1128,63 @@ public class B12_DocumentPersistence {
                 actualizandoProgramaticamente[0] = false;
             }
         };
+
+        // ⭐ NUEVO — modo edición: prellenar artículo/tipo de movimiento/unidades/valor total
+        // con lo que ya tenía el ítem, ANTES de la primera corrida de actualizarMatriz (que ya
+        // recalcula saldo anterior/nuevo saldo con lo prellenado) y antes de registrar los
+        // listeners (para no disparar un recálculo a medias con solo parte de los campos ya
+        // puestos).
+        if (posicionAEditar != null) {
+            A3_2_TipoTransaccionesGetsYSets itemExistente =
+                    f1.listaDocumento_ArrayLTT.get(posicionAEditar);
+            long itemIdExistente = itemExistente.tipoTget_19ItemInventarioIdMetodoEnA5();
+            for (int i = 0; i < items.size(); i++) {
+                if (items.get(i).itemId == itemIdExistente) {
+                    articuloSpinner.setSelection(i);
+                    break;
+                }
+            }
+            long unidadesConSignoExistente = itemExistente.tipoTget_20UnidadesInventarioMetodoEnA5();
+            boolean esSalidaExistente = unidadesConSignoExistente < 0;
+            tipoMovimientoSpinner.setSelection(esSalidaExistente ? 1 : 0);
+            unidadesEt.setText(String.valueOf(Math.abs(unidadesConSignoExistente)));
+            if (!esSalidaExistente) {
+                // Salida: valorTotalEt la calcula actualizarMatriz (queda deshabilitada) — no
+                // hace falta (ni conviene) prellenarla a mano.
+                valorTotalEt.setText(String.valueOf(Math.abs(itemExistente.tipoTget_5ValorMetodoEnA5())));
+            }
+        }
+
         actualizarMatriz.run();
+
+        // ⭐ NUEVO — A.1 (pedido de Jorge): detección de duplicados — misma cuenta+artículo ya
+        // registrado en este documento. En modo edición, el ítem que se está editando se
+        // excluye de la búsqueda (no tiene sentido que se alerte contra sí mismo).
+        final int[] posicionDuplicadaActual = {-1};
+        Runnable actualizarAvisoDuplicado = () -> {
+            int posicionArticulo = articuloSpinner.getSelectedItemPosition();
+            if (posicionArticulo < 0 || posicionArticulo >= items.size()) {
+                posicionDuplicadaActual[0] = -1;
+                avisoDuplicadoTv.setVisibility(View.GONE);
+                editarExistenteBtn.setVisibility(View.GONE);
+                return;
+            }
+            long itemIdSeleccionado = items.get(posicionArticulo).itemId;
+            posicionDuplicadaActual[0] = buscarPosicionDuplicado(
+                    cuentaAlItemList, itemIdSeleccionado, posicionAEditar);
+            if (posicionDuplicadaActual[0] >= 0) {
+                avisoDuplicadoTv.setText("Ya existe un registro de \"" +
+                        items.get(posicionArticulo).nombre + "\" para \"" + cuentaAlItemList +
+                        "\" en este documento — no se puede guardar otro (el promedio no " +
+                        "quedaría bien). Usa el botón de abajo para editar el que ya existe.");
+                avisoDuplicadoTv.setVisibility(View.VISIBLE);
+                editarExistenteBtn.setVisibility(View.VISIBLE);
+            } else {
+                avisoDuplicadoTv.setVisibility(View.GONE);
+                editarExistenteBtn.setVisibility(View.GONE);
+            }
+        };
+        actualizarAvisoDuplicado.run();
 
         TextWatcher recalcularAlEscribir = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
@@ -1021,6 +1201,7 @@ public class B12_DocumentPersistence {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 actualizarMatriz.run();
+                actualizarAvisoDuplicado.run();
             }
 
             @Override public void onNothingSelected(AdapterView<?> parent) {}
@@ -1034,14 +1215,30 @@ public class B12_DocumentPersistence {
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
+        // ⭐ NUEVO — título y texto del botón cambian en modo edición, para que quede claro que
+        // se está modificando un ítem ya en la lista y no agregando uno nuevo.
+        String tituloDialogo = posicionAEditar != null
+                ? "Editar inventario — \"" + cuentaAlItemList + "\""
+                : "Inventario — \"" + cuentaAlItemList + "\"";
+        String textoBotonPositivo = posicionAEditar != null ? "Guardar cambios" : "Agregar";
+
+        final AlertDialog[] dialogoHolder = new AlertDialog[1];
+        editarExistenteBtn.setOnClickListener(v -> {
+            int posicionExistente = posicionDuplicadaActual[0];
+            if (posicionExistente < 0) return;
+            if (dialogoHolder[0] != null) dialogoHolder[0].dismiss();
+            mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionExistente);
+        });
+
         AlertDialog dialogo = new AlertDialog.Builder(f1.getActivity())
-                .setTitle("Inventario — \"" + cuentaAlItemList + "\"")
+                .setTitle(tituloDialogo)
                 .setView(scroll)
                 .setCancelable(true)
                 .setOnDismissListener(d -> dbParaCalculos.close())
-                .setPositiveButton("Agregar", null) // se sobreescribe abajo para no cerrar en error
+                .setPositiveButton(textoBotonPositivo, null) // se sobreescribe abajo para no cerrar en error
                 .setNegativeButton("Cancelar", (d, which) -> d.dismiss())
                 .create();
+        dialogoHolder[0] = dialogo;
 
         dialogo.setOnShowListener(dialogInterface -> dialogo
                 .getButton(AlertDialog.BUTTON_POSITIVE)
@@ -1055,6 +1252,27 @@ public class B12_DocumentPersistence {
                         // arriba.
                         dialogo.dismiss();
                         mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId);
+                        return;
+                    }
+
+                    // ⭐ A.2) Se vuelve a verificar el duplicado aquí, fresco (mismo criterio que
+                    // el resto de las validaciones de este botón), en vez de confiar solo en el
+                    // aviso en vivo — bloquea el guardado si ya existe un registro para la misma
+                    // cuenta+artículo en este documento.
+                    long itemIdARevisar = items.get(posicionSeleccionada).itemId;
+                    if (buscarPosicionDuplicado(cuentaAlItemList, itemIdARevisar, posicionAEditar) >= 0) {
+                        Toast.makeText(f1.getActivity(),
+                                "Ya existe un registro para este artículo en el documento — " +
+                                        "no se puede guardar otro. Usa \"Editar el registro " +
+                                        "existente\".",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    String descripcionDelDialogo = descripcionEt.getText().toString().trim();
+                    if (descripcionDelDialogo.isEmpty()) {
+                        Toast.makeText(f1.getActivity(), "Falta la descripcion",
+                                Toast.LENGTH_SHORT).show();
                         return;
                     }
 
@@ -1124,13 +1342,22 @@ public class B12_DocumentPersistence {
                     // "Este movimiento", calculado/digitado en este mismo diálogo. El signo
                     // también lo determina este diálogo (su propio Tipo de movimiento), nunca el
                     // signo_XSp del formulario.
+                    // ⭐ NUEVO — modo edición: se conserva el número de ítem ORIGINAL del
+                    // documento (tipoT_2DocumentItems_String del ítem que se está editando) en
+                    // vez de calcular uno nuevo al final de la lista — este ítem no se está
+                    // agregando, se está reemplazando en su misma posición.
+                    int numeroItemEnDocumento = posicionAEditar != null
+                            ? Integer.parseInt(f1.listaDocumento_ArrayLTT.get(posicionAEditar)
+                                    .tipoTget_2ItemDocMetodoEnA5())
+                            : f1.listaDocumento_ArrayLTT.size() + 1;
+
                     A3_2_TipoTransaccionesGetsYSets nuevoItem = f1.calculator.construirItemRegistro(
                             f1.nuevoNumeroDocEnAdicionar_String,
-                            f1.listaDocumento_ArrayLTT.size() + 1,
+                            numeroItemEnDocumento,
                             cuentaAlItemList,
                             signoDelDialogo,
                             String.valueOf(valorTotalMagnitud),
-                            descripcionYaEscrita,
+                            descripcionDelDialogo,
                             A99_MetodosVarios.stringFechaYHora,
                             f1.DateOfDocument_Integer,
                             atributosCuenta);
@@ -1146,7 +1373,11 @@ public class B12_DocumentPersistence {
                     nuevoItem.tipoTset_20UnidadesInventarioMetodoEnA5(unidadesConSigno);
                     nuevoItem.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(precioInformativoDouble);
 
-                    agregarItemAListaYRefrescarUI(nuevoItem);
+                    if (posicionAEditar != null) {
+                        actualizarItemEnListaYRefrescarUI(posicionAEditar, nuevoItem);
+                    } else {
+                        agregarItemAListaYRefrescarUI(nuevoItem);
+                    }
                     dialogo.dismiss();
                 }));
 

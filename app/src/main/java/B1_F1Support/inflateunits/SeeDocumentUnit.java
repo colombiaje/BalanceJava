@@ -7,6 +7,8 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.jj.appbalancev31.R;
 
+import A1BASES.A3_2_TipoTransaccionesGetsYSets;
+import A2QueryBD.A23_QueryResult;
 import B_FRAGMENTS.F1_CrudDocumento;
 
 public class SeeDocumentUnit {
@@ -52,7 +54,19 @@ public class SeeDocumentUnit {
 
     private void handleItemAction(int action, int position) {
         switch (action) {
-            case 0: // Modificar — carga campos para edición inline
+            case 0: // Modificar
+                // ⭐ NUEVO — combinado A.1/B.a (pedido de Jorge): un ítem de una cuenta con
+                // inventario no sabe editarse con el flujo inline de abajo (ver el bloqueo
+                // explícito que ya existía en B12_DocumentPersistence.guardarModificacion) — se
+                // redirige al diálogo de inventario, ahora en modo edición.
+                A3_2_TipoTransaccionesGetsYSets itemAModificar =
+                        f1.listaDocumento_ArrayLTT.get(position);
+                if (itemAModificar.tipoTget_19ItemInventarioIdMetodoEnA5() != null) {
+                    iniciarModificacionItemInventario(itemAModificar, position);
+                    break;
+                }
+
+                // Edición inline de siempre, para ítems que no son de inventario.
                 updateConsecutivoLabel(position);
                 loadItemIntoFields(position);
                 f1.iniciarModoModificacion(position);
@@ -68,6 +82,38 @@ public class SeeDocumentUnit {
                 f1.procesarActualizacionCompleta();
                 break;
         }
+    }
+
+    // ⭐ NUEVO — combinado A.1/B.a (pedido de Jorge): abre el diálogo de inventario en modo
+    // edición para el ítem seleccionado. Si el ítem YA está guardado en la base de datos
+    // (documento reabierto con "Editar documento"), se rehúsa con un mensaje claro — mismo
+    // límite que ya existía desde antes en B12_DocumentPersistence.bloqueadoPorCuentaConInventario()
+    // (editar documentos con movimientos de inventario ya guardados sigue sin soportarse); esta
+    // función respeta ese límite en vez de ampliarlo.
+    private void iniciarModificacionItemInventario(A3_2_TipoTransaccionesGetsYSets item, int position) {
+        if (item.tipoTget_15TransaccionIdMetodoEnA5() != null) {
+            new AlertDialog.Builder(f1.getContext())
+                    .setTitle("Movimiento de inventario ya guardado")
+                    .setMessage("Este movimiento de inventario ya está guardado en la base de " +
+                            "datos — modificar movimientos de inventario ya guardados todavía " +
+                            "está en construcción, no se puede editar aquí por ahora.")
+                    .setPositiveButton("Entendido", null)
+                    .setCancelable(true)
+                    .show();
+            return;
+        }
+
+        String cuenta = item.tipoTget_3CuentaMetodoEnA5();
+        A23_QueryResult<String[]> obtenerAtributo = f1.a22QueryManager.queryAttributesByAccount(cuenta);
+        if (obtenerAtributo == null
+                || obtenerAtributo.getAtributosCuenta() == null
+                || obtenerAtributo.getAtributosCuenta().length == 0) {
+            Toast.makeText(f1.getActivity(), "Cuenta no encontrada: " + cuenta, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        f1.persistence.mostrarDialogoRegistroInventarioParaEditar(
+                cuenta, obtenerAtributo.getAtributosCuenta(), position);
     }
 
     // Actualiza etiqueta de posición (ej. "Item: 2/5")
