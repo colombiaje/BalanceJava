@@ -140,6 +140,31 @@ public class A12_InventarioHelper {
     }
 
     /**
+     * ⭐ NUEVO (1-oct, pedido de Jorge): ¿es "transaccionId" el movimiento MÁS RECIENTE (mayor
+     * transaccion_id, que por ser AUTOINCREMENT equivale a orden de inserción) de este
+     * artículo? Se usa para decidir si un movimiento de inventario YA GUARDADO se puede editar
+     * o eliminar: obtenerSaldoInventario/calcularCostoSalida calculan el saldo con un SUM
+     * simple sobre TODAS las filas del artículo (no hay una cadena de saldos "congelados" por
+     * fila) — pero costo_total de cada fila SÍ quedó fijado para siempre con el saldo que había
+     * al momento de insertarla. Por eso, cambiar o borrar una fila que NO es la última dejaría
+     * el costo_total de las filas posteriores (que ya se calcularon con el saldo de ANTES del
+     * cambio) desactualizado, sin ninguna forma automática de corregirlas. Si SÍ es la última,
+     * no hay ninguna fila posterior que dependa de ella — editarla o borrarla (y volver a
+     * insertarla, que es como de hecho se guarda una edición: ver
+     * B12_DocumentPersistence.baseParaGuardarEnLaEnBDConListaDocumento) es seguro.
+     */
+    public boolean esUltimoMovimiento(SQLiteDatabase db, long itemId, long transaccionId) {
+        Cursor c = db.rawQuery(
+                "SELECT MAX(transaccion_id) FROM transacciones_inventario WHERE item_id = ?",
+                new String[]{String.valueOf(itemId)});
+        try {
+            return c.moveToFirst() && !c.isNull(0) && c.getLong(0) == transaccionId;
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
      * Costo promedio ponderado vigente de un artículo (regla de negocio #4), PURAMENTE
      * INFORMATIVO desde la v15 — con hasta 3 decimales (antes redondeaba al peso entero, lo
      * cual generaba diferencias representativas para artículos de precio bajo, como una

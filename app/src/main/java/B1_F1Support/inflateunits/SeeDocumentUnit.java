@@ -76,7 +76,21 @@ public class SeeDocumentUnit {
                 ensureFabVisible();
                 break;
 
-            case 1: // Eliminar — remueve ítem y refresca
+            case 1: // Eliminar
+                // ⭐ NUEVO (1-oct, pedido de Jorge): un ítem de inventario YA GUARDADO solo se
+                // puede eliminar si sigue siendo el movimiento MÁS RECIENTE de su artículo —
+                // mismo criterio y mismo motivo que para "Modificar" (ver
+                // iniciarModificacionItemInventario / rehusarSiNoEsElUltimo más abajo): borrarlo
+                // y no volver a crearlo dejaría huecos en la numeración pero NO en el costo de
+                // movimientos posteriores (que no dependen de que esta fila exista), así que en
+                // ese caso SÍ es seguro.
+                A3_2_TipoTransaccionesGetsYSets itemAEliminar =
+                        f1.listaDocumento_ArrayLTT.get(position);
+                if (itemAEliminar.tipoTget_19ItemInventarioIdMetodoEnA5() != null
+                        && itemAEliminar.tipoTget_15TransaccionIdMetodoEnA5() != null
+                        && rehusarSiNoEsElUltimo(itemAEliminar, "eliminar")) {
+                    break;
+                }
                 f1.listaDocumento_ArrayLTT.remove(position);
                 f1.renumerarItemsListaDocumento();
                 f1.procesarActualizacionCompleta();
@@ -85,21 +99,16 @@ public class SeeDocumentUnit {
     }
 
     // ⭐ NUEVO — combinado A.1/B.a (pedido de Jorge): abre el diálogo de inventario en modo
-    // edición para el ítem seleccionado. Si el ítem YA está guardado en la base de datos
-    // (documento reabierto con "Editar documento"), se rehúsa con un mensaje claro — mismo
-    // límite que ya existía desde antes en B12_DocumentPersistence.bloqueadoPorCuentaConInventario()
-    // (editar documentos con movimientos de inventario ya guardados sigue sin soportarse); esta
-    // función respeta ese límite en vez de ampliarlo.
+    // edición para el ítem seleccionado.
+    // ⭐ CAMBIO (1-oct, pedido de Jorge): un ítem YA GUARDADO en la base de datos (documento
+    // reabierto con "Editar documento") ya no se rehúsa SIEMPRE — se permite editarlo cuando
+    // sigue siendo el movimiento MÁS RECIENTE de su artículo (ver rehusarSiNoEsElUltimo), que es
+    // el único caso en el que reescribirlo es seguro (ver el comentario completo en
+    // B12_DocumentPersistence.bloqueadoPorCuentaConInventario() / A12_InventarioHelper.
+    // esUltimoMovimiento). Si NO lo es, se sigue rehusando con un mensaje claro.
     private void iniciarModificacionItemInventario(A3_2_TipoTransaccionesGetsYSets item, int position) {
-        if (item.tipoTget_15TransaccionIdMetodoEnA5() != null) {
-            new AlertDialog.Builder(f1.getContext())
-                    .setTitle("Movimiento de inventario ya guardado")
-                    .setMessage("Este movimiento de inventario ya está guardado en la base de " +
-                            "datos — modificar movimientos de inventario ya guardados todavía " +
-                            "está en construcción, no se puede editar aquí por ahora.")
-                    .setPositiveButton("Entendido", null)
-                    .setCancelable(true)
-                    .show();
+        if (item.tipoTget_15TransaccionIdMetodoEnA5() != null
+                && rehusarSiNoEsElUltimo(item, "editar")) {
             return;
         }
 
@@ -114,6 +123,30 @@ public class SeeDocumentUnit {
 
         f1.persistence.mostrarDialogoRegistroInventarioParaEditar(
                 cuenta, obtenerAtributo.getAtributosCuenta(), position);
+    }
+
+    // ⭐ NUEVO (1-oct, pedido de Jorge): true (y muestra el aviso) si este ítem de inventario ya
+    // guardado NO es el movimiento más reciente de su artículo — en ese caso, ni editarlo ni
+    // eliminarlo es seguro (ver el comentario de clase de bloqueadoPorCuentaConInventario). Si SÍ
+    // lo es, no muestra nada y devuelve false — quien llama continúa con la acción (editar o
+    // eliminar) con normalidad.
+    private boolean rehusarSiNoEsElUltimo(A3_2_TipoTransaccionesGetsYSets item, String accion) {
+        boolean esUltimo = f1.persistence.esUltimoMovimientoDeInventario(
+                item.tipoTget_19ItemInventarioIdMetodoEnA5(),
+                item.tipoTget_15TransaccionIdMetodoEnA5());
+        if (esUltimo) {
+            return false;
+        }
+        new AlertDialog.Builder(f1.getContext())
+                .setTitle("Movimiento de inventario no editable")
+                .setMessage("Este movimiento de inventario ya no es el más reciente de su " +
+                        "artículo — hay registros posteriores cuyo costo promedio depende de " +
+                        "este. Por ahora solo se puede " + accion + " el movimiento MÁS RECIENTE " +
+                        "de cada artículo.")
+                .setPositiveButton("Entendido", null)
+                .setCancelable(true)
+                .show();
+        return true;
     }
 
     // Actualiza etiqueta de posición (ej. "Item: 2/5")

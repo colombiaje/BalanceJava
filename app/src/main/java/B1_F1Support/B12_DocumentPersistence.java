@@ -279,40 +279,55 @@ public class B12_DocumentPersistence {
     //      deja el bloqueo como red de seguridad (mismo espíritu que el resto de este método).
     //   2) Un ítem de inventario que YA estaba guardado en la BD antes de abrir este documento
     //      para modificarlo (tipoTget_15TransaccionIdMetodoEnA5() != null, es decir, viene
-    //      cargado — ver A21_OptimizedQuery.mapTransactionFromCursor). "Modificar documento"
-    //      borra TODAS las transacciones del documento y reinserta la lista completa (ver
-    //      ExecuteButtonsUnit/baseParaGuardarEnLaEnBDConListaDocumento) — para una entrada esto
-    //      sería seguro (mismo precio de siempre), pero para una SALIDA, volver a calcularle el
-    //      costo promedio en el momento de reinsertar podría no coincidir con lo que se calculó
-    //      la primera vez, reescribiendo silenciosamente un costo histórico. Editar documentos
-    //      que ya tienen movimientos de inventario queda deliberadamente pendiente para una
-    //      tanda aparte (hay que decidir primero cómo debe comportarse esa edición) — por ahora
-    //      se bloquea con un mensaje claro en vez de arriesgar el dato.
+    //      cargado — ver A21_OptimizedQuery.mapTransactionFromCursor), Y QUE YA NO ES el
+    //      movimiento más reciente de su artículo.
+    //      ⭐ CAMBIO (1-oct, pedido de Jorge, a partir de su retroalimentación sobre edición de
+    //      inventario ya guardado): antes este caso bloqueaba SIEMPRE. Ahora se permite cuando
+    //      el ítem SÍ es el movimiento más reciente de su artículo (A12_InventarioHelper.
+    //      esUltimoMovimiento) — porque en ese caso no hay ninguna fila posterior cuyo
+    //      costo_total dependa de este, así que "Modificar documento" (que borra TODAS las
+    //      transacciones del documento y reinserta la lista completa — ver
+    //      ExecuteButtonsUnit/baseParaGuardarEnLaEnBDConListaDocumento) puede reinsertarlo sin
+    //      dejar ningún costo histórico desactualizado. Si NO es el más reciente, se sigue
+    //      bloqueando: reescribirlo dejaría el costo promedio de los movimientos posteriores de
+    //      ese artículo desincronizado del valor real, sin ninguna forma automática de
+    //      corregirlos — ver el comentario completo en A12_InventarioHelper.esUltimoMovimiento.
     public boolean bloqueadoPorCuentaConInventario() {
-        for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
-            if (p.tipoTget_19ItemInventarioIdMetodoEnA5() != null
-                    && p.tipoTget_15TransaccionIdMetodoEnA5() != null) {
-                Log.i(TAG, "Bloqueo de inventario ACTIVADO: el ítem de \"" +
-                        p.tipoTget_3CuentaMetodoEnA5() + "\" (transaccion_id " +
-                        p.tipoTget_15TransaccionIdMetodoEnA5() + ") ya estaba guardado — " +
-                        "editar documentos con movimientos de inventario todavía no está " +
-                        "soportado.");
-                new AlertDialog.Builder(f1.getActivity())
-                        .setTitle("Documento con inventario")
-                        .setMessage("Este documento ya tiene un movimiento guardado sobre \"" +
-                                p.tipoTget_3CuentaMetodoEnA5() + "\" (cuenta con inventario) — " +
-                                "modificar documentos que ya tienen movimientos de inventario " +
-                                "todavía está en construcción, no se puede guardar aquí por " +
-                                "ahora.")
-                        .setPositiveButton("Entendido", null)
-                        .setCancelable(true)
-                        .show();
-                return true;
-            }
-        }
-
         SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
+        A12_InventarioHelper inventarioHelper = new A12_InventarioHelper();
         try {
+            for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
+                if (p.tipoTget_19ItemInventarioIdMetodoEnA5() != null
+                        && p.tipoTget_15TransaccionIdMetodoEnA5() != null) {
+                    boolean esUltimo = inventarioHelper.esUltimoMovimiento(
+                            db,
+                            p.tipoTget_19ItemInventarioIdMetodoEnA5(),
+                            p.tipoTget_15TransaccionIdMetodoEnA5());
+                    if (esUltimo) {
+                        // Es el movimiento más reciente de su artículo — se puede reescribir sin
+                        // riesgo (ver el comentario de clase arriba). No se bloquea.
+                        continue;
+                    }
+                    Log.i(TAG, "Bloqueo de inventario ACTIVADO: el ítem de \"" +
+                            p.tipoTget_3CuentaMetodoEnA5() + "\" (transaccion_id " +
+                            p.tipoTget_15TransaccionIdMetodoEnA5() + ") ya no es el movimiento " +
+                            "más reciente de su artículo — no se puede editar/reescribir sin " +
+                            "desactualizar el costo de movimientos posteriores.");
+                    new AlertDialog.Builder(f1.getActivity())
+                            .setTitle("Movimiento de inventario no editable")
+                            .setMessage("El movimiento guardado sobre \"" +
+                                    p.tipoTget_3CuentaMetodoEnA5() + "\" (cuenta con inventario) " +
+                                    "ya no es el más reciente de su artículo — hay registros " +
+                                    "posteriores cuyo costo promedio depende de este. Por ahora " +
+                                    "solo se puede editar o eliminar el movimiento MÁS RECIENTE " +
+                                    "de cada artículo.")
+                            .setPositiveButton("Entendido", null)
+                            .setCancelable(true)
+                            .show();
+                    return true;
+                }
+            }
+
             for (A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
                 if (p.tipoTget_19ItemInventarioIdMetodoEnA5() != null) {
                     // Ya pasó por el diálogo nuevo — este ítem sabe guardarse (ver el guardado
@@ -363,6 +378,23 @@ public class B12_DocumentPersistence {
                             "no se guardó nada. Detalle: " + e.getMessage(),
                     Toast.LENGTH_LONG).show();
             return true;
+        } finally {
+            db.close();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 1c. esUltimoMovimientoDeInventario
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (1-oct, pedido de Jorge): envoltorio público de A12_InventarioHelper.
+    // esUltimoMovimiento(), para que SeeDocumentUnit pueda hacer la misma verificación al
+    // decidir si deja "Modificar" o "Eliminar" sobre un ítem de inventario YA GUARDADO, sin
+    // tener que manejar SQLiteDatabase directamente (mismo criterio de capas que ya usa el
+    // resto de esta clase).
+    public boolean esUltimoMovimientoDeInventario(long itemInventarioId, long transaccionId) {
+        SQLiteDatabase db = f1.ayudante_Class.getReadableDatabase();
+        try {
+            return new A12_InventarioHelper().esUltimoMovimiento(db, itemInventarioId, transaccionId);
         } finally {
             db.close();
         }
@@ -888,6 +920,23 @@ public class B12_DocumentPersistence {
         contenedor.setOrientation(LinearLayout.VERTICAL);
         contenedor.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
         scroll.addView(contenedor);
+
+        // ⭐ NUEVO (1-oct, pedido de Jorge, punto "1.b" de su retroalimentación sobre edición de
+        // inventario ya guardado): aviso informativo, visible en CADA registro de este diálogo,
+        // para que el usuario sepa de antemano que un movimiento de inventario, una vez que el
+        // documento quede guardado en la base de datos, solo se podrá editar o eliminar después
+        // mientras siga siendo el más reciente de su artículo (ver
+        // B12_DocumentPersistence.bloqueadoPorCuentaConInventario() /
+        // A12_InventarioHelper.esUltimoMovimiento) — así revisa bien los datos ANTES de
+        // confirmar, en vez de enterarse de la restricción recién cuando intente corregirlo.
+        TextView avisoRestriccionEdicionTv = new TextView(f1.getActivity());
+        avisoRestriccionEdicionTv.setText("Una vez guardado el documento, este movimiento solo " +
+                "se podrá editar o eliminar después mientras siga siendo el más reciente de su " +
+                "artículo — revisa bien los datos antes de confirmar.");
+        avisoRestriccionEdicionTv.setTextColor(Color.parseColor("#425DF6"));
+        avisoRestriccionEdicionTv.setTypeface(avisoRestriccionEdicionTv.getTypeface(), Typeface.ITALIC);
+        avisoRestriccionEdicionTv.setPadding(0, 0, 0, padCeldaPx * 3);
+        contenedor.addView(avisoRestriccionEdicionTv);
 
         // ⭐ NUEVO — A.1 (pedido de Jorge): aviso de duplicado, en la parte SUPERIOR del
         // diálogo, con un color que resalte (distinto del fucsia/azul rey ya usados, para que
