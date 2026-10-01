@@ -1925,6 +1925,12 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         persistence.losDemasRegistrosAListaDocumento();
     }
 
+    // ⭐ NUEVO — v16 (1-oct): ver el comentario de clase en
+    // B12_DocumentPersistence.confirmarRegistroAlElegirSigno().
+    public void confirmarRegistroAlElegirSigno() {
+        persistence.confirmarRegistroAlElegirSigno();
+    }
+
     private void guardarModificacion() {
         persistence.guardarModificacion();
     }

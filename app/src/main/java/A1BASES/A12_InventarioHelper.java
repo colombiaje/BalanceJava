@@ -58,6 +58,15 @@ import java.util.List;
  * fuente real del costo promedio ponderado; precio_unitario pasa a ser puramente informativo,
  * con hasta 3 decimales — ver el javadoc de calcularCostoPromedioPonderado y
  * guardarTransaccionConInventario para el detalle completo.
+ *
+ * ⭐ REDISEÑO v16 (1-oct, rediseño del diálogo de registro a pedido de Jorge): se agregan
+ * obtenerSaldoUnidadesYCosto (saldo público, para que el diálogo muestre "Saldo anterior") y
+ * calcularCostoSalida (la fórmula de costo de una salida, extraída de
+ * guardarTransaccionConInventario a su propio método público, para que el diálogo pueda
+ * mostrar una vista previa — "Nuevo saldo" — que coincide exactamente con lo que se guarda
+ * después). calcularCostoSalida agrega también la validación de sobregiro que faltaba: una
+ * salida por más unidades de las que el artículo tiene en existencia ahora se rechaza (antes
+ * no se validaba en ningún lado — ver el javadoc de ese método para el detalle completo).
  */
 public class A12_InventarioHelper {
 
@@ -119,6 +128,18 @@ public class A12_InventarioHelper {
     }
 
     /**
+     * ⭐ NUEVO v16 (1-oct, rediseño del diálogo de registro a pedido de Jorge): mismo saldo que
+     * obtenerSaldoInventario (unidades y costo_total acumulados de un artículo), pero público y
+     * en forma de arreglo {unidades, costoTotal} — para que B12_DocumentPersistence pueda
+     * mostrar el "Saldo anterior" del artículo en el diálogo de registro, sin tener que hacer
+     * pública la clase interna SaldoInventario ni duplicar la consulta SQL.
+     */
+    public long[] obtenerSaldoUnidadesYCosto(SQLiteDatabase db, long itemId) {
+        SaldoInventario saldo = obtenerSaldoInventario(db, itemId);
+        return new long[]{saldo.unidadesTotal, saldo.costoTotal};
+    }
+
+    /**
      * Costo promedio ponderado vigente de un artículo (regla de negocio #4), PURAMENTE
      * INFORMATIVO desde la v15 — con hasta 3 decimales (antes redondeaba al peso entero, lo
      * cual generaba diferencias representativas para artículos de precio bajo, como una
@@ -161,6 +182,61 @@ public class A12_InventarioHelper {
      */
     private static double redondearA3Decimales(double valor) {
         return Math.round(valor * 1000.0) / 1000.0;
+    }
+
+    /**
+     * ⭐ NUEVO v16 (1-oct, rediseño del diálogo de registro a pedido de Jorge): calcula, SIN
+     * GUARDAR NADA, el costo_total (positivo, la MAGNITUD) que tendría una salida de
+     * `unidadesVendidas` unidades de `itemId`, dado el saldo acumulado ANTES de ese movimiento
+     * — exactamente la misma fórmula (incluido el cierre exacto sin residual cuando la salida
+     * agota el saldo) que guardarTransaccionConInventario usa al guardar de verdad, extraída
+     * aquí como método único para que el diálogo de registro pueda mostrarle al usuario una
+     * vista previa ("Nuevo saldo") que después, al guardar, coincide exactamente — nunca dos
+     * copias de la misma fórmula que puedan desincronizarse con el tiempo.
+     *
+     * ⭐ NUEVO v16: agrega también la validación de "sobregiro" que faltaba — una salida por más
+     * unidades de las que el artículo tiene en existencia ahora se rechaza aquí (antes no se
+     * validaba en ningún lado: una salida mayor al saldo dejaba el artículo con saldo NEGATIVO
+     * en unidades y en costo, sin aviso). Como guardarTransaccionConInventario pasa a llamar a
+     * este mismo método (ver más abajo), la validación aplica tanto a la vista previa del
+     * diálogo como al guardado real — una sola fuente de verdad.
+     *
+     * @return el costo_total de la salida, en magnitud POSITIVA — el llamador decide el signo.
+     * @throws IllegalStateException si el artículo no tiene saldo en unidades, o si
+     *         unidadesVendidas es mayor al saldo disponible.
+     */
+    public long calcularCostoSalida(SQLiteDatabase db, long itemId, long unidadesVendidas) {
+        if (unidadesVendidas <= 0) {
+            throw new IllegalArgumentException("Las unidades a vender deben ser mayores que 0.");
+        }
+        SaldoInventario saldoAntes = obtenerSaldoInventario(db, itemId);
+        if (saldoAntes.unidadesTotal <= 0) {
+            throw new IllegalStateException(
+                    "El artículo " + itemId + " no tiene saldo en unidades (" +
+                            saldoAntes.unidadesTotal + ") — no se puede registrar una salida.");
+        }
+        if (unidadesVendidas > saldoAntes.unidadesTotal) {
+            throw new IllegalStateException(
+                    "No hay saldo suficiente del artículo " + itemId + ": disponible " +
+                            saldoAntes.unidadesTotal + ", solicitado " + unidadesVendidas + ".");
+        }
+
+        boolean agotaElSaldo = unidadesVendidas == saldoAntes.unidadesTotal;
+        long costoTotal;
+        if (agotaElSaldo) {
+            // Sale por el costo EXACTO que quedaba acumulado, sin redondear — garantiza saldo
+            // en costo = 0 al mismo tiempo que saldo en unidades = 0 (sin residuales).
+            costoTotal = saldoAntes.costoTotal;
+        } else {
+            costoTotal = Math.round(
+                    (double) saldoAntes.costoTotal * unidadesVendidas / (double) saldoAntes.unidadesTotal);
+        }
+        if (costoTotal <= 0) {
+            throw new IllegalStateException(
+                    "El costo calculado para la salida del artículo " + itemId +
+                            " no es válido (" + costoTotal + ").");
+        }
+        return costoTotal;
     }
 
     /**
@@ -271,29 +347,12 @@ public class A12_InventarioHelper {
             }
         } else {
             // Salida: el costo NUNCA se deriva de c5_Valor — se calcula sobre el saldo exacto
-            // acumulado del artículo (nunca sobre precio_unitario redondeado).
+            // acumulado del artículo (nunca sobre precio_unitario redondeado). ⭐ v16: la
+            // fórmula (incluido el cierre exacto sin residual y la validación de sobregiro) ya
+            // no vive aquí duplicada — se extrajo a calcularCostoSalida(), que también usa la
+            // vista previa del diálogo de registro, para que ambas coincidan siempre.
             long unidadesVendidas = -unidades;
-            SaldoInventario saldoAntes = obtenerSaldoInventario(db, itemId);
-            if (saldoAntes.unidadesTotal <= 0) {
-                throw new IllegalStateException(
-                        "El artículo " + itemId + " no tiene saldo en unidades (" +
-                                saldoAntes.unidadesTotal + ") — no se puede registrar una salida.");
-            }
-            boolean agotaElSaldo = (saldoAntes.unidadesTotal + unidades) == 0;
-            if (agotaElSaldo) {
-                // Sale por el costo EXACTO que quedaba acumulado, sin redondear — garantiza
-                // saldo en costo = 0 al mismo tiempo que saldo en unidades = 0 (sin residuales).
-                costoTotal = saldoAntes.costoTotal;
-            } else {
-                costoTotal = Math.round(
-                        (double) saldoAntes.costoTotal * unidadesVendidas / (double) saldoAntes.unidadesTotal);
-            }
-            costoTotal = -costoTotal; // mismo signo que unidades (negativo en una salida)
-            if (costoTotal >= 0) {
-                throw new IllegalStateException(
-                        "El costo calculado para la salida del artículo " + itemId +
-                                " no es válido (" + costoTotal + ").");
-            }
+            costoTotal = -calcularCostoSalida(db, itemId, unidadesVendidas);
         }
 
         double precioUnitarioInformativo = redondearA3Decimales(

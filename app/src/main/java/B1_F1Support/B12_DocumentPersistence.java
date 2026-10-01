@@ -3,6 +3,8 @@ package B1_F1Support;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -11,7 +13,10 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.Spinner;
+import android.widget.TableLayout;
+import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -510,29 +515,29 @@ public class B12_DocumentPersistence {
     // ═══════════════════════════════════════════════════════════════
     // 5. losDemasRegistrosAListaDocumento
     // ═══════════════════════════════════════════════════════════════
+    // ⭐ REORDEN UX — v16 (1-oct, a pedido de Jorge): el orden de digitación del formulario
+    // cambia de (valor, descripción, signo, cuenta) a (descripción, cuenta, valor, signo) —
+    // ver el comentario de clase en RecordDocumentUnit.setupCuentaSpinner()/setupSignoSpinner()
+    // para el porqué completo. Este método, que antes se disparaba al elegir CUENTA (la última
+    // casilla del orden viejo) y hacía TODO — validar, resolver la cuenta y agregar el ítem a
+    // la lista — ahora se dispara al elegir cuenta en el orden NUEVO, que es la ANTEPENÚLTIMA
+    // casilla (antes de valor y signo). Ya no puede validar ni usar valor/signo (todavía no se
+    // han digitado) ni agregar el ítem: solo resuelve a qué cuenta corresponde y, si esa cuenta
+    // maneja inventario, abre el diálogo (que con el orden nuevo se abre ANTES de que el
+    // usuario toque valor — el diálogo es quien determina valor y signo, y agrega el ítem él
+    // mismo al confirmar, ver mostrarDialogoRegistroInventario). Si la cuenta NO maneja
+    // inventario, este método ya no hace nada más — simplemente deja que el usuario continúe
+    // con valor y signo; es confirmarRegistroAlElegirSigno() (más abajo) quien ahora valida y
+    // agrega el ítem, disparado al elegir signo (la nueva última casilla).
     public void losDemasRegistrosAListaDocumento() {
         f1.DateOfDocument_Integer = f1.dateCurrent_ArrayInteger[5];
 
-        // Validaciones
-        if (f1.valor_XEt.getText().toString().isEmpty()) {
-            Toast.makeText(f1.getActivity(), "Falta el valor", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (f1.signo_XSp.getSelectedItem().toString().isEmpty()) {
-            Toast.makeText(f1.getActivity(), "Falta el signo", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // Validaciones — solo descripción y cuenta están disponibles en este punto del orden
+        // nuevo; valor y signo se validan en confirmarRegistroAlElegirSigno().
         if (f1.descripcion_XAtv.getText().toString().isEmpty()) {
             Toast.makeText(f1.getActivity(), "Falta la descripcion", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (f1.cuenta_XAtv.getText().toString().isEmpty()
-                && f1.cuenta_XSp.getSelectedItem().toString().isEmpty()) {
-            Toast.makeText(f1.getActivity(), "Falta la cuenta", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        f1.dateCurrent_ArrayInteger = f1.metodosVarios_Class.fechasYHoras();
 
         // Determinar cuenta
 
@@ -569,13 +574,86 @@ public class B12_DocumentPersistence {
         // pantalla, se abre un diálogo a pedirlos (misma decisión que Jorge ya aprobó para el
         // bloqueo de la tanda 3: un diálogo, sin tocar el formulario existente) y es ESE
         // diálogo, al confirmar, el que arma y agrega el ítem — ver
-        // mostrarDialogoRegistroInventario más abajo.
+        // mostrarDialogoRegistroInventario más abajo. ⭐ REORDEN v16: con el orden nuevo, este
+        // diálogo se abre ANTES de que el usuario digite valor o elija signo — el diálogo
+        // mismo determina ambos y agrega el ítem directamente (ver el método), así que si la
+        // cuenta maneja inventario, el usuario nunca llega a confirmarRegistroAlElegirSigno().
         boolean cuentaConInventario = f1.atributosCuenta_ArrayS.length > 8
                 && "1".equals(f1.atributosCuenta_ArrayS[8]);
         if (cuentaConInventario) {
             mostrarDialogoRegistroInventario(cuentaAlItemList, f1.atributosCuenta_ArrayS);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5a. confirmarRegistroAlElegirSigno
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO — v16 (1-oct): con el reorden de la UX (ver losDemasRegistrosAListaDocumento,
+    // arriba), signo pasa a ser la ÚLTIMA casilla del formulario y toma el rol de "disparador"
+    // que agrega el ítem a la lista — rol que antes cumplía cuenta. Se dispara desde
+    // RecordDocumentUnit.setupSignoSpinner() cuando el usuario elige "+" o "-" (nunca con
+    // signo vacío). Para una cuenta CON inventario, este método nunca llega a ejecutarse de
+    // verdad: el diálogo de inventario ya agregó el ítem y limpió el formulario al elegir
+    // cuenta (más arriba), así que cuenta_XAtv/cuenta_XSp ya están vacíos cuando el usuario
+    // vuelve a tocar signo para un ítem SIGUIENTE — el guard de "cuenta con inventario" de
+    // abajo es, por eso, una red de seguridad defensiva (mismo espíritu que el resto de esta
+    // clase), no el camino esperado.
+    public void confirmarRegistroAlElegirSigno() {
+        f1.DateOfDocument_Integer = f1.dateCurrent_ArrayInteger[5];
+
+        if (f1.valor_XEt.getText().toString().isEmpty()) {
+            Toast.makeText(f1.getActivity(), "Falta el valor", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (f1.signo_XSp.getSelectedItem().toString().isEmpty()) {
+            Toast.makeText(f1.getActivity(), "Falta el signo", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (f1.descripcion_XAtv.getText().toString().isEmpty()) {
+            Toast.makeText(f1.getActivity(), "Falta la descripcion", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String cuentaAlItemList = f1.enModoModificacion
+                ? f1.cuenta_XSp.getSelectedItem().toString()
+                : f1.cuenta_XAtv.getText().toString();
+
+        if (cuentaAlItemList == null || cuentaAlItemList.isEmpty()) {
+            Toast.makeText(f1.getActivity(), "Falta la cuenta", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        f1.dateCurrent_ArrayInteger = f1.metodosVarios_Class.fechasYHoras();
+
+        A23_QueryResult<String[]> obtenerAtributo =
+                f1.a22QueryManager.queryAttributesByAccount(cuentaAlItemList);
+
+        if (obtenerAtributo == null
+                || obtenerAtributo.getAtributosCuenta() == null
+                || obtenerAtributo.getAtributosCuenta().length == 0) {
+            Toast.makeText(f1.getActivity(),
+                    "Cuenta no encontrada: " + cuentaAlItemList, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] atributosCuenta = obtenerAtributo.getAtributosCuenta();
+
+        // Red de seguridad: una cuenta con inventario nunca debería llegar hasta aquí (ver el
+        // comentario de clase arriba) — si de algún modo ocurre (por ejemplo, el usuario
+        // canceló el diálogo de inventario sin limpiar la cuenta elegida), se bloquea con un
+        // mensaje claro en vez de guardar un ítem de inventario sin su artículo/unidades.
+        boolean cuentaConInventario = atributosCuenta.length > 8
+                && "1".equals(atributosCuenta[8]);
+        if (cuentaConInventario) {
+            Toast.makeText(f1.getActivity(),
+                    "\"" + cuentaAlItemList + "\" maneja inventario — completa el diálogo de " +
+                            "artículo/unidades que debió abrirse al elegir la cuenta.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        f1.atributosCuenta_ArrayS = atributosCuenta;
+        f1.cuentaDemasRegistros_ArrayS = new String[]{cuentaAlItemList};
 
         // Construir ítem via DocumentCalculator
         A3_2_TipoTransaccionesGetsYSets nuevoItem = f1.calculator.construirItemRegistro(
@@ -629,38 +707,41 @@ public class B12_DocumentPersistence {
     // ═══════════════════════════════════════════════════════════════
     // 5c. mostrarDialogoRegistroInventario
     // ═══════════════════════════════════════════════════════════════
-    // ⭐ NUEVO — v12 tanda 4: pide artículo y unidades para un ítem sobre una cuenta con
-    // inventario, y al confirmar arma el A3_2_TipoTransaccionesGetsYSets (con los 3 campos
-    // nuevos: 19 item_id, 20 unidades, 21 precio_unitario informativo) y lo agrega a la lista
-    // del documento, exactamente como losDemasRegistrosAListaDocumento hace para una cuenta
-    // normal. El signo (entrada/salida) ya viene elegido en signo_XSp ANTES de llegar aquí —
-    // este diálogo solo pide la magnitud de las unidades, no su signo, para no pedir el mismo
-    // dato dos veces de forma contradictoria.
+    // ⭐ REDISEÑO — v16 (1-oct, mockup en matriz pedido por Jorge): con el reorden de campos del
+    // formulario (descripción, cuenta, valor, signo — ver RecordDocumentUnit.setupSignoSpinner())
+    // este diálogo ya NO puede asumir que f1.valor_XEt/f1.signo_XSp traen algo útil: ahora se
+    // abre justo al elegir la cuenta, es decir ANTES de que el usuario toque esos dos campos. El
+    // diálogo pasa a ser autónomo — tiene su PROPIO "Tipo de movimiento" (Entrada/Salida), sus
+    // propios "Unidades" y "Valor total" — y al presionar "Agregar" arma el ítem directamente
+    // con esos datos, sin leer ni tocar f1.valor_XEt/f1.signo_XSp (así se evita además disparar
+    // por programación el onItemSelected de signo_XSp, que ahora confirma el registro — ver
+    // confirmarRegistroAlElegirSigno()).
     //
-    // ⭐ REDISEÑO — v12 tanda 4 (fix, tras retroalimentación de Jorge, 29-sep): la primera
-    // versión de este diálogo también pedía el precio unitario y, al confirmar, calculaba el
-    // monto como unidades × precio y lo usaba para el ítem — REEMPLAZANDO en silencio el valor
-    // que el usuario ya había escrito en el campo "valor" del formulario, antes incluso de
-    // llegar a elegir la cuenta (que es el último campo del formulario y el que dispara este
-    // diálogo). Jorge lo reportó como "el proceso está roto": el usuario ve su valor
-    // desaparecer y ser sustituido por otro que no escribió. Además, pedir un precio aparte
-    // arriesgaba un desajuste de escala frente a "miles de pesos" (la convención personal de
-    // Jorge al escribir, que no es una unidad que la app convierta — no existe conversión de
-    // escala en ningún lado del código).
+    // Se muestra como la matriz que pidió Jorge:
+    //   columnas: Tipo de movimiento | Unidades | Valor total | Precio unitario promedio
+    //   filas:    "Este movimiento" (lo que el usuario está digitando ahora, editable)
+    //             "Saldo anterior"  (saldo acumulado del artículo ANTES de este movimiento)
+    //             "Nuevo saldo"     (Saldo anterior + Este movimiento, suma algebraica)
     //
-    // Diseño nuevo (confirmado por Jorge): "valor" es y sigue siendo el dato autoritativo — el
-    // que hace cuadrar el documento en cero — así que este diálogo NUNCA lo pide ni lo
-    // reemplaza; solo pide artículo y unidades, y arma el ítem con
-    // f1.valor_XEt.getText().toString() tal cual, exactamente igual que el camino normal
-    // (losDemasRegistrosAListaDocumento). El precio unitario pasa a ser un dato DERIVADO,
-    // puramente informativo, que se muestra de solo lectura y se recalcula en vivo:
-    // - Entrada (signo "+"): precio informativo = valor ya escrito ÷ unidades (redondeado).
-    // - Salida (signo "-"): precio informativo = costo promedio ponderado vigente del artículo
-    //   (A12_InventarioHelper.calcularCostoPromedioPonderado) — igual que antes, nunca lo
-    //   escribe el usuario.
-    // En ambos casos el helper (guardarTransaccionConInventario) vuelve a calcular este mismo
-    // precio de forma independiente al guardar de verdad — lo que se guarda aquí en el campo 21
-    // del ítem es solo una vista previa para el usuario, no lo que decide el guardado.
+    // "Este movimiento" lleva signo algebraico (entrada positiva, salida negativa) para que
+    // "Nuevo saldo" sea una simple suma de las dos filas de arriba.
+    //
+    // Entrada: el usuario digita Unidades Y Valor total; el Precio unitario se deriva (Valor
+    // total ÷ Unidades), puramente informativo.
+    // Salida: el usuario digita SOLO Unidades; Valor total y Precio los calcula la app a partir
+    // del costo promedio ponderado vigente, vía A12_InventarioHelper.calcularCostoSalida() — la
+    // MISMA fórmula (cierre exacto sin residual al agotar el saldo, y bloqueo de sobregiro) que
+    // usa el guardado real (guardarTransaccionConInventario) — una sola fuente de verdad entre
+    // la vista previa de este diálogo y lo que realmente se guarda.
+    //
+    // ⭐ REDISEÑO v16: el "Valor total" de "Este movimiento" pasa a ser lo que alimenta el campo
+    // contable "valor" del ítem del documento — esto REEMPLAZA la regla de la v15 ("valor
+    // siempre exacto, nunca sobrescrito"); cambio confirmado explícitamente por Jorge ("no
+    // importa que lo sobrescriba").
+    //
+    // ⭐ REDISEÑO v16: se agrega el bloqueo de sobregiro (vender más unidades de las que hay en
+    // existencia), que antes no existía en ningún lado — ver el detalle en el Javadoc de
+    // A12_InventarioHelper.calcularCostoSalida().
     private void mostrarDialogoRegistroInventario(String cuentaAlItemList, String[] atributosCuenta) {
         Long cuentaId = parseLongSeguro(atributosCuenta.length > 5 ? atributosCuenta[5] : null);
         if (cuentaId == null) {
@@ -670,24 +751,10 @@ public class B12_DocumentPersistence {
             return;
         }
 
-        // ⭐ FIX — v12 tanda 4 (2º fix, 30-sep): signo y descripción se capturan AQUÍ, una
-        // sola vez, igual que ya se hacía con "valor" (valorYaEscrito, más abajo) — y de ahí
-        // en adelante el diálogo SOLO usa estas copias capturadas, nunca vuelve a leer
-        // signo_XSp/descripcion_XAtv en vivo. Antes, el ítem se armaba (al confirmar) leyendo
-        // signo_XSp.getSelectedItem() de nuevo en ese momento — esto causó, en pruebas de
-        // Jorge, que un ítem de inventario quedara guardado en la lista SIN signo (ni "+" ni
-        // "-", aparentemente vacío en ese segundo momento), y por lo tanto sin contar en las
-        // sumas del documento (ni como positivo ni como negativo) — el documento se veía
-        // cuadrado en pantalla, pero "El documento está descuadrado" bloqueaba el guardado, y
-        // sin cuentas de inventario el mismo documento sí se guardaba bien. Capturar el signo
-        // (y la descripción, por el mismo motivo) en el mismo instante en que se abre el
-        // diálogo — cuando ya sabemos que son válidos, porque losDemasRegistrosAListaDocumento
-        // los validó no vacíos justo antes de llegar aquí — elimina cualquier ventana en la que
-        // pudieran quedar desincronizados con lo que el usuario ya había decidido en el
-        // formulario.
-        String signoYaElegido = f1.signo_XSp.getSelectedItem().toString();
-        String descripcionYaEscrita = f1.descripcion_XAtv.getText().toString();
-        boolean esSalida = "-".equals(signoYaElegido);
+        // Descripción ya escrita y validada por losDemasRegistrosAListaDocumento justo antes de
+        // llegar aquí — se captura una sola vez y se usa tal cual al confirmar, sin volver a
+        // leer el widget en vivo (mismo criterio que ya se usaba en versiones anteriores).
+        final String descripcionYaEscrita = f1.descripcion_XAtv.getText().toString();
 
         List<A12_InventarioHelper.ItemInventario> items;
         SQLiteDatabase dbLectura = f1.ayudante_Class.getReadableDatabase();
@@ -717,17 +784,13 @@ public class B12_DocumentPersistence {
         }
 
         int paddingPx = (int) (16 * f1.getResources().getDisplayMetrics().density);
+        int padCeldaPx = (int) (4 * f1.getResources().getDisplayMetrics().density);
 
+        ScrollView scroll = new ScrollView(f1.getActivity());
         LinearLayout contenedor = new LinearLayout(f1.getActivity());
         contenedor.setOrientation(LinearLayout.VERTICAL);
         contenedor.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
-
-        // Valor ya escrito por el usuario en el formulario, ANTES de llegar aquí — se muestra
-        // de solo lectura para que quede claro que este diálogo no lo toca ni lo reemplaza.
-        String valorYaEscrito = f1.valor_XEt.getText().toString().trim();
-        TextView valorInfoTv = new TextView(f1.getActivity());
-        valorInfoTv.setText("Valor a registrar (ya escrito): $ " + valorYaEscrito);
-        contenedor.addView(valorInfoTv);
+        scroll.addView(contenedor);
 
         List<String> nombresParaSpinner = new ArrayList<>();
         for (A12_InventarioHelper.ItemInventario item : items) {
@@ -746,82 +809,217 @@ public class B12_DocumentPersistence {
         articuloSpinner.setAdapter(articuloAdapter);
         contenedor.addView(articuloSpinner);
 
-        TextView etiquetaUnidades = new TextView(f1.getActivity());
-        etiquetaUnidades.setText("Unidades" +
-                (esSalida ? " (salida — solo la cantidad, sin signo)" : " (entrada)"));
-        contenedor.addView(etiquetaUnidades);
+        // ⭐ NUEVO v16: matriz pedida por Jorge — ver el comentario de clase arriba.
+        TableLayout tabla = new TableLayout(f1.getActivity());
+        tabla.setStretchAllColumns(true);
+        contenedor.addView(tabla);
+
+        TableRow filaCabecera = new TableRow(f1.getActivity());
+        filaCabecera.addView(celdaTexto("", padCeldaPx, true));
+        filaCabecera.addView(celdaTexto("Tipo de movimiento", padCeldaPx, true));
+        filaCabecera.addView(celdaTexto("Unidades", padCeldaPx, true));
+        filaCabecera.addView(celdaTexto("Valor total", padCeldaPx, true));
+        filaCabecera.addView(celdaTexto("Precio prom.", padCeldaPx, true));
+        tabla.addView(filaCabecera);
+
+        TableRow filaMovimiento = new TableRow(f1.getActivity());
+        filaMovimiento.addView(celdaTexto("Este movimiento", padCeldaPx, true));
+
+        List<String> tiposMovimiento = new ArrayList<>();
+        tiposMovimiento.add("Entrada");
+        tiposMovimiento.add("Salida");
+        Spinner tipoMovimientoSpinner = new Spinner(f1.getActivity());
+        ArrayAdapter<String> tipoAdapter = new ArrayAdapter<>(f1.getActivity(),
+                android.R.layout.simple_spinner_dropdown_item, tiposMovimiento);
+        tipoMovimientoSpinner.setAdapter(tipoAdapter);
+        filaMovimiento.addView(tipoMovimientoSpinner);
 
         EditText unidadesEt = new EditText(f1.getActivity());
         unidadesEt.setHint("Unidades");
         unidadesEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        contenedor.addView(unidadesEt);
+        unidadesEt.setPadding(padCeldaPx, padCeldaPx, padCeldaPx, padCeldaPx);
+        filaMovimiento.addView(unidadesEt);
 
-        // Precio unitario: SOLO informativo, de solo lectura — nunca se digita aquí. Se
-        // recalcula en vivo a partir del valor ya escrito (entrada) o del costo promedio
-        // vigente del artículo elegido (salida).
-        TextView precioInfoTv = new TextView(f1.getActivity());
-        precioInfoTv.setText(esSalida
-                ? "Precio unitario (costo promedio vigente): —"
-                : "Precio unitario implícito (valor ÷ unidades): —");
-        contenedor.addView(precioInfoTv);
+        // Entrada: el usuario la digita. Salida: queda deshabilitada — la calcula la app (ver
+        // actualizarMatriz más abajo) a partir del costo promedio ponderado vigente.
+        EditText valorTotalEt = new EditText(f1.getActivity());
+        valorTotalEt.setHint("Valor total");
+        valorTotalEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        valorTotalEt.setPadding(padCeldaPx, padCeldaPx, padCeldaPx, padCeldaPx);
+        filaMovimiento.addView(valorTotalEt);
 
-        SQLiteDatabase dbParaPromedio = f1.ayudante_Class.getReadableDatabase();
+        TextView precioMovimientoTv = celdaTexto("—", padCeldaPx, false);
+        filaMovimiento.addView(precioMovimientoTv);
+        tabla.addView(filaMovimiento);
 
-        Runnable actualizarPrecioInfo = () -> {
-            long unidades;
+        TableRow filaSaldoAnterior = new TableRow(f1.getActivity());
+        filaSaldoAnterior.addView(celdaTexto("Saldo anterior", padCeldaPx, true));
+        filaSaldoAnterior.addView(celdaTexto("—", padCeldaPx, false));
+        TextView saldoAntUnidadesTv = celdaTexto("—", padCeldaPx, false);
+        TextView saldoAntValorTv = celdaTexto("—", padCeldaPx, false);
+        TextView saldoAntPrecioTv = celdaTexto("—", padCeldaPx, false);
+        filaSaldoAnterior.addView(saldoAntUnidadesTv);
+        filaSaldoAnterior.addView(saldoAntValorTv);
+        filaSaldoAnterior.addView(saldoAntPrecioTv);
+        tabla.addView(filaSaldoAnterior);
+
+        TableRow filaNuevoSaldo = new TableRow(f1.getActivity());
+        filaNuevoSaldo.addView(celdaTexto("Nuevo saldo", padCeldaPx, true));
+        filaNuevoSaldo.addView(celdaTexto("—", padCeldaPx, false));
+        TextView nuevoSaldoUnidadesTv = celdaTexto("—", padCeldaPx, false);
+        TextView nuevoSaldoValorTv = celdaTexto("—", padCeldaPx, false);
+        TextView nuevoSaldoPrecioTv = celdaTexto("—", padCeldaPx, false);
+        filaNuevoSaldo.addView(nuevoSaldoUnidadesTv);
+        filaNuevoSaldo.addView(nuevoSaldoValorTv);
+        filaNuevoSaldo.addView(nuevoSaldoPrecioTv);
+        tabla.addView(filaNuevoSaldo);
+
+        // Mensaje de error en vivo (p.ej. sobregiro) — oculto mientras no haya ningún problema;
+        // también se vuelve a validar todo al presionar "Agregar" (ver el positive button).
+        TextView errorTv = new TextView(f1.getActivity());
+        errorTv.setTextColor(Color.RED);
+        errorTv.setVisibility(View.GONE);
+        contenedor.addView(errorTv);
+
+        SQLiteDatabase dbParaCalculos = f1.ayudante_Class.getReadableDatabase();
+        A12_InventarioHelper inventarioHelper = new A12_InventarioHelper();
+
+        // ⭐ Bandera de guardia: en Salida, actualizarMatriz hace valorTotalEt.setText(...) de
+        // forma programática (para mostrar el valor calculado) — sin esta bandera, ese setText
+        // volvería a disparar el TextWatcher de valorTotalEt y causaría una recursión infinita
+        // (setText → onTextChanged → actualizarMatriz → setText → ...).
+        final boolean[] actualizandoProgramaticamente = {false};
+
+        // ⭐ Recalcula toda la matriz en vivo — se dispara al cambiar artículo, tipo de
+        // movimiento, unidades o valor total. Usa SIEMPRE calcularCostoSalida/
+        // obtenerSaldoUnidadesYCosto (las mismas que el guardado real), nunca una copia propia
+        // de la fórmula.
+        Runnable actualizarMatriz = () -> {
+            actualizandoProgramaticamente[0] = true;
             try {
-                unidades = unidadesEt.getText().toString().trim().isEmpty()
-                        ? 0 : Long.parseLong(unidadesEt.getText().toString().trim());
-            } catch (NumberFormatException e) {
-                unidades = 0;
-            }
-            if (esSalida) {
-                int posicion = articuloSpinner.getSelectedItemPosition();
-                if (posicion < 0 || posicion >= items.size()) {
-                    precioInfoTv.setText("Precio unitario (costo promedio vigente): —");
+                errorTv.setVisibility(View.GONE);
+
+                int posicionArticulo = articuloSpinner.getSelectedItemPosition();
+                if (posicionArticulo < 0 || posicionArticulo >= items.size()) {
+                    saldoAntUnidadesTv.setText("—");
+                    saldoAntValorTv.setText("—");
+                    saldoAntPrecioTv.setText("—");
+                    precioMovimientoTv.setText("—");
+                    nuevoSaldoUnidadesTv.setText("—");
+                    nuevoSaldoValorTv.setText("—");
+                    nuevoSaldoPrecioTv.setText("—");
                     return;
                 }
+
+                long itemId = items.get(posicionArticulo).itemId;
+                long[] saldoAntes = inventarioHelper.obtenerSaldoUnidadesYCosto(dbParaCalculos, itemId);
+                long saldoAntUnidades = saldoAntes[0];
+                long saldoAntValor = saldoAntes[1];
+
+                saldoAntUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                saldoAntValorTv.setText(String.valueOf(saldoAntValor));
+                saldoAntPrecioTv.setText(saldoAntUnidades > 0
+                        ? formatearPrecioInformativo((double) saldoAntValor / (double) saldoAntUnidades)
+                        : "—");
+
+                boolean esSalida = tipoMovimientoSpinner.getSelectedItemPosition() == 1;
+                valorTotalEt.setEnabled(!esSalida);
+
+                String unidadesTexto = unidadesEt.getText().toString().trim();
+                long unidades;
                 try {
-                    double costoPromedio = new A12_InventarioHelper()
-                            .calcularCostoPromedioPonderado(dbParaPromedio, items.get(posicion).itemId);
-                    precioInfoTv.setText("Precio unitario (costo promedio vigente): $ " +
-                            formatearPrecioInformativo(costoPromedio));
-                } catch (IllegalStateException e) {
-                    precioInfoTv.setText(
-                            "Precio unitario (costo promedio vigente): sin saldo para vender");
-                }
-            } else {
-                if (unidades <= 0 || valorYaEscrito.isEmpty()) {
-                    precioInfoTv.setText("Precio unitario implícito (valor ÷ unidades): —");
-                    return;
-                }
-                try {
-                    long valorMagnitud = Math.abs(Long.parseLong(valorYaEscrito));
-                    double precioImplicito = Math.round(
-                            (double) valorMagnitud / (double) unidades * 1000.0) / 1000.0;
-                    precioInfoTv.setText("Precio unitario implícito (valor ÷ unidades): $ " +
-                            formatearPrecioInformativo(precioImplicito));
+                    unidades = unidadesTexto.isEmpty() ? 0 : Long.parseLong(unidadesTexto);
                 } catch (NumberFormatException e) {
-                    precioInfoTv.setText("Precio unitario implícito (valor ÷ unidades): —");
+                    unidades = 0;
                 }
+
+                if (unidades <= 0) {
+                    if (esSalida) valorTotalEt.setText("");
+                    precioMovimientoTv.setText("—");
+                    nuevoSaldoUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                    nuevoSaldoValorTv.setText(String.valueOf(saldoAntValor));
+                    nuevoSaldoPrecioTv.setText(saldoAntPrecioTv.getText());
+                    return;
+                }
+
+                long movUnidadesConSigno;
+                long movValorConSigno;
+
+                if (esSalida) {
+                    try {
+                        long costoSalida = inventarioHelper.calcularCostoSalida(dbParaCalculos, itemId, unidades);
+                        movUnidadesConSigno = -unidades;
+                        movValorConSigno = -costoSalida;
+                        valorTotalEt.setText("-" + costoSalida);
+                        precioMovimientoTv.setText(
+                                formatearPrecioInformativo((double) costoSalida / (double) unidades));
+                    } catch (IllegalStateException e) {
+                        valorTotalEt.setText("");
+                        precioMovimientoTv.setText("—");
+                        nuevoSaldoUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                        nuevoSaldoValorTv.setText(String.valueOf(saldoAntValor));
+                        nuevoSaldoPrecioTv.setText(saldoAntPrecioTv.getText());
+                        errorTv.setText(e.getMessage());
+                        errorTv.setVisibility(View.VISIBLE);
+                        return;
+                    }
+                } else {
+                    String valorTexto = valorTotalEt.getText().toString().trim();
+                    long valorTotal;
+                    try {
+                        valorTotal = valorTexto.isEmpty() ? 0 : Long.parseLong(valorTexto);
+                    } catch (NumberFormatException e) {
+                        valorTotal = 0;
+                    }
+                    if (valorTotal <= 0) {
+                        precioMovimientoTv.setText("—");
+                        nuevoSaldoUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                        nuevoSaldoValorTv.setText(String.valueOf(saldoAntValor));
+                        nuevoSaldoPrecioTv.setText(saldoAntPrecioTv.getText());
+                        return;
+                    }
+                    movUnidadesConSigno = unidades;
+                    movValorConSigno = valorTotal;
+                    precioMovimientoTv.setText(
+                            formatearPrecioInformativo((double) valorTotal / (double) unidades));
+                }
+
+                long nuevoSaldoUnidades = saldoAntUnidades + movUnidadesConSigno;
+                long nuevoSaldoValor = saldoAntValor + movValorConSigno;
+                nuevoSaldoUnidadesTv.setText(String.valueOf(nuevoSaldoUnidades));
+                nuevoSaldoValorTv.setText(String.valueOf(nuevoSaldoValor));
+                nuevoSaldoPrecioTv.setText(nuevoSaldoUnidades > 0
+                        ? formatearPrecioInformativo((double) nuevoSaldoValor / (double) nuevoSaldoUnidades)
+                        : "—");
+            } finally {
+                actualizandoProgramaticamente[0] = false;
             }
         };
-        actualizarPrecioInfo.run();
+        actualizarMatriz.run();
 
         TextWatcher recalcularAlEscribir = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
-            @Override public void onTextChanged(CharSequence s, int st, int b, int c) { actualizarPrecioInfo.run(); }
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) {
+                if (actualizandoProgramaticamente[0]) return;
+                actualizarMatriz.run();
+            }
             @Override public void afterTextChanged(Editable e) {}
         };
         unidadesEt.addTextChangedListener(recalcularAlEscribir);
+        valorTotalEt.addTextChangedListener(recalcularAlEscribir);
 
-        // Al elegir un artículo (o cambiar de uno a otro), se refresca el precio informativo
-        // (para salida, su costo promedio vigente); si es "+ Crear nuevo artículo…", queda
-        // pendiente de resolver al confirmar el diálogo (ver el positive button más abajo).
         articuloSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                actualizarPrecioInfo.run();
+                actualizarMatriz.run();
+            }
+
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        tipoMovimientoSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                actualizarMatriz.run();
             }
 
             @Override public void onNothingSelected(AdapterView<?> parent) {}
@@ -829,9 +1027,9 @@ public class B12_DocumentPersistence {
 
         AlertDialog dialogo = new AlertDialog.Builder(f1.getActivity())
                 .setTitle("Inventario — \"" + cuentaAlItemList + "\"")
-                .setView(contenedor)
+                .setView(scroll)
                 .setCancelable(true)
-                .setOnDismissListener(d -> dbParaPromedio.close())
+                .setOnDismissListener(d -> dbParaCalculos.close())
                 .setPositiveButton("Agregar", null) // se sobreescribe abajo para no cerrar en error
                 .setNegativeButton("Cancelar", (d, which) -> d.dismiss())
                 .create();
@@ -848,13 +1046,6 @@ public class B12_DocumentPersistence {
                         // arriba.
                         dialogo.dismiss();
                         mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId);
-                        return;
-                    }
-
-                    if (valorYaEscrito.isEmpty()) {
-                        Toast.makeText(f1.getActivity(),
-                                "Falta el valor — escríbelo en el formulario antes de elegir la " +
-                                        "cuenta.", Toast.LENGTH_LONG).show();
                         return;
                     }
 
@@ -879,55 +1070,57 @@ public class B12_DocumentPersistence {
                     }
 
                     A12_InventarioHelper.ItemInventario itemElegido = items.get(posicionSeleccionada);
-                    long unidadesConSigno = esSalida ? -unidadesMagnitud : unidadesMagnitud;
+                    boolean esSalida = tipoMovimientoSpinner.getSelectedItemPosition() == 1;
+                    String signoDelDialogo = esSalida ? "-" : "+";
 
-                    // Precio unitario informativo (campo 21) — ⭐ REDISEÑO v15: es un Double
-                    // (antes Long, redondeado al entero) — se calcula aquí SOLO para mostrarlo
-                    // más adelante si hiciera falta; el guardado real (costo_total, en el
-                    // helper) lo vuelve a calcular de forma independiente, sin depender de este
-                    // valor.
-                    Double precioInformativo;
+                    // ⭐ Se recalcula de nuevo aquí, fresco, en vez de confiar en lo que mostró la
+                    // última recalculación en vivo — misma fórmula/única fuente de verdad,
+                    // incluido el bloqueo de sobregiro (calcularCostoSalida).
+                    long valorTotalMagnitud;
                     if (esSalida) {
                         try {
-                            precioInformativo = new A12_InventarioHelper()
-                                    .calcularCostoPromedioPonderado(dbParaPromedio, itemElegido.itemId);
+                            valorTotalMagnitud = inventarioHelper.calcularCostoSalida(
+                                    dbParaCalculos, itemElegido.itemId, unidadesMagnitud);
                         } catch (IllegalStateException e) {
-                            Toast.makeText(f1.getActivity(),
-                                    "\"" + itemElegido.nombre + "\" no tiene saldo disponible " +
-                                            "para vender.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(f1.getActivity(), e.getMessage(), Toast.LENGTH_LONG).show();
                             return;
                         }
                     } else {
-                        long valorMagnitud;
-                        try {
-                            valorMagnitud = Math.abs(Long.parseLong(valorYaEscrito));
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(f1.getActivity(), "Valor inválido",
+                        String valorTexto = valorTotalEt.getText().toString().trim();
+                        if (valorTexto.isEmpty()) {
+                            Toast.makeText(f1.getActivity(), "Falta el valor total de la entrada",
                                     Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        double precioCalculado = Math.round(
-                                (double) valorMagnitud / (double) unidadesMagnitud * 1000.0) / 1000.0;
-                        if (precioCalculado <= 0) {
-                            Toast.makeText(f1.getActivity(),
-                                    "El precio unitario implícito (valor ÷ unidades) no es " +
-                                            "válido — revisa el valor y las unidades.",
-                                    Toast.LENGTH_LONG).show();
+                        try {
+                            valorTotalMagnitud = Math.abs(Long.parseLong(valorTexto));
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(f1.getActivity(), "Valor total inválido",
+                                    Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        precioInformativo = precioCalculado;
+                        if (valorTotalMagnitud <= 0) {
+                            Toast.makeText(f1.getActivity(),
+                                    "El valor total de la entrada debe ser mayor que 0",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
                     }
 
-                    // El monto, el signo y la descripción del ítem son EXACTAMENTE los que ya
-                    // estaban en el formulario cuando se abrió este diálogo (valorYaEscrito,
-                    // signoYaElegido, descripcionYaEscrita) — nunca se releen los widgets en
-                    // vivo aquí, igual que el camino normal (losDemasRegistrosAListaDocumento).
+                    double precioInformativoDouble =
+                            (double) valorTotalMagnitud / (double) unidadesMagnitud;
+
+                    // ⭐ REDISEÑO v16: el valor contable del ítem ya NO viene de f1.valor_XEt (que
+                    // a esta altura del nuevo orden ni se ha tocado) — viene del "Valor total" de
+                    // "Este movimiento", calculado/digitado en este mismo diálogo. El signo
+                    // también lo determina este diálogo (su propio Tipo de movimiento), nunca el
+                    // signo_XSp del formulario.
                     A3_2_TipoTransaccionesGetsYSets nuevoItem = f1.calculator.construirItemRegistro(
                             f1.nuevoNumeroDocEnAdicionar_String,
                             f1.listaDocumento_ArrayLTT.size() + 1,
                             cuentaAlItemList,
-                            signoYaElegido,
-                            valorYaEscrito,
+                            signoDelDialogo,
+                            String.valueOf(valorTotalMagnitud),
                             descripcionYaEscrita,
                             A99_MetodosVarios.stringFechaYHora,
                             f1.DateOfDocument_Integer,
@@ -939,15 +1132,28 @@ public class B12_DocumentPersistence {
                         return;
                     }
 
+                    long unidadesConSigno = esSalida ? -unidadesMagnitud : unidadesMagnitud;
                     nuevoItem.tipoTset_19ItemInventarioIdMetodoEnA5(itemElegido.itemId);
                     nuevoItem.tipoTset_20UnidadesInventarioMetodoEnA5(unidadesConSigno);
-                    nuevoItem.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(precioInformativo);
+                    nuevoItem.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(precioInformativoDouble);
 
                     agregarItemAListaYRefrescarUI(nuevoItem);
                     dialogo.dismiss();
                 }));
 
         dialogo.show();
+    }
+
+    // ⭐ NUEVO v16: celda reutilizable de la matriz del diálogo de inventario — una TextView con
+    // el mismo padding/estilo en todas las celdas, para no repetir la construcción.
+    private TextView celdaTexto(String texto, int paddingPx, boolean negrita) {
+        TextView tv = new TextView(f1.getActivity());
+        tv.setText(texto);
+        tv.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+        if (negrita) {
+            tv.setTypeface(tv.getTypeface(), Typeface.BOLD);
+        }
+        return tv;
     }
 
     // ⭐ NUEVO v15: formatea un precio unitario informativo (double, hasta 3 decimales) para

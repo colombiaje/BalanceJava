@@ -288,12 +288,23 @@ public class RecordDocumentUnit {
             @Override public void afterTextChanged(Editable e) {}
         });
 
+        // ⭐ REORDEN UX — v16 (1-oct, a pedido de Jorge): el orden de digitación pasa de
+        // (valor, descripción, signo, cuenta) a (descripción, cuenta, valor, signo). La razón:
+        // con cuenta al final (orden viejo), el formulario no sabía si una cuenta manejaba
+        // inventario hasta DESPUÉS de que el usuario ya hubiera escrito valor — pero en
+        // inventario, el valor correcto depende del cálculo de costeo (artículo/unidades/saldo),
+        // que solo existe DESPUÉS de conocer la cuenta. Con cuenta en la posición 2, el
+        // formulario ya sabe si hay inventario ANTES de pedir valor, así que para esas cuentas
+        // el usuario nunca escribe valor a mano — lo llena el diálogo (ver
+        // B12_DocumentPersistence.mostrarDialogoRegistroInventario, que ahora también fija el
+        // signo y agrega el ítem directamente al confirmar, sin pasar por el spinner de signo).
+        // Por eso esta validación, que antes exigía valor+signo+descripción (los 3 campos que
+        // en el orden viejo ya estaban llenos al llegar aquí), ahora solo exige descripción —
+        // valor y signo todavía no se han digitado en el orden nuevo.
         f1.cuenta_XAtv.setOnItemClickListener((parent, view, i, l) -> {
-            if (f1.valor_XEt.getText().toString().isEmpty()
-                    || f1.signo_XSp.getSelectedItem().toString().isEmpty()
-                    || f1.descripcion_XAtv.getText().toString().isEmpty()) {
+            if (f1.descripcion_XAtv.getText().toString().isEmpty()) {
                 f1.cuenta_XSp.setSelection(0);
-                Toast.makeText(f1.getActivity(), "Faltan datos", Toast.LENGTH_SHORT).show();
+                Toast.makeText(f1.getActivity(), "Falta la descripcion", Toast.LENGTH_SHORT).show();
             } else {
                 f1.cuenta_XSp.setSelection(
                         f1.accountAllAz_List.indexOf(
@@ -332,16 +343,20 @@ public class RecordDocumentUnit {
                             : Color.parseColor("#1de9b6"));
 
                     if (!selected.isEmpty()) {
-                        f1.copiarValorAnterior_String = f1.valor_XEt.getText().toString();
-                        f1.copiarSigno_String = f1.signo_XSp.getSelectedItem().toString();
+                        // ⭐ REORDEN UX — v16: ya NO se captura aquí copiarValorAnterior_String
+                        // ni copiarSigno_String — con el orden nuevo, valor y signo todavía
+                        // están vacíos en este punto (se digitan DESPUÉS de cuenta), así que
+                        // capturarlos aquí copiaría cadenas vacías y rompería el botón "pegar
+                        // valor/signo anterior". Esa captura se mueve a
+                        // setupSignoSpinner(), que es ahora el disparador real del registro
+                        // (ver el comentario de clase ahí). copiarDesripcionAnterior_String
+                        // sí sigue teniendo sentido aquí: descripción ya se digitó antes.
                         f1.copiarDesripcionAnterior_String =
                                 f1.descripcion_XAtv.getText().toString();
                         f1.copiarCuentaSpinnerAnterior_String = selected;
                         f1.losDemasRegistrosAListaDocumento();
                         f1.digitarFisicoVsSaldoConciliacion();
                         f1.ocultarTeclado();
-                        f1.renumerarItemsListaDocumento();
-                        f1.pasarItemListaTodoResumidoAItemListaRevision();
                     }
                 }
                 f1.digitarFisicoVsSaldoConciliacion();
@@ -355,6 +370,13 @@ public class RecordDocumentUnit {
     }
 
     // Spinner signo (+/-) — refresca adaptador al seleccionar
+    // ⭐ REORDEN UX — v16 (1-oct): signo pasa a ser la ÚLTIMA casilla del nuevo orden de
+    // digitación (descripción, cuenta, valor, signo) y toma el rol de "disparador" que agrega
+    // el ítem a la lista — rol que antes cumplía la selección de cuenta (ver el comentario de
+    // clase en B12_DocumentPersistence.losDemasRegistrosAListaDocumento()). Para una cuenta con
+    // inventario, el ítem ya quedó agregado al confirmar el diálogo (que también fija valor y
+    // signo) al elegir cuenta — en ese caso el formulario ya está limpio cuando el usuario
+    // llega a signo para el ítem SIGUIENTE, así que este disparador no hace nada indebido.
     private void setupSignoSpinner() {
         f1.signo_XSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -376,6 +398,22 @@ public class RecordDocumentUnit {
                 f1.signo_XSp.setBackgroundTintList(
                         ColorStateList.valueOf(Color.parseColor("#1de9b6")));
                 f1.seeGridLAyoutAccount();
+
+                if (!f1.enModoModificacion) {
+                    // ⭐ REORDEN UX — v16: captura para los botones "pegar valor/signo
+                    // anterior" — se mueve aquí desde setupCuentaSpinner() porque ahora es
+                    // este el punto donde valor y signo ya están realmente digitados (ver el
+                    // comentario ahí). Se captura ANTES de confirmar el registro, porque
+                    // confirmarRegistroAlElegirSigno() termina limpiando estos campos.
+                    f1.copiarValorAnterior_String = f1.valor_XEt.getText().toString();
+                    f1.copiarSigno_String = selected;
+                    f1.confirmarRegistroAlElegirSigno();
+                    f1.digitarFisicoVsSaldoConciliacion();
+                    f1.renumerarItemsListaDocumento();
+                    f1.pasarItemListaTodoResumidoAItemListaRevision();
+                    f1.sumarItemListaDocumento();
+                    f1.actualizarSumasListado();
+                }
             }
 
             @Override
