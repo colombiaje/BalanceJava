@@ -1028,16 +1028,18 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         fragmentF7.show(getFragmentManager().beginTransaction(), "llamadoDesdeF1");
     }
 
+    // ⭐ REORDEN UX — v16 fix (1-oct, a pedido de Jorge): este método ocultaba cuenta_XGL
+    // (cuenta_XAtv + cuenta_XSp) hasta que valor+descripción+signo estuvieran llenos — correcto
+    // en el orden VIEJO (valor, descripción, signo, cuenta — cuenta era el último campo, así que
+    // tenía sentido revelarlo al final). Con el reorden v16 (descripción, cuenta, valor, signo),
+    // cuenta es el SEGUNDO campo: valor y signo todavía no se han tocado cuando el usuario llega
+    // aquí, así que esta condición nunca se cumplía y cuenta_XGL quedaba oculto todo el tiempo
+    // (reportado por Jorge, con captura de pantalla). Por ahora, a su pedido explícito, se deja
+    // de ocultar cualquiera de los 4 campos del formulario para evitar confusiones — se puede
+    // retomar una revelación progresiva más adelante, ya rediseñada para el nuevo orden, si hace
+    // falta.
     public void seeGridLAyoutAccount() {
-
-        if (valor_XEt.getText().length() > 0 && descripcion_XAtv.getText().length() > 0
-                && signo_XSp.getSelectedItem().toString().length() > 0) {
-
-            cuenta_XGL.setVisibility(View.VISIBLE);
-
-        } else {
-            cuenta_XGL.setVisibility(View.GONE);
-        }
+        cuenta_XGL.setVisibility(View.VISIBLE);
     }
 
     private void dynamicQueryLastDocument() {

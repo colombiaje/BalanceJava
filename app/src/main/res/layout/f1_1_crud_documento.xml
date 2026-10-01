@@ -887,6 +887,12 @@
             >
 
             <!--subarea 1 conciliacion -->
+            <!-- ⭐ REORDEN UX — v16 fix (1-oct, a pedido de Jorge): esta sección pasa de
+                 app:layout_row="0" a "1" — ahora se visualiza DESPUÉS de
+                 seccion2HaceRegistroItemLista_XGl (descripción+cuenta, ver más abajo, que pasa
+                 de "1" a "0"), para que cuenta_XAtv/cuenta_XSp queden visibles de inmediato al
+                 abrir el formulario, sin que el usuario tenga que pasar primero por "A
+                 conciliar". -->
             <androidx.gridlayout.widget.GridLayout
                 android:id="@+id/areaConciliacion_XGl"
                 android:layout_width="400dp"
@@ -894,7 +900,7 @@
                 app:rowCount="11"
                 app:columnCount="2"
                 app:useDefaultMargins="true"
-                app:layout_row="0"
+                app:layout_row="1"
                 app:layout_column="0"
                 app:layout_gravity="center_horizontal"
                 android:background="@drawable/bg_white_square"
@@ -1104,13 +1110,18 @@
                  ahora se visualiza ANTES que la sección de "valor" (ver arriba). Internamente
                  ya tenía el orden correcto (descripción en su fila interna "2", cuenta_XGL en
                  la "3", debajo) — no se tocó esa parte, solo se sacó signo_XSp de la fila de
-                 descripción (ver más abajo) porque ahora vive junto a "valor". -->
+                 descripción (ver más abajo) porque ahora vive junto a "valor".
+                 ⭐ REORDEN UX — v16 fix (1-oct, a pedido de Jorge): esta sección pasa de nuevo,
+                 de app:layout_row="1" a "0" — ahora es la PRIMERA (antes de
+                 areaConciliacion_XGl, que pasa de "0" a "1" — ver arriba), para que
+                 cuenta_XAtv/cuenta_XSp queden visibles de inmediato, sin tener que pasar primero
+                 por "A conciliar". -->
             <androidx.gridlayout.widget.GridLayout
                 android:id="@+id/seccion2HaceRegistroItemLista_XGl"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#FDFDFC"
-                app:layout_row="1"
+                app:layout_row="0"
                 app:layout_column="0"
                 app:layout_gravity="center"
                 app:rowCount="11"
