@@ -588,6 +588,22 @@
                 android:textSize="15dp"
                 app:layout_gravity="center" />
 
+            <!-- ⭐ NUEVO (1-oct, Tanda 5, pedido de Jorge): historial básico de movimientos de
+                 inventario por cuenta/artículo. Solo visible en "Modificar cuenta" cuando la
+                 cuenta cargada ya tiene con_inventario = 1 (ver
+                 F2_Cuentas.mostrarOcultarBotonHistorialInventario()). -->
+            <Button
+                android:id="@+id/verHistorialInventario_XBt"
+                android:layout_width="150dp"
+                android:layout_height="35dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_lilac_square"
+                android:text="Ver historial inv."
+                android:textColor="@android:color/black"
+                android:textSize="13dp"
+                android:visibility="gone"
+                app:layout_gravity="center" />
+
 
         </LinearLayout>
 
