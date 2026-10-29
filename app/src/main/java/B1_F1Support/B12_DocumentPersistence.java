@@ -1513,6 +1513,11 @@ public class B12_DocumentPersistence {
     // abierto (con lista de lo ya guardado en esta sesión); "Guardar y terminar" guarda el
     // que esté escrito, si hay algo, y vuelve al registro; "Cancelar" vuelve sin guardar,
     // igual que antes.
+    // ⭐ CORREGIDO (29-oct, reportado por Jorge: "no veo la opción de nuevo artículo", igual
+    // que en F2_Cuentas): la primera versión ponía los 3 botones en la barra estándar de
+    // AlertDialog — con textos largos puede recortar/esconder uno en pantallas angostas.
+    // Mismo arreglo que allá: "Guardar y agregar otro"/"Guardar y terminar" pasan a ser
+    // botones normales DENTRO del diálogo; solo "Cancelar" queda en la barra estándar.
     private void mostrarDialogoNuevoArticulo(
             String cuentaAlItemList, String[] atributosCuenta, long cuentaId, Integer posicionAEditar) {
         int paddingPx = (int) (16 * f1.getResources().getDisplayMetrics().density);
@@ -1535,47 +1540,51 @@ public class B12_DocumentPersistence {
 
         final ArrayList<String> articulosAgregados = new ArrayList<>();
 
+        Button guardarYAgregarOtroBtn = new Button(f1.getActivity());
+        guardarYAgregarOtroBtn.setText("Guardar y agregar otro");
+        contenedor.addView(guardarYAgregarOtroBtn);
+
+        Button guardarYTerminarBtn = new Button(f1.getActivity());
+        guardarYTerminarBtn.setText("Guardar y terminar");
+        contenedor.addView(guardarYTerminarBtn);
+
         AlertDialog dialogoArticulo = new AlertDialog.Builder(f1.getActivity())
                 .setTitle("Nuevo artículo de \"" + cuentaAlItemList + "\"")
                 .setView(contenedor)
                 .setCancelable(true)
-                .setPositiveButton("Guardar y agregar otro", null)
-                .setNeutralButton("Guardar y terminar", null)
                 .setNegativeButton("Cancelar", (dialog, which) ->
                         mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar))
                 .create();
 
-        dialogoArticulo.setOnShowListener(dialogInterface -> {
-            dialogoArticulo.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                String nombre = nombreArticuloEt.getText().toString().trim();
-                if (nombre.isEmpty()) {
-                    Toast.makeText(f1.getActivity(), "Falta el nombre del artículo",
-                            Toast.LENGTH_SHORT).show();
-                    return;
-                }
+        guardarYAgregarOtroBtn.setOnClickListener(v -> {
+            String nombre = nombreArticuloEt.getText().toString().trim();
+            if (nombre.isEmpty()) {
+                Toast.makeText(f1.getActivity(), "Falta el nombre del artículo",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String unidad = unidadArticuloEt.getText().toString().trim();
+            if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
+            }
+            articulosAgregados.add(nombre);
+            yaAgregadosTv.setText("Ya agregados: " + TextUtils.join(", ", articulosAgregados));
+            yaAgregadosTv.setVisibility(View.VISIBLE);
+            nombreArticuloEt.setText("");
+            unidadArticuloEt.setText("");
+            nombreArticuloEt.requestFocus();
+        });
+
+        guardarYTerminarBtn.setOnClickListener(v -> {
+            String nombre = nombreArticuloEt.getText().toString().trim();
+            if (!nombre.isEmpty()) {
                 String unidad = unidadArticuloEt.getText().toString().trim();
                 if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
-                    return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
+                    return; // error ya avisado — no cierra, para corregir o borrar y terminar
                 }
-                articulosAgregados.add(nombre);
-                yaAgregadosTv.setText("Ya agregados: " + TextUtils.join(", ", articulosAgregados));
-                yaAgregadosTv.setVisibility(View.VISIBLE);
-                nombreArticuloEt.setText("");
-                unidadArticuloEt.setText("");
-                nombreArticuloEt.requestFocus();
-            });
-
-            dialogoArticulo.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
-                String nombre = nombreArticuloEt.getText().toString().trim();
-                if (!nombre.isEmpty()) {
-                    String unidad = unidadArticuloEt.getText().toString().trim();
-                    if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
-                        return; // error ya avisado — no cierra, para corregir o borrar y terminar
-                    }
-                }
-                dialogoArticulo.dismiss();
-                mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar);
-            });
+            }
+            dialogoArticulo.dismiss();
+            mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar);
         });
 
         dialogoArticulo.show();

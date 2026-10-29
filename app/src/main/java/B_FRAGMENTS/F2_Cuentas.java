@@ -1253,9 +1253,17 @@ public class F2_Cuentas extends DialogFragment {
     // registrar una transacción. Ahora "Guardar y agregar otro" guarda y deja el diálogo
     // abierto (con una lista de lo ya guardado en esta sesión, visible dentro del propio
     // diálogo); "Guardar y terminar" guarda el que esté escrito, si hay algo, y cierra;
-    // "Ahora no" cancela igual que antes. Para que el botón positivo NO cierre el diálogo
-    // (comportamiento por defecto de AlertDialog), los 3 listeners se enganchan después de
-    // mostrarlo, vía dialog.getButton(...) — patrón estándar de Android para esto.
+    // "Ahora no" cancela igual que antes.
+    // ⭐ CORREGIDO (29-oct, reportado por Jorge: "no veo la opción de nuevo artículo"): la
+    // primera versión de este cambio ponía los 3 botones en la barra estándar de
+    // AlertDialog (positive/neutral/negative). Con textos largos ("Guardar y agregar
+    // otro"/"Guardar y terminar") esa barra puede recortar o esconder un botón en pantallas
+    // angostas — problema conocido de Android, no algo que se arregle acortando el texto.
+    // Se sacan los dos botones de guardar de esa barra y se ponen como botones normales
+    // DENTRO del diálogo (mismo criterio ya usado en este archivo para
+    // verHistorialDesdeRegistroBtn) — así siempre son visibles, sin depender del ancho de
+    // pantalla. Solo "Ahora no" queda en la barra estándar (un botón solo, texto corto, sin
+    // ese riesgo).
     private void mostrarDialogoPrimerArticulo(long cuentaId, String nombreCuenta) {
         LinearLayout contenedor = new LinearLayout(getActivity());
         contenedor.setOrientation(LinearLayout.VERTICAL);
@@ -1277,48 +1285,52 @@ public class F2_Cuentas extends DialogFragment {
 
         final ArrayList<String> articulosAgregados_List = new ArrayList<>();
 
+        Button guardarYAgregarOtro_XBt = new Button(getActivity());
+        guardarYAgregarOtro_XBt.setText("Guardar y agregar otro");
+        contenedor.addView(guardarYAgregarOtro_XBt);
+
+        Button guardarYTerminar_XBt = new Button(getActivity());
+        guardarYTerminar_XBt.setText("Guardar y terminar");
+        contenedor.addView(guardarYTerminar_XBt);
+
         AlertDialog dialogoArticulo = new AlertDialog.Builder(getActivity())
                 .setTitle("Primer artículo de \"" + nombreCuenta + "\"")
                 .setMessage("Esta cuenta maneja inventario — da de alta al menos un artículo " +
                         "(por ejemplo, \"Ecopetrol\" o \"USD\"). Puedes agregar varios.")
                 .setView(contenedor)
                 .setCancelable(false)
-                .setPositiveButton("Guardar y agregar otro", null)
-                .setNeutralButton("Guardar y terminar", null)
                 .setNegativeButton("Ahora no", (dialog, which) -> dialog.dismiss())
                 .create();
 
-        dialogoArticulo.setOnShowListener(dialogInterface -> {
-            dialogoArticulo.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                String nombre = nombreArticulo_XEt.getText().toString().trim();
-                if (nombre.isEmpty()) {
-                    Toast.makeText(getActivity(), "Falta el nombre del artículo",
-                            Toast.LENGTH_SHORT).show();
-                    return;
-                }
+        guardarYAgregarOtro_XBt.setOnClickListener(v -> {
+            String nombre = nombreArticulo_XEt.getText().toString().trim();
+            if (nombre.isEmpty()) {
+                Toast.makeText(getActivity(), "Falta el nombre del artículo",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String unidad = unidadArticulo_XEt.getText().toString().trim();
+            if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
+            }
+            articulosAgregados_List.add(nombre);
+            yaAgregados_XTv.setText(
+                    "Ya agregados: " + TextUtils.join(", ", articulosAgregados_List));
+            yaAgregados_XTv.setVisibility(View.VISIBLE);
+            nombreArticulo_XEt.setText("");
+            unidadArticulo_XEt.setText("");
+            nombreArticulo_XEt.requestFocus();
+        });
+
+        guardarYTerminar_XBt.setOnClickListener(v -> {
+            String nombre = nombreArticulo_XEt.getText().toString().trim();
+            if (!nombre.isEmpty()) {
                 String unidad = unidadArticulo_XEt.getText().toString().trim();
                 if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
-                    return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
+                    return; // error ya avisado — no cierra, para corregir o borrar y terminar
                 }
-                articulosAgregados_List.add(nombre);
-                yaAgregados_XTv.setText(
-                        "Ya agregados: " + TextUtils.join(", ", articulosAgregados_List));
-                yaAgregados_XTv.setVisibility(View.VISIBLE);
-                nombreArticulo_XEt.setText("");
-                unidadArticulo_XEt.setText("");
-                nombreArticulo_XEt.requestFocus();
-            });
-
-            dialogoArticulo.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
-                String nombre = nombreArticulo_XEt.getText().toString().trim();
-                if (!nombre.isEmpty()) {
-                    String unidad = unidadArticulo_XEt.getText().toString().trim();
-                    if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
-                        return; // error ya avisado — no cierra, para corregir o borrar y terminar
-                    }
-                }
-                dialogoArticulo.dismiss();
-            });
+            }
+            dialogoArticulo.dismiss();
         });
 
         dialogoArticulo.show();
