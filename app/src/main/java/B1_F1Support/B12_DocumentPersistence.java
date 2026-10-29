@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
@@ -1505,6 +1506,13 @@ public class B12_DocumentPersistence {
     // se perdía. Se agrega "posicionAEditar" para volver al MISMO modo del que se vino (edición
     // del mismo ítem, o agregar nuevo) — con el artículo recién creado ya disponible en el
     // selector en cualquiera de los dos casos.
+    // ⭐ CAMBIO (29-oct, pedido de Jorge con captura de pantalla): antes solo dejaba crear UN
+    // artículo y volvía de inmediato a mostrarDialogoRegistroInventario — mismo cambio ya
+    // hecho en F2_Cuentas.mostrarDialogoPrimerArticulo (tanda 6), por el mismo pedido de
+    // Jorge, aplicado aquí también. "Guardar y agregar otro" guarda y deja el diálogo
+    // abierto (con lista de lo ya guardado en esta sesión); "Guardar y terminar" guarda el
+    // que esté escrito, si hay algo, y vuelve al registro; "Cancelar" vuelve sin guardar,
+    // igual que antes.
     private void mostrarDialogoNuevoArticulo(
             String cuentaAlItemList, String[] atributosCuenta, long cuentaId, Integer posicionAEditar) {
         int paddingPx = (int) (16 * f1.getResources().getDisplayMetrics().density);
@@ -1520,38 +1528,79 @@ public class B12_DocumentPersistence {
         unidadArticuloEt.setHint("Unidad (opcional)");
         contenedor.addView(unidadArticuloEt);
 
-        new AlertDialog.Builder(f1.getActivity())
+        final TextView yaAgregadosTv = new TextView(f1.getActivity());
+        yaAgregadosTv.setVisibility(View.GONE);
+        yaAgregadosTv.setPadding(0, paddingPx, 0, 0);
+        contenedor.addView(yaAgregadosTv);
+
+        final ArrayList<String> articulosAgregados = new ArrayList<>();
+
+        AlertDialog dialogoArticulo = new AlertDialog.Builder(f1.getActivity())
                 .setTitle("Nuevo artículo de \"" + cuentaAlItemList + "\"")
                 .setView(contenedor)
                 .setCancelable(true)
-                .setPositiveButton("Guardar artículo", (dialog, which) -> {
-                    String nombre = nombreArticuloEt.getText().toString().trim();
-                    if (nombre.isEmpty()) {
-                        Toast.makeText(f1.getActivity(), "Falta el nombre del artículo",
-                                Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    String unidad = unidadArticuloEt.getText().toString().trim();
-                    SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
-                    try {
-                        new A12_InventarioHelper().insertarItemInventario(
-                                db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
-                        Toast.makeText(f1.getActivity(), "Artículo \"" + nombre + "\" guardado",
-                                Toast.LENGTH_SHORT).show();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error al guardar artículo nuevo de inventario", e);
-                        Toast.makeText(f1.getActivity(),
-                                "Error al guardar el artículo: " + e.getMessage(),
-                                Toast.LENGTH_LONG).show();
-                        return;
-                    } finally {
-                        db.close();
-                    }
-                    mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar);
-                })
+                .setPositiveButton("Guardar y agregar otro", null)
+                .setNeutralButton("Guardar y terminar", null)
                 .setNegativeButton("Cancelar", (dialog, which) ->
                         mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar))
-                .show();
+                .create();
+
+        dialogoArticulo.setOnShowListener(dialogInterface -> {
+            dialogoArticulo.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String nombre = nombreArticuloEt.getText().toString().trim();
+                if (nombre.isEmpty()) {
+                    Toast.makeText(f1.getActivity(), "Falta el nombre del artículo",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String unidad = unidadArticuloEt.getText().toString().trim();
+                if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                    return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
+                }
+                articulosAgregados.add(nombre);
+                yaAgregadosTv.setText("Ya agregados: " + TextUtils.join(", ", articulosAgregados));
+                yaAgregadosTv.setVisibility(View.VISIBLE);
+                nombreArticuloEt.setText("");
+                unidadArticuloEt.setText("");
+                nombreArticuloEt.requestFocus();
+            });
+
+            dialogoArticulo.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                String nombre = nombreArticuloEt.getText().toString().trim();
+                if (!nombre.isEmpty()) {
+                    String unidad = unidadArticuloEt.getText().toString().trim();
+                    if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                        return; // error ya avisado — no cierra, para corregir o borrar y terminar
+                    }
+                }
+                dialogoArticulo.dismiss();
+                mostrarDialogoRegistroInventario(cuentaAlItemList, atributosCuenta, posicionAEditar);
+            });
+        });
+
+        dialogoArticulo.show();
+    }
+
+    // ⭐ NUEVO (29-oct): extraído de mostrarDialogoNuevoArticulo para reusar el mismo
+    // guardado y manejo de errores en "Guardar y agregar otro" y en "Guardar y terminar".
+    // Devuelve true si se guardó, false si hubo un error (ya avisado por Toast al usuario).
+    private boolean guardarArticuloInventario(long cuentaId, String nombre, String unidad) {
+        SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
+        try {
+            new A12_InventarioHelper().insertarItemInventario(
+                    db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
+            Toast.makeText(f1.getActivity(), "Artículo \"" + nombre + "\" guardado",
+                    Toast.LENGTH_SHORT).show();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Error al guardar artículo nuevo de inventario", e);
+            Toast.makeText(f1.getActivity(),
+                    "Error al guardar el artículo: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show();
+            return false;
+        } finally {
+            db.close();
+        }
     }
 
     private Long parseLongSeguro(String valor) {

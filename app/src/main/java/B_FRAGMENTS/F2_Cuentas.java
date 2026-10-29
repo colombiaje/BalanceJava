@@ -1248,6 +1248,14 @@ public class F2_Cuentas extends DialogFragment {
     // cancelar sin bloquear nada — si se deja para después, se puede crear igual al
     // registrar la primera transacción en la tanda 4 (su selector de artículo va a incluir
     // "crear uno nuevo en el momento", según el documento de especificación).
+    // ⭐ CAMBIO (29-oct, pedido de Jorge): antes solo dejaba crear UN artículo y cerraba —
+    // los demás había que crearlos después, uno por uno, desde "+ Crear nuevo artículo…" al
+    // registrar una transacción. Ahora "Guardar y agregar otro" guarda y deja el diálogo
+    // abierto (con una lista de lo ya guardado en esta sesión, visible dentro del propio
+    // diálogo); "Guardar y terminar" guarda el que esté escrito, si hay algo, y cierra;
+    // "Ahora no" cancela igual que antes. Para que el botón positivo NO cierre el diálogo
+    // (comportamiento por defecto de AlertDialog), los 3 listeners se enganchan después de
+    // mostrarlo, vía dialog.getButton(...) — patrón estándar de Android para esto.
     private void mostrarDialogoPrimerArticulo(long cuentaId, String nombreCuenta) {
         LinearLayout contenedor = new LinearLayout(getActivity());
         contenedor.setOrientation(LinearLayout.VERTICAL);
@@ -1262,39 +1270,82 @@ public class F2_Cuentas extends DialogFragment {
         unidadArticulo_XEt.setHint("Unidad (opcional)");
         contenedor.addView(unidadArticulo_XEt);
 
-        new AlertDialog.Builder(getActivity())
+        final TextView yaAgregados_XTv = new TextView(getActivity());
+        yaAgregados_XTv.setVisibility(View.GONE);
+        yaAgregados_XTv.setPadding(0, paddingPx, 0, 0);
+        contenedor.addView(yaAgregados_XTv);
+
+        final ArrayList<String> articulosAgregados_List = new ArrayList<>();
+
+        AlertDialog dialogoArticulo = new AlertDialog.Builder(getActivity())
                 .setTitle("Primer artículo de \"" + nombreCuenta + "\"")
                 .setMessage("Esta cuenta maneja inventario — da de alta al menos un artículo " +
-                        "(por ejemplo, \"Ecopetrol\" o \"USD\").")
+                        "(por ejemplo, \"Ecopetrol\" o \"USD\"). Puedes agregar varios.")
                 .setView(contenedor)
                 .setCancelable(false)
-                .setPositiveButton("Guardar artículo", (dialog, which) -> {
-                    String nombre = nombreArticulo_XEt.getText().toString().trim();
-                    if (nombre.isEmpty()) {
-                        Toast.makeText(getActivity(), "Falta el nombre del artículo",
-                                Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    String unidad = unidadArticulo_XEt.getText().toString().trim();
-                    A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
-                            getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
-                    SQLiteDatabase db = ayudanteBD.getWritableDatabase();
-                    try {
-                        new A12_InventarioHelper().insertarItemInventario(
-                                db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
-                        Toast.makeText(getActivity(), "Artículo \"" + nombre + "\" guardado",
-                                Toast.LENGTH_SHORT).show();
-                    } catch (Exception e) {
-                        Log.e("F2_DEBUG", "Error al guardar el primer artículo de inventario", e);
-                        Toast.makeText(getActivity(),
-                                "Error al guardar el artículo: " + e.getMessage(),
-                                Toast.LENGTH_LONG).show();
-                    } finally {
-                        db.close();
-                    }
-                })
+                .setPositiveButton("Guardar y agregar otro", null)
+                .setNeutralButton("Guardar y terminar", null)
                 .setNegativeButton("Ahora no", (dialog, which) -> dialog.dismiss())
-                .show();
+                .create();
+
+        dialogoArticulo.setOnShowListener(dialogInterface -> {
+            dialogoArticulo.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String nombre = nombreArticulo_XEt.getText().toString().trim();
+                if (nombre.isEmpty()) {
+                    Toast.makeText(getActivity(), "Falta el nombre del artículo",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String unidad = unidadArticulo_XEt.getText().toString().trim();
+                if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                    return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
+                }
+                articulosAgregados_List.add(nombre);
+                yaAgregados_XTv.setText(
+                        "Ya agregados: " + TextUtils.join(", ", articulosAgregados_List));
+                yaAgregados_XTv.setVisibility(View.VISIBLE);
+                nombreArticulo_XEt.setText("");
+                unidadArticulo_XEt.setText("");
+                nombreArticulo_XEt.requestFocus();
+            });
+
+            dialogoArticulo.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                String nombre = nombreArticulo_XEt.getText().toString().trim();
+                if (!nombre.isEmpty()) {
+                    String unidad = unidadArticulo_XEt.getText().toString().trim();
+                    if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                        return; // error ya avisado — no cierra, para corregir o borrar y terminar
+                    }
+                }
+                dialogoArticulo.dismiss();
+            });
+        });
+
+        dialogoArticulo.show();
+    }
+
+    // ⭐ NUEVO (29-oct): extraído de mostrarDialogoPrimerArticulo para reusar el mismo
+    // guardado y manejo de errores en "Guardar y agregar otro" y en "Guardar y terminar".
+    // Devuelve true si se guardó, false si hubo un error (ya avisado por Toast al usuario).
+    private boolean guardarArticuloInventario(long cuentaId, String nombre, String unidad) {
+        A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
+                getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudanteBD.getWritableDatabase();
+        try {
+            new A12_InventarioHelper().insertarItemInventario(
+                    db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
+            Toast.makeText(getActivity(), "Artículo \"" + nombre + "\" guardado",
+                    Toast.LENGTH_SHORT).show();
+            return true;
+        } catch (Exception e) {
+            Log.e("F2_DEBUG", "Error al guardar artículo de inventario", e);
+            Toast.makeText(getActivity(),
+                    "Error al guardar el artículo: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show();
+            return false;
+        } finally {
+            db.close();
+        }
     }
 
     // ⭐ NUEVO MÉTODO para notificar actualización
