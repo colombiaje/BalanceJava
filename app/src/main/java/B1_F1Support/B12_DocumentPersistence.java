@@ -463,20 +463,24 @@ public class B12_DocumentPersistence {
             String strFisico = f1.inputPhysicalVsAccounting_XEt.getText().toString();
             f1.$valorAc = strFisico.isEmpty() ? 0 : Integer.parseInt(strFisico);
 
-            if (f1.$valorAc != 0) {
-                f1.$diferenciaAConciliar_Integer = f1.$sAc - f1.$valorAc;
-                f1.diferenciaAConciliar_XTv.setText("Dif.\n" + f1.$diferenciaAConciliar_Integer);
-            } else {
-                f1.$diferenciaAConciliar_Integer = 0;
-                f1.diferenciaAConciliar_XTv.setText("");
-            }
-
+            // ⭐ CORREGIDO (29-oct): el refresco de $sAc (saldo contable vigente) vivía DESPUÉS
+            // del cálculo de Dif. más abajo — Dif. siempre se calculaba con el saldo del cálculo
+            // ANTERIOR, un paso atrás del que de verdad correspondía a este momento. Se mueve el
+            // refresco aquí arriba para que Dif. y Saldo usen siempre el mismo valor de $sAc.
             if (!f1.cuentaConciliacion_XSp.getSelectedItem().toString().isEmpty()) {
                 f1.dynamicQuerySumByAccountAcordingToArgument();
                 f1.dynamicQueryByAllAccountAz();
                 f1.$sAc = Integer.parseInt(String.valueOf(f1.sumaTransaccionesCuenta2));
             } else {
                 f1.$sAc = 0;
+            }
+
+            if (f1.$valorAc != 0) {
+                f1.$diferenciaAConciliar_Integer = f1.$sAc - f1.$valorAc;
+                f1.diferenciaAConciliar_XTv.setText("Dif.\n" + f1.$diferenciaAConciliar_Integer);
+            } else {
+                f1.$diferenciaAConciliar_Integer = 0;
+                f1.diferenciaAConciliar_XTv.setText("");
             }
 
             f1.$dAc = f1.$sAc - f1.$valorAc;

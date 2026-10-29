@@ -1542,7 +1542,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // decisión a restoreBackups() porque ahí sí se sabe si hay contenido real o no.
         changeOfDateInUpdate_XTv.setText(enc.campo_10_cambioFechaUp);
 
-        // Restauración de Spinners (Ajustar según tu lógica de posición)
+        // Restauración de Spinners — cuentaConciliacion_XSp (campo_11_cuentaConcilia) se
+        // restaura en restoreBackups(), no aquí, porque después de elegirla hay que forzar el
+        // recálculo de Saldo/Dif (ver comentario allá — mismo criterio ya usado con
+        // campo_8_docBuscarEditar).
 
         // Restauración de EditTexts
         inputPhysicalVsAccounting_XEt.setText(enc.campo_12_fisico);
@@ -2276,6 +2279,27 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             // contra la BD cada vez que se entra/restaura esta área.
             dynamicQueryByDocumentinUpdate();
         }
+
+        // ⭐ NUEVO (29-oct, reportado por Jorge con captura de pantalla): "Físico"
+        // (inputPhysicalVsAccounting_XEt) se restauraba desde la caché en aplicarEncabezadoAVistas(),
+        // pero la cuenta de "A conciliar" (cuentaConciliacion_XSp) nunca se restauraba junto con
+        // él — sin cuenta seleccionada, digitarFisicoVsSaldoConciliacion() se niega a calcular
+        // (ver su guard) y lo que queda en pantalla (Saldo/Dif.) es simplemente lo que había
+        // ANTES de salir del área, sin relación con el Físico recién restaurado — de ahí el
+        // "Dif. -5" que no corresponde a nada. Ahora se restaura también la cuenta (ya se
+        // guardaba en caché, campo_11_cuentaConcilia, pero no se usaba) y se fuerza el recálculo
+        // de una vez, sin esperar al callback diferido del Spinner — mismo patrón ya usado en
+        // entrarModoModificacionDesdeItem() (setSelection + llamada explícita).
+        if (enc != null && enc.campo_11_cuentaConcilia != null
+                && !enc.campo_11_cuentaConcilia.isEmpty()
+                && cuentasConciliablesAZ_List != null) {
+            int posicionCuentaConciliar =
+                    cuentasConciliablesAZ_List.indexOf(enc.campo_11_cuentaConcilia);
+            if (posicionCuentaConciliar >= 0) {
+                cuentaConciliacion_XSp.setSelection(posicionCuentaConciliar);
+            }
+        }
+        digitarFisicoVsSaldoConciliacion();
 
         actualizarListView();
 
