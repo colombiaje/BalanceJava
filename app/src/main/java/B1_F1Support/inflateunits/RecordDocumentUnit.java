@@ -116,11 +116,21 @@ public class RecordDocumentUnit {
                         f1.cuentaConciliacion_XSp.setBackgroundColor(Color.parseColor("#1de9b6"));
                         f1.cuentaConciliacion_XSp.setVisibility(View.VISIBLE);
 
+                        // ⭐ NUEVO (29-oct, reportado por Jorge — bug previo, no de este patch):
+                        // al cambiar de cuenta de conciliación, "Físico" se quedaba con el valor
+                        // digitado para la cuenta ANTERIOR, que ya no corresponde a la recién
+                        // elegida. Se limpia aquí (antes solo se limpiaba en la rama "No
+                        // conciliar") — salvo mientras restoreBackups() está restaurando la
+                        // cuenta desde la caché, donde el Físico restaurado SÍ corresponde a
+                        // esta misma cuenta (ver F1_CrudDocumento.restaurandoConciliacion).
+                        if (!f1.restaurandoConciliacion) {
+                            f1.inputPhysicalVsAccounting_XEt.setText("");
+                        }
+
                         if (selected.equals("1 No conciliar")) {
                             f1.saldoCuentaAconciliar_XTv.setVisibility(View.GONE);
                             f1.inputPhysicalVsAccounting_XEt.setVisibility(View.GONE);
                             f1.diferenciaAConciliar_XTv.setVisibility(View.GONE);
-                            f1.inputPhysicalVsAccounting_XEt.setText("");
                         } else {
                             f1.saldoCuentaAconciliar_XTv.setText("saldo: \n" + f1.$sAc);
                             f1.saldoCuentaAconciliar_XTv.setVisibility(View.VISIBLE);

@@ -108,6 +108,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // Controls lifecycle, restoration and navigation behavior
     // =========================================================
     public boolean estaRestaurando          = false;
+    // ⭐ NUEVO (29-oct): true mientras restoreBackups() restaura la cuenta de conciliación
+    // (cuentaConciliacion_XSp) desde la caché — ver el comentario junto a su uso en
+    // restoreBackups() y en RecordDocumentUnit.setupConciliacionSpinner().
+    public boolean restaurandoConciliacion   = false;
     private boolean esReanudacionDeSistema   = false;
     public boolean vieneDeVerItemTransaccion = false;
     private boolean saliendoHaciaF2          = false;
@@ -2296,7 +2300,14 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             int posicionCuentaConciliar =
                     cuentasConciliablesAZ_List.indexOf(enc.campo_11_cuentaConcilia);
             if (posicionCuentaConciliar >= 0) {
+                // ⭐ NUEVO (29-oct): escudo para que el nuevo "limpiar Físico al cambiar de
+                // cuenta" (RecordDocumentUnit.setupConciliacionSpinner, pedido de Jorge) no
+                // borre el Físico que se acaba de restaurar aquí — el aviso de selección del
+                // Spinner llega diferido (post), así que el escudo se apaga un momento después,
+                // no de inmediato (mismo criterio que estaRestaurando más abajo).
+                restaurandoConciliacion = true;
                 cuentaConciliacion_XSp.setSelection(posicionCuentaConciliar);
+                cuentaConciliacion_XSp.postDelayed(() -> restaurandoConciliacion = false, 100);
             }
         }
         digitarFisicoVsSaldoConciliacion();
