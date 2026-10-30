@@ -2921,15 +2921,59 @@ public class F2_Cuentas extends DialogFragment {
         }
 
         int lineasImportadas = 0;
+        // ⭐ NUEVO — diagnóstico (30-oct), igual al de F4_Cierres: cuenta qué pasó con cada
+        // línea y muestra el mensaje real de SQLite del primer fallo. No cambia qué se inserta.
+        int insertadasOk = 0;
+        int fallidas = 0;
+        int omitidas = 0;
+        primerErrorInsercionCuenta = null;
         try (FileReader fileReader = new FileReader(rutaFinal);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
 
             String linea;
             while ((linea = bufferedReader.readLine()) != null) {
                 String[] datos = linea.split(",");
-                insertarCuenta(datos);
+                long resultado = insertarCuenta(datos);
                 lineasImportadas++;
+                if (resultado >= 0) {
+                    insertadasOk++;
+                } else if (resultado == -1L) {
+                    fallidas++;
+                } else {
+                    omitidas++;
+                }
             }
+
+            long cuentasDespues = -1;
+            long filasTipoCuenta = -1;
+            try {
+                A1_1_AyudanteBD ayudanteDiag = new A1_1_AyudanteBD(getActivity(),
+                        balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+                SQLiteDatabase dbDiag = ayudanteDiag.getReadableDatabase();
+                cuentasDespues = DatabaseUtils.queryNumEntries(dbDiag, "cuentas");
+                filasTipoCuenta = DatabaseUtils.queryNumEntries(dbDiag, "tipo_cuenta");
+                dbDiag.close();
+            } catch (Exception eDiag) {
+                Log.e(TAG, "Diagnóstico: no se pudo contar cuentas/tipo_cuenta: " + eDiag.getMessage());
+            }
+
+            String resumen = "Diagnóstico de importación de cuentas\n\n"
+                    + "Archivo: " + nombreArchivo + "\n"
+                    + "Ruta: " + rutaFinal + "\n\n"
+                    + "Líneas leídas: " + lineasImportadas + "\n"
+                    + "Insertadas correctamente: " + insertadasOk + "\n"
+                    + "Fallidas al insertar: " + fallidas + "\n"
+                    + "Omitidas (encabezado/datos incompletos/otro): " + omitidas + "\n\n"
+                    + "Cuentas en la tabla ahora: " + cuentasDespues + "\n"
+                    + "Filas en tipo_cuenta: " + filasTipoCuenta + "\n\n"
+                    + "Primer error SQLite: "
+                    + (primerErrorInsercionCuenta != null ? primerErrorInsercionCuenta : "ninguno");
+            Log.d(TAG, resumen);
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("Diagnóstico de importación")
+                    .setMessage(resumen)
+                    .setPositiveButton("OK", null)
+                    .show();
 
             } catch (Exception e) {
             Log.e(TAG, "Error al importar CSV: " + e.getMessage(), e);
@@ -2942,10 +2986,15 @@ public class F2_Cuentas extends DialogFragment {
     /**
      * NUEVO: Insertar una cuenta en la base de datos
      */
-    private void insertarCuenta(String[] datos) {
+    // ⭐ NUEVO — diagnóstico (30-oct): primer mensaje de error de SQLite al insertar cuentas.
+    private String primerErrorInsercionCuenta = null;
+
+    // ⭐ CAMBIO — diagnóstico (30-oct): devuelve long en vez de void (id insertado, -1 si
+    // SQLite rechazó la fila, -2 si se omitió). Los llamadores que lo ignoran no cambian.
+    private long insertarCuenta(String[] datos) {
         if (datos == null || datos.length < 5) {
             Log.e(TAG, "Datos insuficientes para insertar cuenta");
-            return;
+            return -2L;
         }
 
         // ⭐ NUEVO — a pedido de Jorge (27-sep): los CSV ahora traen una fila de encabezado
@@ -2957,7 +3006,7 @@ public class F2_Cuentas extends DialogFragment {
         // (Sheets, backup local, Drive) con un solo cambio.
         if (datos[0] != null && datos[0].trim().equalsIgnoreCase("Item")) {
             Log.d(TAG, "Fila de encabezado detectada en el CSV de cuentas, se ignora sin insertar");
-            return;
+            return -2L;
         }
 
         try {
@@ -3045,10 +3094,27 @@ public class F2_Cuentas extends DialogFragment {
                 }
             }
 
-            db.insert("cuentas", null, valores);
+            // ⭐ CAMBIO — diagnóstico (30-oct): insertOrThrow en vez de insert, SOLO para
+            // capturar el mensaje real de SQLite (db.insert() lo traga y devuelve -1). El
+            // comportamiento no cambia: si falla, la cuenta se omite igual que antes.
+            long idInsertado;
+            try {
+                idInsertado = db.insertOrThrow("cuentas", null, valores);
+            } catch (android.database.SQLException sqle) {
+                idInsertado = -1L;
+                Log.e(TAG, "SQLite rechazó la cuenta " + datos[1] + ": " + sqle.getMessage());
+                if (primerErrorInsercionCuenta == null) {
+                    primerErrorInsercionCuenta = sqle.getMessage();
+                }
+            }
             db.close();
+            return idInsertado;
         } catch (Exception e) {
             Log.e(TAG, "Error al insertar cuenta: " + e.getMessage(), e);
+            if (primerErrorInsercionCuenta == null) {
+                primerErrorInsercionCuenta = e.getMessage();
+            }
+            return -2L;
         }
     }
 

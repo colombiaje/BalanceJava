@@ -529,6 +529,7 @@ public class F4_Cierres extends Fragment {
         int fallidasDuplicado = 0;
         int encabezados = 0;
         int otrosErrores = 0;
+        primerErrorInsercion = null;
         try (FileReader fileReader = new FileReader(rutaFinal);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
 
@@ -566,8 +567,11 @@ public class F4_Cierres extends Fragment {
                     + "Líneas leídas: " + lineasImportadas + "\n"
                     + "Insertadas correctamente: " + insertadasOk + "\n"
                     + "Encabezados (no cuentan): " + encabezados + "\n"
-                    + "Fallidas por posible duplicado: " + fallidasDuplicado + "\n"
-                    + "Otros errores: " + otrosErrores;
+                    + "Fallidas al insertar: " + fallidasDuplicado + "\n"
+                    + "Otros errores: " + otrosErrores + "\n\n"
+                    // ⭐ NUEVO — diagnóstico (30-oct): mensaje real de SQLite del primer fallo.
+                    + "Primer error SQLite: "
+                    + (primerErrorInsercion != null ? primerErrorInsercion : "ninguno");
             new AlertDialog.Builder(getActivity())
                     .setTitle("Diagnóstico de importación")
                     .setMessage(resumen)
@@ -586,6 +590,8 @@ public class F4_Cierres extends Fragment {
     // arriba. No afectan el comportamiento de inserción, que sigue siendo exactamente el mismo.
     private static final long RESULTADO_ENCABEZADO = -2L;
     private static final long RESULTADO_ERROR = -3L;
+    // ⭐ NUEVO — diagnóstico (30-oct): primer mensaje de error de SQLite al insertar.
+    private String primerErrorInsercion = null;
 
     /**
      * Inserta una transacción en la base de datos.
@@ -683,7 +689,18 @@ public class F4_Cierres extends Fragment {
                 }
             }
 
-            long idInsertado = db.insert("transacciones", null, valores);
+            // ⭐ CAMBIO — diagnóstico (30-oct): insertOrThrow en vez de insert, SOLO para
+            // capturar el mensaje real de SQLite (db.insert() lo traga y devuelve -1). El
+            // comportamiento no cambia: si falla, la fila se omite y se devuelve -1 igual que antes.
+            long idInsertado;
+            try {
+                idInsertado = db.insertOrThrow("transacciones", null, valores);
+            } catch (android.database.SQLException sqle) {
+                idInsertado = -1L;
+                if (primerErrorInsercion == null) {
+                    primerErrorInsercion = sqle.getMessage();
+                }
+            }
             db.close();
             if (idInsertado == -1L) {
                 Log.e(TAG, "db.insert() devolvió -1 para Documento=" + datos[0] + " Item=" + datos[1]
