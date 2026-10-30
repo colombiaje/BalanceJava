@@ -85,6 +85,18 @@ public class A6_2_GoogleDriveDownloader {
         }
     }
 
+    // ⭐ NUEVO — fix v16 (30-oct): Android (capa FUSE del almacenamiento externo, desde
+    // Android 10+) rechaza ciertos caracteres en nombres de archivo LOCALES — entre ellos
+    // ":", que aparece en la hora del timestamp de los backups (p.ej. "..._1029_07:21:37
+    // .csv"). Si el nombre no se sanea, FileOutputStream falla al crear el archivo durante
+    // la descarga (ver DescargarArchivoTask), el restaurador nunca encuentra un archivo
+    // local que leer, y la restauración desde Drive termina en 0 cuentas/transacciones sin
+    // error visible claro. Esto NO toca el nombre que se ve/lista en Drive (DriveFileInfo
+    // .nombre), solo el nombre con el que se guarda la copia local.
+    private static String sanitizarNombreArchivoLocal(String nombre) {
+        return nombre.replaceAll("[:\\\\/*?\"<>|]", "-");
+    }
+
     /**
      * Lista archivos de Drive filtrados por prefijo
      */
@@ -214,7 +226,9 @@ public class A6_2_GoogleDriveDownloader {
 
                 // Extraer nombre sin timestamp para guardar
                 DriveFileInfo info = new DriveFileInfo(fileId, nombreArchivo, "");
-                String nombreSinTimestamp = info.nombreSinTimestamp + ".csv";
+                // ⭐ CAMBIO — fix v16: sanear antes de usarlo como nombre de archivo local
+                // (ver sanitizarNombreArchivoLocal() más arriba).
+                String nombreSinTimestamp = sanitizarNombreArchivoLocal(info.nombreSinTimestamp + ".csv");
 
                 String archivoDestino = rutaBalance + nombreSinTimestamp;
                 java.io.File outputFile = new java.io.File(archivoDestino);
