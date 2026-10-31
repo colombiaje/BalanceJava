@@ -149,6 +149,7 @@ public class F2_Cuentas extends DialogFragment {
     // una cuenta que no lo tenía, o desactivar en una que sí (ver ejecutarActualizacionCuenta).
     CheckBox conInventarioCuentaNueva_XChB;
     TextView conInventarioCuentaNueva_XTv;
+    TextView liquidezCuentaNueva_XTv; // ⭐ NUEVO (31-oct): liquidez heredada del Tipo, solo lectura
     // ⭐ NUEVO — v12 tanda 3 (ajuste a pedido de Jorge, 28-sep): valor real de con_inventario
     // de la cuenta que se está modificando, cargado por interrelationsAccountsGroups() al
     // abrirla — permite detectar en ejecutarActualizacionCuenta() si esta edición ACTIVÓ el
@@ -523,6 +524,7 @@ public class F2_Cuentas extends DialogFragment {
         // ⭐ NUEVO — v12 tanda 3.
         conInventarioCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XChB);
         conInventarioCuentaNueva_XTv=(TextView) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XTv);
+        liquidezCuentaNueva_XTv=(TextView) inflarViews_View.findViewById(R.id.liquidezCuentaNueva_XTv);
         // ⭐ NUEVO — Tanda 5 (1-oct).
         verHistorialInventario_XBt=(Button) inflarViews_View.findViewById(R.id.verHistorialInventario_XBt);
         verHistorialInventario_XBt.setOnClickListener(v -> {
@@ -596,6 +598,18 @@ public class F2_Cuentas extends DialogFragment {
         // ninguna lectura/escritura de cuentas pasa más por él.
         cargarCatalogoTipoCuenta(ayudante_Class.getReadableDatabase());
         grupo1CuentaNueva_XSp.setAdapter(new ArrayAdapter<String>(getActivity(),android.R.layout.simple_list_item_multiple_choice, nombreTipoCuentaCuentas_ArrayString));
+        // ⭐ NUEVO (31-oct): al cambiar el Tipo se actualiza la Liquidez mostrada (solo lectura).
+        // No hace nada más: no guarda ni cambia ningún otro campo.
+        grupo1CuentaNueva_XSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                mostrarLiquidezDelTipo(obtenerTipoCuentaIdSeleccionado(position));
+            }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                mostrarLiquidezDelTipo(null);
+            }
+        });
 
         //eventos
         clickSave_XBt.setOnClickListener(new View.OnClickListener() {
@@ -1475,6 +1489,25 @@ public class F2_Cuentas extends DialogFragment {
     // ⭐ NUEVO — tanda 2 v10: dada la posición seleccionada en el spinner de tipo_cuenta,
     // devuelve el tipo_cuenta_id real (null si es la opción en blanco, posición 0, o si la
     // posición no calza con el array por algún motivo — nunca debería pasar).
+    // ⭐ NUEVO (31-oct): muestra la liquidez del tipo de cuenta en la fila "Liquidez".
+    private void mostrarLiquidezDelTipo(Long tipoCuentaId) {
+        if (liquidezCuentaNueva_XTv == null) return;
+        String liquidez = null;
+        if (tipoCuentaId != null) {
+            A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
+                    version1BalanceSqlite_int_PSF);
+            SQLiteDatabase db = ayudante.getReadableDatabase();
+            try {
+                liquidez = A1_1_AyudanteBD.liquidezDeTipoCuenta(db, tipoCuentaId);
+            } catch (Exception e) {
+                Log.e(TAG, "No se pudo consultar la liquidez: " + e.getMessage());
+            } finally {
+                db.close();
+            }
+        }
+        liquidezCuentaNueva_XTv.setText(liquidez != null ? liquidez : "");
+    }
+
     private Long obtenerTipoCuentaIdSeleccionado(int posicion) {
         if (posicion <= 0 || posicion >= tipoCuentaIds_ArrayLong.length) {
             return null;
@@ -1718,6 +1751,7 @@ public class F2_Cuentas extends DialogFragment {
         cerrableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — Fase 4 (parte B)
         conciliableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v11 tanda 3 (parte A)
         conInventarioCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v12 tanda 3
+        if (liquidezCuentaNueva_XTv != null) liquidezCuentaNueva_XTv.setText(""); // ⭐ 31-oct
 
         // ⭐ NUEVO — Fase 4 Objetivo 2: se limpian junto con el resto de los campos, para
         // que no quede un cuenta_id de una cuenta ya no visible listo para reutilizarse
@@ -2066,7 +2100,7 @@ public class F2_Cuentas extends DialogFragment {
         // caía con ArrayIndexOutOfBoundsException ANTES de llegar a mostrar el diálogo del
         // primer artículo de inventario. Se agrega la etiqueta y, para que no vuelva a pasar
         // con la próxima columna, el bucle de abajo ya no indexa este arreglo a ciegas.
-        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id", "con_inventario"};
+        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id", "con_inventario", "liquidez"};
         // Crear un ArrayList de HashMaps
         ArrayList<HashMap<String, String>> listaConColumnas = new ArrayList<>();
 
@@ -2074,10 +2108,28 @@ public class F2_Cuentas extends DialogFragment {
             return;
         }
 
-        for (int i = 0; i < cuentaSeleccionadaAqui_ArrayS_Result.length; i++) {
+        // ⭐ NUEVO (31-oct, pedido de Jorge): se agrega la liquidez (heredada del tipo de cuenta)
+        // como una línea más del panel, sin tocar el arreglo de atributos que usan otras pantallas.
+        String[] valoresAtributos = java.util.Arrays.copyOf(
+                cuentaSeleccionadaAqui_ArrayS_Result, cuentaSeleccionadaAqui_ArrayS_Result.length + 1);
+        if (cuentaSeleccionadaAqui_ArrayS_Result.length > 1) {
+            A1_1_AyudanteBD ayudanteLiq = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
+                    version1BalanceSqlite_int_PSF);
+            SQLiteDatabase dbLiq = ayudanteLiq.getReadableDatabase();
+            try {
+                valoresAtributos[valoresAtributos.length - 1] =
+                        A1_1_AyudanteBD.liquidezDeCuenta(dbLiq, cuentaSeleccionadaAqui_ArrayS_Result[1]);
+            } catch (Exception e) {
+                Log.e(TAG, "No se pudo consultar la liquidez de la cuenta: " + e.getMessage());
+            } finally {
+                dbLiq.close();
+            }
+        }
+
+        for (int i = 0; i < valoresAtributos.length; i++) {
             HashMap<String, String> columna = new HashMap<>();
             String etiqueta = i < atributos_ArrayS.length ? atributos_ArrayS[i] : "atributo " + i;
-            columna.put(etiqueta, cuentaSeleccionadaAqui_ArrayS_Result[i]); // Nombre del atributo
+            columna.put(etiqueta, valoresAtributos[i]); // Nombre del atributo
             listaConColumnas.add(columna);
         }
 

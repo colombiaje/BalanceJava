@@ -271,6 +271,19 @@
 
                 <!-- Otros elementos que desees incluir antes del ListView -->
 
+                <!-- ⭐ NUEVO (31-oct, pedido de Jorge): resumen de saldos por liquidez (heredada
+                     del tipo de cuenta). Arriba de la lista para verlo sin desplazarse. -->
+                <TextView
+                    android:id="@+id/resumenLiquidez_XTv"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="6dp"
+                    android:layout_marginEnd="2dp"
+                    android:background="#E1BEE7"
+                    android:padding="6dp"
+                    android:textColor="#212121"
+                    android:textSize="14sp" />
+
                 <ListView
                     android:id="@+id/todasLasTransacciones_XLv"
                     android:layout_width="match_parent"

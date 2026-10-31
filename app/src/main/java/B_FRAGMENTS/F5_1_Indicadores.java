@@ -64,6 +64,7 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
     TextView valorVsContableTranscurrido_XTv, valorVsContableDiario_XTv, valorVsContablePorTranscurrir_XTv, valorVsContableMesProyectado_XTv;
     ImageButton btnVerDetalleProrrateables_XBt;
     TextView valorActivoExigible_XTv, valorPasivoExigible_XTv, valorAhorroODeuda_XTv;
+    TextView valorDisponibleInmediato_XTv; // ⭐ NUEVO (31-oct)
 
     // Atajo a las gráficas (F5_3_GraficasIndicadores, diálogo aparte)
     Button graficasIndicadores_XBt;
@@ -224,6 +225,7 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         valorActivoExigible_XTv = view.findViewById(R.id.valorActivoExigible_XTv);
         valorPasivoExigible_XTv = view.findViewById(R.id.valorPasivoExigible_XTv);
         valorAhorroODeuda_XTv = view.findViewById(R.id.valorAhorroODeuda_XTv);
+        valorDisponibleInmediato_XTv = view.findViewById(R.id.valorDisponibleInmediato_XTv); // ⭐ 31-oct
 
         graficasIndicadores_XBt = view.findViewById(R.id.graficasIndicadores_XBt);
     }
@@ -447,6 +449,22 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
             valorPasivoExigible_XTv.setText(String.valueOf(sumaPasivo));
             int diferenciaExigible = sumaActivo + sumaPasivo;
             valorAhorroODeuda_XTv.setText(String.valueOf(diferenciaExigible));
+
+            // ⭐ NUEVO (31-oct, pedido de Jorge): Disponible inmediato = saldo de las cuentas con
+            // liquidez "Inmediata" (heredada del tipo de cuenta). En su propio try para que un
+            // error aquí no afecte el resto del Balance General.
+            if (valorDisponibleInmediato_XTv != null) {
+                SQLiteDatabase dbLiq = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
+                        A1_1_AyudanteBD.version1BalanceSqlite_int_PSF).getReadableDatabase();
+                try {
+                    Long inmediata = A1_1_AyudanteBD.sumarSaldosPorLiquidez(dbLiq).get("Inmediata");
+                    valorDisponibleInmediato_XTv.setText(String.valueOf(inmediata != null ? inmediata : 0L));
+                } catch (Exception eLiq) {
+                    Log.e("F5_Indicadores", "No se pudo calcular Disponible inmediato: " + eLiq.getMessage());
+                } finally {
+                    dbLiq.close();
+                }
+            }
 
             if (diferenciaExigible < 0) {
                 valorAhorroODeuda_XTv.setTextColor(Color.RED);

@@ -910,6 +910,60 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         }
     }
 
+    // ⭐ NUEVO (31-oct): niveles de liquidez en el orden en que se muestran (de más a menos
+    // disponible). "No aplica" no se muestra en los resúmenes.
+    public static final String[] NIVELES_LIQUIDEZ = {
+            "Inmediata", "Requiere trámite", "Depende de terceros", "No disponible a corto plazo"};
+
+    /** Liquidez del tipo de cuenta, o null si no hay tipo o no tiene liquidez. */
+    public static String liquidezDeTipoCuenta(SQLiteDatabase db, Long tipoCuentaId) {
+        if (tipoCuentaId == null) return null;
+        Cursor c = db.rawQuery("SELECT liquidez FROM " + TABLE_TIPO_CUENTA +
+                " WHERE tipo_cuenta_id = ?", new String[]{String.valueOf(tipoCuentaId)});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
+    /** Liquidez de una cuenta (heredada de su tipo), por nombre de cuenta; null si no tiene. */
+    public static String liquidezDeCuenta(SQLiteDatabase db, String nombreCuenta) {
+        if (nombreCuenta == null) return null;
+        Cursor c = db.rawQuery("SELECT tc.liquidez FROM cuentas c JOIN " + TABLE_TIPO_CUENTA +
+                " tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id WHERE c.Cuenta = ?",
+                new String[]{nombreCuenta});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
+     * Saldo total (suma de c5_Valor de las transacciones) por nivel de liquidez, en el orden de
+     * NIVELES_LIQUIDEZ. Todos los niveles aparecen (en 0 si no tienen saldo). Une por cuenta_id,
+     * igual que el Informe y los Indicadores.
+     */
+    public static java.util.LinkedHashMap<String, Long> sumarSaldosPorLiquidez(SQLiteDatabase db) {
+        java.util.LinkedHashMap<String, Long> totales = new java.util.LinkedHashMap<>();
+        for (String nivel : NIVELES_LIQUIDEZ) totales.put(nivel, 0L);
+        Cursor c = db.rawQuery(
+                "SELECT tc.liquidez, SUM(t.c5_Valor) FROM transacciones t " +
+                        "JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
+                        "JOIN " + TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id " +
+                        "WHERE tc.liquidez IS NOT NULL GROUP BY tc.liquidez", null);
+        try {
+            while (c.moveToNext()) {
+                String nivel = c.getString(0);
+                if (totales.containsKey(nivel)) totales.put(nivel, c.getLong(1));
+            }
+        } finally {
+            c.close();
+        }
+        return totales;
+    }
+
     /** tipo_cuenta_id cuyo nombre coincide exactamente, o null si no existe. */
     public static Long buscarTipoCuentaIdPorNombre(SQLiteDatabase db, String nombreTipo) {
         if (nombreTipo == null || nombreTipo.trim().isEmpty()) return null;

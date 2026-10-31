@@ -668,6 +668,58 @@
 
          </LinearLayout>
 
+         <!-- ⭐ NUEVO (31-oct, pedido de Jorge) — FILA 13: Disponible inmediato = saldo de las
+              cuentas cuyo tipo tiene liquidez "Inmediata" (efectivo y bancos, en pesos y en
+              moneda extranjera). Ver A1_1_AyudanteBD.sumarSaldosPorLiquidez(). -->
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:background="#E1BEE7"
+             android:padding="6dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:textColor="#212121"
+                android:text="4"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:textColor="#212121"
+                android:text="Disponible inmediato"
+                android:textSize="14sp"
+                android:paddingLeft="4dp"/>
+
+            <TextView
+                android:layout_width="45dp"
+                android:layout_height="wrap_content"
+                android:textColor="#212121"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:textColor="#212121"
+                android:text="-"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/valorDisponibleInmediato_XTv"
+                android:layout_width="75dp"
+                android:layout_height="wrap_content"
+                android:textColor="#212121"
+                android:textSize="14sp"
+                android:gravity="center"/>
+
+         </LinearLayout>
+
       </LinearLayout>
    </ScrollView>
 

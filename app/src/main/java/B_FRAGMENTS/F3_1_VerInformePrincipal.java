@@ -121,6 +121,7 @@ public class F3_1_VerInformePrincipal extends Fragment {
 
         envolventeEncabezado_XLl = (LinearLayout)inflarViews_View.findViewById(R.id.envolventeEncabezado_XLl);
         todasLasTransacciones_XLv = (ListView) inflarViews_View.findViewById(R.id.todasLasTransacciones_XLv);
+        resumenLiquidez_XTv = (TextView) inflarViews_View.findViewById(R.id.resumenLiquidez_XTv); // ⭐ 31-oct
         //limpiarBuscar_XChB = (CheckBox) inflarViews_View.findViewById(R.id.limpiarBuscar_XChB);
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
@@ -255,7 +256,36 @@ public class F3_1_VerInformePrincipal extends Fragment {
         A99_MetodosVarios.actualizarBadgeNumerico(auditoriaClasificacionBadge_XTv, cantidad);
     }
 
+    // ⭐ NUEVO (31-oct, pedido de Jorge): resumen de saldos por nivel de liquidez.
+    TextView resumenLiquidez_XTv;
+
+    private void mostrarResumenLiquidez() {
+        if (resumenLiquidez_XTv == null) return;
+        A1BASES.A1_1_AyudanteBD ayudante = new A1BASES.A1_1_AyudanteBD(getActivity(), "balance.db",
+                null, A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF);
+        android.database.sqlite.SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            java.util.LinkedHashMap<String, Long> totales =
+                    A1BASES.A1_1_AyudanteBD.sumarSaldosPorLiquidez(db);
+            java.text.DecimalFormat formato = new java.text.DecimalFormat("#,##0");
+            StringBuilder texto = new StringBuilder("Liquidez — ");
+            boolean primero = true;
+            for (java.util.Map.Entry<String, Long> e : totales.entrySet()) {
+                if (!primero) texto.append("  ·  ");
+                texto.append(e.getKey()).append(": $").append(formato.format(e.getValue()));
+                primero = false;
+            }
+            resumenLiquidez_XTv.setText(texto.toString());
+        } catch (Exception e) {
+            resumenLiquidez_XTv.setText("");
+            android.util.Log.e("F3_1", "No se pudo calcular el resumen de liquidez: " + e.getMessage());
+        } finally {
+            db.close();
+        }
+    }
+
     public void dynamicCrudUpdate() {
+        mostrarResumenLiquidez();
         ArrayList<A3_2_TipoTransaccionesGetsYSets> resultadoCompleto =
                 a22QueryManager.queryNetSumTransactionsAccountByAccount();
 
