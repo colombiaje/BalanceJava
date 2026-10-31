@@ -1307,10 +1307,39 @@ public class F2_Cuentas extends DialogFragment {
         guardarYTerminar_XBt.setText("Guardar y terminar");
         contenedor.addView(guardarYTerminar_XBt);
 
+        // ⭐ NUEVO — Tanda 6 (31-oct, pedido de Jorge): ver la lista de artículos de la cuenta
+        // (con unidad y saldo) sin cerrar este diálogo; tocando uno se abre su historial.
+        Button verArticulos_XBt = new Button(getActivity());
+        verArticulos_XBt.setText("Ver artículos");
+        verArticulos_XBt.setOnClickListener(v ->
+                new A1BASES.A14_ListaArticulosDialogo().mostrar(getActivity(), cuentaId, nombreCuenta));
+        contenedor.addView(verArticulos_XBt);
+
+        // ⭐ NUEVO — Tanda 6 (31-oct, pedido de Jorge): si la cuenta YA tiene artículos (p.ej.
+        // desde "Agregar artículos" en Modificar cuenta), el título y el texto ya no hablan de
+        // "primer artículo".
+        boolean yaTieneArticulos = false;
+        A1_1_AyudanteBD ayudanteConsulta = new A1_1_AyudanteBD(
+                getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase dbConsulta = ayudanteConsulta.getReadableDatabase();
+        try {
+            yaTieneArticulos = new A12_InventarioHelper().existenItemsPorCuenta(dbConsulta, cuentaId);
+        } catch (Exception e) {
+            Log.e("F2_DEBUG", "No se pudo consultar si la cuenta ya tiene artículos", e);
+        } finally {
+            dbConsulta.close();
+        }
+        String tituloDialogo = yaTieneArticulos
+                ? "Artículos de \"" + nombreCuenta + "\""
+                : "Primer artículo de \"" + nombreCuenta + "\"";
+        String mensajeDialogo = yaTieneArticulos
+                ? "Agrega nuevos artículos a esta cuenta. Puedes agregar varios seguidos."
+                : "Esta cuenta maneja inventario — da de alta al menos un artículo " +
+                        "(por ejemplo, \"Ecopetrol\" o \"USD\"). Puedes agregar varios.";
+
         AlertDialog dialogoArticulo = new AlertDialog.Builder(getActivity())
-                .setTitle("Primer artículo de \"" + nombreCuenta + "\"")
-                .setMessage("Esta cuenta maneja inventario — da de alta al menos un artículo " +
-                        "(por ejemplo, \"Ecopetrol\" o \"USD\"). Puedes agregar varios.")
+                .setTitle(tituloDialogo)
+                .setMessage(mensajeDialogo)
                 .setView(contenedor)
                 .setCancelable(false)
                 .setNegativeButton("Ahora no", (dialog, which) -> dialog.dismiss())

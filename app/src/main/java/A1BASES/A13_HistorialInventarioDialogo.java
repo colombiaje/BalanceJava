@@ -61,9 +61,21 @@ public class A13_HistorialInventarioDialogo {
      * con el resto de consultas "básicas" de la app que tampoco usan hilos aparte.
      */
     public void mostrar(Context context, long cuentaId, String nombreCuenta) {
+        mostrar(context, cuentaId, nombreCuenta, null, null);
+    }
+
+    /**
+     * ⭐ NUEVO — Tanda 6 (31-oct, pedido de Jorge): mismo historial, pero solo de UN artículo
+     * (itemIdFiltro), para abrirlo con un toque desde la lista de artículos
+     * (A14_ListaArticulosDialogo). Con itemIdFiltro null se comporta exactamente igual que
+     * antes (todos los artículos de la cuenta). El saldo acumulado se sigue calculando por
+     * artículo, así que filtrar no cambia ningún valor de las filas que se muestran.
+     */
+    public void mostrar(Context context, long cuentaId, String nombreCuenta,
+                        Long itemIdFiltro, String nombreArticulo) {
         if (context == null) return;
 
-        java.util.List<FilaHistorial> filas = consultarHistorial(context, cuentaId);
+        java.util.List<FilaHistorial> filas = consultarHistorial(context, cuentaId, itemIdFiltro);
 
         ScrollView scrollVertical = new ScrollView(context);
         TableLayout tabla = new TableLayout(context);
@@ -74,7 +86,9 @@ public class A13_HistorialInventarioDialogo {
         if (filas.isEmpty()) {
             TableRow vacio = new TableRow(context);
             TextView aviso = new TextView(context);
-            aviso.setText("Esta cuenta todavía no tiene movimientos de inventario registrados.");
+            aviso.setText(itemIdFiltro != null
+                    ? "Este artículo todavía no tiene movimientos de inventario registrados."
+                    : "Esta cuenta todavía no tiene movimientos de inventario registrados.");
             aviso.setPadding(8, 16, 8, 16);
             vacio.addView(aviso);
             tabla.addView(vacio);
@@ -91,7 +105,8 @@ public class A13_HistorialInventarioDialogo {
         scrollVertical.addView(scrollHorizontal);
 
         new AlertDialog.Builder(context)
-                .setTitle("Historial de inventario — " + nombreCuenta)
+                .setTitle("Historial de inventario — " + nombreCuenta
+                        + (nombreArticulo != null ? " / " + nombreArticulo : ""))
                 .setView(scrollVertical)
                 .setPositiveButton("Cerrar", null)
                 .show();
@@ -139,7 +154,8 @@ public class A13_HistorialInventarioDialogo {
         return fila;
     }
 
-    private java.util.List<FilaHistorial> consultarHistorial(Context context, long cuentaId) {
+    private java.util.List<FilaHistorial> consultarHistorial(Context context, long cuentaId,
+                                                             Long itemIdFiltro) {
         java.util.List<FilaHistorial> resultado = new java.util.ArrayList<>();
 
         A1_1_AyudanteBD helper = new A1_1_AyudanteBD(
@@ -182,7 +198,9 @@ public class A13_HistorialInventarioDialogo {
                 f.saldoUnidadesDespues = saldo.unidades;
                 f.saldoCostoDespues = saldo.costo;
 
-                resultado.add(f);
+                if (itemIdFiltro == null || itemIdFiltro == itemId) {
+                    resultado.add(f);
+                }
             }
         } finally {
             c.close();

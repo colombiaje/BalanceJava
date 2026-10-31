@@ -29,6 +29,7 @@ import java.util.List;
 
 import A1BASES.A12_InventarioHelper;
 import A1BASES.A13_HistorialInventarioDialogo;
+import A1BASES.A14_ListaArticulosDialogo;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A99_MetodosVarios;
 import A2QueryBD.A23_QueryResult;
@@ -1561,6 +1562,14 @@ public class B12_DocumentPersistence {
         Button guardarYTerminarBtn = new Button(f1.getActivity());
         guardarYTerminarBtn.setText("Guardar y terminar");
         contenedor.addView(guardarYTerminarBtn);
+
+        // ⭐ NUEVO — Tanda 6 (31-oct, pedido de Jorge): ver la lista de artículos de la cuenta
+        // (con unidad y saldo) sin cerrar este diálogo; tocando uno se abre su historial.
+        Button verArticulosBtn = new Button(f1.getActivity());
+        verArticulosBtn.setText("Ver artículos");
+        verArticulosBtn.setOnClickListener(v ->
+                new A14_ListaArticulosDialogo().mostrar(f1.getActivity(), cuentaId, cuentaAlItemList));
+        contenedor.addView(verArticulosBtn);
 
         AlertDialog dialogoArticulo = new AlertDialog.Builder(f1.getActivity())
                 .setTitle("Nuevo artículo de \"" + cuentaAlItemList + "\"")
