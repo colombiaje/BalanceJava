@@ -2005,7 +2005,14 @@ public class F2_Cuentas extends DialogFragment {
         // agregó tipo_cuenta_id como 8vo elemento (índice 7), pero este arreglo de etiquetas se
         // quedó en 7. Cualquier cuenta volvía a lanzar ArrayIndexOutOfBoundsException al abrir su
         // detalle desde "Ver Cuentas". Se agrega la etiqueta que faltaba.
-        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id"};
+        // ⭐ CORRECCIÓN — Tanda 6 (31-oct): TERCERA vez el mismo problema — la v12 tanda 3
+        // agregó con_inventario como 9no elemento (índice 8) en queryAttributesByAccount(), y
+        // este arreglo se quedó en 8 etiquetas. registrarNuevas() llama a este método justo
+        // después de guardar (desde el botón Guardar), así que al crear una cuenta la app se
+        // caía con ArrayIndexOutOfBoundsException ANTES de llegar a mostrar el diálogo del
+        // primer artículo de inventario. Se agrega la etiqueta y, para que no vuelva a pasar
+        // con la próxima columna, el bucle de abajo ya no indexa este arreglo a ciegas.
+        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id", "con_inventario"};
         // Crear un ArrayList de HashMaps
         ArrayList<HashMap<String, String>> listaConColumnas = new ArrayList<>();
 
@@ -2015,7 +2022,8 @@ public class F2_Cuentas extends DialogFragment {
 
         for (int i = 0; i < cuentaSeleccionadaAqui_ArrayS_Result.length; i++) {
             HashMap<String, String> columna = new HashMap<>();
-            columna.put(atributos_ArrayS[i], cuentaSeleccionadaAqui_ArrayS_Result[i]); // Nombre del atributo
+            String etiqueta = i < atributos_ArrayS.length ? atributos_ArrayS[i] : "atributo " + i;
+            columna.put(etiqueta, cuentaSeleccionadaAqui_ArrayS_Result[i]); // Nombre del atributo
             listaConColumnas.add(columna);
         }
 
