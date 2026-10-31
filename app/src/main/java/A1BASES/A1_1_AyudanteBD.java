@@ -725,6 +725,78 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.setForeignKeyConstraintsEnabled(true);
     }
 
+    // ⭐ NUEVO — fix restauración (30-oct): catálogo PROVISIONAL de tipo_cuenta con los mismos
+    // ids 1..9 que traen los backups CSV de cuentas (columna tipo_cuenta_id).
+    //
+    // Causa raíz del fallo de restauración: en una instalación nueva, tipo_cuenta nace vacía
+    // (ver onCreate) — el catálogo antiguo solo existía en la base del dispositivo (lo creó el
+    // backfill de la migración v9) y los backups guardan el NÚMERO de tipo de cada cuenta, no
+    // el catálogo. Al reinstalar, cada cuenta del CSV apunta a un tipo_cuenta_id inexistente y
+    // SQLite la rechaza por FK (code 787) — y las transacciones caen después en cadena.
+    //
+    // Clasificación deducida de las cuentas que usan cada id (backups del 28-sep y 29-oct).
+    // Los nombres son provisionales a propósito: el catálogo definitivo con nombres funcionales
+    // (Documento 3, "Especificación técnica clasificación contable") es un proyecto aparte.
+    // Solo actúa si tipo_cuenta está COMPLETAMENTE vacía; si ya tiene filas, no toca nada.
+    // { tipo_cuenta_id, clase (clase_contable.nombre), clasificacion (clasificacion_contable.nombre) }
+    private static final String[][] CATALOGO_TIPO_CUENTA_PROVISIONAL = {
+            {"1", "Activo", "Activo corriente"},          // Caja, bancos conciliables
+            {"2", "Activo", "Activo corriente"},          // CxC, CDTs, inversiones
+            {"3", "Pasivo", "Pasivo no corriente"},       // CxP personales, TC en euros
+            {"4", "Cuentas de orden Db", "Cuentas de orden Db"},
+            {"5", "Cuentas de orden Cr", "Cuentas de orden Cr"},
+            {"6", "Activo", "Activo no corriente"},       // Euros/dólares, conciliables
+            {"7", "Pasivo", "Pasivo corriente"},          // CxP hogar, tarjetas de crédito
+            {"8", "Pasivo", "Pasivo corriente"},          // CxP conciliables (Falabella, provisión)
+            {"9", "Patrimonio", "Patrimonio"}             // PAT Capital, PAT Rentabilidad
+    };
+
+    /**
+     * Si tipo_cuenta está vacía, la llena con el catálogo provisional de arriba (ids fijos 1..9),
+     * para que las restauraciones desde CSV no choquen con la FK cuentas.tipo_cuenta_id.
+     * Idempotente: si la tabla ya tiene al menos una fila, no hace nada.
+     *
+     * @return cuántos tipos se insertaron (0 si la tabla ya tenía datos).
+     */
+    public static int asegurarCatalogoTipoCuentaProvisional(SQLiteDatabase db) {
+        if (android.database.DatabaseUtils.queryNumEntries(db, TABLE_TIPO_CUENTA) > 0) {
+            return 0;
+        }
+        int insertados = 0;
+        for (String[] fila : CATALOGO_TIPO_CUENTA_PROVISIONAL) {
+            Long clasificacionId = null;
+            String naturaleza = null;
+            Cursor c = db.rawQuery(
+                    "SELECT cc.clasificacion_id, cl.naturaleza_normal " +
+                            "FROM " + TABLE_CLASIFICACION_CONTABLE + " cc " +
+                            "JOIN " + TABLE_CLASE_CONTABLE + " cl ON cc.clase_id = cl.clase_id " +
+                            "WHERE cc.nombre = ? AND cl.nombre = ?",
+                    new String[]{fila[2], fila[1]});
+            if (c.moveToFirst()) {
+                clasificacionId = c.getLong(0);
+                naturaleza = c.getString(1);
+            }
+            c.close();
+            if (clasificacionId == null) {
+                android.util.Log.w("A1_1_AyudanteBD", "Catálogo provisional: no existe la " +
+                        "clasificación '" + fila[2] + "' de la clase '" + fila[1] +
+                        "' — se omite tipo_cuenta_id " + fila[0]);
+                continue;
+            }
+            ContentValues cv = new ContentValues();
+            cv.put("tipo_cuenta_id", Long.parseLong(fila[0]));
+            cv.put("clasificacion_id", clasificacionId);
+            cv.put("nombre", "Tipo " + fila[0] + " - " + fila[2] + " (provisional)");
+            cv.put("naturaleza_normal", naturaleza);
+            if (db.insert(TABLE_TIPO_CUENTA, null, cv) != -1L) {
+                insertados++;
+            }
+        }
+        android.util.Log.w("A1_1_AyudanteBD",
+                "Catálogo provisional de tipo_cuenta sembrado: " + insertados + " filas");
+        return insertados;
+    }
+
     // ⭐ NUEVO v8: índice único "best effort" sobre (c1_Documento, c2_ItemDoc) — en el modelo
     // nuevo acordado, ese par debería identificar de forma única cada línea dentro de un
     // documento. Todavía no se ha verificado si los datos reales de cada dispositivo cumplen eso

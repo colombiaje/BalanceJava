@@ -2081,6 +2081,12 @@ public class F2_Cuentas extends DialogFragment {
         // por nombre al terminar — ver A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre().
         if ("cuentas".equals(tablaX_String)) {
             A1_2_OperacionesBD.limpiarReferenciasCuentaId(sqliteDatabase_Abstracta);
+            // ⭐ NUEVO — fix restauración (30-oct): los 3 flujos que vacían "cuentas" (Sheets,
+            // backup local, Drive) la reinsertan justo después desde un CSV cuyas cuentas traen
+            // tipo_cuenta_id. Si tipo_cuenta está vacía (instalación nueva), se siembra el
+            // catálogo provisional para que esas filas no choquen con la FK. No hace nada si
+            // tipo_cuenta ya tiene datos — ver A1_1_AyudanteBD.asegurarCatalogoTipoCuentaProvisional().
+            A1_1_AyudanteBD.asegurarCatalogoTipoCuentaProvisional(sqliteDatabase_Abstracta);
         }
         A1_2_OperacionesBD.borrarRegistros(tablaX_String, sqliteDatabase_Abstracta);
         // NUEVO LOG
