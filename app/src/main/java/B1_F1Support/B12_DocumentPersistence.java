@@ -977,8 +977,13 @@ public class B12_DocumentPersistence {
         for (A12_InventarioHelper.ItemInventario item : items) {
             nombresParaSpinner.add(item.nombre);
         }
-        final String OPCION_CREAR_NUEVO = "+ Crear nuevo artículo…";
-        nombresParaSpinner.add(OPCION_CREAR_NUEVO);
+        // ⭐ CAMBIO — Tanda 6 (31-oct, elegido por Jorge): "+ Crear nuevo artículo" deja de
+        // ser una opción de la lista y pasa a ser un botón propio, debajo de ella (ver más
+        // abajo). Antes había que elegir la opción Y además tocar "Agregar" para que se
+        // abriera el sub-diálogo, y Android no dispara la selección si se "re-elige" la opción
+        // ya seleccionada — en la práctica parecía que no hacía nada. La lista queda solo con
+        // artículos reales.
+        final AlertDialog[] dialogoHolder = new AlertDialog[1];
 
         TextView etiquetaArticulo = new TextView(f1.getActivity());
         etiquetaArticulo.setText("Artículo");
@@ -989,6 +994,18 @@ public class B12_DocumentPersistence {
                 android.R.layout.simple_spinner_dropdown_item, nombresParaSpinner);
         articuloSpinner.setAdapter(articuloAdapter);
         contenedor.addView(articuloSpinner);
+
+        // ⭐ NUEVO — Tanda 6 (31-oct): botón propio para crear un artículo. Cierra este diálogo
+        // y abre el sub-diálogo; al terminar, mostrarDialogoNuevoArticulo() vuelve a abrir este
+        // mismo diálogo (ya con el artículo nuevo en la lista), en el MISMO modo del que se vino
+        // (posicionAEditar) — igual que hacía antes la opción de la lista.
+        Button crearNuevoArticuloBtn = new Button(f1.getActivity());
+        crearNuevoArticuloBtn.setText("+ Crear nuevo artículo");
+        crearNuevoArticuloBtn.setOnClickListener(v -> {
+            if (dialogoHolder[0] != null) dialogoHolder[0].dismiss();
+            mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId, posicionAEditar);
+        });
+        contenedor.addView(crearNuevoArticuloBtn);
 
         // ⭐ NUEVO — campo de descripción propio del diálogo (ver el comentario junto a
         // descripcionInicial, arriba): en modo "agregar nuevo" viene prellenado con lo que el
@@ -1294,7 +1311,6 @@ public class B12_DocumentPersistence {
                 : "Inventario — \"" + cuentaAlItemList + "\"";
         String textoBotonPositivo = posicionAEditar != null ? "Guardar cambios" : "Agregar";
 
-        final AlertDialog[] dialogoHolder = new AlertDialog[1];
         editarExistenteBtn.setOnClickListener(v -> {
             int posicionExistente = posicionDuplicadaActual[0];
             if (posicionExistente < 0) return;
@@ -1317,14 +1333,12 @@ public class B12_DocumentPersistence {
                 .setOnClickListener(v -> {
                     int posicionSeleccionada = articuloSpinner.getSelectedItemPosition();
 
-                    if (posicionSeleccionada == items.size()) {
-                        // "+ Crear nuevo artículo…" — se abre el sub-diálogo y se cierra este;
-                        // al terminar de crear el artículo se vuelve a abrir este mismo diálogo
-                        // (ya con el artículo nuevo en la lista), para no duplicar la lógica de
-                        // arriba. Se pasa posicionAEditar para volver al MISMO modo del que se
-                        // vino (ver el comentario de mostrarDialogoNuevoArticulo).
-                        dialogo.dismiss();
-                        mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId, posicionAEditar);
+                    // ⭐ CAMBIO — Tanda 6 (31-oct): ya no existe la opción "+ Crear nuevo
+                    // artículo…" en la lista (ahora es un botón aparte). Se deja solo una
+                    // guarda defensiva por si no hubiera selección válida.
+                    if (posicionSeleccionada < 0 || posicionSeleccionada >= items.size()) {
+                        Toast.makeText(f1.getActivity(), "Selecciona un artículo",
+                                Toast.LENGTH_SHORT).show();
                         return;
                     }
 

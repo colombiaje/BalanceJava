@@ -159,6 +159,7 @@ public class F2_Cuentas extends DialogFragment {
     // inventario por cuenta, visible solo en "Modificar cuenta" cuando la cuenta cargada tiene
     // con_inventario = 1 (ver interrelationsAccountsGroups() y cleanClickFieldsAccount()).
     Button verHistorialInventario_XBt;
+    Button agregarArticulosInventario_XBt; // ⭐ NUEVO — Tanda 6 (31-oct)
     String itemCuentaNueva_String;
     String cuentaNueva_String;
     String grupo1CuentaNueva_String;
@@ -528,6 +529,19 @@ public class F2_Cuentas extends DialogFragment {
             if (cuentaIdEnModificar_Long != null) {
                 new A1BASES.A13_HistorialInventarioDialogo()
                         .mostrar(getContext(), cuentaIdEnModificar_Long, account_XAct.getText().toString());
+            }
+        });
+        // ⭐ NUEVO — Tanda 6 (31-oct, elegido por Jorge): en "Modificar cuenta", para una cuenta
+        // que YA tiene inventario, abre el mismo diálogo de alta de artículos que aparece al
+        // crear la cuenta (varios seguidos con "Guardar y agregar otro"). Se usa el nombre
+        // ORIGINAL de la cuenta (no el del campo, que puede estar a medio renombrar).
+        agregarArticulosInventario_XBt=(Button) inflarViews_View.findViewById(R.id.agregarArticulosInventario_XBt);
+        agregarArticulosInventario_XBt.setOnClickListener(v -> {
+            if (cuentaIdEnModificar_Long != null) {
+                String nombreParaDialogo = nombreOriginalEnModificar_String != null
+                        ? nombreOriginalEnModificar_String
+                        : account_XAct.getText().toString().trim();
+                mostrarDialogoPrimerArticulo(cuentaIdEnModificar_Long, nombreParaDialogo);
             }
         });
         cuentasOrdenAzParaVistaDetalleCuenta_XSp=(Spinner) inflarViews_View.findViewById(R.id.cuentasOrdenAzParaVistaDetalleCuenta_XSp);
@@ -1505,6 +1519,7 @@ public class F2_Cuentas extends DialogFragment {
                     // ⭐ NUEVO — Tanda 5 (1-oct): el historial es una acción de "Modificar
                     // cuenta" — en modo plantilla no aplica (todavía no hay cuenta_id propio).
                     verHistorialInventario_XBt.setVisibility(View.GONE);
+                    agregarArticulosInventario_XBt.setVisibility(View.GONE); // ⭐ Tanda 6
                     // ⭐ CAMBIO — Checklist Nivel 1 (plantilla, ajuste sobre el cambio
                     // anterior): el texto "Usar como plantilla →" concatenado al nombre ya
                     // no se usa — Jorge lo probó y prefirió otra señal. El campo queda con
@@ -1541,6 +1556,8 @@ public class F2_Cuentas extends DialogFragment {
                     // ⭐ NUEVO — Tanda 5 (1-oct, pedido de Jorge): botón de historial de
                     // inventario, visible solo si esta cuenta ya tiene con_inventario = 1.
                     verHistorialInventario_XBt.setVisibility(
+                            conInventarioOriginalEnModificar_boolean ? View.VISIBLE : View.GONE);
+                    agregarArticulosInventario_XBt.setVisibility( // ⭐ Tanda 6
                             conInventarioOriginalEnModificar_boolean ? View.VISIBLE : View.GONE);
                 }
 
@@ -1674,6 +1691,7 @@ public class F2_Cuentas extends DialogFragment {
         nombreOriginalEnModificar_String = null;
         conInventarioOriginalEnModificar_boolean = false; // ⭐ NUEVO — v12 tanda 3
         verHistorialInventario_XBt.setVisibility(View.GONE); // ⭐ NUEVO — Tanda 5 (1-oct)
+        agregarArticulosInventario_XBt.setVisibility(View.GONE); // ⭐ NUEVO — Tanda 6 (31-oct)
         account_XAct.setError(null);
         habilitarBotonesGuardarModificar(true);
 
