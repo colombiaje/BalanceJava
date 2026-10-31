@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 16; // ⭐ 31-oct: catálogo definitivo tipo_cuenta
+    public static final int version1BalanceSqlite_int_PSF = 17; // ⭐ 31-oct: v16 catálogo definitivo tipo_cuenta; v17 liquidez
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -516,7 +516,12 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // se llenan con un valor real — eso pertenece al catálogo definitivo de
                     // tipo_cuenta que Jorge construya, no al placeholder mecánico de esta versión.
                     "estado_financiero TEXT, " +
-                    "signo_presentacion TEXT)";
+                    "signo_presentacion TEXT, " +
+                    // ⭐ NUEVO (31-oct, BD v17): nivel de liquidez del tipo de cuenta, definido por
+                    // Jorge: "Inmediata", "Requiere trámite", "Depende de terceros",
+                    // "No disponible a corto plazo" o "No aplica". Es efectivo todo lo "Inmediata"
+                    // (reemplaza la columna cuentas.es_efectivo del modelo original).
+                    "liquidez TEXT)";
 
     // ⭐ NUEVO v9 — Fase 6: clase_contable se siembra con los mismos 9 valores y el mismo orden
     // que SEED_GRUPO1 (arriba) — en el modelo aprobado, Grupo1 YA ES esa clasificación de primer
@@ -733,29 +738,29 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // Criterio de Jorge: corriente / no corriente por liquidez real a 12 meses, no por moneda.
     // Los tipos sin cuentas hoy (3, 6, 7, 12, 16, 17-20) se dejan creados a propósito, reservados.
     // { tipo_cuenta_id, clase (clase_contable.nombre), clasificación (clasificacion_contable.nombre),
-    //   nombre visible }. La naturaleza normal se toma de la clase.
+    //   nombre visible, liquidez (⭐ BD v17) }. La naturaleza normal se toma de la clase.
     private static final String[][] CATALOGO_TIPO_CUENTA_DEFINITIVO = {
-            {"1", "Activo", "Activo corriente", "Efectivo y bancos"},
-            {"2", "Activo", "Activo corriente", "Inversiones temporales"},
-            {"3", "Activo", "Activo corriente", "Fondos de inversión"},
-            {"4", "Activo", "Activo corriente", "Cuentas por cobrar"},
-            {"5", "Activo", "Activo corriente", "Efectivo y bancos en moneda extranjera"},
-            {"6", "Activo", "Activo corriente", "Cuentas por cobrar en moneda extranjera"},
-            {"7", "Activo", "Activo no corriente", "Inversiones de largo plazo en el exterior"},
-            {"8", "Pasivo", "Pasivo corriente", "Tarjetas de crédito"},
-            {"9", "Pasivo", "Pasivo corriente", "Cuentas por pagar - gastos del hogar"},
-            {"10", "Pasivo", "Pasivo corriente", "Cuentas por pagar personales"},
-            {"11", "Pasivo", "Pasivo corriente", "Tarjetas y cuentas por pagar en moneda extranjera"},
-            {"12", "Pasivo", "Pasivo no corriente", "Obligaciones financieras de largo plazo"},
-            {"13", "Cuentas de orden Db", "Cuentas de orden Db", "Cuenta de orden deudora"},
-            {"14", "Cuentas de orden Cr", "Cuentas de orden Cr", "Cuenta de orden acreedora"},
-            {"15", "Patrimonio", "Patrimonio", "Capital"},
-            {"16", "Patrimonio", "Patrimonio", "Resultados / utilidades acumuladas"},
-            {"17", "Ingresos", "Ingresos", "Ingresos (genérico)"},
-            {"18", "Gastos", "Gastos", "Gastos (genérico)"},
-            {"19", "Costo de ventas", "Costo de ventas", "Costo de ventas (genérico)"},
-            {"20", "Costos de produccion", "Costos de produccion", "Costos de producción (genérico)"},
-            {"21", "Pasivo", "Pasivo corriente", "Efectivo por pagar en moneda extranjera"}
+            {"1", "Activo", "Activo corriente", "Efectivo y bancos", "Inmediata"},
+            {"2", "Activo", "Activo corriente", "Inversiones temporales", "Requiere trámite"},
+            {"3", "Activo", "Activo corriente", "Fondos de inversión", "Requiere trámite"},
+            {"4", "Activo", "Activo corriente", "Cuentas por cobrar", "Depende de terceros"},
+            {"5", "Activo", "Activo corriente", "Efectivo y bancos en moneda extranjera", "Inmediata"},
+            {"6", "Activo", "Activo corriente", "Cuentas por cobrar en moneda extranjera", "Depende de terceros"},
+            {"7", "Activo", "Activo no corriente", "Inversiones de largo plazo en el exterior", "No disponible a corto plazo"},
+            {"8", "Pasivo", "Pasivo corriente", "Tarjetas de crédito", "No aplica"},
+            {"9", "Pasivo", "Pasivo corriente", "Cuentas por pagar - gastos del hogar", "No aplica"},
+            {"10", "Pasivo", "Pasivo corriente", "Cuentas por pagar personales", "No aplica"},
+            {"11", "Pasivo", "Pasivo corriente", "Tarjetas y cuentas por pagar en moneda extranjera", "No aplica"},
+            {"12", "Pasivo", "Pasivo no corriente", "Obligaciones financieras de largo plazo", "No aplica"},
+            {"13", "Cuentas de orden Db", "Cuentas de orden Db", "Cuenta de orden deudora", "No aplica"},
+            {"14", "Cuentas de orden Cr", "Cuentas de orden Cr", "Cuenta de orden acreedora", "No aplica"},
+            {"15", "Patrimonio", "Patrimonio", "Capital", "No aplica"},
+            {"16", "Patrimonio", "Patrimonio", "Resultados / utilidades acumuladas", "No aplica"},
+            {"17", "Ingresos", "Ingresos", "Ingresos (genérico)", "No aplica"},
+            {"18", "Gastos", "Gastos", "Gastos (genérico)", "No aplica"},
+            {"19", "Costo de ventas", "Costo de ventas", "Costo de ventas (genérico)", "No aplica"},
+            {"20", "Costos de produccion", "Costos de produccion", "Costos de producción (genérico)", "No aplica"},
+            {"21", "Pasivo", "Pasivo corriente", "Efectivo por pagar en moneda extranjera", "No aplica"}
     };
 
     // Asignación de cada cuenta real a su tipo definitivo (Excel de Jorge, 31-oct). Se usa en la
@@ -841,6 +846,9 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
     private static int insertarCatalogoDefinitivo(SQLiteDatabase db) {
         int insertados = 0;
+        // La migración v16 (que llama a este método) corre ANTES de la v17 que agrega la columna
+        // liquidez: en ese caso se inserta sin ella y la v17 la completa después.
+        boolean tieneColumnaLiquidez = tieneColumna(db, TABLE_TIPO_CUENTA, "liquidez");
         for (String[] fila : CATALOGO_TIPO_CUENTA_DEFINITIVO) {
             Long clasificacionId = null;
             String naturaleza = null;
@@ -866,6 +874,9 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             cv.put("clasificacion_id", clasificacionId);
             cv.put("nombre", fila[3]);
             cv.put("naturaleza_normal", naturaleza);
+            if (tieneColumnaLiquidez) {
+                cv.put("liquidez", fila[4]);
+            }
             if (db.insert(TABLE_TIPO_CUENTA, null, cv) != -1L) {
                 insertados++;
             }
@@ -873,6 +884,30 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         android.util.Log.w("A1_1_AyudanteBD",
                 "Catálogo definitivo de tipo_cuenta sembrado: " + insertados + " filas");
         return insertados;
+    }
+
+    private static boolean tieneColumna(SQLiteDatabase db, String tabla, String columna) {
+        Cursor c = db.rawQuery("PRAGMA table_info(" + tabla + ")", null);
+        try {
+            while (c.moveToNext()) {
+                if (columna.equalsIgnoreCase(c.getString(1))) return true;
+            }
+            return false;
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
+     * ⭐ NUEVO (31-oct, BD v17): completa tipo_cuenta.liquidez con los niveles definidos por
+     * Jorge, por tipo_cuenta_id, solo donde todavía esté vacía (no pisa lo que ya tenga valor).
+     */
+    private static void completarLiquidezCatalogo(SQLiteDatabase db) {
+        for (String[] fila : CATALOGO_TIPO_CUENTA_DEFINITIVO) {
+            db.execSQL("UPDATE " + TABLE_TIPO_CUENTA + " SET liquidez = ? " +
+                            "WHERE tipo_cuenta_id = ? AND liquidez IS NULL",
+                    new Object[]{fila[4], Long.parseLong(fila[0])});
+        }
     }
 
     /** tipo_cuenta_id cuyo nombre coincide exactamente, o null si no existe. */
@@ -1670,6 +1705,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // no la "v16" del proyecto de costeo por inventario ni la del plan original.
         if (oldVersion < 16) {
             migrarACatalogoTipoCuentaDefinitivo(db);
+        }
+        // ⭐ NUEVO (31-oct): versión 17 de la BD — nivel de liquidez por tipo de cuenta.
+        if (oldVersion < 17) {
+            if (!tieneColumna(db, TABLE_TIPO_CUENTA, "liquidez")) {
+                db.execSQL("ALTER TABLE " + TABLE_TIPO_CUENTA + " ADD COLUMN liquidez TEXT");
+            }
+            completarLiquidezCatalogo(db);
         }
     }
 
