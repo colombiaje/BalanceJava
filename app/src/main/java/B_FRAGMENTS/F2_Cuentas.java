@@ -838,15 +838,22 @@ public class F2_Cuentas extends DialogFragment {
                     Log.e("DEBUG_DELETE", "Transacciones: " + cuentaConTransacciones_Result_ArrayList.size());
 
                     if (cuentaConTransacciones_Result_ArrayList.size() == 0) {
-                        // ⭐ USAR LA VARIABLE LOCAL en lugar de cuentaSeleccionadaAqui
-                        a3_operacionesBD.eliminarCuenta(cuentaAEliminar);
-
-                        notificarActualizacionCuentas();
-                        limpiarTextoEnCuentaABuscar();
-                        cleanClickFieldsAccount();
-                        dynamicQuery();
-
-                        mostrarToast("Se borró la cuenta: " + cuentaAEliminar);
+                        // ⭐ CAMBIO (31-oct): si la cuenta tiene artículos de inventario (sin
+                        // movimientos, porque la cuenta no tiene transacciones), se pide
+                        // confirmación: se borran junto con la cuenta.
+                        int articulos = a3_operacionesBD.contarArticulosDeCuenta(cuentaAEliminar);
+                        if (articulos > 0) {
+                            new AlertDialog.Builder(getActivity())
+                                    .setTitle("Eliminar \"" + cuentaAEliminar + "\"")
+                                    .setMessage("Esta cuenta tiene " + articulos + " artículo(s) de " +
+                                            "inventario sin movimientos. Se eliminarán junto con " +
+                                            "la cuenta. ¿Continuar?")
+                                    .setPositiveButton("Eliminar", (d, w) -> ejecutarEliminarCuenta(cuentaAEliminar))
+                                    .setNegativeButton("Cancelar", null)
+                                    .show();
+                        } else {
+                            ejecutarEliminarCuenta(cuentaAEliminar);
+                        }
                     } else {
                         mostrarToast("La Cuenta no se puede borrar porque tiene movimiento");
                     }
@@ -2641,6 +2648,21 @@ public class F2_Cuentas extends DialogFragment {
             return true;
         }
         return false;
+    }
+
+    // ⭐ NUEVO (31-oct): borrado real + mensaje honesto. Antes la pantalla decía "Se borró la
+    // cuenta" aunque SQLite hubiera rechazado el borrado.
+    private void ejecutarEliminarCuenta(String cuentaAEliminar) {
+        int resultado = a3_operacionesBD.eliminarCuenta(cuentaAEliminar);
+        if (resultado > 0) {
+            notificarActualizacionCuentas();
+            limpiarTextoEnCuentaABuscar();
+            cleanClickFieldsAccount();
+            dynamicQuery();
+            mostrarToast("Se borró la cuenta: " + cuentaAEliminar);
+        } else {
+            mostrarToast("No se pudo borrar la cuenta: " + a3_operacionesBD.ultimoErrorEliminarCuenta);
+        }
     }
 
     private void mostrarToast (String mensaje) {

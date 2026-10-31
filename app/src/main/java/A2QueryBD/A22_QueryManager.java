@@ -364,11 +364,14 @@ public class A22_QueryManager {
         // Ejecutar la consulta y mapear los resultados
         List<String> cuentas_List = a3_2_consultas_para_queryManager.executeQuery(queryBuilder, cursor -> cursor.getString(0));
 
-        if (!cuentas_List.isEmpty()) {
-            return new A23_QueryResult<>(cuentas_List.size(), new ArrayList<>(cuentas_List), "Consulta exitosa");
-        } else {
-            return new A23_QueryResult<>(0, new ArrayList<>(), "No se encontraron cuentas");
-        }
+        // ⭐ NUEVO (31-oct): opción vacía "" SIEMPRE al inicio de la lista. Antes la ponía, sin
+        // saberlo, la cuenta comodín sin nombre ("Item 0") de la tabla — que se retiró en la
+        // migración v16 de la BD. Los spinners de cuentas (F1, F2, F3_1, F4, F5_1) dependen de
+        // que la primera opción sea "" para no disparar la consulta al abrir la pantalla: su
+        // listener ignora el texto vacío. Se reproduce aquí el comportamiento de siempre, sin
+        // necesitar una cuenta falsa en la base de datos.
+        cuentas_List.add(0, "");
+        return new A23_QueryResult<>(cuentas_List.size(), new ArrayList<>(cuentas_List), "Consulta exitosa");
     }
 
     public A23_QueryResult<String[]> queryAttributesByAccount (String nombreCuenta) {

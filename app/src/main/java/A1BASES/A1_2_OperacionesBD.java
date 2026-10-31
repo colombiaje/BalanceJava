@@ -182,31 +182,80 @@ public class A1_2_OperacionesBD extends Activity {
 
     }
 
-    public void eliminarCuenta(String cuentaSinMovimiento) {
-        Log.e("DEBUG_ELIMINAR", "1. Iniciando eliminación de: " + cuentaSinMovimiento);
+    // ⭐ NUEVO (31-oct): último error al eliminar una cuenta, para mostrarlo al usuario.
+    public String ultimoErrorEliminarCuenta = null;
 
+    /**
+     * Cuenta los artículos de inventario de una cuenta (por nombre). Sirve para pedir
+     * confirmación antes de eliminarla, ya que se borran junto con ella.
+     */
+    public int contarArticulosDeCuenta(String nombreCuenta) {
+        abrirBaseDatos();
+        try {
+            android.database.Cursor c = sqliteDatabase_Abstracta.rawQuery(
+                    "SELECT COUNT(*) FROM items_inventario WHERE cuenta_id = " +
+                            "(SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
+                    new String[]{nombreCuenta});
+            try {
+                return c.moveToFirst() ? c.getInt(0) : 0;
+            } finally {
+                c.close();
+            }
+        } finally {
+            cerrarBaseDatos();
+        }
+    }
+
+    /**
+     * Elimina una cuenta SIN movimientos.
+     * ⭐ CAMBIO (31-oct, bug reportado por Jorge: "parece eliminarse pero vuelve a aparecer"):
+     * antes, si la cuenta tenía artículos de inventario (items_inventario, FK con ON DELETE
+     * RESTRICT), SQLite rechazaba el borrado, el error se tragaba aquí y la pantalla igual
+     * decía "Se borró la cuenta". Ahora, en una sola transacción, se borran primero sus
+     * artículos — solo si ninguno tiene movimientos (transacciones_inventario) — y luego la
+     * cuenta. Devuelve cuántas cuentas se borraron (1) o -1 si no se pudo, con el motivo en
+     * ultimoErrorEliminarCuenta.
+     */
+    public int eliminarCuenta(String cuentaSinMovimiento) {
+        ultimoErrorEliminarCuenta = null;
         if (cuentaSinMovimiento == null || cuentaSinMovimiento.trim().isEmpty()) {
-            Log.e("DEBUG_ELIMINAR", "2. Cuenta vacía - CANCELADO");
-            return;
+            ultimoErrorEliminarCuenta = "Falta el nombre de la cuenta";
+            return -1;
         }
 
         abrirBaseDatos();
-        Log.e("DEBUG_ELIMINAR", "3. BD abierta");
-
+        sqliteDatabase_Abstracta.beginTransaction();
         try {
+            android.database.Cursor c = sqliteDatabase_Abstracta.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones_inventario WHERE item_id IN " +
+                            "(SELECT item_id FROM items_inventario WHERE cuenta_id = " +
+                            "(SELECT cuenta_id FROM cuentas WHERE Cuenta = ?))",
+                    new String[]{cuentaSinMovimiento});
+            int movimientosInventario = c.moveToFirst() ? c.getInt(0) : 0;
+            c.close();
+            if (movimientosInventario > 0) {
+                ultimoErrorEliminarCuenta = "La cuenta tiene movimientos de inventario";
+                return -1;
+            }
+
+            sqliteDatabase_Abstracta.delete("items_inventario",
+                    "cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
+                    new String[]{cuentaSinMovimiento});
             int filasEliminadas = sqliteDatabase_Abstracta.delete(
-                    "cuentas",
-                    "Cuenta = ?",
-                    new String[]{cuentaSinMovimiento}
-            );
-
-            Log.e("DEBUG_ELIMINAR", "4. Filas eliminadas: " + filasEliminadas);
-
+                    "cuentas", "Cuenta = ?", new String[]{cuentaSinMovimiento});
+            if (filasEliminadas == 0) {
+                ultimoErrorEliminarCuenta = "No se encontró la cuenta";
+                return -1;
+            }
+            sqliteDatabase_Abstracta.setTransactionSuccessful();
+            return filasEliminadas;
         } catch (Exception e) {
-            Log.e("DEBUG_ELIMINAR", "5. ERROR: " + e.getMessage());
+            Log.e("DEBUG_ELIMINAR", "ERROR al eliminar cuenta: " + e.getMessage(), e);
+            ultimoErrorEliminarCuenta = e.getMessage();
+            return -1;
         } finally {
+            sqliteDatabase_Abstracta.endTransaction();
             cerrarBaseDatos();
-            Log.e("DEBUG_ELIMINAR", "6. BD cerrada");
         }
     }
 
