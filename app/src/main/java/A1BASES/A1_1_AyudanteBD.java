@@ -723,6 +723,16 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     public void onOpen(SQLiteDatabase db) {
         super.onOpen(db);
         db.setForeignKeyConstraintsEnabled(true);
+        // ⭐ NUEVO (31-oct): renombrar el catálogo provisional antiguo, si existe. No hace nada
+        // cuando ya no quedan nombres "Tipo N - ... (provisional)". Nunca debe tumbar la apertura.
+        if (!db.isReadOnly()) {
+            try {
+                actualizarNombresCatalogoProvisional(db);
+            } catch (Exception e) {
+                android.util.Log.e("A1_1_AyudanteBD",
+                        "No se pudo actualizar el catálogo provisional: " + e.getMessage());
+            }
+        }
     }
 
     // ⭐ NUEVO — fix restauración (30-oct): catálogo PROVISIONAL de tipo_cuenta con los mismos
@@ -738,17 +748,22 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // Los nombres son provisionales a propósito: el catálogo definitivo con nombres funcionales
     // (Documento 3, "Especificación técnica clasificación contable") es un proyecto aparte.
     // Solo actúa si tipo_cuenta está COMPLETAMENTE vacía; si ya tiene filas, no toca nada.
-    // { tipo_cuenta_id, clase (clase_contable.nombre), clasificacion (clasificacion_contable.nombre) }
+    // { tipo_cuenta_id, clase (clase_contable.nombre), clasificacion (clasificacion_contable.nombre),
+    //   nombre visible }
+    // ⭐ CAMBIO (31-oct, a pedido de Jorge): sin el prefijo "Tipo N -"; nombre = clasificación +
+    // descripción corta, con criterio de estado financiero. Por ahora todo lo de Activo y Pasivo
+    // va como CORRIENTE (los ids 3 y 6 pasan de "no corriente" a "corriente"), mientras se hace
+    // el catálogo técnico definitivo (Documento 3).
     private static final String[][] CATALOGO_TIPO_CUENTA_PROVISIONAL = {
-            {"1", "Activo", "Activo corriente"},          // Caja, bancos conciliables
-            {"2", "Activo", "Activo corriente"},          // CxC, CDTs, inversiones
-            {"3", "Pasivo", "Pasivo no corriente"},       // CxP personales, TC en euros
-            {"4", "Cuentas de orden Db", "Cuentas de orden Db"},
-            {"5", "Cuentas de orden Cr", "Cuentas de orden Cr"},
-            {"6", "Activo", "Activo no corriente"},       // Euros/dólares, conciliables
-            {"7", "Pasivo", "Pasivo corriente"},          // CxP hogar, tarjetas de crédito
-            {"8", "Pasivo", "Pasivo corriente"},          // CxP conciliables (Falabella, provisión)
-            {"9", "Patrimonio", "Patrimonio"}             // PAT Capital, PAT Rentabilidad
+            {"1", "Activo", "Activo corriente", "Activo corriente - Efectivo y bancos"},
+            {"2", "Activo", "Activo corriente", "Activo corriente - Cuentas por cobrar e inversiones"},
+            {"3", "Pasivo", "Pasivo corriente", "Pasivo corriente - Cuentas por pagar personales"},
+            {"4", "Cuentas de orden Db", "Cuentas de orden Db", "Cuentas de orden deudoras"},
+            {"5", "Cuentas de orden Cr", "Cuentas de orden Cr", "Cuentas de orden acreedoras"},
+            {"6", "Activo", "Activo corriente", "Activo corriente - Moneda extranjera"},
+            {"7", "Pasivo", "Pasivo corriente", "Pasivo corriente - Obligaciones del hogar y tarjetas"},
+            {"8", "Pasivo", "Pasivo corriente", "Pasivo corriente - Provisiones y créditos conciliables"},
+            {"9", "Patrimonio", "Patrimonio", "Patrimonio - Capital y resultados"}
     };
 
     /**
@@ -758,6 +773,35 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      *
      * @return cuántos tipos se insertaron (0 si la tabla ya tenía datos).
      */
+    /**
+     * ⭐ NUEVO (31-oct): actualiza en el dispositivo las filas sembradas con la versión anterior
+     * del catálogo provisional (nombre "Tipo N - ... (provisional)") al nombre y la clasificación
+     * actuales de CATALOGO_TIPO_CUENTA_PROVISIONAL. Solo toca filas cuyo nombre sigue siendo
+     * exactamente el antiguo, así que no pisa nada que el usuario haya renombrado ni se repite:
+     * después de la primera vez ya no encuentra filas que cambiar. Se llama desde onOpen().
+     */
+    public static void actualizarNombresCatalogoProvisional(SQLiteDatabase db) {
+        for (String[] fila : CATALOGO_TIPO_CUENTA_PROVISIONAL) {
+            Cursor c = db.rawQuery(
+                    "SELECT cc.clasificacion_id " +
+                            "FROM " + TABLE_CLASIFICACION_CONTABLE + " cc " +
+                            "JOIN " + TABLE_CLASE_CONTABLE + " cl ON cc.clase_id = cl.clase_id " +
+                            "WHERE cc.nombre = ? AND cl.nombre = ?",
+                    new String[]{fila[2], fila[1]});
+            Long clasificacionId = c.moveToFirst() ? c.getLong(0) : null;
+            c.close();
+            if (clasificacionId == null) {
+                continue;
+            }
+            ContentValues cv = new ContentValues();
+            cv.put("nombre", fila[3]);
+            cv.put("clasificacion_id", clasificacionId);
+            db.update(TABLE_TIPO_CUENTA, cv,
+                    "tipo_cuenta_id = ? AND nombre LIKE 'Tipo % (provisional)'",
+                    new String[]{fila[0]});
+        }
+    }
+
     public static int asegurarCatalogoTipoCuentaProvisional(SQLiteDatabase db) {
         if (android.database.DatabaseUtils.queryNumEntries(db, TABLE_TIPO_CUENTA) > 0) {
             return 0;
@@ -786,7 +830,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             ContentValues cv = new ContentValues();
             cv.put("tipo_cuenta_id", Long.parseLong(fila[0]));
             cv.put("clasificacion_id", clasificacionId);
-            cv.put("nombre", "Tipo " + fila[0] + " - " + fila[2] + " (provisional)");
+            cv.put("nombre", fila[3]);
             cv.put("naturaleza_normal", naturaleza);
             if (db.insert(TABLE_TIPO_CUENTA, null, cv) != -1L) {
                 insertados++;
