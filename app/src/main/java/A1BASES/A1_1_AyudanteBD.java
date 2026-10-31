@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 15;
+    public static final int version1BalanceSqlite_int_PSF = 16; // ⭐ 31-oct: catálogo definitivo tipo_cuenta
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -723,91 +723,125 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     public void onOpen(SQLiteDatabase db) {
         super.onOpen(db);
         db.setForeignKeyConstraintsEnabled(true);
-        // ⭐ NUEVO (31-oct): renombrar el catálogo provisional antiguo, si existe. No hace nada
-        // cuando ya no quedan nombres "Tipo N - ... (provisional)". Nunca debe tumbar la apertura.
-        if (!db.isReadOnly()) {
-            try {
-                actualizarNombresCatalogoProvisional(db);
-            } catch (Exception e) {
-                android.util.Log.e("A1_1_AyudanteBD",
-                        "No se pudo actualizar el catálogo provisional: " + e.getMessage());
-            }
-        }
+        // (31-oct) Se retira el renombrado en onOpen del catálogo provisional: la migración v16
+        // (onUpgrade) lo reemplaza por el catálogo definitivo.
     }
 
-    // ⭐ NUEVO — fix restauración (30-oct): catálogo PROVISIONAL de tipo_cuenta con los mismos
-    // ids 1..9 que traen los backups CSV de cuentas (columna tipo_cuenta_id).
-    //
-    // Causa raíz del fallo de restauración: en una instalación nueva, tipo_cuenta nace vacía
-    // (ver onCreate) — el catálogo antiguo solo existía en la base del dispositivo (lo creó el
-    // backfill de la migración v9) y los backups guardan el NÚMERO de tipo de cada cuenta, no
-    // el catálogo. Al reinstalar, cada cuenta del CSV apunta a un tipo_cuenta_id inexistente y
-    // SQLite la rechaza por FK (code 787) — y las transacciones caen después en cadena.
-    //
-    // Clasificación deducida de las cuentas que usan cada id (backups del 28-sep y 29-oct).
-    // Los nombres son provisionales a propósito: el catálogo definitivo con nombres funcionales
-    // (Documento 3, "Especificación técnica clasificación contable") es un proyecto aparte.
-    // Solo actúa si tipo_cuenta está COMPLETAMENTE vacía; si ya tiene filas, no toca nada.
-    // { tipo_cuenta_id, clase (clase_contable.nombre), clasificacion (clasificacion_contable.nombre),
-    //   nombre visible }
-    // ⭐ CAMBIO (31-oct, a pedido de Jorge): sin el prefijo "Tipo N -"; nombre = clasificación +
-    // descripción corta, con criterio de estado financiero. Por ahora todo lo de Activo y Pasivo
-    // va como CORRIENTE (los ids 3 y 6 pasan de "no corriente" a "corriente"), mientras se hace
-    // el catálogo técnico definitivo (Documento 3).
-    private static final String[][] CATALOGO_TIPO_CUENTA_PROVISIONAL = {
-            {"1", "Activo", "Activo corriente", "Activo corriente - Efectivo y bancos"},
-            {"2", "Activo", "Activo corriente", "Activo corriente - Cuentas por cobrar e inversiones"},
-            {"3", "Pasivo", "Pasivo corriente", "Pasivo corriente - Cuentas por pagar personales"},
-            {"4", "Cuentas de orden Db", "Cuentas de orden Db", "Cuentas de orden deudoras"},
-            {"5", "Cuentas de orden Cr", "Cuentas de orden Cr", "Cuentas de orden acreedoras"},
-            {"6", "Activo", "Activo corriente", "Activo corriente - Moneda extranjera"},
-            {"7", "Pasivo", "Pasivo corriente", "Pasivo corriente - Obligaciones del hogar y tarjetas"},
-            {"8", "Pasivo", "Pasivo corriente", "Pasivo corriente - Provisiones y créditos conciliables"},
-            {"9", "Patrimonio", "Patrimonio", "Patrimonio - Capital y resultados"}
+    // ⭐ NUEVO (31-oct) — CATÁLOGO DEFINITIVO de tipo_cuenta, definido por Jorge (documento
+    // "Catálogo definitivo tipo_cuenta" + Excel "Asignación cuentas a tipo_cuenta", 31-oct).
+    // Reemplaza al catálogo provisional de ids 1..9 (fix de restauración del 30-oct).
+    // Criterio de Jorge: corriente / no corriente por liquidez real a 12 meses, no por moneda.
+    // Los tipos sin cuentas hoy (3, 6, 7, 12, 16, 17-20) se dejan creados a propósito, reservados.
+    // { tipo_cuenta_id, clase (clase_contable.nombre), clasificación (clasificacion_contable.nombre),
+    //   nombre visible }. La naturaleza normal se toma de la clase.
+    private static final String[][] CATALOGO_TIPO_CUENTA_DEFINITIVO = {
+            {"1", "Activo", "Activo corriente", "Efectivo y bancos"},
+            {"2", "Activo", "Activo corriente", "Inversiones temporales"},
+            {"3", "Activo", "Activo corriente", "Fondos de inversión"},
+            {"4", "Activo", "Activo corriente", "Cuentas por cobrar"},
+            {"5", "Activo", "Activo corriente", "Efectivo y bancos en moneda extranjera"},
+            {"6", "Activo", "Activo corriente", "Cuentas por cobrar en moneda extranjera"},
+            {"7", "Activo", "Activo no corriente", "Inversiones de largo plazo en el exterior"},
+            {"8", "Pasivo", "Pasivo corriente", "Tarjetas de crédito"},
+            {"9", "Pasivo", "Pasivo corriente", "Cuentas por pagar - gastos del hogar"},
+            {"10", "Pasivo", "Pasivo corriente", "Cuentas por pagar personales"},
+            {"11", "Pasivo", "Pasivo corriente", "Tarjetas y cuentas por pagar en moneda extranjera"},
+            {"12", "Pasivo", "Pasivo no corriente", "Obligaciones financieras de largo plazo"},
+            {"13", "Cuentas de orden Db", "Cuentas de orden Db", "Cuenta de orden deudora"},
+            {"14", "Cuentas de orden Cr", "Cuentas de orden Cr", "Cuenta de orden acreedora"},
+            {"15", "Patrimonio", "Patrimonio", "Capital"},
+            {"16", "Patrimonio", "Patrimonio", "Resultados / utilidades acumuladas"},
+            {"17", "Ingresos", "Ingresos", "Ingresos (genérico)"},
+            {"18", "Gastos", "Gastos", "Gastos (genérico)"},
+            {"19", "Costo de ventas", "Costo de ventas", "Costo de ventas (genérico)"},
+            {"20", "Costos de produccion", "Costos de produccion", "Costos de producción (genérico)"},
+            {"21", "Pasivo", "Pasivo corriente", "Efectivo por pagar en moneda extranjera"}
     };
 
-    /**
-     * Si tipo_cuenta está vacía, la llena con el catálogo provisional de arriba (ids fijos 1..9),
-     * para que las restauraciones desde CSV no choquen con la FK cuentas.tipo_cuenta_id.
-     * Idempotente: si la tabla ya tiene al menos una fila, no hace nada.
-     *
-     * @return cuántos tipos se insertaron (0 si la tabla ya tenía datos).
-     */
-    /**
-     * ⭐ NUEVO (31-oct): actualiza en el dispositivo las filas sembradas con la versión anterior
-     * del catálogo provisional (nombre "Tipo N - ... (provisional)") al nombre y la clasificación
-     * actuales de CATALOGO_TIPO_CUENTA_PROVISIONAL. Solo toca filas cuyo nombre sigue siendo
-     * exactamente el antiguo, así que no pisa nada que el usuario haya renombrado ni se repite:
-     * después de la primera vez ya no encuentra filas que cambiar. Se llama desde onOpen().
-     */
-    public static void actualizarNombresCatalogoProvisional(SQLiteDatabase db) {
-        for (String[] fila : CATALOGO_TIPO_CUENTA_PROVISIONAL) {
-            Cursor c = db.rawQuery(
-                    "SELECT cc.clasificacion_id " +
-                            "FROM " + TABLE_CLASIFICACION_CONTABLE + " cc " +
-                            "JOIN " + TABLE_CLASE_CONTABLE + " cl ON cc.clase_id = cl.clase_id " +
-                            "WHERE cc.nombre = ? AND cl.nombre = ?",
-                    new String[]{fila[2], fila[1]});
-            Long clasificacionId = c.moveToFirst() ? c.getLong(0) : null;
-            c.close();
-            if (clasificacionId == null) {
-                continue;
-            }
-            ContentValues cv = new ContentValues();
-            cv.put("nombre", fila[3]);
-            cv.put("clasificacion_id", clasificacionId);
-            db.update(TABLE_TIPO_CUENTA, cv,
-                    "tipo_cuenta_id = ? AND nombre LIKE 'Tipo % (provisional)'",
-                    new String[]{fila[0]});
+    // Asignación de cada cuenta real a su tipo definitivo (Excel de Jorge, 31-oct). Se usa en la
+    // migración v16 de la BD y al restaurar backups en formato ANTIGUO (sin columna
+    // tipo_cuenta_nombre), cuyos tipo_cuenta_id 1..9 corresponden al catálogo provisional.
+    private static final String[][] ASIGNACION_CUENTA_A_TIPO = {
+            {"Caja", "1"}, {"Bolsillo", "1"}, {"Banco Bbva", "1"}, {"Banco Colpatria Bolsillo", "1"},
+            {"Banco Colpatria Flexicuenta", "1"}, {"Banco Colpatria Premiun", "1"},
+            {"Banco Daviplata", "1"}, {"Banco Neki", "1"}, {"Banco Nu", "1"},
+            {"Banco Lulo Bank", "1"}, {"Banco Popular", "1"}, {"Banco Popular2", "1"},
+            {"Banco Pibank", "1"}, {"BancoTuya", "1"}, {"B Flexi TD", "1"},
+            {"Bbva cdt", "2"}, {"Coltefinanciera", "2"}, {"Cdt Banco de Occidente", "2"},
+            {"Banco Santander cdt", "2"}, {"Banco Pibank Cdt", "2"}, {"B Popu 2023 12 23 cd", "2"},
+            {"Bbva ctas ahorro fijo", "2"}, {"Bbva fondo Paramo", "2"},
+            {"Bbva 2022 10 12", "2"}, {"Bbva 2022 12 09", "2"}, {"Bbva 2023 02 08", "2"},
+            {"Bbva 2023 05 12", "2"}, {"Bbva 2023 10 13", "2"}, {"Bbva 2023 10 2", "2"},
+            {"Bbva 2023 3 14 af", "2"}, {"Bbva 2023 6 9 cd", "2"},
+            {"CxC Enrique", "4"}, {"CxC Enrique mes siguiente", "4"}, {"CxC Enrique Proyectos", "4"},
+            {"CxC Enrique Viaje", "4"}, {"CxC Yolanda", "4"}, {"CxC Yolanda Otros", "4"},
+            {"CxC Admon Cauca", "4"}, {"CxC Antonio J", "4"}, {"CxC Arriendo Cauca", "4"},
+            {"CxC Betty Y Edgar", "4"}, {"CxC Cauca otros", "4"}, {"CxC Don Antonio", "4"},
+            {"CxC Edwin Int", "4"}, {"CxC F Jj", "4"}, {"CxC Familia Diaz", "4"},
+            {"CxC Familia García", "4"}, {"CxC Gina", "4"}, {"CxC Lucia", "4"},
+            {"CxC Pan De Bono Expess Int", "4"}, {"CxC Simón G", "4"}, {"CxC Yenli", "4"},
+            {"A Caja Euros", "5"}, {"A Caja Mayor Euros", "5"}, {"Banco Lulo x", "5"},
+            {"Banco Dolar App", "5"}, {"Banco ARQ EURc", "5"},
+            {"CxC Enrique Euros", "5"}, {"CxC Euros", "5"}, {"CxC Enrique Dolares", "5"},
+            {"A CxC Enrique E Anti", "5"}, {"A CxC Enrique Euros", "5"}, {"A CxC Yolanda Euros", "5"},
+            {"CxP TC Bbva", "8"}, {"CxP TC Colpatria", "8"}, {"CxP TC Nu", "8"},
+            {"CxP Agua", "9"}, {"CxP Energia", "9"}, {"CxP Gas", "9"}, {"CxP Telefono", "9"},
+            {"CxP Tv", "9"}, {"CxP Arriendo Cauca Jj", "9"}, {"CxP Aseo", "9"},
+            {"CxP Alimento Mes Sig", "9"}, {"CxP Alimentos Y Aseo", "9"},
+            {"CxP Servicio Domestico Diario", "9"}, {"CxP Servicio Domestico Pres", "9"},
+            {"CxP Admon", "9"}, {"CxP Yolanda", "9"}, {"CxP Falabella", "9"},
+            {"CxP Provision Gts Hogar", "9"}, {"CxP Provision Gts jj", "9"},
+            {"CxP Don Leonardo Blanca", "9"},
+            {"CxP Blanca personal", "10"}, {"CxP D Juana", "10"}, {"CxP Jjj", "10"},
+            {"CxP Unificacion F Jj", "10"}, {"CxP Intereses Ban Jj", "10"},
+            {"CxP Intereses Ban Ot", "10"}, {"CxP int jj no bancos", "10"},
+            {"B CxP TC Bbva Euros", "11"}, {"B CxP TC Colp Euros", "11"}, {"B CxP TC Nu Euros", "11"},
+            {"Blanquita c o activa", "13"}, {"Blanquita c o pasiva", "14"},
+            {"PAT Capital", "15"}, {"PAT Rentabilidad sana", "15"},
+            {"B Caja Euros Pasivo", "21"}
+    };
+
+    // Respaldo para cuentas que no estén en la asignación por nombre (p. ej. creadas después del
+    // 31-oct que aparezcan en un backup antiguo): tipo provisional 1..9 → tipo definitivo.
+    private static long tipoDefinitivoDesdeProvisional(long idProvisional) {
+        switch ((int) idProvisional) {
+            case 1: return 1;   // Efectivo y bancos
+            case 2: return 4;   // Cuentas por cobrar
+            case 3: return 10;  // Cuentas por pagar personales
+            case 4: return 13;  // Cuenta de orden deudora
+            case 5: return 14;  // Cuenta de orden acreedora
+            case 6: return 5;   // Efectivo y bancos en moneda extranjera
+            case 7: return 9;   // Cuentas por pagar - gastos del hogar
+            case 8: return 9;   // Cuentas por pagar - gastos del hogar
+            case 9: return 15;  // Capital
+            default: return -1;
         }
     }
 
-    public static int asegurarCatalogoTipoCuentaProvisional(SQLiteDatabase db) {
+    private static Long tipoDefinitivoPorNombreDeCuenta(String nombreCuenta) {
+        if (nombreCuenta == null) return null;
+        String nombre = nombreCuenta.trim();
+        for (String[] par : ASIGNACION_CUENTA_A_TIPO) {
+            if (par[0].equals(nombre)) return Long.parseLong(par[1]);
+        }
+        return null;
+    }
+
+    /**
+     * Si tipo_cuenta está vacía (instalación nueva), la llena con el catálogo definitivo, con sus
+     * ids fijos. Idempotente: si la tabla ya tiene filas, no hace nada.
+     * @return cuántos tipos se insertaron.
+     */
+    public static int asegurarCatalogoTipoCuenta(SQLiteDatabase db) {
         if (android.database.DatabaseUtils.queryNumEntries(db, TABLE_TIPO_CUENTA) > 0) {
             return 0;
         }
+        return insertarCatalogoDefinitivo(db);
+    }
+
+    private static int insertarCatalogoDefinitivo(SQLiteDatabase db) {
         int insertados = 0;
-        for (String[] fila : CATALOGO_TIPO_CUENTA_PROVISIONAL) {
+        for (String[] fila : CATALOGO_TIPO_CUENTA_DEFINITIVO) {
             Long clasificacionId = null;
             String naturaleza = null;
             Cursor c = db.rawQuery(
@@ -822,7 +856,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             }
             c.close();
             if (clasificacionId == null) {
-                android.util.Log.w("A1_1_AyudanteBD", "Catálogo provisional: no existe la " +
+                android.util.Log.w("A1_1_AyudanteBD", "Catálogo definitivo: no existe la " +
                         "clasificación '" + fila[2] + "' de la clase '" + fila[1] +
                         "' — se omite tipo_cuenta_id " + fila[0]);
                 continue;
@@ -837,8 +871,111 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             }
         }
         android.util.Log.w("A1_1_AyudanteBD",
-                "Catálogo provisional de tipo_cuenta sembrado: " + insertados + " filas");
+                "Catálogo definitivo de tipo_cuenta sembrado: " + insertados + " filas");
         return insertados;
+    }
+
+    /** tipo_cuenta_id cuyo nombre coincide exactamente, o null si no existe. */
+    public static Long buscarTipoCuentaIdPorNombre(SQLiteDatabase db, String nombreTipo) {
+        if (nombreTipo == null || nombreTipo.trim().isEmpty()) return null;
+        Cursor c = db.rawQuery("SELECT tipo_cuenta_id FROM " + TABLE_TIPO_CUENTA +
+                " WHERE nombre = ?", new String[]{nombreTipo.trim()});
+        try {
+            return c.moveToFirst() ? c.getLong(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
+     * Reclasifica TODAS las cuentas cuyo tipo_cuenta_id venga del catálogo provisional (1..9):
+     * primero por nombre de cuenta (asignación de Jorge) y, si el nombre no está, por el tipo
+     * provisional. Pensado solo para (a) la migración v16 y (b) restauraciones de backups en
+     * formato antiguo. NO debe llamarse sobre datos que ya usan el catálogo definitivo.
+     * @return cuántas cuentas quedaron sin tipo.
+     */
+    public static int reclasificarCuentasDesdeCatalogoProvisional(SQLiteDatabase db) {
+        java.util.List<long[]> cambios = new java.util.ArrayList<>();
+        java.util.List<Long> sinTipo = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta, tipo_cuenta_id FROM cuentas", null);
+        try {
+            while (c.moveToNext()) {
+                long cuentaId = c.getLong(0);
+                Long nuevo = tipoDefinitivoPorNombreDeCuenta(c.getString(1));
+                if (nuevo == null && !c.isNull(2)) {
+                    long porProvisional = tipoDefinitivoDesdeProvisional(c.getLong(2));
+                    if (porProvisional > 0) nuevo = porProvisional;
+                }
+                if (nuevo != null) {
+                    cambios.add(new long[]{cuentaId, nuevo});
+                } else {
+                    sinTipo.add(cuentaId);
+                }
+            }
+        } finally {
+            c.close();
+        }
+        for (long[] cambio : cambios) {
+            db.execSQL("UPDATE cuentas SET tipo_cuenta_id = ? WHERE cuenta_id = ?",
+                    new Object[]{cambio[1], cambio[0]});
+        }
+        for (Long cuentaId : sinTipo) {
+            db.execSQL("UPDATE cuentas SET tipo_cuenta_id = NULL WHERE cuenta_id = ?",
+                    new Object[]{cuentaId});
+        }
+        return sinTipo.size();
+    }
+
+    /**
+     * Copia a cada transacción el tipo_cuenta_id actual de su cuenta (por cuenta_id). Deja la
+     * "foto" del tipo alineada con la cuenta — mismo criterio que la Auditoría de Clasificación,
+     * que reporta como desalineadas las transacciones cuyo tipo difiere del de su cuenta.
+     */
+    public static void alinearTipoCuentaDeTransacciones(SQLiteDatabase db) {
+        db.execSQL("UPDATE transacciones SET tipo_cuenta_id = " +
+                "(SELECT c.tipo_cuenta_id FROM cuentas c WHERE c.cuenta_id = transacciones.cuenta_id) " +
+                "WHERE cuenta_id IS NOT NULL");
+    }
+
+    /**
+     * Migración v16 de la BD: del catálogo provisional (ids 1..9) al definitivo (ids 1..21).
+     * Como los ids se reutilizan con otro significado, primero se calcula el tipo nuevo de cada
+     * cuenta, luego se sueltan las referencias (NULL siempre es válido para la FK), se reemplaza
+     * el catálogo y se vuelve a asignar. Además retira la cuenta comodín sin nombre ("Item 0"),
+     * solo si no tiene transacciones ni artículos de inventario.
+     */
+    private void migrarACatalogoTipoCuentaDefinitivo(SQLiteDatabase db) {
+        java.util.Map<Long, Long> nuevoPorCuenta = new java.util.HashMap<>();
+        Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta, tipo_cuenta_id FROM cuentas", null);
+        try {
+            while (c.moveToNext()) {
+                Long nuevo = tipoDefinitivoPorNombreDeCuenta(c.getString(1));
+                if (nuevo == null && !c.isNull(2)) {
+                    long porProvisional = tipoDefinitivoDesdeProvisional(c.getLong(2));
+                    if (porProvisional > 0) nuevo = porProvisional;
+                }
+                if (nuevo != null) nuevoPorCuenta.put(c.getLong(0), nuevo);
+            }
+        } finally {
+            c.close();
+        }
+
+        db.execSQL("UPDATE cuentas SET tipo_cuenta_id = NULL");
+        db.execSQL("UPDATE transacciones SET tipo_cuenta_id = NULL");
+        db.execSQL("DELETE FROM " + TABLE_TIPO_CUENTA);
+        insertarCatalogoDefinitivo(db);
+
+        for (java.util.Map.Entry<Long, Long> e : nuevoPorCuenta.entrySet()) {
+            db.execSQL("UPDATE cuentas SET tipo_cuenta_id = ? WHERE cuenta_id = ?",
+                    new Object[]{e.getValue(), e.getKey()});
+        }
+        alinearTipoCuentaDeTransacciones(db);
+
+        db.execSQL("DELETE FROM cuentas WHERE TRIM(Cuenta) = '' " +
+                "AND cuenta_id NOT IN (SELECT cuenta_id FROM transacciones WHERE cuenta_id IS NOT NULL) " +
+                "AND cuenta_id NOT IN (SELECT cuenta_id FROM items_inventario)");
+        android.util.Log.w("A1_1_AyudanteBD", "Migración v16: catálogo definitivo aplicado a " +
+                nuevoPorCuenta.size() + " cuentas");
     }
 
     // ⭐ NUEVO v8: índice único "best effort" sobre (c1_Documento, c2_ItemDoc) — en el modelo
@@ -907,6 +1044,9 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_CLASIFICACION_CONTABLE);
         db.execSQL(SQL_CREAR_TIPO_CUENTA);
         sembrarClaseYClasificacionContable(db);
+        // ⭐ NUEVO (31-oct): una instalación nueva nace ya con el catálogo definitivo de
+        // tipo_cuenta (antes nacía vacío y el spinner de "Tipo" quedaba sin opciones).
+        insertarCatalogoDefinitivo(db);
         // ⭐ NUEVO v14 — Tanda 1 del modelo de costeo por inventario: tablas nuevas, vacías en
         // toda instalación fresca (con_inventario en "cuentas" ya nace en 0 por su propio
         // DEFAULT, dentro de crearCuentas_String — ver comentario de clase arriba).
@@ -1524,6 +1664,12 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         if (oldVersion < 15) {
             db.execSQL("ALTER TABLE transacciones_inventario ADD COLUMN costo_total INTEGER NOT NULL DEFAULT 0");
             db.execSQL("UPDATE transacciones_inventario SET costo_total = unidades * precio_unitario");
+        }
+        // ⭐ NUEVO (31-oct): versión 16 de la BD — catálogo definitivo de tipo_cuenta (ver
+        // migrarACatalogoTipoCuentaDefinitivo). OJO: "16" aquí es la versión de la base de datos,
+        // no la "v16" del proyecto de costeo por inventario ni la del plan original.
+        if (oldVersion < 16) {
+            migrarACatalogoTipoCuentaDefinitivo(db);
         }
     }
 

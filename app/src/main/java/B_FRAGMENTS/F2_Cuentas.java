@@ -2139,9 +2139,12 @@ public class F2_Cuentas extends DialogFragment {
             // ⭐ NUEVO — fix restauración (30-oct): los 3 flujos que vacían "cuentas" (Sheets,
             // backup local, Drive) la reinsertan justo después desde un CSV cuyas cuentas traen
             // tipo_cuenta_id. Si tipo_cuenta está vacía (instalación nueva), se siembra el
-            // catálogo provisional para que esas filas no choquen con la FK. No hace nada si
-            // tipo_cuenta ya tiene datos — ver A1_1_AyudanteBD.asegurarCatalogoTipoCuentaProvisional().
-            A1_1_AyudanteBD.asegurarCatalogoTipoCuentaProvisional(sqliteDatabase_Abstracta);
+            // catálogo definitivo para que esas filas no choquen con la FK. No hace nada si
+            // tipo_cuenta ya tiene datos — ver A1_1_AyudanteBD.asegurarCatalogoTipoCuenta().
+            A1_1_AyudanteBD.asegurarCatalogoTipoCuenta(sqliteDatabase_Abstracta);
+            // ⭐ NUEVO (31-oct): se reinicia la marca de formato antiguo para esta restauración
+            // (ver insertarCuenta() y repararReferenciasCuentaIdTrasRestaurarCuentas()).
+            restauracionConBackupFormatoAntiguo = false;
         }
         A1_2_OperacionesBD.borrarRegistros(tablaX_String, sqliteDatabase_Abstracta);
         // NUEVO LOG
@@ -2166,6 +2169,15 @@ public class F2_Cuentas extends DialogFragment {
 
             // 1) Reclasificar por Grupo1/Grupo2 toda cuenta que haya quedado con tipo_cuenta_id
             //    NULL (mismo backfill que la migración v9, reutilizado — ver el método).
+            // ⭐ NUEVO (31-oct): si la restauración vino de un CSV en formato ANTIGUO (sin la
+            // columna tipo_cuenta_nombre), sus tipo_cuenta_id son del catálogo provisional
+            // (1..9) y hoy significan otra cosa — se reclasifican por nombre de cuenta.
+            if (restauracionConBackupFormatoAntiguo) {
+                int sinTipo = A1_1_AyudanteBD.reclasificarCuentasDesdeCatalogoProvisional(sqliteDatabase_Abstracta);
+                Log.w(TAG, "Restauración (" + origenRestauracion + ") desde backup en formato " +
+                        "antiguo: cuentas reclasificadas al catálogo definitivo; sin tipo: " + sinTipo);
+                restauracionConBackupFormatoAntiguo = false;
+            }
             int sinClasificar = ayudanteBD_Class.repararTipoCuentaDeCuentasSinClasificar(sqliteDatabase_Abstracta);
             if (sinClasificar > 0) {
                 Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + sinClasificar +
@@ -3049,6 +3061,9 @@ public class F2_Cuentas extends DialogFragment {
      */
     // ⭐ NUEVO — diagnóstico (30-oct): primer mensaje de error de SQLite al insertar cuentas.
     private String primerErrorInsercionCuenta = null;
+    // ⭐ NUEVO (31-oct): true si alguna fila restaurada vino sin la columna 13
+    // (tipo_cuenta_nombre) — o sea, un backup anterior al catálogo definitivo.
+    private boolean restauracionConBackupFormatoAntiguo = false;
 
     // ⭐ CAMBIO — diagnóstico (30-oct): devuelve long en vez de void (id insertado, -1 si
     // SQLite rechazó la fila, -2 si se omitió). Los llamadores que lo ignoran no cambian.
@@ -3067,6 +3082,13 @@ public class F2_Cuentas extends DialogFragment {
         // (Sheets, backup local, Drive) con un solo cambio.
         if (datos[0] != null && datos[0].trim().equalsIgnoreCase("Item")) {
             Log.d(TAG, "Fila de encabezado detectada en el CSV de cuentas, se ignora sin insertar");
+            return -2L;
+        }
+
+        // ⭐ NUEVO (31-oct, a pedido de Jorge): la cuenta comodín sin nombre ("Item 0") ya no se
+        // restaura — no es una cuenta real.
+        if (datos[1] == null || datos[1].trim().isEmpty()) {
+            Log.d(TAG, "Cuenta sin nombre en el CSV (comodín \"0\"), se omite");
             return -2L;
         }
 
@@ -3153,6 +3175,23 @@ public class F2_Cuentas extends DialogFragment {
                 if (datos[11] != null && !datos[11].trim().isEmpty()) {
                     valores.put("con_inventario", "1".equals(datos[11].trim()) ? 1 : 0);
                 }
+            }
+
+            // ⭐ NUEVO (31-oct): columna 13 = nombre del tipo de cuenta. Si viene, MANDA sobre el
+            // número de la columna 9 (los números pueden cambiar entre versiones del catálogo;
+            // el nombre no). Si no viene, el backup es de formato antiguo y se reclasifica al
+            // terminar la restauración (ver repararReferenciasCuentaIdTrasRestaurarCuentas()).
+            if (datos.length >= 13 && datos[12] != null && !datos[12].trim().isEmpty()) {
+                Long tipoPorNombre = A1_1_AyudanteBD.buscarTipoCuentaIdPorNombre(db, datos[12]);
+                if (tipoPorNombre != null) {
+                    valores.put("tipo_cuenta_id", tipoPorNombre);
+                } else {
+                    valores.remove("tipo_cuenta_id");
+                    Log.w(TAG, "Tipo de cuenta \"" + datos[12] + "\" no existe en el catálogo; " +
+                            "la cuenta " + datos[1] + " queda sin tipo");
+                }
+            } else {
+                restauracionConBackupFormatoAntiguo = true;
             }
 
             // ⭐ CAMBIO — diagnóstico (30-oct): insertOrThrow en vez de insert, SOLO para

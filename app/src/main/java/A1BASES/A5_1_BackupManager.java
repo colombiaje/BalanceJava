@@ -92,7 +92,7 @@ public class A5_1_BackupManager {
                 // 3 lectores de este archivo (insertarCuenta(), ver F2_Cuentas) ya saben saltarla
                 // — detectan la fila por su primer campo literal "Item" (nunca un dato real, que
                 // siempre es numérico), así que esto no afecta ninguna cuenta real al restaurar.
-                salidaArchivo.write("Item,Cuenta,Grupo1,Grupo2,Fecha,cuenta_id,codigo_cuenta,Cerrable,tipo_cuenta_id,cuenta_seguimiento,conciliable,con_inventario\n");
+                salidaArchivo.write("Item,Cuenta,Grupo1,Grupo2,Fecha,cuenta_id,codigo_cuenta,Cerrable,tipo_cuenta_id,cuenta_seguimiento,conciliable,con_inventario,tipo_cuenta_nombre\n");
 
                 // Escribir datos
                 // ⭐ CAMBIO — Fase 4 (parte C): se agregan cuenta_id, codigo_cuenta y Cerrable al
@@ -125,7 +125,10 @@ public class A5_1_BackupManager {
                             (cuenta.tipoTgetCuenta_9TipoCuentaId() == null ? "" : cuenta.tipoTgetCuenta_9TipoCuentaId()) + "," +
                             (cuenta.tipoTgetCuenta_10CuentaSeguimiento() == null ? "" : (cuenta.tipoTgetCuenta_10CuentaSeguimiento() ? "1" : "0")) + "," +
                             (cuenta.tipoTgetCuenta_11Conciliable() == null ? "" : cuenta.tipoTgetCuenta_11Conciliable()) + "," +
-                            (cuenta.tipoTgetCuenta_13ConInventario() == null ? "" : (cuenta.tipoTgetCuenta_13ConInventario() ? "1" : "0")) + "\n";
+                            (cuenta.tipoTgetCuenta_13ConInventario() == null ? "" : (cuenta.tipoTgetCuenta_13ConInventario() ? "1" : "0")) + "," +
+                            // ⭐ NUEVO (31-oct): columna 13, nombre del tipo de cuenta — al restaurar
+                            // se resuelve el tipo por este nombre (ver F2_Cuentas.insertarCuenta).
+                            (cuenta.tipoTgetCuenta_12TipoCuentaNombre() == null ? "" : cuenta.tipoTgetCuenta_12TipoCuentaNombre().replace(",", " ")) + "\n";
 
                     salidaArchivo.write(linea);
                     Log.d("BackupManager", "Escribiendo línea: " + linea.trim());

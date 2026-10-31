@@ -568,6 +568,10 @@ public class F4_Cierres extends Fragment {
                 sinCuentaIdAntes = DatabaseUtils.queryNumEntries(dbRep, "transacciones",
                         "cuenta_id IS NULL");
                 huerfanasDespues = A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre(dbRep);
+                // ⭐ NUEVO (31-oct): la "foto" de tipo_cuenta_id que traen las transacciones del
+                // CSV puede ser del catálogo provisional (backups antiguos); se alinea con el
+                // tipo actual de su cuenta.
+                A1_1_AyudanteBD.alinearTipoCuentaDeTransacciones(dbRep);
                 dbRep.close();
             } catch (Exception eRep) {
                 Log.e(TAG, "No se pudo reemparejar cuenta_id por nombre: " + eRep.getMessage(), eRep);
