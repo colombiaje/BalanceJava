@@ -551,6 +551,28 @@ public class F4_Cierres extends Fragment {
                 }
             }
 
+            // ⭐ NUEVO — fix Informe (31-oct): las líneas del CSV que no traen cuenta_id (p.ej.
+            // los saldos iniciales que generan los cierres) entran con cuenta_id NULL. Antes,
+            // en el dispositivo original, ya habían sido reemparejadas por nombre en alguna
+            // migración; en una base nueva nadie lo hacía, y el Informe (que agrupa por
+            // cuenta_id) juntaba todas esas transacciones en UNA sola fila sin tipo de cuenta.
+            // Se reemparejan aquí por nombre (c3_Cuenta = cuentas.Cuenta), con el mismo método
+            // que ya usa F2_Cuentas tras restaurar cuentas. Solo toca filas con cuenta_id NULL:
+            // repetirlo no cambia nada de lo que ya estaba bien.
+            long sinCuentaIdAntes = -1;
+            int huerfanasDespues = -1;
+            try {
+                A1_1_AyudanteBD ayudanteRep = new A1_1_AyudanteBD(getActivity(),
+                        balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+                SQLiteDatabase dbRep = ayudanteRep.getWritableDatabase();
+                sinCuentaIdAntes = DatabaseUtils.queryNumEntries(dbRep, "transacciones",
+                        "cuenta_id IS NULL");
+                huerfanasDespues = A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre(dbRep);
+                dbRep.close();
+            } catch (Exception eRep) {
+                Log.e(TAG, "No se pudo reemparejar cuenta_id por nombre: " + eRep.getMessage(), eRep);
+            }
+
             Log.d(TAG, "=== IMPORTACIÓN COMPLETADA ===");
             Log.d(TAG, "Líneas leídas: " + lineasImportadas);
             Log.d(TAG, "Insertadas correctamente: " + insertadasOk);
@@ -569,6 +591,8 @@ public class F4_Cierres extends Fragment {
                     + "Encabezados (no cuentan): " + encabezados + "\n"
                     + "Fallidas al insertar: " + fallidasDuplicado + "\n"
                     + "Otros errores: " + otrosErrores + "\n\n"
+                    + "Transacciones sin cuenta asociada antes de reemparejar: " + sinCuentaIdAntes + "\n"
+                    + "Sin cuenta después de reemparejar por nombre: " + huerfanasDespues + "\n\n"
                     // ⭐ NUEVO — diagnóstico (30-oct): mensaje real de SQLite del primer fallo.
                     + "Primer error SQLite: "
                     + (primerErrorInsercion != null ? primerErrorInsercion : "ninguno");
