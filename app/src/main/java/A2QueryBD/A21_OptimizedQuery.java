@@ -248,7 +248,12 @@ public class A21_OptimizedQuery {
                     "FROM transacciones t " +
                     "LEFT JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
                     "LEFT JOIN tipo_cuenta tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id " +
-                    "GROUP BY t.cuenta_id";
+                    "GROUP BY t.cuenta_id " +
+                    // ⭐ NUEVO (31-oct, a pedido de Jorge): Informe ordenado A-Z por tipo de
+                    // cuenta y, dentro de cada tipo, A-Z por nombre de cuenta. Las cuentas sin
+                    // tipo (NULL) van al final, para que se noten como pendientes de clasificar.
+                    "ORDER BY (tc.nombre IS NULL), tc.nombre COLLATE NOCASE, " +
+                    "COALESCE(c.Cuenta, t.c3_Cuenta) COLLATE NOCASE";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
