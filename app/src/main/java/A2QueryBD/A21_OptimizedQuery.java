@@ -168,8 +168,9 @@ public class A21_OptimizedQuery {
         try {
             openDB();
             // Consulta para obtener las cuentas y sus detalles
-            String query = "SELECT DISTINCT c3_Cuenta, c4_Signo, SUM(c5_Valor) AS suma " +
-                    "FROM transacciones GROUP BY c3_Cuenta, c4_Signo";
+            // ⭐ CAMBIO (1-nov, BD v21, Fase D): el signo sale del valor (columna retirada).
+            String query = "SELECT c3_Cuenta, CASE WHEN c5_Valor < 0 THEN '-' ELSE '+' END AS c4_Signo, " +
+                    "SUM(c5_Valor) AS suma FROM transacciones GROUP BY c3_Cuenta, c4_Signo";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
@@ -242,7 +243,10 @@ public class A21_OptimizedQuery {
             // columna ya no existe en "cuentas" (ver A1_1_AyudanteBD, migración v13). Se pasa ""
             // literal al constructor en su lugar; sin impacto visible, porque la parte B ya dejó
             // de mostrar estos 2 campos en el Informe (los reemplazó tipo_cuenta_nombre).
-            String query = "SELECT COALESCE(c.Cuenta, t.c3_Cuenta) AS c3_Cuenta, t.c4_Signo AS c4_Signo, " +
+            // ⭐ CAMBIO (1-nov, BD v21, Fase D): signo del SALDO de la cuenta (antes, el de una
+            // transacción cualquiera del grupo).
+            String query = "SELECT COALESCE(c.Cuenta, t.c3_Cuenta) AS c3_Cuenta, " +
+                    "CASE WHEN SUM(t.c5_Valor) < 0 THEN '-' ELSE '+' END AS c4_Signo, " +
                     "SUM(t.c5_Valor) AS suma, " +
                     "tc.nombre AS tipo_cuenta_nombre, " +
                     "cl.nombre AS clase_nombre, cc.nombre AS clasificacion_nombre " +

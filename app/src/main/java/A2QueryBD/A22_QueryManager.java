@@ -59,6 +59,8 @@ public class A22_QueryManager {
                     // ACTUAL de la cuenta, con el mismo texto de siempre, para el mapeo, las
                     // pantallas y el CSV de backup.
                     "CASE WHEN cuentas.Cerrable = 1 THEN 'Cerrable' ELSE 'No Aplica' END AS c12_ColumnaDisponible, " +
+                    // ⭐ NUEVO (1-nov, BD v21, Fase D): c4_Signo ya no es columna; sale del valor.
+                    "CASE WHEN transacciones.c5_Valor < 0 THEN '-' ELSE '+' END AS c4_Signo, " +
                     "transacciones_inventario.item_id AS item_id, " +
                     "transacciones_inventario.unidades AS unidades, " +
                     "transacciones_inventario.precio_unitario AS precio_unitario";

@@ -358,13 +358,15 @@ public class A5_1_BackupManager {
                 // c.con_inventario al SELECT (columna 6 del cursor) — mismo criterio que
                 // Cerrable/cuenta_id/tipo_cuenta_id arriba.
                 final Cursor transacciones_Cursor = sqliteDatabase_Abstracta.rawQuery
-                        ("SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), " +
+                        ("SELECT t.c3_Cuenta, " +
+                                // ⭐ CAMBIO (1-nov, BD v21, Fase D): signo del saldo (columna retirada).
+                                "CASE WHEN SUM(t.c5_Valor) < 0 THEN '-' ELSE '+' END, SUM(t.c5_Valor), " +
                                 // ⭐ CAMBIO (31-oct, BD v18): Cerrable es 0/1; el CSV sigue con el texto.
                                 "CASE WHEN c.Cerrable = 1 THEN 'Cerrable' END AS Cerrable, " +
                                 "c.cuenta_id, c.tipo_cuenta_id, c.con_inventario " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
-                                "WHERE t.c4_Signo != '?' GROUP BY t.c3_Cuenta;", null);
+                                "GROUP BY t.c3_Cuenta;" /* (Fase D) el filtro de signo '?' ya no aplica: no existe ninguno */, null);
 
                 a99_metodosVarios = new A99_MetodosVarios();
                 dateCurrent_ArrayInteger= a99_metodosVarios.fechasYHoras();
@@ -511,14 +513,16 @@ public class A5_1_BackupManager {
                 // c.con_inventario al SELECT (columna 6 del cursor) — mismo criterio que en el
                 // otro resumen de cierre.
                 final Cursor transaccionesCursor = sqliteDatabase.rawQuery(
-                        "SELECT t.c3_Cuenta, t.c4_Signo, SUM(t.c5_Valor), " +
+                        "SELECT t.c3_Cuenta, " +
+                                // ⭐ CAMBIO (1-nov, BD v21, Fase D): signo del saldo (columna retirada).
+                                "CASE WHEN SUM(t.c5_Valor) < 0 THEN '-' ELSE '+' END, SUM(t.c5_Valor), " +
                                 // ⭐ CAMBIO (31-oct, BD v18): Cerrable es 0/1; el CSV sigue con el texto.
                                 "CASE WHEN c.Cerrable = 1 THEN 'Cerrable' END AS Cerrable, " +
                                 "c.cuenta_id, c.tipo_cuenta_id, c.con_inventario " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
                                 // ⭐ CAMBIO (31-oct, Fase C): marca actual de la cuenta, no c12.
-                                "WHERE t.c4_Signo != '?' AND c.Cerrable = 1 " +
+                                "WHERE c.Cerrable = 1 " + /* (Fase D) sin filtro de signo '?': no existe ninguno */
                                 "GROUP BY t.c3_Cuenta;", null);
 
                 A99_MetodosVarios metodosVarios = new A99_MetodosVarios();

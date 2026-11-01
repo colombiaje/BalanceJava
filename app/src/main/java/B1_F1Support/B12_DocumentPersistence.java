@@ -152,7 +152,7 @@ public class B12_DocumentPersistence {
                     valoresTransaccion.put("c1_Documento", p.tipoTget_1DocumentoMetodoEnA5());
                     valoresTransaccion.put("c2_ItemDoc", p.tipoTget_2ItemDocMetodoEnA5());
                     valoresTransaccion.put("c3_Cuenta", nombreCuentaParaGuardar);
-                    valoresTransaccion.put("c4_Signo", p.tipoTget_4MasMenosMetodoEnA5());
+                    // (1-nov, BD v21) c4_Signo retirada: el signo sale del valor.
                     valoresTransaccion.put("c5_Valor", p.tipoTget_5ValorMetodoEnA5());
                     valoresTransaccion.put("c6_Descripcion", p.tipoTget_6DescripcionMetodoEnA5());
                     valoresTransaccion.put("c7_FechaYhora", p.tipoTget_7FechaYHoraMetodoEnA5());
@@ -188,7 +188,7 @@ public class B12_DocumentPersistence {
                 // de leerse aquí.
                 db.execSQL(
                         "INSERT INTO transacciones (" +
-                                "c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                                "c1_Documento, c2_ItemDoc, c3_Cuenta, c5_Valor, " + // c4 retirada (BD v21)
                                 "c6_Descripcion, c7_FechaYhora, c8_FechaInicial, " +
                                 "c9_FechaModificacion, " +
                                 "cuenta_id, " + // c12 (BD v20) y c13 (BD v19) retiradas
@@ -197,7 +197,6 @@ public class B12_DocumentPersistence {
                                 p.tipoTget_1DocumentoMetodoEnA5()          + "','" +
                                 p.tipoTget_2ItemDocMetodoEnA5()            + "','" +
                                 nombreCuentaParaGuardar                    + "','" +
-                                p.tipoTget_4MasMenosMetodoEnA5()           + "','" +
                                 p.tipoTget_5ValorMetodoEnA5()              + "','" +
                                 p.tipoTget_6DescripcionMetodoEnA5()        + "','" +
                                 p.tipoTget_7FechaYHoraMetodoEnA5()         + "','" +

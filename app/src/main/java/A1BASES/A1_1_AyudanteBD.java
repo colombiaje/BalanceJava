@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 20; // ⭐ 31-oct: v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12
+    public static final int version1BalanceSqlite_int_PSF = 21; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -241,7 +241,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     String crearTransacciones_String =
             "CREATE TABLE IF NOT EXISTS transacciones(" +
                     "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
-                    "c3_Cuenta TEXT NOT NULL, c4_Signo TEXT NOT NULL, " +
+                    "c3_Cuenta TEXT NOT NULL, " +
+                    // ⭐ RETIRADO (1-nov, BD v21, Fase D): c4_Signo — el signo sale del valor (c5_Valor).
                     "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
                     "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
                     "c9_FechaModificacion TEXT NOT NULL, " +
@@ -699,7 +700,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // sin uso en el resto del código), se corrige de todas formas para que no quede
     // desactualizado si algo empieza a usarlo más adelante.
     public static final String[] columnasTransacciones_ArrayString_PSF = {
-            "c1_Documento", "c2_ItemDoc", "c3_Cuenta", "c4_Signo", "c5_Valor",
+            "c1_Documento", "c2_ItemDoc", "c3_Cuenta", "c5_Valor", // c4 retirada (BD v21)
             "c6_Descripcion", "c7_FechaYhora", "c8_FechaInicial", "c9_FechaModificacion",
             }; // c12 (BD v20) y c13 (BD v19) retiradas
 
@@ -1909,6 +1910,49 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         filasAntes + " después=" + filasDespues);
             }
             android.util.Log.w("A1_1_AyudanteBD", "Migración v20: c12 retirada; transacciones=" + filasDespues);
+        }
+        // ⭐ NUEVO (1-nov): versión 21 de la BD — paso 4 / Fase D: se retira
+        // transacciones.c4_Signo. El signo coincidía con el valor en 7.770 de 7.772 transacciones
+        // (backup del 31-oct; las 2 restantes: un valor 0 y CxP Admon doc 0 ítem 25, que Jorge
+        // confirmó como +51). Nunca hubo signo '?'. Las consultas lo calculan del valor. Mismo
+        // procedimiento y protecciones que la v19.
+        if (oldVersion < 21) {
+            Cursor fk = db.rawQuery("PRAGMA foreign_keys", null);
+            boolean fkActivas = fk.moveToFirst() && fk.getInt(0) == 1;
+            fk.close();
+            if (fkActivas) {
+                throw new IllegalStateException("Migración v21 abortada: llaves foráneas activas " +
+                        "durante onUpgrade; recrear 'transacciones' borraría el inventario.");
+            }
+            int filasAntes = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            db.execSQL("CREATE TABLE transacciones_temp_v21(" +
+                    "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
+                    "c3_Cuenta TEXT NOT NULL, " +
+                    "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
+                    "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
+                    "c9_FechaModificacion TEXT NOT NULL, " +
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))");
+            db.execSQL("INSERT INTO transacciones_temp_v21 (" +
+                    "transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "cuenta_id, tipo_cuenta_id) " +
+                    "SELECT transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "cuenta_id, tipo_cuenta_id FROM transacciones");
+            db.execSQL("DROP TABLE transacciones");
+            db.execSQL("ALTER TABLE transacciones_temp_v21 RENAME TO transacciones");
+            crearIndiceUnicoDocumentoItem(db);
+            crearIndicesTransacciones(db);
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_tipo_cuenta_id " +
+                    "ON transacciones(tipo_cuenta_id)");
+            int filasDespues = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            if (filasAntes != filasDespues) {
+                throw new IllegalStateException("Migración v21 abortada: transacciones antes=" +
+                        filasAntes + " después=" + filasDespues);
+            }
+            android.util.Log.w("A1_1_AyudanteBD", "Migración v21: c4 retirada; transacciones=" + filasDespues);
         }
     }
 

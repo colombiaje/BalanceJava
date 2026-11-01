@@ -658,7 +658,7 @@ public class F4_Cierres extends Fragment {
             valores.put("c1_Documento", datos[0]);
             valores.put("c2_ItemDoc", datos[1]);
             valores.put("c3_Cuenta", datos[2]);
-            valores.put("c4_Signo", datos[3]);
+            // (1-nov, BD v21) c4_Signo retirada: el signo sale del valor; la columna 4 del CSV se ignora.
             valores.put("c5_Valor", datos[4]);
             valores.put("c6_Descripcion", datos[5]);
             valores.put("c7_FechaYhora", datos[6]);
