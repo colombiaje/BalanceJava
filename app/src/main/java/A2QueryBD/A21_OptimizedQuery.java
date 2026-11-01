@@ -444,21 +444,46 @@ public class A21_OptimizedQuery {
     // constructor de 13 parámetros no cambia (el modelo Java conserva los campos Grupo1/Grupo2,
     // ver A3_2_TipoTransaccionesGetsYSets) — simplemente se le pasa "" en vez de leerlos del
     // cursor, igual que ya se hace desde parte C para las transacciones NUEVAS.
+    // ⭐ CAMBIO (31-oct, paso 4 / Fase A, con Jorge): las 13 columnas c1..c13 se leen POR
+    // NOMBRE, no por posición. Con la lectura por posición, retirar cualquier columna de
+    // "transacciones" corría todas las demás y la app leía datos equivocados sin dar error (ya
+    // pasó al retirar Grupo1/Grupo2 en la v13). Mismo resultado que antes con el esquema de hoy.
+    // Si una columna no viene en el cursor (por ejemplo, porque se retiró), se usa "" / 0.
+    // Búsqueda sin distinguir mayúsculas (SQLite no las distingue en nombres de columna, pero
+    // Cursor.getColumnIndex sí), por si alguna migración antigua dejó otra grafía.
+    private static int indicePorNombre(Cursor cursor, String columna) {
+        String[] nombres = cursor.getColumnNames();
+        for (int i = 0; i < nombres.length; i++) {
+            if (nombres[i].equalsIgnoreCase(columna)) return i;
+        }
+        return -1;
+    }
+
+    private static String textoPorNombre(Cursor cursor, String columna) {
+        int indice = indicePorNombre(cursor, columna);
+        return indice == -1 ? "" : cursor.getString(indice);
+    }
+
+    private static int enteroPorNombre(Cursor cursor, String columna) {
+        int indice = indicePorNombre(cursor, columna);
+        return indice == -1 ? 0 : cursor.getInt(indice);
+    }
+
     private A3_2_TipoTransaccionesGetsYSets mapTransactionFromCursor(Cursor cursor) {
         A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
-                cursor.getString(0),  // c1_Documento
-                cursor.getString(1),  // c2_ItemDoc
-                cursor.getString(2),  // c3_Cuenta
-                cursor.getString(3),  // c4_Signo
-                cursor.getInt(4),    // c5_Valor
-                cursor.getString(5),  // c6_Descripcion
-                cursor.getString(6),  // c7_FechaYHora
-                cursor.getInt(7),    // c8_FechaInicial
-                cursor.getString(8),  // c9_FechaModificacion
-                "",                    // Grupo1 — retirado v13 (antes c10_Grupo1, columna 9)
-                "",                    // Grupo2 — retirado v13 (antes c11_Grupo2, columna 10)
-                cursor.getString(9),  // c12_ColumnaDisponible (antes columna 11)
-                cursor.getString(10)  // c13_ColumnaDisponible (antes columna 12)
+                textoPorNombre(cursor, "c1_Documento"),
+                textoPorNombre(cursor, "c2_ItemDoc"),
+                textoPorNombre(cursor, "c3_Cuenta"),
+                textoPorNombre(cursor, "c4_Signo"),
+                enteroPorNombre(cursor, "c5_Valor"),
+                textoPorNombre(cursor, "c6_Descripcion"),
+                textoPorNombre(cursor, "c7_FechaYHora"),
+                enteroPorNombre(cursor, "c8_FechaInicial"),
+                textoPorNombre(cursor, "c9_FechaModificacion"),
+                "",                    // Grupo1 — retirado v13
+                "",                    // Grupo2 — retirado v13
+                textoPorNombre(cursor, "c12_ColumnaDisponible"),
+                textoPorNombre(cursor, "c13_ColumnaDisponible")
         );
         int indiceCuentaId = cursor.getColumnIndex("cuenta_id");
         if (indiceCuentaId != -1 && !cursor.isNull(indiceCuentaId)) {
