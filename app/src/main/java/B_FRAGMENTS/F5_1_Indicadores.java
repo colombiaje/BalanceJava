@@ -226,6 +226,12 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         valorPasivoExigible_XTv = view.findViewById(R.id.valorPasivoExigible_XTv);
         valorAhorroODeuda_XTv = view.findViewById(R.id.valorAhorroODeuda_XTv);
         valorDisponibleInmediato_XTv = view.findViewById(R.id.valorDisponibleInmediato_XTv); // ⭐ 31-oct
+        // ⭐ NUEVO (31-oct): tocar la fila "Disponible inmediato" abre su composición
+        // (liquidez → tipo de cuenta → cuenta, con subtotales).
+        if (valorDisponibleInmediato_XTv != null && valorDisponibleInmediato_XTv.getParent() instanceof View) {
+            ((View) valorDisponibleInmediato_XTv.getParent()).setOnClickListener(v ->
+                    new A1BASES.A15_DesgloseLiquidezDialogo().mostrar(getActivity()));
+        }
 
         graficasIndicadores_XBt = view.findViewById(R.id.graficasIndicadores_XBt);
     }

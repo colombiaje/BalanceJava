@@ -65,6 +65,22 @@ public class D_F3_1_AdaptadorTransaccionesInformes extends ArrayAdapter<A3_2_Tip
         // cambio, así que tampoco tiene efecto visible.
         vTlistItem_11.setText("");
 
+        // ⭐ NUEVO (31-oct): filas de subtotal del balance clasificado — en negrita, sin signo ni
+        // tipo, con un fondo más fuerte cuanto más alto el nivel (tipo < clasificación < clase).
+        if (registroTD.esFilaSubtotal()) {
+            vTlistItem_4.setText("");
+            vTlistItem_10.setText("");
+            vTlistItem_3.setTypeface(null, android.graphics.Typeface.BOLD);
+            vTlistItem_5.setTypeface(null, android.graphics.Typeface.BOLD);
+            String colorFondo = registroTD.nivelSubtotal == 3 ? "#AF87F6"
+                    : registroTD.nivelSubtotal == 2 ? "#CDB4F8" : "#E1BEE7";
+            int color = android.graphics.Color.parseColor(colorFondo);
+            // Las celdas tienen su propio fondo verde (bg_green_square3): se pinta cada una.
+            vTlistItem_3.setBackgroundColor(color);
+            vTlistItem_5.setBackgroundColor(color);
+            vTlistItem_10.setBackgroundColor(color);
+        }
+
         return inflarViews_View;
     }
 
@@ -81,6 +97,8 @@ public class D_F3_1_AdaptadorTransaccionesInformes extends ArrayAdapter<A3_2_Tip
             String textoLower = texto.toLowerCase();
 
             for (A3_2_TipoTransaccionesGetsYSets listaDelaCopia : copyDelArrayList) {
+                // ⭐ NUEVO (31-oct): al buscar se muestran solo cuentas, no subtotales.
+                if (listaDelaCopia.esFilaSubtotal()) continue;
                 // Convertir los valores a minúsculas antes de comparar
                 // ⭐ CAMBIO — v11 tanda 3 (parte B): antes buscaba también en Grupo1/Grupo2
                 // (tipoT_10BalanceItems_String/tipoT_11BalanceItemsClassification_String) — ahora

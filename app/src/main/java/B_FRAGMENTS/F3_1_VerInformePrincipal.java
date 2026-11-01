@@ -122,6 +122,9 @@ public class F3_1_VerInformePrincipal extends Fragment {
         envolventeEncabezado_XLl = (LinearLayout)inflarViews_View.findViewById(R.id.envolventeEncabezado_XLl);
         todasLasTransacciones_XLv = (ListView) inflarViews_View.findViewById(R.id.todasLasTransacciones_XLv);
         resumenLiquidez_XTv = (TextView) inflarViews_View.findViewById(R.id.resumenLiquidez_XTv); // ⭐ 31-oct
+        // ⭐ NUEVO (31-oct): al tocar el resumen se abre su composición (liquidez → tipo → cuenta).
+        resumenLiquidez_XTv.setOnClickListener(v ->
+                new A1BASES.A15_DesgloseLiquidezDialogo().mostrar(getActivity()));
         //limpiarBuscar_XChB = (CheckBox) inflarViews_View.findViewById(R.id.limpiarBuscar_XChB);
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
@@ -275,6 +278,7 @@ public class F3_1_VerInformePrincipal extends Fragment {
                 texto.append(e.getKey()).append(": $").append(formato.format(e.getValue()));
                 primero = false;
             }
+            texto.append("   ▸ ver composición");
             resumenLiquidez_XTv.setText(texto.toString());
         } catch (Exception e) {
             resumenLiquidez_XTv.setText("");
@@ -282,6 +286,74 @@ public class F3_1_VerInformePrincipal extends Fragment {
         } finally {
             db.close();
         }
+    }
+
+    // ⭐ NUEVO (31-oct, pedido de Jorge): recibe las cuentas YA ordenadas como balance
+    // (clase → clasificación → tipo → cuenta, ver A21_OptimizedQuery.obtenerSumaNetoCuentaPorCuenta)
+    // y devuelve la misma lista con filas de subtotal intercaladas al cerrar cada grupo:
+    // nivel 1 por tipo de cuenta, nivel 2 por clasificación, nivel 3 total por clase.
+    // Las cuentas sin tipo forman su propio grupo "Sin tipo de cuenta" al final.
+    private ArrayList<A3_2_TipoTransaccionesGetsYSets> intercalarSubtotales(
+            ArrayList<A3_2_TipoTransaccionesGetsYSets> cuentas) {
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> resultado = new ArrayList<>();
+        String claseActual = null, clasificacionActual = null, tipoActual = null;
+        long sumaTipo = 0, sumaClasificacion = 0, sumaClase = 0;
+        boolean hayGrupo = false;
+
+        for (A3_2_TipoTransaccionesGetsYSets item : cuentas) {
+            String clase = item.tipoT_18ClaseNombre_String != null
+                    ? item.tipoT_18ClaseNombre_String : "Sin tipo de cuenta";
+            String clasificacion = item.tipoT_19ClasificacionNombre_String != null
+                    ? item.tipoT_19ClasificacionNombre_String : clase;
+            String tipo = item.tipoTget_17TipoCuentaNombreMetodoEnA5() != null
+                    ? item.tipoTget_17TipoCuentaNombreMetodoEnA5() : clase;
+
+            if (hayGrupo) {
+                boolean cambiaClase = !clase.equals(claseActual);
+                boolean cambiaClasificacion = cambiaClase || !clasificacion.equals(clasificacionActual);
+                boolean cambiaTipo = cambiaClasificacion || !tipo.equals(tipoActual);
+                if (cambiaTipo) {
+                    resultado.add(filaSubtotal(1, "Total " + tipoActual, sumaTipo));
+                    sumaTipo = 0;
+                }
+                if (cambiaClasificacion && !clasificacionActual.equals(tipoActual)) {
+                    resultado.add(filaSubtotal(2, "Total " + clasificacionActual, sumaClasificacion));
+                }
+                if (cambiaClasificacion) sumaClasificacion = 0;
+                if (cambiaClase && !claseActual.equals(clasificacionActual)) {
+                    resultado.add(filaSubtotal(3, "TOTAL " + claseActual.toUpperCase(), sumaClase));
+                }
+                if (cambiaClase) sumaClase = 0;
+            }
+
+            resultado.add(item);
+            long valor = item.tipoTget_5ValorMetodoEnA5();
+            sumaTipo += valor;
+            sumaClasificacion += valor;
+            sumaClase += valor;
+            claseActual = clase;
+            clasificacionActual = clasificacion;
+            tipoActual = tipo;
+            hayGrupo = true;
+        }
+
+        if (hayGrupo) {
+            resultado.add(filaSubtotal(1, "Total " + tipoActual, sumaTipo));
+            if (!clasificacionActual.equals(tipoActual)) {
+                resultado.add(filaSubtotal(2, "Total " + clasificacionActual, sumaClasificacion));
+            }
+            if (!claseActual.equals(clasificacionActual)) {
+                resultado.add(filaSubtotal(3, "TOTAL " + claseActual.toUpperCase(), sumaClase));
+            }
+        }
+        return resultado;
+    }
+
+    private A3_2_TipoTransaccionesGetsYSets filaSubtotal(int nivel, String titulo, long suma) {
+        A3_2_TipoTransaccionesGetsYSets fila =
+                new A3_2_TipoTransaccionesGetsYSets(titulo, "", (int) suma, "", "");
+        fila.nivelSubtotal = nivel;
+        return fila;
     }
 
     public void dynamicCrudUpdate() {
@@ -297,6 +369,10 @@ public class F3_1_VerInformePrincipal extends Fragment {
                 resultadoFiltrado.add(item);
             }
         }
+
+        // ⭐ NUEVO (31-oct, pedido de Jorge): balance general clasificado — se intercalan filas
+        // de subtotal por tipo de cuenta, por clasificación y total por clase.
+        resultadoFiltrado = intercalarSubtotales(resultadoFiltrado);
 
         sumaPorCuenta_AdaptadorTransaccionesInformes_Class =
                 new D_F3_1_AdaptadorTransaccionesInformes(getActivity(), resultadoFiltrado);
@@ -394,6 +470,12 @@ public class F3_1_VerInformePrincipal extends Fragment {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 
                 try {
+                    // ⭐ NUEVO (31-oct): las filas de subtotal no son cuentas — no se abren.
+                    Object filaTocada = parent.getItemAtPosition(position);
+                    if (filaTocada instanceof A3_2_TipoTransaccionesGetsYSets
+                            && ((A3_2_TipoTransaccionesGetsYSets) filaTocada).esFilaSubtotal()) {
+                        return;
+                    }
 
                     String c3_Cuenta_String = ((TextView) view.findViewById(R.id.c3_Cuenta_XTv)).getText().toString();
 

@@ -51,6 +51,15 @@ public class A3_2_TipoTransaccionesGetsYSets {
     // fila no tiene tipo_cuenta_id o el JOIN no encuentra la cuenta.
     public String tipoT_17TipoCuentaNombre_String;
 
+    // ⭐ NUEVO (31-oct, Informe como balance general clasificado, pedido de Jorge): clase y
+    // clasificación contable de la cuenta (vía tipo_cuenta), y marca de fila de SUBTOTAL.
+    // Puramente aditivo; solo los usa el Informe (F3_1 + D_F3_1_AdaptadorTransaccionesInformes).
+    public String tipoT_18ClaseNombre_String;
+    public String tipoT_19ClasificacionNombre_String;
+    /** 0 = cuenta normal; 1 = subtotal por tipo; 2 = por clasificación; 3 = total por clase. */
+    public int nivelSubtotal = 0;
+    public boolean esFilaSubtotal() { return nivelSubtotal > 0; }
+
     // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario real de
     // la cuenta (tabla "cuentas", vía JOIN por transacciones.cuenta_id — ver
     // A22_QueryManager.SELECT_TRANSACCIONES_CON_TIPO_CUENTA/FROM_TRANSACCIONES_CON_TIPO_CUENTA

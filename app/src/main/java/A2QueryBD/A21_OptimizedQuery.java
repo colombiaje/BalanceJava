@@ -244,16 +244,21 @@ public class A21_OptimizedQuery {
             // de mostrar estos 2 campos en el Informe (los reemplazó tipo_cuenta_nombre).
             String query = "SELECT COALESCE(c.Cuenta, t.c3_Cuenta) AS c3_Cuenta, t.c4_Signo AS c4_Signo, " +
                     "SUM(t.c5_Valor) AS suma, " +
-                    "tc.nombre AS tipo_cuenta_nombre " +
+                    "tc.nombre AS tipo_cuenta_nombre, " +
+                    "cl.nombre AS clase_nombre, cc.nombre AS clasificacion_nombre " +
                     "FROM transacciones t " +
                     "LEFT JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
                     "LEFT JOIN tipo_cuenta tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id " +
+                    "LEFT JOIN clasificacion_contable cc ON cc.clasificacion_id = tc.clasificacion_id " +
+                    "LEFT JOIN clase_contable cl ON cl.clase_id = cc.clase_id " +
                     "GROUP BY t.cuenta_id " +
-                    // ⭐ NUEVO (31-oct, a pedido de Jorge): Informe ordenado A-Z por tipo de
-                    // cuenta y, dentro de cada tipo, A-Z por nombre de cuenta. Las cuentas sin
-                    // tipo (NULL) van al final, para que se noten como pendientes de clasificar.
-                    "ORDER BY (tc.nombre IS NULL), tc.nombre COLLATE NOCASE, " +
-                    "COALESCE(c.Cuenta, t.c3_Cuenta) COLLATE NOCASE";
+                    // ⭐ CAMBIO (31-oct, pedido de Jorge): orden de BALANCE GENERAL CLASIFICADO —
+                    // clase (Activo, Pasivo, Patrimonio, …, en el orden sembrado), clasificación
+                    // (corriente antes que no corriente), tipo de cuenta (orden del catálogo, que
+                    // va de más a menos líquido) y, dentro de cada tipo, cuenta A-Z. Las cuentas
+                    // sin tipo van al final, para que se noten como pendientes de clasificar.
+                    "ORDER BY (tc.tipo_cuenta_id IS NULL), cl.clase_id, cc.clasificacion_id, " +
+                    "tc.tipo_cuenta_id, COALESCE(c.Cuenta, t.c3_Cuenta) COLLATE NOCASE";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
@@ -270,6 +275,15 @@ public class A21_OptimizedQuery {
                 int indiceTipoCuentaNombre = cursor.getColumnIndex("tipo_cuenta_nombre");
                 if (indiceTipoCuentaNombre != -1 && !cursor.isNull(indiceTipoCuentaNombre)) {
                     item.tipoTset_17TipoCuentaNombreMetodoEnA5(cursor.getString(indiceTipoCuentaNombre));
+                }
+                // ⭐ NUEVO (31-oct): clase y clasificación, para los subtotales del Informe.
+                int indiceClase = cursor.getColumnIndex("clase_nombre");
+                if (indiceClase != -1 && !cursor.isNull(indiceClase)) {
+                    item.tipoT_18ClaseNombre_String = cursor.getString(indiceClase);
+                }
+                int indiceClasificacion = cursor.getColumnIndex("clasificacion_nombre");
+                if (indiceClasificacion != -1 && !cursor.isNull(indiceClasificacion)) {
+                    item.tipoT_19ClasificacionNombre_String = cursor.getString(indiceClasificacion);
                 }
 
                 cuentasSumadas.add(item);
