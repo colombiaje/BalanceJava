@@ -554,7 +554,9 @@ public class A21_OptimizedQuery {
         }
         int indiceCerrable = cursor.getColumnIndex("Cerrable");
         if (indiceCerrable != -1) {
-            item.tipoTsetCuenta_8Cerrable(cursor.getString(indiceCerrable));
+            // ⭐ CAMBIO (31-oct, BD v18): 0/1 en la base → "Cerrable"/null hacia afuera (CSV, UI).
+            item.tipoTsetCuenta_8Cerrable(!cursor.isNull(indiceCerrable)
+                    && cursor.getInt(indiceCerrable) == 1 ? "Cerrable" : null);
         }
         // ⭐ NUEVO v10 — Fase 6 (parte B): tipo_cuenta_id (de la v9) y cuenta_seguimiento (de esta
         // versión), mismo criterio aditivo que cuenta_id/codigo_cuenta/Cerrable arriba.
@@ -570,7 +572,8 @@ public class A21_OptimizedQuery {
         // aditivo que Cerrable arriba (String "Conciliable" o NULL, no booleano).
         int indiceConciliable = cursor.getColumnIndex("conciliable");
         if (indiceConciliable != -1) {
-            item.tipoTsetCuenta_11Conciliable(cursor.getString(indiceConciliable));
+            item.tipoTsetCuenta_11Conciliable(!cursor.isNull(indiceConciliable)
+                    && cursor.getInt(indiceConciliable) == 1 ? "Conciliable" : null);
         }
         // ⭐ NUEVO — v11 tanda 3 (parte D): nombre de tipo_cuenta, si el SELECT que llamó a este
         // mapeo trae el JOIN a "tipo_cuenta" (ver A22_QueryManager.queryAllAccounts()). Mismo

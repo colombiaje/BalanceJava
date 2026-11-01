@@ -340,7 +340,7 @@ public class A22_QueryManager {
         A21_OptimizedQuery.QueryBuilder queryBuilder= new A21_OptimizedQuery.QueryBuilder()
                 .select("Cuenta") // Nombre de la columna que deseas seleccionar
                 .from("cuentas")  // Nombre de la tabla
-                .where("conciliable = ?", "Conciliable") // Cuentas marcadas conciliables
+                .where("conciliable = 1") // Cuentas marcadas conciliables (⭐ BD v18: 0/1)
                 .orderBy("Cuenta", true);
 
         List<String>  cuentasConciliablesOrdenAscendete_List = a3_2_consultas_para_queryManager.executeQuery(queryBuilder, cursor -> cursor.getString(0));
@@ -416,7 +416,9 @@ public class A22_QueryManager {
                 "", // Grupo2 — retirado v13 (índice 3, se conserva por compatibilidad posicional)
                 cursor.getString(cursor.getColumnIndexOrThrow("Fecha")),
                 cursor.getString(cursor.getColumnIndexOrThrow("cuenta_id")), // ⭐ NUEVO — índice 5
-                cursor.getString(cursor.getColumnIndexOrThrow("Cerrable")), // ⭐ NUEVO — índice 6
+                // ⭐ CAMBIO (31-oct, BD v18): la columna es 0/1; se sigue entregando "Cerrable" o
+                // null para no tocar a quienes leen este arreglo (B11_DocumentCalculator, F2).
+                cursor.getInt(cursor.getColumnIndexOrThrow("Cerrable")) == 1 ? "Cerrable" : null, // índice 6
                 cursor.getString(cursor.getColumnIndexOrThrow("tipo_cuenta_id")), // ⭐ NUEVO v10 — índice 7
                 cursor.getString(cursor.getColumnIndexOrThrow("con_inventario")) // ⭐ NUEVO v12 tanda 3 — índice 8
         });

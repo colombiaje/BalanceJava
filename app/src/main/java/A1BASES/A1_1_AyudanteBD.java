@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 17; // ⭐ 31-oct: v16 catálogo definitivo tipo_cuenta; v17 liquidez
+    public static final int version1BalanceSqlite_int_PSF = 18; // ⭐ 31-oct: v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -286,7 +286,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // ⭐ NUEVO v6 — Fase 4 (parte A): atributo "Cerrable" propio, separado de
                     // Grupo2. Valor literal "Cerrable" o NULL ("no aplica" — la cuenta conserva
                     // su historial completo).
-                    "Cerrable TEXT, " +
+                    // ⭐ CAMBIO (31-oct, BD v18): 0/1 real en vez de texto "Cerrable"/NULL.
+                    "Cerrable INTEGER NOT NULL DEFAULT 0, " +
                     // ⭐ NUEVO v9 — Fase 6: referencia hacia el nuevo tipo_cuenta.tipo_cuenta_id
                     // (nullable — en instalaciones frescas no hay backfill que hacer todavía; se
                     // llena a su ritmo cuando exista la pantalla de asignación, prevista para una
@@ -307,7 +308,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // todas — el usuario la marca desde F2_Cuentas al crear la cuenta. En
                     // dispositivos que actualizan, la migración v12 la agrega con ALTER TABLE y
                     // la llena vía backfill — ver el bloque "if (oldVersion < 12)" en onUpgrade().
-                    "conciliable TEXT, " +
+                    // ⭐ CAMBIO (31-oct, BD v18): 0/1 real en vez de texto "Conciliable"/NULL.
+                    "conciliable INTEGER NOT NULL DEFAULT 0, " +
                     // ⭐ NUEVO v14 — Tanda 1 del modelo de costeo por inventario (ver comentario de
                     // clase arriba). 0 = cuenta normal, comportamiento idéntico al de hoy (valor
                     // por defecto, así que ninguna cuenta existente ni nueva cambia de
@@ -908,6 +910,17 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                             "WHERE tipo_cuenta_id = ? AND liquidez IS NULL",
                     new Object[]{fila[4], Long.parseLong(fila[0])});
         }
+    }
+
+    /**
+     * ⭐ NUEVO (31-oct, BD v18): convierte el texto de los CSV / la UI a 0/1 para
+     * cuentas.Cerrable y cuentas.conciliable. Acepta la palabra ("Cerrable", "Conciliable", sin
+     * importar mayúsculas) o "1"; cualquier otra cosa (vacío, NULL, "No Aplica") es 0.
+     */
+    public static int textoAMarca01(String texto, String palabra) {
+        if (texto == null) return 0;
+        String t = texto.trim();
+        return (t.equalsIgnoreCase(palabra) || t.equals("1")) ? 1 : 0;
     }
 
     // ⭐ NUEVO (31-oct): niveles de liquidez en el orden en que se muestran (de más a menos
@@ -1766,6 +1779,36 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 db.execSQL("ALTER TABLE " + TABLE_TIPO_CUENTA + " ADD COLUMN liquidez TEXT");
             }
             completarLiquidezCatalogo(db);
+        }
+        // ⭐ NUEVO (31-oct): versión 18 de la BD — cuentas.Cerrable y cuentas.conciliable pasan
+        // de TEXT ("Cerrable"/"Conciliable" o NULL) a INTEGER 0/1 real (pendiente 2.5 del modelo
+        // original). SQLite no cambia el tipo de una columna con ALTER, así que se recrea la
+        // tabla — mismo procedimiento que la migración v13 — preservando cuenta_id EXACTO. Las
+        // FK están apagadas durante onUpgrade (se activan en onOpen), así que soltar y renombrar
+        // "cuentas" no choca con transacciones/items_inventario, que la siguen referenciando
+        // por nombre. Los CSV de backup NO cambian de formato (se sigue escribiendo y leyendo
+        // "Cerrable"/"Conciliable"); la conversión se hace al leer/escribir la base.
+        if (oldVersion < 18) {
+            db.execSQL("CREATE TABLE cuentas_temp_v18 (" +
+                    "Item TEXT NOT NULL, Cuenta TEXT NOT NULL, Fecha TEXT NOT NULL, " +
+                    "cuenta_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "codigo_cuenta TEXT, " +
+                    "Cerrable INTEGER NOT NULL DEFAULT 0, " +
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id), " +
+                    "cuenta_seguimiento INTEGER, " +
+                    "conciliable INTEGER NOT NULL DEFAULT 0, " +
+                    "con_inventario INTEGER NOT NULL DEFAULT 0)");
+            db.execSQL("INSERT INTO cuentas_temp_v18 (" +
+                    "cuenta_id, Item, Cuenta, Fecha, codigo_cuenta, Cerrable, tipo_cuenta_id, " +
+                    "cuenta_seguimiento, conciliable, con_inventario) " +
+                    "SELECT cuenta_id, Item, Cuenta, Fecha, codigo_cuenta, " +
+                    "CASE WHEN Cerrable = 'Cerrable' OR Cerrable = 1 THEN 1 ELSE 0 END, " +
+                    "tipo_cuenta_id, cuenta_seguimiento, " +
+                    "CASE WHEN conciliable = 'Conciliable' OR conciliable = 1 THEN 1 ELSE 0 END, " +
+                    "COALESCE(con_inventario, 0) FROM cuentas");
+            db.execSQL("DROP TABLE cuentas");
+            db.execSQL("ALTER TABLE cuentas_temp_v18 RENAME TO cuentas");
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_cuentas_tipo_cuenta_id ON cuentas(tipo_cuenta_id)");
         }
     }
 

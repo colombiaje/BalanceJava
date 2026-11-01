@@ -89,10 +89,11 @@ public class A1_2_OperacionesBD extends Activity {
         // método se deja intacta para no tocar a sus llamadores.
         contenedor_ContentValues.put("Fecha", fecha_String);
         // ⭐ NUEVO — Fase 4 (parte B): "Cerrable" o null (ver A1_1_AyudanteBD, migración v6).
-        contenedor_ContentValues.put("Cerrable", cerrable_String);
+        // ⭐ CAMBIO (31-oct, BD v18): se guarda 0/1 (el parámetro sigue siendo "Cerrable"/null).
+        contenedor_ContentValues.put("Cerrable", A1_1_AyudanteBD.textoAMarca01(cerrable_String, "Cerrable"));
         // ⭐ NUEVO — v11 tanda 3 (parte A): "Conciliable" o null (ver A1_1_AyudanteBD,
         // migración v12) — mismo criterio que Cerrable arriba.
-        contenedor_ContentValues.put("conciliable", conciliable_String);
+        contenedor_ContentValues.put("conciliable", A1_1_AyudanteBD.textoAMarca01(conciliable_String, "Conciliable"));
         // ⭐ NUEVO — tanda 2 v10: tipo_cuenta_id ya se llena desde que la cuenta se crea (antes
         // de esto solo lo llenaba, una sola vez, el backfill de la migración v9 — cualquier
         // cuenta creada después quedaba con tipo_cuenta_id NULL hasta que se editara desde el

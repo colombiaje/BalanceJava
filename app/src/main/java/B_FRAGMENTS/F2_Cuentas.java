@@ -1571,9 +1571,10 @@ public class F2_Cuentas extends DialogFragment {
                 grupo1CuentaNueva_XSp.setSelection(indiceTipoCuenta);
 
                 // ⭐ NUEVO — Fase 4 (parte B).
-                cerrableCuentaNueva_XChB.setChecked("Cerrable".equals(fila.getString(1)));
+                // ⭐ CAMBIO (31-oct, BD v18): 0/1 real.
+                cerrableCuentaNueva_XChB.setChecked(!fila.isNull(1) && fila.getInt(1) == 1);
                 // ⭐ NUEVO — v11 tanda 3 (parte A).
-                conciliableCuentaNueva_XChB.setChecked("Conciliable".equals(fila.getString(4)));
+                conciliableCuentaNueva_XChB.setChecked(!fila.isNull(4) && fila.getInt(4) == 1);
                 // ⭐ NUEVO — v12 tanda 3 (fix a pedido de Jorge, 28-sep): se guarda el valor
                 // ORIGINAL aparte (conInventarioOriginalEnModificar_boolean) para poder
                 // detectar más adelante, en ejecutarActualizacionCuenta(), si esta edición
@@ -1960,9 +1961,10 @@ public class F2_Cuentas extends DialogFragment {
             // Grupo1/Grupo2 real de la cuenta) encontrado al auditar el alcance de la v10.
             contenedor_ContentValues.put("tipo_cuenta_id", tipoCuentaIdSeleccionado);
             // ⭐ NUEVO — Fase 4 (parte B): checkbox Cerrable → "Cerrable" o null.
-            contenedor_ContentValues.put("Cerrable", cerrableCuentaNueva_XChB.isChecked() ? "Cerrable" : null);
+            // ⭐ CAMBIO (31-oct, BD v18): 0/1 real.
+            contenedor_ContentValues.put("Cerrable", cerrableCuentaNueva_XChB.isChecked() ? 1 : 0);
             // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox Conciliable → "Conciliable" o null.
-            contenedor_ContentValues.put("conciliable", conciliableCuentaNueva_XChB.isChecked() ? "Conciliable" : null);
+            contenedor_ContentValues.put("conciliable", conciliableCuentaNueva_XChB.isChecked() ? 1 : 0);
             // ⭐ NUEVO — v12 tanda 3 (a pedido de Jorge, 28-sep): checkbox "con inventario"
             // también se puede modificar sobre una cuenta ya existente — se puede activar en
             // una que no lo tenía, o desactivar en una que sí. ejecutarActualizacionCuenta()
@@ -3204,7 +3206,8 @@ public class F2_Cuentas extends DialogFragment {
                     valores.put("codigo_cuenta", datos[6]);
                 }
                 if (datos[7] != null && !datos[7].trim().isEmpty()) {
-                    valores.put("Cerrable", datos[7]);
+                    // ⭐ CAMBIO (31-oct, BD v18): el CSV trae "Cerrable"; se guarda 0/1.
+                    valores.put("Cerrable", A1_1_AyudanteBD.textoAMarca01(datos[7], "Cerrable"));
                 }
             }
 
@@ -3237,7 +3240,7 @@ public class F2_Cuentas extends DialogFragment {
             // conciliable NULL como cualquier cuenta creada antes de la migración v12.
             if (datos.length >= 11) {
                 if (datos[10] != null && !datos[10].trim().isEmpty()) {
-                    valores.put("conciliable", datos[10].trim());
+                    valores.put("conciliable", A1_1_AyudanteBD.textoAMarca01(datos[10], "Conciliable"));
                 }
             }
 
