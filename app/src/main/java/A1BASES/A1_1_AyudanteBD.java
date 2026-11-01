@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 19; // ⭐ 31-oct: v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13
+    public static final int version1BalanceSqlite_int_PSF = 20; // ⭐ 31-oct: v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -245,7 +245,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
                     "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
                     "c9_FechaModificacion TEXT NOT NULL, " +
-                    "c12_ColumnaDisponible TEXT NOT NULL, " +
+                    // ⭐ RETIRADO (31-oct, BD v20, Fase C): c12_ColumnaDisponible (foto de "Cerrable") —
+                    // los cierres usan la marca actual de la cuenta (decisión de Jorge).
                     // ⭐ RETIRADO (31-oct, BD v19, paso 4 / Fase B): c13_ColumnaDisponible — nunca tuvo uso
                     // ("na"/"n a"/"No Aplica"). Los CSV conservan la columna, en "n a".
                     // ⭐ NUEVO v3: referencia real hacia cuentas.cuenta_id (ver Fase 1).
@@ -700,7 +701,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     public static final String[] columnasTransacciones_ArrayString_PSF = {
             "c1_Documento", "c2_ItemDoc", "c3_Cuenta", "c4_Signo", "c5_Valor",
             "c6_Descripcion", "c7_FechaYhora", "c8_FechaInicial", "c9_FechaModificacion",
-            "c12_ColumnaDisponible"}; // c13 retirada en la BD v19
+            }; // c12 (BD v20) y c13 (BD v19) retiradas
 
     // ─────────────────────────────────────────────
     //  LIFECYCLE DE LA BD
@@ -912,6 +913,15 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     new Object[]{fila[4], Long.parseLong(fila[0])});
         }
     }
+
+    /**
+     * ⭐ NUEVO (31-oct, paso 4 / Fase C): condición SQL sobre "transacciones" (sin alias) para
+     * las transacciones de cuentas CERRABLES HOY. Empareja por cuenta_id y, si falta, por nombre
+     * — igual que los resúmenes de cierre de A5_1_BackupManager.
+     */
+    public static final String CONDICION_TRANSACCION_CERRABLE =
+            "(cuenta_id IN (SELECT cuenta_id FROM cuentas WHERE Cerrable = 1) " +
+            "OR (cuenta_id IS NULL AND c3_Cuenta IN (SELECT Cuenta FROM cuentas WHERE Cerrable = 1)))";
 
     /**
      * ⭐ NUEVO (31-oct, BD v18): convierte el texto de los CSV / la UI a 0/1 para
@@ -1857,6 +1867,48 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         filasAntes + " después=" + filasDespues);
             }
             android.util.Log.w("A1_1_AyudanteBD", "Migración v19: c13 retirada; transacciones=" + filasDespues);
+        }
+        // ⭐ NUEVO (31-oct): versión 20 de la BD — paso 4 / Fase C: se retira
+        // transacciones.c12_ColumnaDisponible (foto de "Cerrable" por transacción). Decisión de
+        // Jorge: los cierres usan la marca ACTUAL de la cuenta. Mismo procedimiento y mismas
+        // protecciones que la v19.
+        if (oldVersion < 20) {
+            Cursor fk = db.rawQuery("PRAGMA foreign_keys", null);
+            boolean fkActivas = fk.moveToFirst() && fk.getInt(0) == 1;
+            fk.close();
+            if (fkActivas) {
+                throw new IllegalStateException("Migración v20 abortada: llaves foráneas activas " +
+                        "durante onUpgrade; recrear 'transacciones' borraría el inventario.");
+            }
+            int filasAntes = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            db.execSQL("CREATE TABLE transacciones_temp_v20(" +
+                    "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
+                    "c3_Cuenta TEXT NOT NULL, c4_Signo TEXT NOT NULL, " +
+                    "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
+                    "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
+                    "c9_FechaModificacion TEXT NOT NULL, " +
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))");
+            db.execSQL("INSERT INTO transacciones_temp_v20 (" +
+                    "transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "cuenta_id, tipo_cuenta_id) " +
+                    "SELECT transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "cuenta_id, tipo_cuenta_id FROM transacciones");
+            db.execSQL("DROP TABLE transacciones");
+            db.execSQL("ALTER TABLE transacciones_temp_v20 RENAME TO transacciones");
+            crearIndiceUnicoDocumentoItem(db);
+            crearIndicesTransacciones(db);
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_tipo_cuenta_id " +
+                    "ON transacciones(tipo_cuenta_id)");
+            int filasDespues = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            if (filasAntes != filasDespues) {
+                throw new IllegalStateException("Migración v20 abortada: transacciones antes=" +
+                        filasAntes + " después=" + filasDespues);
+            }
+            android.util.Log.w("A1_1_AyudanteBD", "Migración v20: c12 retirada; transacciones=" + filasDespues);
         }
     }
 

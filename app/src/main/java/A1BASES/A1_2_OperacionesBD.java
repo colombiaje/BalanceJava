@@ -179,7 +179,11 @@ public class A1_2_OperacionesBD extends Activity {
         // "Cerrable" (ver A1_1_AyudanteBD); el atributo vive en su propia columna, con snapshot
         // por transacción en c12_ColumnaDisponible. Misma lógica de negocio, misma selección de
         // filas — solo cambia por dónde se identifica.
-        sqliteDatabase_Abstracta.execSQL("DELETE FROM transacciones WHERE c12_ColumnaDisponible = 'Cerrable'");
+        // ⭐ CAMBIO (31-oct, paso 4 / Fase C, decisión de Jorge): se usa la marca ACTUAL de la
+        // cuenta (cuentas.Cerrable = 1), no la foto guardada en cada transacción (c12, retirada
+        // en la BD v20). Mismo emparejamiento que los resúmenes de cierre: por cuenta_id y, si
+        // falta, por nombre.
+        sqliteDatabase_Abstracta.execSQL("DELETE FROM transacciones WHERE " + A1_1_AyudanteBD.CONDICION_TRANSACCION_CERRABLE);
 
     }
 

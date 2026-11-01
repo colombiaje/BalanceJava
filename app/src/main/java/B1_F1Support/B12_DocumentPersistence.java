@@ -158,7 +158,7 @@ public class B12_DocumentPersistence {
                     valoresTransaccion.put("c7_FechaYhora", p.tipoTget_7FechaYHoraMetodoEnA5());
                     valoresTransaccion.put("c8_FechaInicial", p.tipoTget_8FechaInicialMetodoEnA5());
                     valoresTransaccion.put("c9_FechaModificacion", p.tipoTget_9FechaModificacionMetodoEnA5());
-                    valoresTransaccion.put("c12_ColumnaDisponible", p.tipoTget_12ColumnaDisponibleMetodoEnA5());
+                    // (31-oct, BD v20) c12 retirada: "Cerrable" se toma de la cuenta.
                     // (31-oct, BD v19) c13_ColumnaDisponible retirada de "transacciones".
                     valoresTransaccion.put("cuenta_id", cuentaIdParaGuardar);
                     valoresTransaccion.put("tipo_cuenta_id", tipoCuentaIdParaGuardar);
@@ -191,7 +191,7 @@ public class B12_DocumentPersistence {
                                 "c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
                                 "c6_Descripcion, c7_FechaYhora, c8_FechaInicial, " +
                                 "c9_FechaModificacion, " +
-                                "c12_ColumnaDisponible, cuenta_id, " + // c13 retirada (BD v19)
+                                "cuenta_id, " + // c12 (BD v20) y c13 (BD v19) retiradas
                                 "tipo_cuenta_id) " +
                                 "VALUES ('" +
                                 p.tipoTget_1DocumentoMetodoEnA5()          + "','" +
@@ -202,8 +202,7 @@ public class B12_DocumentPersistence {
                                 p.tipoTget_6DescripcionMetodoEnA5()        + "','" +
                                 p.tipoTget_7FechaYHoraMetodoEnA5()         + "','" +
                                 p.tipoTget_8FechaInicialMetodoEnA5()       + "','" +
-                                p.tipoTget_9FechaModificacionMetodoEnA5()  + "','" +
-                                p.tipoTget_12ColumnaDisponibleMetodoEnA5() + "'," +
+                                p.tipoTget_9FechaModificacionMetodoEnA5()  + "'," +
                                 (cuentaIdParaGuardar != null ? cuentaIdParaGuardar : "NULL") + "," +
                                 (tipoCuentaIdParaGuardar != null ? tipoCuentaIdParaGuardar : "NULL") +
                                 ")"

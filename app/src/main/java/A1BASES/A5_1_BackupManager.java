@@ -517,7 +517,8 @@ public class A5_1_BackupManager {
                                 "c.cuenta_id, c.tipo_cuenta_id, c.con_inventario " +
                                 "FROM transacciones t LEFT JOIN cuentas c " +
                                 "ON (c.cuenta_id = t.cuenta_id) OR (t.cuenta_id IS NULL AND c.Cuenta = t.c3_Cuenta) " +
-                                "WHERE t.c4_Signo != '?' AND t.c12_ColumnaDisponible = 'Cerrable' " +
+                                // ⭐ CAMBIO (31-oct, Fase C): marca actual de la cuenta, no c12.
+                                "WHERE t.c4_Signo != '?' AND c.Cerrable = 1 " +
                                 "GROUP BY t.c3_Cuenta;", null);
 
                 A99_MetodosVarios metodosVarios = new A99_MetodosVarios();

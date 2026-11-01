@@ -669,7 +669,7 @@ public class F4_Cierres extends Fragment {
             // (las columnas Grupo1/Grupo2 del CSV, que se mantienen en blanco para siempre — ver
             // A5_1_BackupManager) ya no se leen aquí; el resto de posiciones del array
             // (datos[11] en adelante) no se ve afectado.
-            valores.put("c12_ColumnaDisponible", datos[11]);
+            // (31-oct, BD v20) c12 retirada: "Cerrable" se toma de la cuenta; la columna 12 del CSV se ignora.
             // (31-oct, BD v19) c13_ColumnaDisponible retirada: la columna 13 del CSV se ignora.
 
             // ⭐ NUEVO — Fase 4 (parte C): cuenta_id, si el CSV lo trae (backup nuevo de
@@ -1765,7 +1765,8 @@ public class F4_Cierres extends Fragment {
             );
             SQLiteDatabase db = ayudanteBD.getReadableDatabase();
             Cursor cursor = db.rawQuery(
-                    "SELECT COUNT(*) FROM transacciones WHERE c12_ColumnaDisponible = 'Cerrable'", null);
+                    // ⭐ CAMBIO (31-oct, Fase C): marca actual de la cuenta, no c12.
+                    "SELECT COUNT(*) FROM transacciones WHERE " + A1_1_AyudanteBD.CONDICION_TRANSACCION_CERRABLE, null);
             long numeroRegistros = 0;
             if (cursor.moveToFirst()) {
                 numeroRegistros = cursor.getLong(0);

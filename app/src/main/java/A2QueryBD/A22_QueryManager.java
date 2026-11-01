@@ -55,6 +55,10 @@ public class A22_QueryManager {
     // precio_unitario.
     private static final String SELECT_TRANSACCIONES_CON_TIPO_CUENTA =
             "transacciones.*, tipo_cuenta.nombre AS tipo_cuenta_nombre, cuentas.con_inventario AS con_inventario, " +
+                    // ⭐ NUEVO (31-oct, BD v20): c12 ya no es columna; se calcula de la marca
+                    // ACTUAL de la cuenta, con el mismo texto de siempre, para el mapeo, las
+                    // pantallas y el CSV de backup.
+                    "CASE WHEN cuentas.Cerrable = 1 THEN 'Cerrable' ELSE 'No Aplica' END AS c12_ColumnaDisponible, " +
                     "transacciones_inventario.item_id AS item_id, " +
                     "transacciones_inventario.unidades AS unidades, " +
                     "transacciones_inventario.precio_unitario AS precio_unitario";
