@@ -305,10 +305,9 @@ public class A5_CacheManager {
      *   tipoTset_7FechaYHoraMetodoEnA5 → c7_FechaYHora
      *   tipoTset_8FechaInicialMetodoEnA5→c8_FechaInicial
      *   tipoTset_9FechaModificacionMetodoEnA5→ c9_FechaMod
-     *   tipoTset_10Grupo1MetodoEnA5    → c10_Grupo1
-     *   tipoTset_11Grupo2MetodoEnA5    → c11_Grupo2
-     *   tipoTset_12ColumnaDisponibleMetodoEnA5→ c12_Col
-     *   tipoTset_13ColumnaDisponibleMetodoEnA5→ c13_Col
+     *   (BD v23) campos 14..21 → cuenta_id, transaccion_id, tipo_cuenta_id,
+     *   tipo_cuenta_nombre, con_inventario, item_inventario_id, unidades_inventario,
+     *   precio_unitario_inventario. Los campos 10..13 ya no se guardan; se dejan en "".
      *
      * @return ArrayList listo para asignar a listaDocumento_ArrayLTT, nunca null.
      */
@@ -340,10 +339,22 @@ public class A5_CacheManager {
                     item.tipoTset_7FechaYHoraMetodoEnA5      (getString(c, "c7_FechaYHora"));
                     item.tipoTset_8FechaInicialMetodoEnA5    (getInt   (c, "c8_FechaInicial"));
                     item.tipoTset_9FechaModificacionMetodoEnA5(getString(c, "c9_FechaMod"));
-                    item.tipoTset_10Grupo1MetodoEnA5         (getString(c, "c10_Grupo1"));
-                    item.tipoTset_11Grupo2MetodoEnA5         (getString(c, "c11_Grupo2"));
-                    item.tipoTset_12ColumnaDisponibleMetodoEnA5(getString(c, "c12_Col"));
-                    item.tipoTset_13ColumnaDisponibleMetodoEnA5(getString(c, "c13_Col"));
+                    // (1-nov, BD v23) c10..c13 ya no se guardan; se dejan en "" como quedaban antes.
+                    item.tipoTset_10Grupo1MetodoEnA5         ("");
+                    item.tipoTset_11Grupo2MetodoEnA5         ("");
+                    item.tipoTset_12ColumnaDisponibleMetodoEnA5("");
+                    item.tipoTset_13ColumnaDisponibleMetodoEnA5("");
+                    // ⭐ NUEVO (1-nov, BD v23): el borrador recupera cuenta, tipo de cuenta e
+                    // inventario de cada línea (antes se perdían). null = no aplica / sin dato.
+                    item.tipoTset_14CuentaIdMetodoEnA5        (getLongONull(c, "cuenta_id"));
+                    item.tipoTset_15TransaccionIdMetodoEnA5   (getLongONull(c, "transaccion_id"));
+                    item.tipoTset_16TipoCuentaIdMetodoEnA5    (getLongONull(c, "tipo_cuenta_id"));
+                    item.tipoTset_17TipoCuentaNombreMetodoEnA5(getStringONull(c, "tipo_cuenta_nombre"));
+                    Long conInventario = getLongONull(c, "con_inventario");
+                    item.tipoTset_18ConInventarioMetodoEnA5   (conInventario == null ? null : conInventario == 1L);
+                    item.tipoTset_19ItemInventarioIdMetodoEnA5(getLongONull(c, "item_inventario_id"));
+                    item.tipoTset_20UnidadesInventarioMetodoEnA5(getLongONull(c, "unidades_inventario"));
+                    item.tipoTset_21PrecioUnitarioInventarioMetodoEnA5(getDoubleONull(c, "precio_unitario_inventario"));
 
                     lista.add(item);
                 }
@@ -451,10 +462,7 @@ public class A5_CacheManager {
      *   tipoTget_7FechaYHoraMetodoEnA5()          → c7_FechaYHora
      *   tipoTget_8FechaInicialMetodoEnA5()        → c8_FechaInicial
      *   tipoTget_9FechaModificacionMetodoEnA5()   → c9_FechaMod
-     *   tipoTget_10Grupo1MetodoEnA5()             → c10_Grupo1
-     *   tipoTget_11Grupo2MetodoEnA5()             → c11_Grupo2
-     *   tipoTget_12ColumnaDisponibleMetodoEnA5()  → c12_Col
-     *   tipoTget_13ColumnaDisponibleMetodoEnA5()  → c13_Col
+     *   (BD v23) campos 14..21 → cuenta_id ... precio_unitario_inventario (ver restaurarRegistros)
      */
     private static ContentValues registroToContentValues(int areaId,
                                                          A3_2_TipoTransaccionesGetsYSets item) {
@@ -469,10 +477,20 @@ public class A5_CacheManager {
         cv.put("c7_FechaYHora",  safe(item.tipoTget_7FechaYHoraMetodoEnA5()));
         cv.put("c8_FechaInicial",item.tipoTget_8FechaInicialMetodoEnA5());    // Integer directo
         cv.put("c9_FechaMod",    safe(item.tipoTget_9FechaModificacionMetodoEnA5()));
-        cv.put("c10_Grupo1",     safe(item.tipoTget_10Grupo1MetodoEnA5()));
-        cv.put("c11_Grupo2",     safe(item.tipoTget_11Grupo2MetodoEnA5()));
-        cv.put("c12_Col",        safe(item.tipoTget_12ColumnaDisponibleMetodoEnA5()));
-        cv.put("c13_Col",        safe(item.tipoTget_13ColumnaDisponibleMetodoEnA5()));
+        // (1-nov, BD v23) c10..c13 retiradas de cache_registros; se agregan los campos 14..21.
+        cv.put("cuenta_id",          item.tipoTget_14CuentaIdMetodoEnA5());
+        cv.put("transaccion_id",     item.tipoTget_15TransaccionIdMetodoEnA5());
+        cv.put("tipo_cuenta_id",     item.tipoTget_16TipoCuentaIdMetodoEnA5());
+        cv.put("tipo_cuenta_nombre", item.tipoTget_17TipoCuentaNombreMetodoEnA5());
+        Boolean conInventario = item.tipoTget_18ConInventarioMetodoEnA5();
+        if (conInventario == null) {
+            cv.putNull("con_inventario");
+        } else {
+            cv.put("con_inventario", conInventario ? 1 : 0);
+        }
+        cv.put("item_inventario_id",         item.tipoTget_19ItemInventarioIdMetodoEnA5());
+        cv.put("unidades_inventario",        item.tipoTget_20UnidadesInventarioMetodoEnA5());
+        cv.put("precio_unitario_inventario", item.tipoTget_21PrecioUnitarioInventarioMetodoEnA5());
         return cv;
     }
 
@@ -483,6 +501,22 @@ public class A5_CacheManager {
     private static String getString(Cursor c, String col) {
         int idx = c.getColumnIndex(col);
         return (idx >= 0 && !c.isNull(idx)) ? c.getString(idx) : "";
+    }
+
+    // ⭐ NUEVO (1-nov, BD v23): lectores que respetan NULL (null = sin dato).
+    private static Long getLongONull(Cursor c, String col) {
+        int idx = c.getColumnIndex(col);
+        return (idx >= 0 && !c.isNull(idx)) ? c.getLong(idx) : null;
+    }
+
+    private static Double getDoubleONull(Cursor c, String col) {
+        int idx = c.getColumnIndex(col);
+        return (idx >= 0 && !c.isNull(idx)) ? c.getDouble(idx) : null;
+    }
+
+    private static String getStringONull(Cursor c, String col) {
+        int idx = c.getColumnIndex(col);
+        return (idx >= 0 && !c.isNull(idx)) ? c.getString(idx) : null;
     }
 
     private static int getInt(Cursor c, String col) {

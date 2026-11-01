@@ -47,6 +47,16 @@ public class A5_1_BackupManager {
 
     // Resto del código del BackupManager
 
+    // ⭐ NUEVO (1-nov, paso 4 / cierre, con Jorge): formato nuevo de los 3 CSV de transacciones
+    // (backup completo y los 2 resúmenes de cierre). Solo los campos reales de la tabla
+    // "transacciones" + con_inventario: ya no van c3_Cuenta, c4_Signo, c10_Grupo1, c11_Grupo2,
+    // c12_ColumnaDisponible ni c13_ColumnaDisponible (retiradas de la BD). El nombre de la cuenta
+    // se obtiene cruzando cuenta_id con el CSV de cuentas. F4_Cierres.insertarTransaccion() ubica
+    // las columnas por este encabezado, así que sigue aceptando también los CSV del formato viejo.
+    public static final String ENCABEZADO_CSV_TRANSACCIONES =
+            "c1_Documento,c2_ItemDoc,c5_Valor,c6_Descripcion,c7_FechaYHora,c8_FechaInicial," +
+                    "c9_FechaModificacion,cuenta_id,tipo_cuenta_id,transaccion_id,con_inventario\n";
+
     public boolean backupCuentasArchivoCSV(String nombreArchivo, A22_QueryManager a22QueryManager) {
 
         if (a22QueryManager == null) {
@@ -243,26 +253,18 @@ public class A5_1_BackupManager {
                     // de "transacciones" — ver A3_2_TipoTransaccionesGetsYSets, campo
                     // tipoT_18ConInventario_Boolean).
                     salidaArchivo_OutputStreamWriter.write(
-                            "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
-                                    "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                    "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id," +
-                                    "con_inventario\n");
+                            ENCABEZADO_CSV_TRANSACCIONES);
                     for (int i = 0; i < todasLasTransacciones_Result_ArrayLTT.size(); i++) {
                         A3_2_TipoTransaccionesGetsYSets TransaccionX = todasLasTransacciones_Result_ArrayLTT.get(i);
                         salidaArchivo_OutputStreamWriter.write(
                                 TransaccionX.tipoTget_1DocumentoMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_2ItemDocMetodoEnA5() + "," +
-                                        TransaccionX.tipoTget_3CuentaMetodoEnA5() + "," +
-                                        TransaccionX.tipoTget_4MasMenosMetodoEnA5() + "," +
+                                        // (1-nov) c3, c4, c10..c13 ya no van (ver ENCABEZADO_CSV_TRANSACCIONES).
                                         TransaccionX.tipoTget_5ValorMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_6DescripcionMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_7FechaYHoraMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_8FechaInicialMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_9FechaModificacionMetodoEnA5() + "," +
-                                        TransaccionX.tipoTget_10Grupo1MetodoEnA5() + "," +
-                                        TransaccionX.tipoTget_11Grupo2MetodoEnA5() + "," +
-                                        TransaccionX.tipoTget_12ColumnaDisponibleMetodoEnA5() + "," +
-                                        "n a" + "," /* c13: columna retirada de la BD (v19); el CSV conserva el formato */ +
                                         (TransaccionX.tipoTget_14CuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_14CuentaIdMetodoEnA5()) + "," +
                                         (TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5()) + "," +
                                         (TransaccionX.tipoTget_15TransaccionIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_15TransaccionIdMetodoEnA5()) + "," +
@@ -322,10 +324,7 @@ public class A5_1_BackupManager {
                 // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario
                 // como 17ma columna — mismo criterio que en el backup completo de arriba.
                 escrituraDeArchivo_FileWriter.append(
-                        "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
-                                "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id," +
-                                "con_inventario\n");
+                        ENCABEZADO_CSV_TRANSACCIONES);
 
                 A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase_Abstracta= ayudanteBD_Class.getWritableDatabase();
@@ -397,22 +396,14 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo_FileWriter.append("0000");escrituraDeArchivo_FileWriter.append(","); //1 documento
                         escrituraDeArchivo_FileWriter.append(String.valueOf(siguienteItemDocCero));escrituraDeArchivo_FileWriter.append(","); //2 item documento
                         siguienteItemDocCero++;
-                        escrituraDeArchivo_FileWriter.append(transacciones_Cursor.getString(0));escrituraDeArchivo_FileWriter.append(",");//3cuenta
-                        escrituraDeArchivo_FileWriter.append( transacciones_Cursor.getString(1) );escrituraDeArchivo_FileWriter.append(",");// 4 mas menos
                         escrituraDeArchivo_FileWriter.append(String.valueOf(transacciones_Cursor.getInt(2)));escrituraDeArchivo_FileWriter.append(",");//5 valor
                         escrituraDeArchivo_FileWriter.append("Saldo inicial por cierre total");escrituraDeArchivo_FileWriter.append(",");// 6 descripcion
                         escrituraDeArchivo_FileWriter.append(stringFechaYHora );escrituraDeArchivo_FileWriter.append(","); // 7 fecha y hora
                         escrituraDeArchivo_FileWriter.append(""+dateCurrent_ArrayInteger[5]);escrituraDeArchivo_FileWriter.append(","); // 8 fecha inicial
                         //escrituraDeArchivo_FileWriter.append(dateCurrent_ArrayInteger[0] + "/"+dateCurrent_ArrayInteger[1] + "/"+dateCurrent_ArrayInteger[2] );escrituraDeArchivo_FileWriter.append(","); // 8 fecha inicial
                         escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append(","); //9 fecha de modificacion
-                        // ⭐ CAMBIO — v11 tanda 3 (parte D): Grupo1/Grupo2 ya no se leen del cursor
-                        // (ver el SELECT más arriba) — el CSV conserva estas 2 columnas en blanco
-                        // para siempre (formato congelado, ver A5_1_BackupManager arriba).
-                        escrituraDeArchivo_FileWriter.append("");escrituraDeArchivo_FileWriter.append(",");// 10 grupo 1
-                        escrituraDeArchivo_FileWriter.append("");escrituraDeArchivo_FileWriter.append(",");// 11 grupo 2
-                        // ⭐ CAMBIO — Fase 4 (parte C): antes "n a" fijo; ahora el Cerrable real de "cuentas".
-                        escrituraDeArchivo_FileWriter.append("Cerrable".equals(transacciones_Cursor.getString(3)) ? "Cerrable" : "No Aplica");escrituraDeArchivo_FileWriter.append(","); // 12 columna disponible 1
-                        escrituraDeArchivo_FileWriter.append("n a");escrituraDeArchivo_FileWriter.append(","); // 13 columna disponible 2
+                        // (1-nov, formato nuevo) nombre, signo, Grupo1/2, c12 y c13 ya no se escriben
+                        // (ver ENCABEZADO_CSV_TRANSACCIONES). Las columnas 0, 1 y 3 del cursor quedan sin uso.
                         // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN (columnas
                         // 4 y 5 del cursor, tras retirar Grupo1/Grupo2 del SELECT — parte D) — mismo
                         // criterio nullable-safe que en el backup completo.
@@ -481,10 +472,7 @@ public class A5_1_BackupManager {
                 // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario
                 // como 17ma columna — mismo criterio que en los otros 2 CSV de transacciones.
                 escrituraDeArchivo.append(
-                        "c1_Documento,c2_ItemDoc,c3_Cuenta,c4_Signo,c5_Valor,c6_Descripcion,c7_FechaYHora," +
-                                "c8_FechaInicial,c9_FechaModificacion,c10_Grupo1,c11_Grupo2," +
-                                "c12_ColumnaDisponible,c13_ColumnaDisponible,cuenta_id,tipo_cuenta_id,transaccion_id," +
-                                "con_inventario\n");
+                        ENCABEZADO_CSV_TRANSACCIONES);
 
                 A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
                 SQLiteDatabase sqliteDatabase = ayudanteBD.getWritableDatabase();
@@ -551,24 +539,14 @@ public class A5_1_BackupManager {
                         escrituraDeArchivo.append("0000"); escrituraDeArchivo.append(","); // 1 documento
                         escrituraDeArchivo.append(String.valueOf(siguienteItemDocCero)); escrituraDeArchivo.append(","); // 2 item documento
                         siguienteItemDocCero++;
-                        escrituraDeArchivo.append(transaccionesCursor.getString(0)); escrituraDeArchivo.append(","); // 3 cuenta
-                        escrituraDeArchivo.append(transaccionesCursor.getString(1)); escrituraDeArchivo.append(","); // 4 mas menos
                         escrituraDeArchivo.append(String.valueOf(transaccionesCursor.getInt(2))); escrituraDeArchivo.append(","); // 5 valor
                         escrituraDeArchivo.append("Saldo inicial por cierre de algunas cuentas"); escrituraDeArchivo.append(","); // 6 descripcion
                         escrituraDeArchivo.append(stringFechaYHora); escrituraDeArchivo.append(","); // 7 fecha y hora
                         escrituraDeArchivo.append("" + dateCurrent_ArrayInteger[5]); escrituraDeArchivo.append(","); // 8 fecha inicial
                         // escrituraDeArchivo.append(dateCurrent_ArrayInteger[0] + "/" + dateCurrent_ArrayInteger[1] + "/" + dateCurrent_ArrayInteger[2]); escrituraDeArchivo.append(","); // 8 fecha inicial
                         escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 9 fecha de modificacion
-                        // ⭐ CAMBIO — v11 tanda 3 (parte D): Grupo1/Grupo2 ya no se leen del cursor
-                        // (ver el SELECT más arriba) — el CSV conserva estas 2 columnas en blanco
-                        // para siempre (formato congelado).
-                        escrituraDeArchivo.append(""); escrituraDeArchivo.append(","); // 10 grupo 1
-                        escrituraDeArchivo.append(""); escrituraDeArchivo.append(","); // 11 grupo 2
-                        // ⭐ CAMBIO — Fase 4 (parte C): antes escribía "n a" fijo; ahora usa el
-                        // Cerrable real leído del JOIN a "cuentas" (columna 3 del cursor, tras
-                        // retirar Grupo1/Grupo2 del SELECT — parte D).
-                        escrituraDeArchivo.append("Cerrable".equals(transaccionesCursor.getString(3)) ? "Cerrable" : "No Aplica"); escrituraDeArchivo.append(","); // 12 columna disponible 1
-                        escrituraDeArchivo.append("n a"); escrituraDeArchivo.append(","); // 13 columna disponible 2 (sin cambios, espacio libre genuino)
+                        // (1-nov, formato nuevo) nombre, signo, Grupo1/2, c12 y c13 ya no se escriben
+                        // (ver ENCABEZADO_CSV_TRANSACCIONES). Las columnas 0, 1 y 3 del cursor quedan sin uso.
                         // ⭐ NUEVO v11 (28-sep): cuenta_id y tipo_cuenta_id, leídos del JOIN
                         // (columnas 4 y 5 del cursor, tras retirar Grupo1/Grupo2 — parte D).
                         escrituraDeArchivo.append(transaccionesCursor.isNull(4) ? "" : transaccionesCursor.getString(4)); escrituraDeArchivo.append(","); // 14 cuenta_id

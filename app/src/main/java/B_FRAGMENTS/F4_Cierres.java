@@ -530,6 +530,7 @@ public class F4_Cierres extends Fragment {
         int encabezados = 0;
         int otrosErrores = 0;
         primerErrorInsercion = null;
+        columnasCsv = null; // ⭐ (1-nov) el encabezado de ESTE archivo define las columnas
         try (FileReader fileReader = new FileReader(rutaFinal);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
 
@@ -621,6 +622,25 @@ public class F4_Cierres extends Fragment {
     // ⭐ NUEVO — diagnóstico (30-oct): primer mensaje de error de SQLite al insertar.
     private String primerErrorInsercion = null;
 
+    // ⭐ NUEVO (1-nov, paso 4 / cierre, con Jorge): formato nuevo del CSV de transacciones, sin
+    // las columnas retiradas de la tabla (c3, c4, c10, c11, c12, c13). Para aceptar CSV viejos y
+    // nuevos, las columnas se ubican POR NOMBRE según la fila de encabezado del archivo. Si el
+    // archivo no trae encabezado (CSV muy antiguos), se usan las posiciones fijas de siempre.
+    private java.util.Map<String, Integer> columnasCsv = null;
+
+    /** Posición de la columna en el CSV: por encabezado si lo hubo; si no, la posición fija antigua. */
+    private int indiceCsv(String nombreColumna, int posicionAntigua) {
+        if (columnasCsv == null) return posicionAntigua;
+        Integer i = columnasCsv.get(nombreColumna.toLowerCase(java.util.Locale.ROOT));
+        return i == null ? -1 : i;
+    }
+
+    /** Valor de la columna, o null si no existe en este CSV / la línea es más corta. */
+    private static String campoCsv(String[] datos, int indice) {
+        if (indice < 0 || indice >= datos.length) return null;
+        return datos[indice];
+    }
+
     /**
      * Inserta una transacción en la base de datos.
      * Devuelve el resultado de db.insert() (id de la fila, o -1 si falló la inserción —
@@ -629,7 +649,7 @@ public class F4_Cierres extends Fragment {
      * retorno es nuevo (antes el método era void); no cambia qué se inserta ni cómo.
      */
     private long insertarTransaccion(String[] datos) {
-        if (datos == null || datos.length < 13) {
+        if (datos == null || datos.length == 0) {
             Log.e(TAG, "Datos insuficientes para insertar transacción");
             return RESULTADO_ERROR;
         }
@@ -642,7 +662,36 @@ public class F4_Cierres extends Fragment {
         // los 6 flujos que llaman a este método con un solo cambio.
         if (datos[0] != null && datos[0].trim().equalsIgnoreCase("c1_Documento")) {
             Log.d(TAG, "Fila de encabezado detectada en el CSV de transacciones, se ignora sin insertar");
+            // ⭐ NUEVO (1-nov): el encabezado define dónde está cada columna (formato viejo o nuevo).
+            columnasCsv = new java.util.HashMap<>();
+            for (int i = 0; i < datos.length; i++) {
+                if (datos[i] != null) {
+                    columnasCsv.put(datos[i].trim().toLowerCase(java.util.Locale.ROOT), i);
+                }
+            }
             return RESULTADO_ENCABEZADO;
+        }
+
+        // ⭐ NUEVO (1-nov): posiciones de cada columna en este CSV (ver indiceCsv). Sin
+        // encabezado se exigen las 13 columnas de siempre, como antes.
+        if (columnasCsv == null && datos.length < 13) {
+            Log.e(TAG, "Datos insuficientes para insertar transacción");
+            return RESULTADO_ERROR;
+        }
+        String csvDocumento   = campoCsv(datos, indiceCsv("c1_Documento", 0));
+        String csvItemDoc     = campoCsv(datos, indiceCsv("c2_ItemDoc", 1));
+        String csvNombreCta   = campoCsv(datos, indiceCsv("c3_Cuenta", 2)); // solo CSV viejos
+        String csvValor       = campoCsv(datos, indiceCsv("c5_Valor", 4));
+        String csvDescripcion = campoCsv(datos, indiceCsv("c6_Descripcion", 5));
+        String csvFechaYHora  = campoCsv(datos, indiceCsv("c7_FechaYHora", 6));
+        String csvFechaIni    = campoCsv(datos, indiceCsv("c8_FechaInicial", 7));
+        String csvFechaMod    = campoCsv(datos, indiceCsv("c9_FechaModificacion", 8));
+        String csvCuentaId    = campoCsv(datos, indiceCsv("cuenta_id", 13));
+        String csvTipoCtaId   = campoCsv(datos, indiceCsv("tipo_cuenta_id", 14));
+        String csvTransId     = campoCsv(datos, indiceCsv("transaccion_id", 15));
+        if (csvDocumento == null || csvItemDoc == null || csvValor == null) {
+            Log.e(TAG, "Línea sin Documento/Item/Valor, se omite");
+            return RESULTADO_ERROR;
         }
 
         try {
@@ -655,16 +704,16 @@ public class F4_Cierres extends Fragment {
             SQLiteDatabase db = ayudanteBD.getWritableDatabase();
 
             ContentValues valores = new ContentValues();
-            valores.put("c1_Documento", datos[0]);
-            valores.put("c2_ItemDoc", datos[1]);
+            valores.put("c1_Documento", csvDocumento);
+            valores.put("c2_ItemDoc", csvItemDoc);
             // (1-nov, BD v22) c3_Cuenta retirada: el nombre del CSV (columna 3) solo se usa para
             // obtener cuenta_id cuando la línea no lo trae (ver más abajo).
             // (1-nov, BD v21) c4_Signo retirada: el signo sale del valor; la columna 4 del CSV se ignora.
-            valores.put("c5_Valor", datos[4]);
-            valores.put("c6_Descripcion", datos[5]);
-            valores.put("c7_FechaYhora", datos[6]);
-            valores.put("c8_FechaInicial", datos[7]);
-            valores.put("c9_FechaModificacion", datos[8]);
+            valores.put("c5_Valor", csvValor);
+            valores.put("c6_Descripcion", csvDescripcion);
+            valores.put("c7_FechaYhora", csvFechaYHora);
+            valores.put("c8_FechaInicial", csvFechaIni);
+            valores.put("c9_FechaModificacion", csvFechaMod);
             // ⭐ CAMBIO — v11 tanda 3 (parte D): "transacciones" pierde c10_Grupo1/c11_Grupo2
             // (ver A1_1_AyudanteBD, migración v13) — se quitan estos 2 .put(). datos[9]/datos[10]
             // (las columnas Grupo1/Grupo2 del CSV, que se mantienen en blanco para siempre — ver
@@ -680,11 +729,11 @@ public class F4_Cierres extends Fragment {
             // en A1_1_AyudanteBD). Los resúmenes de saldo inicial (_2 y _3 en A5_1_BackupManager)
             // tampoco escriben esta columna todavía, así que sus líneas seguirán entrando aquí
             // sin cuenta_id, como siempre.
-            if (datos.length >= 14 && datos[13] != null && !datos[13].trim().isEmpty()) {
+            if (csvCuentaId != null && !csvCuentaId.trim().isEmpty()) {
                 try {
-                    valores.put("cuenta_id", Long.parseLong(datos[13].trim()));
+                    valores.put("cuenta_id", Long.parseLong(csvCuentaId.trim()));
                 } catch (NumberFormatException nfe) {
-                    Log.e(TAG, "cuenta_id inválido en CSV, se omite: " + datos[13]);
+                    Log.e(TAG, "cuenta_id inválido en CSV, se omite: " + csvCuentaId);
                 }
             }
             // ⭐ NUEVO (1-nov, paso 4 / Fase E1): si la línea no trae cuenta_id (saldos iniciales
@@ -692,9 +741,10 @@ public class F4_Cierres extends Fragment {
             // cuenta_id aquí mismo, al importar — ya no se deja para "repararlo después" desde
             // transacciones.c3_Cuenta. Si el nombre no coincide con ninguna cuenta, la línea
             // queda sin cuenta y se cuenta en el diagnóstico.
-            if (!valores.containsKey("cuenta_id") && datos[2] != null && !datos[2].trim().isEmpty()) {
+            // (1-nov) Solo aplica a CSV del formato viejo: el nuevo no trae nombre de cuenta.
+            if (!valores.containsKey("cuenta_id") && csvNombreCta != null && !csvNombreCta.trim().isEmpty()) {
                 Cursor cCuenta = db.rawQuery("SELECT cuenta_id FROM cuentas WHERE Cuenta = ?",
-                        new String[]{datos[2].trim()});
+                        new String[]{csvNombreCta.trim()});
                 if (cCuenta.moveToFirst()) {
                     valores.put("cuenta_id", cCuenta.getLong(0));
                 }
@@ -705,11 +755,11 @@ public class F4_Cierres extends Fragment {
             // lo trae. Mismo criterio que cuenta_id arriba: compatible con CSVs de 13/14
             // columnas (no viene, queda sin poner, NULL). Los 3 generadores de
             // A5_1_BackupManager ya la escriben desde esta misma versión.
-            if (datos.length >= 15 && datos[14] != null && !datos[14].trim().isEmpty()) {
+            if (csvTipoCtaId != null && !csvTipoCtaId.trim().isEmpty()) {
                 try {
-                    valores.put("tipo_cuenta_id", Long.parseLong(datos[14].trim()));
+                    valores.put("tipo_cuenta_id", Long.parseLong(csvTipoCtaId.trim()));
                 } catch (NumberFormatException nfe) {
-                    Log.e(TAG, "tipo_cuenta_id inválido en CSV, se omite: " + datos[14]);
+                    Log.e(TAG, "tipo_cuenta_id inválido en CSV, se omite: " + csvTipoCtaId);
                 }
             }
 
@@ -723,11 +773,11 @@ public class F4_Cierres extends Fragment {
             // siempre vacían la tabla antes (ver _7borrarHistorialTransacciones), así que no hay
             // riesgo de choque con una fila existente. Si no viene (CSV de 13/14/15 columnas, o
             // los resúmenes de cierre), se omite y se sigue autogenerando como hasta ahora.
-            if (datos.length >= 16 && datos[15] != null && !datos[15].trim().isEmpty()) {
+            if (csvTransId != null && !csvTransId.trim().isEmpty()) {
                 try {
-                    valores.put("transaccion_id", Long.parseLong(datos[15].trim()));
+                    valores.put("transaccion_id", Long.parseLong(csvTransId.trim()));
                 } catch (NumberFormatException nfe) {
-                    Log.e(TAG, "transaccion_id inválido en CSV, se omite (se autogenerará uno nuevo): " + datos[15]);
+                    Log.e(TAG, "transaccion_id inválido en CSV, se omite (se autogenerará uno nuevo): " + csvTransId);
                 }
             }
 
@@ -745,7 +795,7 @@ public class F4_Cierres extends Fragment {
             }
             db.close();
             if (idInsertado == -1L) {
-                Log.e(TAG, "db.insert() devolvió -1 para Documento=" + datos[0] + " Item=" + datos[1]
+                Log.e(TAG, "db.insert() devolvió -1 para Documento=" + csvDocumento + " Item=" + csvItemDoc
                         + " (posible choque con la restricción UNIQUE de Documento+Item)");
             }
             return idInsertado;

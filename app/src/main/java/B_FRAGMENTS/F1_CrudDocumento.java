@@ -1836,6 +1836,12 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     //metodos read bases de datos
     private void ordenAzZaPorCuentaConciliacion(boolean asc) {
+        // ⭐ FIX (1-nov): dynamicQueryNameAzAllAccount() llama aquí antes de que exista la lista
+        // de cuentas conciliables (aún null) → NullPointerException capturada y registrada como
+        // "Error ordering accounts list". Sin lista o sin adaptador no hay nada que ordenar.
+        if (cuentasConciliablesAZ_List == null || adaptadorCuentasConciliables == null) {
+            return;
+        }
         try {
             if (asc) {
                 Collections.sort(cuentasConciliablesAZ_List, (o1, o2) -> o1.compareTo(o2));

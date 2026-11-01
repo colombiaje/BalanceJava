@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 22; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3
+    public static final int version1BalanceSqlite_int_PSF = 23; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -430,8 +430,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * Estructura idéntica a las columnas de A3_2_TipoTransaccionesGetsYSets
      * para que restoreBackups() pueda reconstruir el ArrayList directamente.
      */
-    private static final String SQL_CREAR_CACHE_RECORDS =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_CACHE_RECORDS + " (" +
+    // ⭐ CAMBIO (1-nov, BD v23, cierre del paso 4, con Jorge): se quitan c10_Grupo1, c11_Grupo2,
+    // c12_Col y c13_Col (ya no existen en "transacciones") y se agregan los campos que el
+    // borrador no guardaba: cuenta_id, transaccion_id, tipo de cuenta y los de inventario. Sin
+    // ellos, un borrador recuperado perdía el movimiento de inventario de sus líneas (y, en
+    // Modificar, el vínculo con la transacción original). c3_Cuenta y c4_Signo se conservan: el
+    // borrador muestra nombre y signo en pantalla tal como se digitaron.
+    private static final String COLUMNAS_CACHE_RECORDS =
                     "registro_id      INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     "area_id          INTEGER NOT NULL, " +     // FK lógica → cache_encabezado
                     "c1_Documento     TEXT, " +
@@ -443,10 +448,16 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c7_FechaYHora    TEXT, " +
                     "c8_FechaInicial  INTEGER, " +
                     "c9_FechaMod      TEXT, " +
-                    "c10_Grupo1       TEXT, " +
-                    "c11_Grupo2       TEXT, " +
-                    "c12_Col          TEXT, " +
-                    "c13_Col          TEXT)";
+                    "cuenta_id        INTEGER, " +
+                    "transaccion_id   INTEGER, " +
+                    "tipo_cuenta_id   INTEGER, " +
+                    "tipo_cuenta_nombre TEXT, " +
+                    "con_inventario   INTEGER, " +
+                    "item_inventario_id INTEGER, " +
+                    "unidades_inventario INTEGER, " +
+                    "precio_unitario_inventario REAL";
+    private static final String SQL_CREAR_CACHE_RECORDS =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_CACHE_RECORDS + " (" + COLUMNAS_CACHE_RECORDS + ")";
 
     // ─────────────────────────────────────────────
     //  DDL — CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4 (Fase 2)
@@ -2013,6 +2024,29 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         filasAntes + " después=" + filasDespues);
             }
             android.util.Log.w("A1_1_AyudanteBD", "Migración v22: c3 retirada; transacciones=" + filasDespues);
+        }
+
+        // ⭐ NUEVO (1-nov): versión 23 de la BD — cierre del paso 4 (con Jorge): "cache_registros"
+        // (borradores de F1) queda con la definición nueva de COLUMNAS_CACHE_RECORDS. Se recrea
+        // copiando las columnas que siguen (un borrador pendiente no se pierde; los campos nuevos
+        // quedan vacíos para ese borrador). Tabla sin llaves foráneas: no afecta otras tablas.
+        if (oldVersion < 23) {
+            int filasAntes = (int) android.database.DatabaseUtils.queryNumEntries(db, TABLE_CACHE_RECORDS);
+            db.execSQL("DROP TABLE IF EXISTS cache_registros_temp_v23");
+            db.execSQL("CREATE TABLE cache_registros_temp_v23 (" + COLUMNAS_CACHE_RECORDS + ")");
+            db.execSQL("INSERT INTO cache_registros_temp_v23 (" +
+                    "registro_id, area_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaMod) " +
+                    "SELECT registro_id, area_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaMod FROM " + TABLE_CACHE_RECORDS);
+            db.execSQL("DROP TABLE " + TABLE_CACHE_RECORDS);
+            db.execSQL("ALTER TABLE cache_registros_temp_v23 RENAME TO " + TABLE_CACHE_RECORDS);
+            int filasDespues = (int) android.database.DatabaseUtils.queryNumEntries(db, TABLE_CACHE_RECORDS);
+            if (filasAntes != filasDespues) {
+                throw new IllegalStateException("Migración v23 abortada: cache_registros antes=" +
+                        filasAntes + " después=" + filasDespues);
+            }
+            android.util.Log.w("A1_1_AyudanteBD", "Migración v23: borradores completos; filas=" + filasDespues);
         }
     }
 
