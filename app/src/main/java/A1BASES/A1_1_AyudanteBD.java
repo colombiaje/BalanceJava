@@ -625,6 +625,15 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * de las 9 clases esperadas — no debería pasar con datos reales).
      */
     public int repararTipoCuentaDeCuentasSinClasificar(SQLiteDatabase db) {
+        // ⭐ CORRECCIÓN (1-nov): esta reparación lee Grupo1/Grupo2, columnas retiradas de
+        // "cuentas" en la migración v13. Desde entonces lanzaba "no such column: Grupo1" y, como
+        // se llamaba primero, abortaba TODO lo que venía después tras restaurar cuentas — entre
+        // otras cosas, el reemparejado de transacciones con sus cuentas. Hoy la clasificación de
+        // una cuenta restaurada viene del CSV (nombre del tipo) o del catálogo definitivo, así que
+        // si Grupo1 ya no existe no hay nada que reparar aquí.
+        if (!tieneColumna(db, "cuentas", "Grupo1")) {
+            return 0;
+        }
         java.util.List<String[]> combosDistintos = new java.util.ArrayList<>();
         Cursor combosCursor = db.rawQuery(
                 "SELECT DISTINCT Grupo1, Grupo2 FROM cuentas WHERE tipo_cuenta_id IS NULL", null);

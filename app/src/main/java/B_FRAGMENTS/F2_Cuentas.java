@@ -2279,10 +2279,26 @@ public class F2_Cuentas extends DialogFragment {
             }
 
             // 3) Reemparejar transacciones.cuenta_id por nombre (ya existía en el fix anterior).
+            sqliteDatabase_Abstracta.close();
+        } catch (Exception e) {
+            Log.e(TAG, "Error al reparar clasificación tras restaurar cuentas: " + e.getMessage(), e);
+        }
+
+        // ⭐ CAMBIO (1-nov): el reemparejado de transacciones y artículos con sus cuentas va en
+        // su PROPIO bloque, para que ningún error de los pasos de arriba lo impida (antes, el
+        // fallo de repararTipoCuentaDeCuentasSinClasificar() lo saltaba en silencio).
+        try {
+            A1_1_AyudanteBD ayudanteVinculos = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+            SQLiteDatabase sqliteDatabase_Abstracta = ayudanteVinculos.getWritableDatabase();
             int huerfanas = A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre(sqliteDatabase_Abstracta);
             // ⭐ NUEVO (1-nov): reapuntar los artículos de inventario a sus cuentas por nombre.
             int articulosSinCuenta = A1_2_OperacionesBD.repararVinculoArticulos(sqliteDatabase_Abstracta);
             sqliteDatabase_Abstracta.close();
+            if (huerfanas > 0) {
+                Toast.makeText(getActivity(), "Atención: " + huerfanas + " transacción(es) quedaron " +
+                        "sin cuenta tras restaurar (su cuenta no está en el backup)",
+                        Toast.LENGTH_LONG).show();
+            }
             if (articulosSinCuenta > 0) {
                 Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + articulosSinCuenta +
                         " artículo(s) de inventario cuya cuenta no vino en el backup");
@@ -2296,7 +2312,9 @@ public class F2_Cuentas extends DialogFragment {
                         "(nombre de cuenta sin match exacto en cuentas.Cuenta)");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error al reparar clasificación/referencias tras restaurar cuentas: " + e.getMessage(), e);
+            Log.e(TAG, "Error al reemparejar transacciones/artículos tras restaurar cuentas: " + e.getMessage(), e);
+            Toast.makeText(getActivity(), "Error al reemparejar transacciones con sus cuentas: " +
+                    e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 

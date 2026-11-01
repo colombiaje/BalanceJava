@@ -186,6 +186,21 @@ public class A1_2_OperacionesBD extends Activity {
                 "WHERE cuenta_id IS NULL AND transaccion_id IN " +
                 "(SELECT transaccion_id FROM respaldo_vinculo_cuenta)");
         db.execSQL("DELETE FROM respaldo_vinculo_cuenta");
+        // ⭐ RED DE SEGURIDAD TEMPORAL (1-nov, hasta la Fase E2): mientras la columna c3_Cuenta
+        // exista, las transacciones que sigan sin cuenta se reemparejan por ese nombre. Sirve
+        // para recuperar la restauración interrumpida del 1-nov en el dispositivo de Jorge. En la
+        // E2 la columna desaparece y este paso se omite solo.
+        Cursor col = db.rawQuery("PRAGMA table_info(transacciones)", null);
+        boolean existeC3 = false;
+        while (col.moveToNext()) {
+            if ("c3_Cuenta".equalsIgnoreCase(col.getString(1))) existeC3 = true;
+        }
+        col.close();
+        if (existeC3) {
+            db.execSQL("UPDATE transacciones SET cuenta_id = " +
+                    "(SELECT cuenta_id FROM cuentas WHERE cuentas.Cuenta = transacciones.c3_Cuenta) " +
+                    "WHERE cuenta_id IS NULL");
+        }
 
         int huerfanas = 0;
         Cursor cursor = db.rawQuery(
