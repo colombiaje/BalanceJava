@@ -920,9 +920,9 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * las transacciones de cuentas CERRABLES HOY. Empareja por cuenta_id y, si falta, por nombre
      * — igual que los resúmenes de cierre de A5_1_BackupManager.
      */
+    // ⭐ CAMBIO (1-nov, Fase E1): solo por cuenta_id (sin respaldo por c3_Cuenta).
     public static final String CONDICION_TRANSACCION_CERRABLE =
-            "(cuenta_id IN (SELECT cuenta_id FROM cuentas WHERE Cerrable = 1) " +
-            "OR (cuenta_id IS NULL AND c3_Cuenta IN (SELECT Cuenta FROM cuentas WHERE Cerrable = 1)))";
+            "(cuenta_id IN (SELECT cuenta_id FROM cuentas WHERE Cerrable = 1))";
 
     /**
      * ⭐ NUEVO (31-oct, BD v18): convierte el texto de los CSV / la UI a 0/1 para

@@ -148,7 +148,23 @@ public class A1_2_OperacionesBD extends Activity {
     //      reutilizado aquí en vez de inventar un mecanismo nuevo.
     // Ninguna de las dos toca cuentas ni transacciones fuera de esta ventana de borrado+
     // restauración completa de "cuentas".
+    // ⭐ CAMBIO (1-nov, paso 4 / Fase E1): el vínculo de cada transacción con su cuenta ya NO
+    // se reconstruye desde transacciones.c3_Cuenta (columna que se retirará en la Fase E2).
+    // Antes de soltar las referencias se guarda, en una tabla auxiliar persistente, el NOMBRE
+    // de la cuenta de cada transacción (tomado de "cuentas", la fuente actual); al reparar se
+    // reempareja por ese nombre con las cuentas reinsertadas. Mismo resultado que antes (las
+    // cuentas se identifican por nombre a través de la restauración), sin depender de c3.
+    // La tabla es persistente (no TEMP) porque limpiar y reparar usan conexiones distintas.
+    private static final String SQL_CREAR_RESPALDO_VINCULO =
+            "CREATE TABLE IF NOT EXISTS respaldo_vinculo_cuenta (" +
+                    "transaccion_id INTEGER PRIMARY KEY, nombre_cuenta TEXT NOT NULL)";
+
     public static void limpiarReferenciasCuentaId(SQLiteDatabase db) {
+        db.execSQL(SQL_CREAR_RESPALDO_VINCULO);
+        db.execSQL("DELETE FROM respaldo_vinculo_cuenta");
+        db.execSQL("INSERT INTO respaldo_vinculo_cuenta (transaccion_id, nombre_cuenta) " +
+                "SELECT t.transaccion_id, c.Cuenta FROM transacciones t " +
+                "JOIN cuentas c ON c.cuenta_id = t.cuenta_id");
         db.execSQL("UPDATE transacciones SET cuenta_id = NULL WHERE cuenta_id IS NOT NULL");
     }
 
@@ -157,9 +173,16 @@ public class A1_2_OperacionesBD extends Activity {
      * c3_Cuenta no tuvo match exacto en cuentas.Cuenta) — el llamador decide cómo registrarlo.
      */
     public static int repararReferenciasCuentaIdPorNombre(SQLiteDatabase db) {
+        // ⭐ CAMBIO (1-nov, Fase E1): reempareja desde el respaldo guardado en
+        // limpiarReferenciasCuentaId() (nombre de la cuenta según "cuentas"), no desde c3_Cuenta.
+        db.execSQL(SQL_CREAR_RESPALDO_VINCULO);
         db.execSQL("UPDATE transacciones SET cuenta_id = " +
-                "(SELECT cuenta_id FROM cuentas WHERE cuentas.Cuenta = transacciones.c3_Cuenta) " +
-                "WHERE cuenta_id IS NULL");
+                "(SELECT c.cuenta_id FROM respaldo_vinculo_cuenta r " +
+                "JOIN cuentas c ON c.Cuenta = r.nombre_cuenta " +
+                "WHERE r.transaccion_id = transacciones.transaccion_id) " +
+                "WHERE cuenta_id IS NULL AND transaccion_id IN " +
+                "(SELECT transaccion_id FROM respaldo_vinculo_cuenta)");
+        db.execSQL("DELETE FROM respaldo_vinculo_cuenta");
 
         int huerfanas = 0;
         Cursor cursor = db.rawQuery(

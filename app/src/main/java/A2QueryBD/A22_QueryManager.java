@@ -61,6 +61,9 @@ public class A22_QueryManager {
                     "CASE WHEN cuentas.Cerrable = 1 THEN 'Cerrable' ELSE 'No Aplica' END AS c12_ColumnaDisponible, " +
                     // ⭐ NUEVO (1-nov, BD v21, Fase D): c4_Signo ya no es columna; sale del valor.
                     "CASE WHEN transacciones.c5_Valor < 0 THEN '-' ELSE '+' END AS c4_Signo, " +
+                    // ⭐ NUEVO (1-nov, Fase E1): nombre ACTUAL de la cuenta (no c3_Cuenta), para
+                    // que la historia siempre muestre el nombre vigente.
+                    "COALESCE(cuentas.Cuenta, '(sin cuenta)') AS cuenta_nombre, " +
                     "transacciones_inventario.item_id AS item_id, " +
                     "transacciones_inventario.unidades AS unidades, " +
                     "transacciones_inventario.precio_unitario AS precio_unitario";
@@ -127,7 +130,8 @@ public class A22_QueryManager {
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
                         .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
                         .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
-                        .where("c3_Cuenta = ?" ,cuentaDeConsulta)
+                        // ⭐ CAMBIO (1-nov, Fase E1): por cuenta_id, no por c3_Cuenta.
+                        .where("transacciones.cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)", cuentaDeConsulta)
                         .orderBy(ORDEN_ASCENDENTE_DOCUMENTO_ITEM, true);
 
         // Ejecutar la consulta y obtener los resultados
@@ -145,7 +149,9 @@ public class A22_QueryManager {
                 (A21_OptimizedQuery.TransactionQueryBuilder) new A21_OptimizedQuery.TransactionQueryBuilder()
                         .select(SELECT_TRANSACCIONES_CON_TIPO_CUENTA)
                         .from(FROM_TRANSACCIONES_CON_TIPO_CUENTA)
-                        .where("c3_Cuenta = ? AND c8_FechaInicial >= ? AND c8_FechaInicial <= ?",
+                        // ⭐ CAMBIO (1-nov, Fase E1): por cuenta_id, no por c3_Cuenta.
+                        .where("transacciones.cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?) " +
+                                        "AND c8_FechaInicial >= ? AND c8_FechaInicial <= ?",
                                 cuentaDeConsulta,  // Filtro exacto para cuenta
                                 String.valueOf(fechaInicio), // Filtro exacto para la fecha de inicio
                                 String.valueOf(fechaFin)) // Filtro exacto para la fecha de fin
@@ -247,7 +253,8 @@ public class A22_QueryManager {
 
     // Método para sumar transacciones por cuenta específica
     public A23_QueryResult<Void> querySumTransactionsByAccount(String cuentaDeConsulta) {
-        String whereClause = "c3_Cuenta = ?";
+        // ⭐ CAMBIO (1-nov, Fase E1): por cuenta_id, no por c3_Cuenta.
+        String whereClause = "cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)";
         String[] whereArgs = new String[]{cuentaDeConsulta};
 
         //Realizar la consulta de suma
@@ -294,9 +301,13 @@ public class A22_QueryManager {
     // Método para sumar transacciones por cuenta específica y rango de fechas
     public A23_QueryResult<Void> querySumTransactionsByAccountAndDateRange(String cuentaDeConsulta, int fechaInicio, int fechaFin) {
         // Cláusula WHERE para filtrar por cuenta y rango de fechas
-        String whereClause = "c3_Cuenta LIKE ? AND c8_FechaInicial >= ? AND c8_FechaInicial <= ?";
+        // ⭐ CAMBIO (1-nov, Fase E1): por cuenta_id y con coincidencia EXACTA del nombre. Antes
+        // era "c3_Cuenta LIKE %nombre%", y la suma por fechas de "CxC Enrique" incluía también
+        // "CxC Enrique Euros", "CxC Enrique Viaje", etc. (error que se corrige de paso).
+        String whereClause = "cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?) " +
+                "AND c8_FechaInicial >= ? AND c8_FechaInicial <= ?";
         String[] whereArgs = new String[]{
-                "%" + cuentaDeConsulta + "%",  // Búsqueda parcial en la columna c3_Cuenta
+                cuentaDeConsulta,
                 String.valueOf(fechaInicio),  // Rango de fecha inicial
                 String.valueOf(fechaFin)      // Rango de fecha final
         };

@@ -169,8 +169,12 @@ public class A21_OptimizedQuery {
             openDB();
             // Consulta para obtener las cuentas y sus detalles
             // ⭐ CAMBIO (1-nov, BD v21, Fase D): el signo sale del valor (columna retirada).
-            String query = "SELECT c3_Cuenta, CASE WHEN c5_Valor < 0 THEN '-' ELSE '+' END AS c4_Signo, " +
-                    "SUM(c5_Valor) AS suma FROM transacciones GROUP BY c3_Cuenta, c4_Signo";
+            // ⭐ CAMBIO (1-nov, Fase E1): agrupa por cuenta_id; el nombre sale de la cuenta.
+            String query = "SELECT COALESCE(c.Cuenta, '(sin cuenta)') AS c3_Cuenta, " +
+                    "CASE WHEN t.c5_Valor < 0 THEN '-' ELSE '+' END AS c4_Signo, " +
+                    "SUM(t.c5_Valor) AS suma FROM transacciones t " +
+                    "LEFT JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
+                    "GROUP BY t.cuenta_id, c4_Signo";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
@@ -245,7 +249,8 @@ public class A21_OptimizedQuery {
             // de mostrar estos 2 campos en el Informe (los reemplazó tipo_cuenta_nombre).
             // ⭐ CAMBIO (1-nov, BD v21, Fase D): signo del SALDO de la cuenta (antes, el de una
             // transacción cualquiera del grupo).
-            String query = "SELECT COALESCE(c.Cuenta, t.c3_Cuenta) AS c3_Cuenta, " +
+            // ⭐ CAMBIO (1-nov, Fase E1): el nombre sale solo de la cuenta (no de c3_Cuenta).
+            String query = "SELECT COALESCE(c.Cuenta, '(sin cuenta)') AS c3_Cuenta, " +
                     "CASE WHEN SUM(t.c5_Valor) < 0 THEN '-' ELSE '+' END AS c4_Signo, " +
                     "SUM(t.c5_Valor) AS suma, " +
                     "tc.nombre AS tipo_cuenta_nombre, " +
@@ -262,7 +267,7 @@ public class A21_OptimizedQuery {
                     // va de más a menos líquido) y, dentro de cada tipo, cuenta A-Z. Las cuentas
                     // sin tipo van al final, para que se noten como pendientes de clasificar.
                     "ORDER BY (tc.tipo_cuenta_id IS NULL), cl.clase_id, cc.clasificacion_id, " +
-                    "tc.tipo_cuenta_id, COALESCE(c.Cuenta, t.c3_Cuenta) COLLATE NOCASE";
+                    "tc.tipo_cuenta_id, COALESCE(c.Cuenta, '(sin cuenta)') COLLATE NOCASE";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
@@ -340,14 +345,15 @@ public class A21_OptimizedQuery {
             openDB();
             // Se muestran los nombres de tipo_cuenta (vía LEFT JOIN, tolerante a NULL) para
             // que el diálogo de auditoría sea legible sin tener que interpretar el id a mano.
-            String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, t.c3_Cuenta, t.c5_Valor, " +
+            // ⭐ CAMBIO (1-nov, Fase E1): nombre de la cuenta desde "cuentas", no c3_Cuenta.
+            String query = "SELECT DISTINCT t.c1_Documento, t.c2_ItemDoc, c.Cuenta, t.c5_Valor, " +
                     "tcGuardado.nombre, tcActual.nombre " +
                     "FROM transacciones t " +
                     "JOIN cuentas c ON c.cuenta_id = t.cuenta_id " +
                     "LEFT JOIN tipo_cuenta tcGuardado ON tcGuardado.tipo_cuenta_id = t.tipo_cuenta_id " +
                     "LEFT JOIN tipo_cuenta tcActual ON tcActual.tipo_cuenta_id = c.tipo_cuenta_id " +
                     "WHERE t.tipo_cuenta_id IS NOT c.tipo_cuenta_id " +
-                    "ORDER BY t.c3_Cuenta, t.c1_Documento, t.c2_ItemDoc";
+                    "ORDER BY c.Cuenta, t.c1_Documento, t.c2_ItemDoc";
             cursor = db.rawQuery(query, null);
 
             while (cursor.moveToNext()) {
@@ -418,7 +424,9 @@ public class A21_OptimizedQuery {
 
     public static class TransactionQueryBuilder extends QueryBuilder {
         public TransactionQueryBuilder porCuenta(String cuenta) {
-            return (TransactionQueryBuilder) where("c3_Cuenta LIKE ?", cuenta);
+            // ⭐ CAMBIO (1-nov, Fase E1): por cuenta_id (sin llamadores hoy).
+            return (TransactionQueryBuilder) where(
+                    "transacciones.cuenta_id IN (SELECT cuenta_id FROM cuentas WHERE Cuenta LIKE ?)", cuenta);
         }
 
         public TransactionQueryBuilder entreFechas(int fecha1, int fecha2) {
@@ -477,7 +485,11 @@ public class A21_OptimizedQuery {
         A3_2_TipoTransaccionesGetsYSets item = new A3_2_TipoTransaccionesGetsYSets(
                 textoPorNombre(cursor, "c1_Documento"),
                 textoPorNombre(cursor, "c2_ItemDoc"),
-                textoPorNombre(cursor, "c3_Cuenta"),
+                // ⭐ CAMBIO (1-nov, Fase E1): el nombre sale de la cuenta (alias cuenta_nombre de
+                // A22), no de transacciones.c3_Cuenta.
+                indicePorNombre(cursor, "cuenta_nombre") != -1
+                        ? textoPorNombre(cursor, "cuenta_nombre")
+                        : textoPorNombre(cursor, "c3_Cuenta"),
                 textoPorNombre(cursor, "c4_Signo"),
                 enteroPorNombre(cursor, "c5_Valor"),
                 textoPorNombre(cursor, "c6_Descripcion"),

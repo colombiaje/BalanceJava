@@ -686,6 +686,19 @@ public class F4_Cierres extends Fragment {
                     Log.e(TAG, "cuenta_id inválido en CSV, se omite: " + datos[13]);
                 }
             }
+            // ⭐ NUEVO (1-nov, paso 4 / Fase E1): si la línea no trae cuenta_id (saldos iniciales
+            // de cierres, CSV antiguos, Sheets), el NOMBRE de la cuenta del CSV se convierte en
+            // cuenta_id aquí mismo, al importar — ya no se deja para "repararlo después" desde
+            // transacciones.c3_Cuenta. Si el nombre no coincide con ninguna cuenta, la línea
+            // queda sin cuenta y se cuenta en el diagnóstico.
+            if (!valores.containsKey("cuenta_id") && datos[2] != null && !datos[2].trim().isEmpty()) {
+                Cursor cCuenta = db.rawQuery("SELECT cuenta_id FROM cuentas WHERE Cuenta = ?",
+                        new String[]{datos[2].trim()});
+                if (cCuenta.moveToFirst()) {
+                    valores.put("cuenta_id", cCuenta.getLong(0));
+                }
+                cCuenta.close();
+            }
 
             // ⭐ NUEVO v11 — a pedido de Jorge (28-sep): tipo_cuenta_id (columna 15), si el CSV
             // lo trae. Mismo criterio que cuenta_id arriba: compatible con CSVs de 13/14
