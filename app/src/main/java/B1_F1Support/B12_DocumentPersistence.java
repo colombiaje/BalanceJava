@@ -159,7 +159,7 @@ public class B12_DocumentPersistence {
                     valoresTransaccion.put("c8_FechaInicial", p.tipoTget_8FechaInicialMetodoEnA5());
                     valoresTransaccion.put("c9_FechaModificacion", p.tipoTget_9FechaModificacionMetodoEnA5());
                     valoresTransaccion.put("c12_ColumnaDisponible", p.tipoTget_12ColumnaDisponibleMetodoEnA5());
-                    valoresTransaccion.put("c13_ColumnaDisponible", p.tipoTget_13ColumnaDisponibleMetodoEnA5());
+                    // (31-oct, BD v19) c13_ColumnaDisponible retirada de "transacciones".
                     valoresTransaccion.put("cuenta_id", cuentaIdParaGuardar);
                     valoresTransaccion.put("tipo_cuenta_id", tipoCuentaIdParaGuardar);
 
@@ -191,7 +191,7 @@ public class B12_DocumentPersistence {
                                 "c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
                                 "c6_Descripcion, c7_FechaYhora, c8_FechaInicial, " +
                                 "c9_FechaModificacion, " +
-                                "c12_ColumnaDisponible, c13_ColumnaDisponible, cuenta_id, " +
+                                "c12_ColumnaDisponible, cuenta_id, " + // c13 retirada (BD v19)
                                 "tipo_cuenta_id) " +
                                 "VALUES ('" +
                                 p.tipoTget_1DocumentoMetodoEnA5()          + "','" +
@@ -203,8 +203,7 @@ public class B12_DocumentPersistence {
                                 p.tipoTget_7FechaYHoraMetodoEnA5()         + "','" +
                                 p.tipoTget_8FechaInicialMetodoEnA5()       + "','" +
                                 p.tipoTget_9FechaModificacionMetodoEnA5()  + "','" +
-                                p.tipoTget_12ColumnaDisponibleMetodoEnA5() + "','" +
-                                p.tipoTget_13ColumnaDisponibleMetodoEnA5() + "'," +
+                                p.tipoTget_12ColumnaDisponibleMetodoEnA5() + "'," +
                                 (cuentaIdParaGuardar != null ? cuentaIdParaGuardar : "NULL") + "," +
                                 (tipoCuentaIdParaGuardar != null ? tipoCuentaIdParaGuardar : "NULL") +
                                 ")"

@@ -670,7 +670,7 @@ public class F4_Cierres extends Fragment {
             // A5_1_BackupManager) ya no se leen aquí; el resto de posiciones del array
             // (datos[11] en adelante) no se ve afectado.
             valores.put("c12_ColumnaDisponible", datos[11]);
-            valores.put("c13_ColumnaDisponible", datos[12]);
+            // (31-oct, BD v19) c13_ColumnaDisponible retirada: la columna 13 del CSV se ignora.
 
             // ⭐ NUEVO — Fase 4 (parte C): cuenta_id, si el CSV lo trae (backup nuevo de
             // A5_1_BackupManager.guardarTodasLasTransancionsAUnArchivoCSV, columna 14).

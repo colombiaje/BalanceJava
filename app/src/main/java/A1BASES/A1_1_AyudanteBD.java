@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 18; // ⭐ 31-oct: v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1
+    public static final int version1BalanceSqlite_int_PSF = 19; // ⭐ 31-oct: v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -246,7 +246,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
                     "c9_FechaModificacion TEXT NOT NULL, " +
                     "c12_ColumnaDisponible TEXT NOT NULL, " +
-                    "c13_ColumnaDisponible TEXT NOT NULL, " +
+                    // ⭐ RETIRADO (31-oct, BD v19, paso 4 / Fase B): c13_ColumnaDisponible — nunca tuvo uso
+                    // ("na"/"n a"/"No Aplica"). Los CSV conservan la columna, en "n a".
                     // ⭐ NUEVO v3: referencia real hacia cuentas.cuenta_id (ver Fase 1).
                     "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
                     // ⭐ NUEVO v8 — Fase 5: llave primaria técnica propia de "transacciones", en el
@@ -699,7 +700,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     public static final String[] columnasTransacciones_ArrayString_PSF = {
             "c1_Documento", "c2_ItemDoc", "c3_Cuenta", "c4_Signo", "c5_Valor",
             "c6_Descripcion", "c7_FechaYhora", "c8_FechaInicial", "c9_FechaModificacion",
-            "c12_ColumnaDisponible", "c13_ColumnaDisponible"};
+            "c12_ColumnaDisponible"}; // c13 retirada en la BD v19
 
     // ─────────────────────────────────────────────
     //  LIFECYCLE DE LA BD
@@ -1809,6 +1810,53 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             db.execSQL("DROP TABLE cuentas");
             db.execSQL("ALTER TABLE cuentas_temp_v18 RENAME TO cuentas");
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_cuentas_tipo_cuenta_id ON cuentas(tipo_cuenta_id)");
+        }
+        // ⭐ NUEVO (31-oct): versión 19 de la BD — paso 4 / Fase B: se retira
+        // transacciones.c13_ColumnaDisponible (pendiente 2.8 del modelo original; nunca tuvo
+        // lógica). Se recrea la tabla (mismo procedimiento que la v13) preservando transaccion_id,
+        // cuenta_id y tipo_cuenta_id EXACTOS, y se recrean todos sus índices.
+        // SEGURIDAD: transacciones_inventario referencia a transacciones con ON DELETE CASCADE.
+        // Con las FK activas, DROP TABLE haría un DELETE implícito y BORRARÍA todos los
+        // movimientos de inventario. Las FK solo se activan en onOpen (después de onUpgrade),
+        // pero si algún día eso cambiara, se aborta la migración (se revierte entera) en vez de
+        // perder datos.
+        if (oldVersion < 19) {
+            Cursor fk = db.rawQuery("PRAGMA foreign_keys", null);
+            boolean fkActivas = fk.moveToFirst() && fk.getInt(0) == 1;
+            fk.close();
+            if (fkActivas) {
+                throw new IllegalStateException("Migración v19 abortada: llaves foráneas activas " +
+                        "durante onUpgrade; recrear 'transacciones' borraría el inventario.");
+            }
+            int filasAntes = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            db.execSQL("CREATE TABLE transacciones_temp_v19(" +
+                    "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
+                    "c3_Cuenta TEXT NOT NULL, c4_Signo TEXT NOT NULL, " +
+                    "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
+                    "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
+                    "c9_FechaModificacion TEXT NOT NULL, c12_ColumnaDisponible TEXT NOT NULL, " +
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))");
+            db.execSQL("INSERT INTO transacciones_temp_v19 (" +
+                    "transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "c12_ColumnaDisponible, cuenta_id, tipo_cuenta_id) " +
+                    "SELECT transaccion_id, c1_Documento, c2_ItemDoc, c3_Cuenta, c4_Signo, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "c12_ColumnaDisponible, cuenta_id, tipo_cuenta_id FROM transacciones");
+            db.execSQL("DROP TABLE transacciones");
+            db.execSQL("ALTER TABLE transacciones_temp_v19 RENAME TO transacciones");
+            crearIndiceUnicoDocumentoItem(db);
+            crearIndicesTransacciones(db);
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_tipo_cuenta_id " +
+                    "ON transacciones(tipo_cuenta_id)");
+            int filasDespues = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            if (filasAntes != filasDespues) {
+                throw new IllegalStateException("Migración v19 abortada: transacciones antes=" +
+                        filasAntes + " después=" + filasDespues);
+            }
+            android.util.Log.w("A1_1_AyudanteBD", "Migración v19: c13 retirada; transacciones=" + filasDespues);
         }
     }
 

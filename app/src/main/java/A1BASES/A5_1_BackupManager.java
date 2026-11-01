@@ -262,7 +262,7 @@ public class A5_1_BackupManager {
                                         TransaccionX.tipoTget_10Grupo1MetodoEnA5() + "," +
                                         TransaccionX.tipoTget_11Grupo2MetodoEnA5() + "," +
                                         TransaccionX.tipoTget_12ColumnaDisponibleMetodoEnA5() + "," +
-                                        TransaccionX.tipoTget_13ColumnaDisponibleMetodoEnA5() + "," +
+                                        "n a" + "," /* c13: columna retirada de la BD (v19); el CSV conserva el formato */ +
                                         (TransaccionX.tipoTget_14CuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_14CuentaIdMetodoEnA5()) + "," +
                                         (TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_16TipoCuentaIdMetodoEnA5()) + "," +
                                         (TransaccionX.tipoTget_15TransaccionIdMetodoEnA5() == null ? "" : TransaccionX.tipoTget_15TransaccionIdMetodoEnA5()) + "," +
@@ -631,7 +631,7 @@ public class A5_1_BackupManager {
                                             TransaccionX.tipoTget_10Grupo1MetodoEnA5() + "," +
                                             TransaccionX.tipoTget_11Grupo2MetodoEnA5() + "," +
                                             TransaccionX.tipoTget_12ColumnaDisponibleMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_13ColumnaDisponibleMetodoEnA5() + "," +
+                                            "n a" + "," /* c13: columna retirada de la BD (v19); el CSV conserva el formato */ +
                                             "\n");
                         }
                         salidaArchivo.close();
