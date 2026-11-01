@@ -2009,22 +2009,9 @@ public class F2_Cuentas extends DialogFragment {
             actualizar = db.update("cuentas", valores, "cuenta_id = ?",
                     new String[]{String.valueOf(cuentaIdEnModificar_Long)});
 
-            // ⭐ NUEVO — Fase 4 Objetivo 2 "camino corto" (sin tocar el esquema de la BD):
-            // transacciones.c3_Cuenta guarda una FOTO del nombre de la cuenta en el momento
-            // de cada transacción (no su cuenta_id) — por eso, sin este paso, las
-            // transacciones ya registradas se quedarían para siempre con el nombre viejo.
-            // Se corrige propagando el nombre nuevo a esas transacciones, en la MISMA
-            // transacción SQL que el renombrado, para que "cuentas" y "transacciones" queden
-            // consistentes juntas o ninguna se modifique si algo falla.
-            if (actualizar == 1 && fueRenombrado && nombreViejo != null) {
-                String nombreNuevo = (String) valores.get("Cuenta");
-                ContentValues valoresTransacciones = new ContentValues();
-                valoresTransacciones.put("c3_Cuenta", nombreNuevo);
-                int transaccionesActualizadas = db.update("transacciones", valoresTransacciones,
-                        "c3_Cuenta = ?", new String[]{nombreViejo});
-                Log.d("F2_DEBUG", "Renombrado de cuenta: " + transaccionesActualizadas +
-                        " transaccion(es) actualizada(s) de \"" + nombreViejo + "\" a \"" + nombreNuevo + "\"");
-            }
+            // ⭐ RETIRADO (1-nov, Fase E2 / BD v22): ya no se propaga el nombre nuevo a
+            // transacciones.c3_Cuenta — esa columna ya no existe. Las transacciones se vinculan
+            // a la cuenta por cuenta_id y siempre muestran su nombre actual.
 
             db.setTransactionSuccessful();
         } finally {

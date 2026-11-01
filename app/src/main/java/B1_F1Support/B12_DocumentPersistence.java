@@ -151,7 +151,7 @@ public class B12_DocumentPersistence {
                     ContentValues valoresTransaccion = new ContentValues();
                     valoresTransaccion.put("c1_Documento", p.tipoTget_1DocumentoMetodoEnA5());
                     valoresTransaccion.put("c2_ItemDoc", p.tipoTget_2ItemDocMetodoEnA5());
-                    valoresTransaccion.put("c3_Cuenta", nombreCuentaParaGuardar);
+                    // (1-nov, BD v22) c3_Cuenta retirada: la cuenta va por cuenta_id.
                     // (1-nov, BD v21) c4_Signo retirada: el signo sale del valor.
                     valoresTransaccion.put("c5_Valor", p.tipoTget_5ValorMetodoEnA5());
                     valoresTransaccion.put("c6_Descripcion", p.tipoTget_6DescripcionMetodoEnA5());
@@ -188,7 +188,7 @@ public class B12_DocumentPersistence {
                 // de leerse aquí.
                 db.execSQL(
                         "INSERT INTO transacciones (" +
-                                "c1_Documento, c2_ItemDoc, c3_Cuenta, c5_Valor, " + // c4 retirada (BD v21)
+                                "c1_Documento, c2_ItemDoc, c5_Valor, " + // c3 (BD v22) y c4 (BD v21) retiradas
                                 "c6_Descripcion, c7_FechaYhora, c8_FechaInicial, " +
                                 "c9_FechaModificacion, " +
                                 "cuenta_id, " + // c12 (BD v20) y c13 (BD v19) retiradas
@@ -196,7 +196,6 @@ public class B12_DocumentPersistence {
                                 "VALUES ('" +
                                 p.tipoTget_1DocumentoMetodoEnA5()          + "','" +
                                 p.tipoTget_2ItemDocMetodoEnA5()            + "','" +
-                                nombreCuentaParaGuardar                    + "','" +
                                 p.tipoTget_5ValorMetodoEnA5()              + "','" +
                                 p.tipoTget_6DescripcionMetodoEnA5()        + "','" +
                                 p.tipoTget_7FechaYHoraMetodoEnA5()         + "','" +

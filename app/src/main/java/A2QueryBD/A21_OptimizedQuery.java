@@ -487,9 +487,8 @@ public class A21_OptimizedQuery {
                 textoPorNombre(cursor, "c2_ItemDoc"),
                 // ⭐ CAMBIO (1-nov, Fase E1): el nombre sale de la cuenta (alias cuenta_nombre de
                 // A22), no de transacciones.c3_Cuenta.
-                indicePorNombre(cursor, "cuenta_nombre") != -1
-                        ? textoPorNombre(cursor, "cuenta_nombre")
-                        : textoPorNombre(cursor, "c3_Cuenta"),
+                // (BD v22: c3_Cuenta ya no existe en "transacciones").
+                textoPorNombre(cursor, "cuenta_nombre"),
                 textoPorNombre(cursor, "c4_Signo"),
                 enteroPorNombre(cursor, "c5_Valor"),
                 textoPorNombre(cursor, "c6_Descripcion"),

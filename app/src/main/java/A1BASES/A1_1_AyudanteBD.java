@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 21; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4
+    public static final int version1BalanceSqlite_int_PSF = 22; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -241,7 +241,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     String crearTransacciones_String =
             "CREATE TABLE IF NOT EXISTS transacciones(" +
                     "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
-                    "c3_Cuenta TEXT NOT NULL, " +
+                    // ⭐ RETIRADO (1-nov, BD v22, Fase E2): c3_Cuenta — la cuenta va por cuenta_id.
                     // ⭐ RETIRADO (1-nov, BD v21, Fase D): c4_Signo — el signo sale del valor (c5_Valor).
                     "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
                     "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
@@ -709,7 +709,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // sin uso en el resto del código), se corrige de todas formas para que no quede
     // desactualizado si algo empieza a usarlo más adelante.
     public static final String[] columnasTransacciones_ArrayString_PSF = {
-            "c1_Documento", "c2_ItemDoc", "c3_Cuenta", "c5_Valor", // c4 retirada (BD v21)
+            "c1_Documento", "c2_ItemDoc", "c5_Valor", // c3 (BD v22) y c4 (BD v21) retiradas
             "c6_Descripcion", "c7_FechaYhora", "c8_FechaInicial", "c9_FechaModificacion",
             }; // c12 (BD v20) y c13 (BD v19) retiradas
 
@@ -1962,6 +1962,57 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         filasAntes + " después=" + filasDespues);
             }
             android.util.Log.w("A1_1_AyudanteBD", "Migración v21: c4 retirada; transacciones=" + filasDespues);
+        }
+        // ⭐ NUEVO (1-nov): versión 22 de la BD — paso 4 / Fase E2 (propuesta de Jorge): se retira
+        // transacciones.c3_Cuenta. En la Fase E1 la app ya trabajaba como si no existiera
+        // (todo por cuenta_id) y Jorge lo confirmó en el dispositivo. Mismo procedimiento y
+        // protecciones que la v19. Antes de soltar la columna: (1) último reemparejado por
+        // nombre de las transacciones que sigan sin cuenta_id, y (2) si aun así quedara alguna,
+        // su nombre se conserva en la tabla auxiliar transacciones_nombre_sin_cuenta, para no
+        // perder esa información (con los datos del 31-oct/1-nov: ninguna).
+        if (oldVersion < 22) {
+            Cursor fk = db.rawQuery("PRAGMA foreign_keys", null);
+            boolean fkActivas = fk.moveToFirst() && fk.getInt(0) == 1;
+            fk.close();
+            if (fkActivas) {
+                throw new IllegalStateException("Migración v22 abortada: llaves foráneas activas " +
+                        "durante onUpgrade; recrear 'transacciones' borraría el inventario.");
+            }
+            db.execSQL("UPDATE transacciones SET cuenta_id = " +
+                    "(SELECT cuenta_id FROM cuentas WHERE cuentas.Cuenta = transacciones.c3_Cuenta) " +
+                    "WHERE cuenta_id IS NULL");
+            db.execSQL("CREATE TABLE IF NOT EXISTS transacciones_nombre_sin_cuenta (" +
+                    "transaccion_id INTEGER PRIMARY KEY, nombre_cuenta TEXT)");
+            db.execSQL("INSERT OR REPLACE INTO transacciones_nombre_sin_cuenta " +
+                    "SELECT transaccion_id, c3_Cuenta FROM transacciones WHERE cuenta_id IS NULL");
+            int filasAntes = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            db.execSQL("CREATE TABLE transacciones_temp_v22(" +
+                    "c1_Documento TEXT NOT NULL, c2_ItemDoc TEXT NOT NULL, " +
+                    "c5_Valor INTEGER, c6_Descripcion TEXT NOT NULL, " +
+                    "c7_FechaYHora TEXT NOT NULL, c8_FechaInicial INTEGER, " +
+                    "c9_FechaModificacion TEXT NOT NULL, " +
+                    "cuenta_id INTEGER REFERENCES cuentas(cuenta_id), " +
+                    "transaccion_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "tipo_cuenta_id INTEGER REFERENCES tipo_cuenta(tipo_cuenta_id))");
+            db.execSQL("INSERT INTO transacciones_temp_v22 (" +
+                    "transaccion_id, c1_Documento, c2_ItemDoc, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "cuenta_id, tipo_cuenta_id) " +
+                    "SELECT transaccion_id, c1_Documento, c2_ItemDoc, c5_Valor, " +
+                    "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion, " +
+                    "cuenta_id, tipo_cuenta_id FROM transacciones");
+            db.execSQL("DROP TABLE transacciones");
+            db.execSQL("ALTER TABLE transacciones_temp_v22 RENAME TO transacciones");
+            crearIndiceUnicoDocumentoItem(db);
+            crearIndicesTransacciones(db);
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacciones_tipo_cuenta_id " +
+                    "ON transacciones(tipo_cuenta_id)");
+            int filasDespues = (int) android.database.DatabaseUtils.queryNumEntries(db, "transacciones");
+            if (filasAntes != filasDespues) {
+                throw new IllegalStateException("Migración v22 abortada: transacciones antes=" +
+                        filasAntes + " después=" + filasDespues);
+            }
+            android.util.Log.w("A1_1_AyudanteBD", "Migración v22: c3 retirada; transacciones=" + filasDespues);
         }
     }
 

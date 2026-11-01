@@ -657,7 +657,8 @@ public class F4_Cierres extends Fragment {
             ContentValues valores = new ContentValues();
             valores.put("c1_Documento", datos[0]);
             valores.put("c2_ItemDoc", datos[1]);
-            valores.put("c3_Cuenta", datos[2]);
+            // (1-nov, BD v22) c3_Cuenta retirada: el nombre del CSV (columna 3) solo se usa para
+            // obtener cuenta_id cuando la línea no lo trae (ver más abajo).
             // (1-nov, BD v21) c4_Signo retirada: el signo sale del valor; la columna 4 del CSV se ignora.
             valores.put("c5_Valor", datos[4]);
             valores.put("c6_Descripcion", datos[5]);
