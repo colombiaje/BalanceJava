@@ -2206,6 +2206,13 @@ public class F2_Cuentas extends DialogFragment {
             // ⭐ NUEVO (31-oct): se reinicia la marca de formato antiguo para esta restauración
             // (ver insertarCuenta() y repararReferenciasCuentaIdTrasRestaurarCuentas()).
             restauracionConBackupFormatoAntiguo = false;
+            // ⭐ NUEVO (1-nov): los artículos de inventario impiden borrar sus cuentas (FK
+            // RESTRICT, cuenta_id NOT NULL) — se respalda su vínculo por nombre y se borra con
+            // las FK apagadas solo en esta conexión; se reapuntan al terminar (ver
+            // repararReferenciasCuentaIdTrasRestaurarCuentas()).
+            A1_2_OperacionesBD.respaldarVinculoArticulos(sqliteDatabase_Abstracta);
+            A1_2_OperacionesBD.borrarCuentasSinRestriccionDeArticulos(sqliteDatabase_Abstracta);
+            return;
         }
         A1_2_OperacionesBD.borrarRegistros(tablaX_String, sqliteDatabase_Abstracta);
         // NUEVO LOG
@@ -2273,11 +2280,20 @@ public class F2_Cuentas extends DialogFragment {
 
             // 3) Reemparejar transacciones.cuenta_id por nombre (ya existía en el fix anterior).
             int huerfanas = A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre(sqliteDatabase_Abstracta);
+            // ⭐ NUEVO (1-nov): reapuntar los artículos de inventario a sus cuentas por nombre.
+            int articulosSinCuenta = A1_2_OperacionesBD.repararVinculoArticulos(sqliteDatabase_Abstracta);
             sqliteDatabase_Abstracta.close();
+            if (articulosSinCuenta > 0) {
+                Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + articulosSinCuenta +
+                        " artículo(s) de inventario cuya cuenta no vino en el backup");
+                Toast.makeText(getActivity(), "Atención: " + articulosSinCuenta + " artículo(s) de " +
+                        "inventario quedaron sin cuenta (su cuenta no está en el backup)",
+                        Toast.LENGTH_LONG).show();
+            }
             if (huerfanas > 0) {
                 Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + huerfanas +
                         " transacciones sin cuenta_id tras reemparejar por nombre " +
-                        "(c3_Cuenta sin match exacto en cuentas.Cuenta)");
+                        "(nombre de cuenta sin match exacto en cuentas.Cuenta)");
             }
         } catch (Exception e) {
             Log.e(TAG, "Error al reparar clasificación/referencias tras restaurar cuentas: " + e.getMessage(), e);

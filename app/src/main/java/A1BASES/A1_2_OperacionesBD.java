@@ -161,8 +161,11 @@ public class A1_2_OperacionesBD extends Activity {
 
     public static void limpiarReferenciasCuentaId(SQLiteDatabase db) {
         db.execSQL(SQL_CREAR_RESPALDO_VINCULO);
-        db.execSQL("DELETE FROM respaldo_vinculo_cuenta");
-        db.execSQL("INSERT INTO respaldo_vinculo_cuenta (transaccion_id, nombre_cuenta) " +
+        // ⭐ (1-nov) NO se vacía el respaldo aquí: si una restauración anterior se interrumpió
+        // después de soltar las referencias (como el cierre por la FK de artículos), el respaldo
+        // conserva el vínculo de esas transacciones y la siguiente restauración lo recupera. Solo
+        // repararReferenciasCuentaIdPorNombre() lo vacía, después de usarlo.
+        db.execSQL("INSERT OR REPLACE INTO respaldo_vinculo_cuenta (transaccion_id, nombre_cuenta) " +
                 "SELECT t.transaccion_id, c.Cuenta FROM transacciones t " +
                 "JOIN cuentas c ON c.cuenta_id = t.cuenta_id");
         db.execSQL("UPDATE transacciones SET cuenta_id = NULL WHERE cuenta_id IS NOT NULL");
@@ -192,6 +195,53 @@ public class A1_2_OperacionesBD extends Activity {
         }
         cursor.close();
         return huerfanas;
+    }
+
+    // ⭐ NUEVO (1-nov, bug encontrado por Jorge al probar la Fase E1): restaurar las cuentas
+    // cerraba la app con "FOREIGN KEY constraint failed (1811)" cuando existían artículos de
+    // inventario. items_inventario.cuenta_id es NOT NULL y su FK hacia "cuentas" es ON DELETE
+    // RESTRICT: no se puede soltar (como sí se hace con transacciones) ni borrar la cuenta.
+    // Solución: (1) se guarda el nombre de la cuenta de cada artículo en una tabla auxiliar,
+    // (2) el DELETE de "cuentas" se hace con las FK apagadas SOLO en esa conexión y SOLO para esa
+    // sentencia, y (3) al terminar de reinsertar, cada artículo se reapunta a su cuenta por
+    // nombre. Los artículos cuya cuenta no venga en el backup quedan contados (aviso).
+    private static final String SQL_CREAR_RESPALDO_ARTICULOS =
+            "CREATE TABLE IF NOT EXISTS respaldo_vinculo_articulo (" +
+                    "item_id INTEGER PRIMARY KEY, nombre_cuenta TEXT NOT NULL)";
+
+    public static void respaldarVinculoArticulos(SQLiteDatabase db) {
+        db.execSQL(SQL_CREAR_RESPALDO_ARTICULOS);
+        // (1-nov) Igual que el respaldo de transacciones: no se vacía aquí, solo al reparar.
+        db.execSQL("INSERT OR REPLACE INTO respaldo_vinculo_articulo (item_id, nombre_cuenta) " +
+                "SELECT i.item_id, c.Cuenta FROM items_inventario i " +
+                "JOIN cuentas c ON c.cuenta_id = i.cuenta_id");
+    }
+
+    /** Borra todas las cuentas con las FK apagadas en esta conexión (ver arriba). */
+    public static void borrarCuentasSinRestriccionDeArticulos(SQLiteDatabase db) {
+        db.setForeignKeyConstraintsEnabled(false);
+        try {
+            db.execSQL("DELETE FROM cuentas");
+        } finally {
+            db.setForeignKeyConstraintsEnabled(true);
+        }
+    }
+
+    /** @return cuántos artículos quedaron apuntando a una cuenta que ya no existe. */
+    public static int repararVinculoArticulos(SQLiteDatabase db) {
+        db.execSQL(SQL_CREAR_RESPALDO_ARTICULOS);
+        db.execSQL("UPDATE items_inventario SET cuenta_id = " +
+                "(SELECT c.cuenta_id FROM respaldo_vinculo_articulo r " +
+                "JOIN cuentas c ON c.Cuenta = r.nombre_cuenta " +
+                "WHERE r.item_id = items_inventario.item_id) " +
+                "WHERE item_id IN (SELECT r.item_id FROM respaldo_vinculo_articulo r " +
+                "JOIN cuentas c ON c.Cuenta = r.nombre_cuenta)");
+        db.execSQL("DELETE FROM respaldo_vinculo_articulo");
+        Cursor c = db.rawQuery("SELECT COUNT(*) FROM items_inventario " +
+                "WHERE cuenta_id NOT IN (SELECT cuenta_id FROM cuentas)", null);
+        int sinCuenta = c.moveToFirst() ? c.getInt(0) : 0;
+        c.close();
+        return sinCuenta;
     }
 
     public void eliminarTransaccionesAlgunasCuentas() {
