@@ -293,6 +293,9 @@ public class F3_1_VerInformePrincipal extends Fragment {
     // y devuelve la misma lista con filas de subtotal intercaladas al cerrar cada grupo:
     // nivel 1 por tipo de cuenta, nivel 2 por clasificación, nivel 3 total por clase.
     // Las cuentas sin tipo forman su propio grupo "Sin tipo de cuenta" al final.
+    // ⭐ CAMBIO (31-oct, 2da ronda con Jorge): cada grupo queda delimitado — arriba un
+    // SUBTÍTULO con su nombre (sin la palabra "Total") justo antes de su primera cuenta, y abajo
+    // su fila de Total. Mismos niveles y misma regla para omitir nombres repetidos en ambos.
     private ArrayList<A3_2_TipoTransaccionesGetsYSets> intercalarSubtotales(
             ArrayList<A3_2_TipoTransaccionesGetsYSets> cuentas) {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> resultado = new ArrayList<>();
@@ -308,22 +311,34 @@ public class F3_1_VerInformePrincipal extends Fragment {
             String tipo = item.tipoTget_17TipoCuentaNombreMetodoEnA5() != null
                     ? item.tipoTget_17TipoCuentaNombreMetodoEnA5() : clase;
 
+            boolean abreClase = true, abreClasificacion = true, abreTipo = true;
             if (hayGrupo) {
-                boolean cambiaClase = !clase.equals(claseActual);
-                boolean cambiaClasificacion = cambiaClase || !clasificacion.equals(clasificacionActual);
-                boolean cambiaTipo = cambiaClasificacion || !tipo.equals(tipoActual);
-                if (cambiaTipo) {
+                abreClase = !clase.equals(claseActual);
+                abreClasificacion = abreClase || !clasificacion.equals(clasificacionActual);
+                abreTipo = abreClasificacion || !tipo.equals(tipoActual);
+                // Cierre (límite inferior) de los grupos que terminan.
+                if (abreTipo) {
                     resultado.add(filaSubtotal(1, "Total " + tipoActual, sumaTipo));
                     sumaTipo = 0;
                 }
-                if (cambiaClasificacion && !clasificacionActual.equals(tipoActual)) {
+                if (abreClasificacion && !clasificacionActual.equals(tipoActual)) {
                     resultado.add(filaSubtotal(2, "Total " + clasificacionActual, sumaClasificacion));
                 }
-                if (cambiaClasificacion) sumaClasificacion = 0;
-                if (cambiaClase && !claseActual.equals(clasificacionActual)) {
+                if (abreClasificacion) sumaClasificacion = 0;
+                if (abreClase && !claseActual.equals(clasificacionActual)) {
                     resultado.add(filaSubtotal(3, "TOTAL " + claseActual.toUpperCase(), sumaClase));
                 }
-                if (cambiaClase) sumaClase = 0;
+                if (abreClase) sumaClase = 0;
+            }
+            // Apertura (límite superior) de los grupos que empiezan: subtítulos.
+            if (abreClase && !clase.equals(clasificacion)) {
+                resultado.add(filaEncabezado(3, clase.toUpperCase()));
+            }
+            if (abreClasificacion && !clasificacion.equals(tipo)) {
+                resultado.add(filaEncabezado(2, clasificacion));
+            }
+            if (abreTipo) {
+                resultado.add(filaEncabezado(1, tipo));
             }
 
             resultado.add(item);
@@ -347,6 +362,14 @@ public class F3_1_VerInformePrincipal extends Fragment {
             }
         }
         return resultado;
+    }
+
+    private A3_2_TipoTransaccionesGetsYSets filaEncabezado(int nivel, String titulo) {
+        A3_2_TipoTransaccionesGetsYSets fila =
+                new A3_2_TipoTransaccionesGetsYSets(titulo, "", 0, "", "");
+        fila.nivelSubtotal = nivel;
+        fila.esEncabezadoGrupo = true;
+        return fila;
     }
 
     private A3_2_TipoTransaccionesGetsYSets filaSubtotal(int nivel, String titulo, long suma) {

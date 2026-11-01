@@ -206,7 +206,9 @@
             android:textColor="#ffffff"
             />
 
-        <!-- ⭐ CAMBIO — v11 tanda 3 (parte B): encabezado "G1" (Grupo1) → "Tipo cuenta", ya que
+        <!-- ⭐ CAMBIO (31-oct, pedido de Jorge): columna oculta — el tipo de cuenta ahora es el
+             subtítulo de cada grupo del balance clasificado.
+             ⭐ CAMBIO — v11 tanda 3 (parte B): encabezado "G1" (Grupo1) → "Tipo cuenta", ya que
              la columna de abajo (D_F3_1_AdaptadorTransaccionesInformes) ahora muestra el nombre
              de tipo_cuenta en vez del texto de Grupo1. -->
         <TextView
@@ -220,6 +222,7 @@
             android:singleLine="true"
             android:text="Tipo cuenta"
             android:textColor="#ffffff"
+            android:visibility="gone"
 
             />
 

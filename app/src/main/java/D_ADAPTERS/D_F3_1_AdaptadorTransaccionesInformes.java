@@ -65,20 +65,28 @@ public class D_F3_1_AdaptadorTransaccionesInformes extends ArrayAdapter<A3_2_Tip
         // cambio, así que tampoco tiene efecto visible.
         vTlistItem_11.setText("");
 
-        // ⭐ NUEVO (31-oct): filas de subtotal del balance clasificado — en negrita, sin signo ni
-        // tipo, con un fondo más fuerte cuanto más alto el nivel (tipo < clasificación < clase).
+        // ⭐ NUEVO (31-oct): la columna "Tipo cuenta" ya no se muestra — el tipo queda como
+        // subtítulo de su grupo (pedido de Jorge). El dato sigue cargado (la búsqueda lo usa).
+        vTlistItem_10.setVisibility(View.GONE);
+        vTlistItem_11.setVisibility(View.GONE);
+
+        // ⭐ NUEVO (31-oct): filas de agrupación del balance clasificado — subtítulo arriba de
+        // cada grupo y Total abajo, en negrita, sin signo, con tonos AZULES (distintos del lila
+        // del resumen de liquidez, para que no se asocien): más oscuro cuanto más alto el nivel
+        // (tipo < clasificación < clase).
         if (registroTD.esFilaSubtotal()) {
             vTlistItem_4.setText("");
-            vTlistItem_10.setText("");
             vTlistItem_3.setTypeface(null, android.graphics.Typeface.BOLD);
             vTlistItem_5.setTypeface(null, android.graphics.Typeface.BOLD);
-            String colorFondo = registroTD.nivelSubtotal == 3 ? "#AF87F6"
-                    : registroTD.nivelSubtotal == 2 ? "#CDB4F8" : "#E1BEE7";
+            if (registroTD.esEncabezadoGrupo) {
+                vTlistItem_5.setText("");
+            }
+            String colorFondo = registroTD.nivelSubtotal == 3 ? "#7FA6D0"
+                    : registroTD.nivelSubtotal == 2 ? "#AFC8E3" : "#D6E4F0";
             int color = android.graphics.Color.parseColor(colorFondo);
             // Las celdas tienen su propio fondo verde (bg_green_square3): se pinta cada una.
             vTlistItem_3.setBackgroundColor(color);
             vTlistItem_5.setBackgroundColor(color);
-            vTlistItem_10.setBackgroundColor(color);
         }
 
         return inflarViews_View;

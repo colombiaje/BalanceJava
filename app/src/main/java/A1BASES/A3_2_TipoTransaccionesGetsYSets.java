@@ -58,6 +58,9 @@ public class A3_2_TipoTransaccionesGetsYSets {
     public String tipoT_19ClasificacionNombre_String;
     /** 0 = cuenta normal; 1 = subtotal por tipo; 2 = por clasificación; 3 = total por clase. */
     public int nivelSubtotal = 0;
+    /** true = subtítulo de apertura de grupo (sin valor); false con nivel > 0 = fila de Total. */
+    public boolean esEncabezadoGrupo = false;
+    /** Fila de agrupación del balance (subtítulo o total): no es una cuenta. */
     public boolean esFilaSubtotal() { return nivelSubtotal > 0; }
 
     // ⭐ NUEVO — v12 tanda 3 (segundo fix, 29-sep, a pedido de Jorge): con_inventario real de
