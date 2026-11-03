@@ -1367,6 +1367,9 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * ⭐ NUEVO (3-nov, renta R4): saldos por cuenta de un año, para el reporte:
      * {cuenta_id (Long), nombre, renglon_id (Long o null), saldo (Long)}. De la foto si existe;
      * si no, calculados con los datos de hoy (año provisional). Solo cuentas con saldo o movimiento.
+     * ⭐ (3-nov, R5) En el provisional, una cuenta con saldo contrario a su tipo va al renglón que
+     * diga la depuración: la decisión ya tomada en la foto de ese año, o si no la sugerencia
+     * (decisión del año anterior o naturaleza contraria). Así muestra cómo quedaría declarada.
      */
     public static java.util.List<Object[]> saldosRentaDelAnio(SQLiteDatabase db, int anio, boolean desdeFoto) {
         java.util.List<Object[]> lista = new java.util.ArrayList<>();
@@ -1387,15 +1390,43 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         int[] lim = limitesAnioFiscal(db, anio);
         Cursor c = db.rawQuery(SQL_SALDOS_RENTA_POR_CUENTA, new String[]{
                 String.valueOf(lim[1]), String.valueOf(lim[0]), String.valueOf(lim[1])});
+        java.util.List<Object[]> contrarias = new java.util.ArrayList<>(); // {fila, naturaleza del tipo}
         try {
             while (c.moveToNext()) {
                 long saldo = c.getLong(5), movimientos = c.getLong(6);
                 if (saldo == 0 && movimientos == 0) continue;
-                lista.add(new Object[]{c.getLong(0), c.getString(1),
-                        c.isNull(4) ? null : c.getLong(4), saldo});
+                Object[] fila = new Object[]{c.getLong(0), c.getString(1),
+                        c.isNull(4) ? null : c.getLong(4), saldo};
+                lista.add(fila);
+                String naturalezaTipo = c.getString(3);
+                if (fila[2] != null && (("DEUDORA".equals(naturalezaTipo) && saldo < 0)
+                        || ("ACREEDORA".equals(naturalezaTipo) && saldo > 0))) {
+                    contrarias.add(fila);
+                }
             }
         } finally {
             c.close();
+        }
+        for (Object[] fila : contrarias) {
+            Long decidido = null;
+            Cursor d = db.rawQuery("SELECT renglon_efectivo_id FROM " + TABLE_FOTO_RENTA_ANUAL +
+                            " WHERE anio_fiscal = ? AND cuenta_id = ? AND decision IS NOT NULL",
+                    new String[]{String.valueOf(anio), String.valueOf(fila[0])});
+            if (d.moveToFirst() && !d.isNull(0)) decidido = d.getLong(0);
+            d.close();
+            if (decidido != null) {
+                fila[2] = decidido;
+                continue;
+            }
+            String naturalezaRenglon = null;
+            Cursor r = db.rawQuery("SELECT naturaleza FROM " + TABLE_RENGLON_RENTA + " WHERE renglon_id = ?",
+                    new String[]{String.valueOf(fila[2])});
+            if (r.moveToFirst()) naturalezaRenglon = r.getString(0);
+            r.close();
+            if (!"Activo".equals(naturalezaRenglon) && !"Pasivo".equals(naturalezaRenglon)
+                    && !"Ingreso".equals(naturalezaRenglon) && !"Gasto".equals(naturalezaRenglon)) continue;
+            Object[] sugerencia = sugerenciaDepuracion(db, anio, (Long) fila[0], naturalezaRenglon);
+            if (sugerencia[0] != null) fila[2] = sugerencia[0];
         }
         java.util.Collections.sort(lista, (x, y) -> String.valueOf(x[1]).compareToIgnoreCase(String.valueOf(y[1])));
         return lista;

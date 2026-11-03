@@ -166,6 +166,8 @@ public class A17_ReporteRentaDialogo {
             public void onNothingSelected(AdapterView<?> p) { }
         });
         modo_XRg.setOnCheckedChangeListener((g, id) -> refrescar.run());
+        // ⭐ (3-nov, R5) Si hay fotos, abre en la más reciente (posición 1); si no, el provisional.
+        if (opciones.size() > 1) anio_XSp.setSelection(1);
         refrescar.run();
 
         ScrollView scroll = new ScrollView(context);
@@ -400,7 +402,7 @@ public class A17_ReporteRentaDialogo {
                 }
                 if (i >= lineas.size()) {
                     y += 10;
-                    c.drawText("prov. = año en curso calculado con los datos del día (no es la foto del cierre).",
+                    c.drawText("prov. = datos del día (no es la foto del cierre), saldos contrarios según la depuración.",
                             margen, Math.min(y, alto - margen), texto);
                 }
                 pdf.finishPage(p);
