@@ -156,6 +156,12 @@ public class F4_Cierres extends Fragment {
         _2_opcionAutonomoTransacciones_XRb = view.findViewById(R.id._2_opcionAutonomoTransacciones_XRb);
         _4_2_opcion_Importar_Balance_desde_Sheets_XRb = view.findViewById(R.id._4_2_opcion_Importar_Balance_desde_Sheets_XRb);
         _5_opcionRecuperarBackupTransacciones_XRb = view.findViewById(R.id._5_opcionRecuperarBackupTransacciones_XRb);
+        // ⭐ NUEVO (3-nov, renta R4, pedido de Jorge): "6. Reporte renta fiscal".
+        RadioButton _6_opcionReporteRentaFiscal_XRb = view.findViewById(R.id._6_opcionReporteRentaFiscal_XRb);
+        _6_opcionReporteRentaFiscal_XRb.setOnClickListener(v -> {
+            _6_opcionReporteRentaFiscal_XRb.setChecked(false);
+            new A1BASES.A17_ReporteRentaDialogo().mostrar(getActivity(), FOLDER_ID_DRIVE);
+        });
         _3_opcionTransaccionesAlgunasCuentas_XRb = view.findViewById(R.id._3_opcionTransaccionesAlgunasCuentas_XRb);
         opcionSaleDeLaApp_XRb = view.findViewById(R.id.opcionSaleDeLaApp_XRb);
 

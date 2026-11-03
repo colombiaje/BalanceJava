@@ -177,6 +177,18 @@
                
                 />
 
+            <!-- ⭐ NUEVO (3-nov, renta R4, pedido de Jorge): reporte de renta fiscal. -->
+            <RadioButton
+                android:id="@+id/_6_opcionReporteRentaFiscal_XRb"
+                android:layout_width="wrap_content"
+                android:layout_height="25dp"
+                android:background="#58A5E3"
+                android:textSize="15dp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:text="6. Reporte renta fiscal"
+                />
+
         </RadioGroup>
 
 

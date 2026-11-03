@@ -30,6 +30,9 @@ public enum A9_2_BackupFile {
     // ⭐ NUEVO (3-nov, BD v25, renta R3): todas las fotos anuales de renta; se genera y sube a
     // la carpeta de cierres de Drive en cada cierre total 421.
     CSV_FOTO_RENTA_ANUAL("423_FotoRentaAnual", A9_1_FileType.CSV),
+    // ⭐ NUEVO (3-nov, renta R4): reporte de renta exportado para el contador.
+    CSV_REPORTE_RENTA("424_ReporteRentaFiscal", A9_1_FileType.CSV),
+    PDF_REPORTE_RENTA("424_ReporteRentaFiscal", A9_1_FileType.PDF),
     //"422 Backup saldos de todas las cuentas.csv"
     CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS("431_BackupAntesDeCerrarAlgunasCuentas", A9_1_FileType.CSV),
     //"431 Backup antes de cerrar algunas cuentas.csv"    CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS("441_BackupAntesDeBalanceDesdeSheets", A9_1_FileType.CSV),

@@ -1345,6 +1345,105 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "fecha_foto TEXT, " +
                     "PRIMARY KEY (anio_fiscal, cuenta_id))";
 
+    // Saldo al fin del año fiscal (?1 = fin) y movimientos del año (?2 inicio, ?3 fin) por cuenta:
+    // {cuenta_id, Cuenta, tipo_cuenta_id, naturaleza del tipo, renglon_renta_id, saldo, movimientos}.
+    // Lo usan la foto (R3) y el año provisional del reporte (R4).
+    private static final String SQL_SALDOS_RENTA_POR_CUENTA =
+            "SELECT cu.cuenta_id, cu.Cuenta, cu.tipo_cuenta_id, tc.naturaleza_normal, cu.renglon_renta_id, " +
+                    "COALESCE(SUM(CASE WHEN COALESCE(t.c8_FechaInicial, 0) <= ? THEN t.c5_Valor END), 0), " +
+                    "COALESCE(SUM(CASE WHEN t.c8_FechaInicial BETWEEN ? AND ? " +
+                    "AND CAST(t.c1_Documento AS INTEGER) <> 0 THEN 1 END), 0) " +
+                    "FROM cuentas cu " +
+                    "LEFT JOIN " + TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id " +
+                    "LEFT JOIN transacciones t ON t.cuenta_id = cu.cuenta_id " +
+                    "GROUP BY cu.cuenta_id";
+
+    /**
+     * ⭐ NUEVO (3-nov, renta R4): saldos por cuenta de un año, para el reporte:
+     * {cuenta_id (Long), nombre, renglon_id (Long o null), saldo (Long)}. De la foto si existe;
+     * si no, calculados con los datos de hoy (año provisional). Solo cuentas con saldo o movimiento.
+     */
+    public static java.util.List<Object[]> saldosRentaDelAnio(SQLiteDatabase db, int anio, boolean desdeFoto) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        if (desdeFoto) {
+            Cursor c = db.rawQuery("SELECT cuenta_id, cuenta_nombre, renglon_efectivo_id, saldo FROM " +
+                    TABLE_FOTO_RENTA_ANUAL + " WHERE anio_fiscal = ? ORDER BY cuenta_nombre",
+                    new String[]{String.valueOf(anio)});
+            try {
+                while (c.moveToNext()) {
+                    lista.add(new Object[]{c.getLong(0), c.getString(1),
+                            c.isNull(2) ? null : c.getLong(2), c.getLong(3)});
+                }
+            } finally {
+                c.close();
+            }
+            return lista;
+        }
+        int[] lim = limitesAnioFiscal(db, anio);
+        Cursor c = db.rawQuery(SQL_SALDOS_RENTA_POR_CUENTA, new String[]{
+                String.valueOf(lim[1]), String.valueOf(lim[0]), String.valueOf(lim[1])});
+        try {
+            while (c.moveToNext()) {
+                long saldo = c.getLong(5), movimientos = c.getLong(6);
+                if (saldo == 0 && movimientos == 0) continue;
+                lista.add(new Object[]{c.getLong(0), c.getString(1),
+                        c.isNull(4) ? null : c.getLong(4), saldo});
+            }
+        } finally {
+            c.close();
+        }
+        java.util.Collections.sort(lista, (x, y) -> String.valueOf(x[1]).compareToIgnoreCase(String.valueOf(y[1])));
+        return lista;
+    }
+
+    /** Años con foto, de más reciente a más antiguo. */
+    public static java.util.List<Integer> aniosConFotoRenta(SQLiteDatabase db) {
+        java.util.List<Integer> anios = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT DISTINCT anio_fiscal FROM " + TABLE_FOTO_RENTA_ANUAL +
+                " ORDER BY anio_fiscal DESC", null);
+        try {
+            while (c.moveToNext()) anios.add(c.getInt(0));
+        } finally {
+            c.close();
+        }
+        return anios;
+    }
+
+    /**
+     * Renglones del país configurado vigentes en el año, en orden:
+     * {renglon_id (Long), código, nombre, naturaleza, fórmula}.
+     */
+    public static java.util.List<Object[]> renglonesDelAnio(SQLiteDatabase db, int anio) {
+        String a = String.valueOf(anio);
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT renglon_id, codigo, nombre, naturaleza, formula FROM " +
+                        TABLE_RENGLON_RENTA + " WHERE pais = ? " +
+                        "AND (vigente_desde IS NULL OR vigente_desde <= ?) " +
+                        "AND (vigente_hasta IS NULL OR vigente_hasta >= ?) ORDER BY orden, codigo",
+                new String[]{paisConfigurado(db), a, a});
+        try {
+            while (c.moveToNext()) {
+                lista.add(new Object[]{c.getLong(0), c.getString(1), c.getString(2),
+                        c.getString(3), c.getString(4)});
+            }
+        } finally {
+            c.close();
+        }
+        return lista;
+    }
+
+    /** Texto del renglón (código · nombre) por id, aunque ya no esté vigente; o null. */
+    public static String etiquetaRenglon(SQLiteDatabase db, Long renglonId) {
+        if (renglonId == null) return null;
+        Cursor c = db.rawQuery("SELECT codigo || ' · ' || nombre, naturaleza FROM " + TABLE_RENGLON_RENTA +
+                " WHERE renglon_id = ?", new String[]{String.valueOf(renglonId)});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
     /** {inicio, fin} del año fiscal "anio" como enteros AAAAMMDD (fin = inicio + 1 año − 1 día). */
     public static int[] limitesAnioFiscal(SQLiteDatabase db, int anio) {
         int mes = 1, dia = 1;
@@ -1402,16 +1501,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.beginTransaction();
         try {
             db.delete(TABLE_FOTO_RENTA_ANUAL, "anio_fiscal = ?", new String[]{String.valueOf(anio)});
-            Cursor c = db.rawQuery(
-                    "SELECT cu.cuenta_id, cu.Cuenta, cu.tipo_cuenta_id, tc.naturaleza_normal, cu.renglon_renta_id, " +
-                            "COALESCE(SUM(CASE WHEN COALESCE(t.c8_FechaInicial, 0) <= ? THEN t.c5_Valor END), 0), " +
-                            "COALESCE(SUM(CASE WHEN t.c8_FechaInicial BETWEEN ? AND ? " +
-                            "AND CAST(t.c1_Documento AS INTEGER) <> 0 THEN 1 END), 0) " +
-                            "FROM cuentas cu " +
-                            "LEFT JOIN " + TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id " +
-                            "LEFT JOIN transacciones t ON t.cuenta_id = cu.cuenta_id " +
-                            "GROUP BY cu.cuenta_id",
-                    new String[]{fin, inicio, fin});
+            Cursor c = db.rawQuery(SQL_SALDOS_RENTA_POR_CUENTA, new String[]{fin, inicio, fin});
             try {
                 while (c.moveToNext()) {
                     long saldo = c.getLong(5);
@@ -1495,7 +1585,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     }
 
     /** Suma y resta de códigos de renglón: "29-30", "1+2-5". Un código desconocido vale 0. */
-    static long evaluarFormulaRenta(String formula, java.util.Map<String, Long> totales) {
+    public static long evaluarFormulaRenta(String formula, java.util.Map<String, Long> totales) {
         if (formula == null) return 0;
         long resultado = 0;
         int signo = 1;
