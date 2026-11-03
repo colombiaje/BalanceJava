@@ -1313,6 +1313,23 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             "anio_fiscal", "cuenta_id", "cuenta_nombre", "tipo_cuenta_id", "naturaleza_tipo",
             "renglon_asignado_id", "renglon_efectivo_id", "saldo", "movimientos", "decision", "fecha_foto"};
 
+    // ⭐ (3-nov, pedido de Jorge) el CSV de respaldo lleva además el código y el nombre de los
+    // renglones: se lee solo y, al restaurar, el renglón se ubica por su código (el id interno
+    // puede no coincidir entre instalaciones).
+    public static final String[] COLUMNAS_FOTO_RENTA_CSV = {
+            "anio_fiscal", "cuenta_id", "cuenta_nombre", "tipo_cuenta_id", "naturaleza_tipo",
+            "renglon_asignado_id", "renglon_asignado_codigo", "renglon_asignado_nombre",
+            "renglon_efectivo_id", "renglon_efectivo_codigo", "renglon_efectivo_nombre",
+            "saldo", "movimientos", "decision", "fecha_foto"};
+
+    public static final String SQL_SELECT_FOTO_RENTA_CSV =
+            "SELECT f.anio_fiscal, f.cuenta_id, f.cuenta_nombre, f.tipo_cuenta_id, f.naturaleza_tipo, " +
+                    "f.renglon_asignado_id, ra.codigo, ra.nombre, f.renglon_efectivo_id, re.codigo, re.nombre, " +
+                    "f.saldo, f.movimientos, f.decision, f.fecha_foto FROM foto_renta_anual f " +
+                    "LEFT JOIN renglon_renta ra ON ra.renglon_id = f.renglon_asignado_id " +
+                    "LEFT JOIN renglon_renta re ON re.renglon_id = f.renglon_efectivo_id " +
+                    "ORDER BY f.anio_fiscal, f.cuenta_id";
+
     private static final String SQL_CREAR_FOTO_RENTA_ANUAL =
             "CREATE TABLE IF NOT EXISTS " + TABLE_FOTO_RENTA_ANUAL + " (" +
                     "anio_fiscal INTEGER NOT NULL, " +
@@ -1524,6 +1541,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 String v = campoPlantilla(d, col, nombre);
                 if (v == null) cv.putNull(nombre); else cv.put(nombre, v);
             }
+            // ⭐ (3-nov) Si el CSV trae el código del renglón, manda sobre el id interno.
+            Long asignado = buscarRenglonPorCodigoEnAnio(db, campoPlantilla(d, col, "renglon_asignado_codigo"), anio);
+            if (asignado != null) cv.put("renglon_asignado_id", asignado);
+            Long efectivo = buscarRenglonPorCodigoEnAnio(db, campoPlantilla(d, col, "renglon_efectivo_codigo"), anio);
+            if (efectivo != null) cv.put("renglon_efectivo_id", efectivo);
             if (cv.get("saldo") == null) cv.put("saldo", 0);
             if (cv.get("movimientos") == null) cv.put("movimientos", 0);
             if (db.insertWithOnConflict(TABLE_FOTO_RENTA_ANUAL, null, cv,
@@ -1532,6 +1554,22 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             }
         }
         return filas;
+    }
+
+    /** Renglón del país configurado con ese código, vigente en el año fiscal dado (o null). */
+    public static Long buscarRenglonPorCodigoEnAnio(SQLiteDatabase db, String codigo, int anio) {
+        if (codigo == null || codigo.trim().isEmpty()) return null;
+        String a = String.valueOf(anio);
+        Cursor c = db.rawQuery("SELECT renglon_id FROM " + TABLE_RENGLON_RENTA +
+                        " WHERE pais = ? AND codigo = ? " +
+                        "AND (vigente_desde IS NULL OR vigente_desde <= ?) " +
+                        "AND (vigente_hasta IS NULL OR vigente_hasta >= ?) ORDER BY orden LIMIT 1",
+                new String[]{paisConfigurado(db), codigo.trim(), a, a});
+        try {
+            return c.moveToFirst() ? c.getLong(0) : null;
+        } finally {
+            c.close();
+        }
     }
 
     /** Busca un renglón vigente por su código (al restaurar cuentas desde CSV). */

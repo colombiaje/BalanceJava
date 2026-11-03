@@ -108,9 +108,9 @@ public class A5_1_BackupManager {
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getReadableDatabase();
         try (OutputStreamWriter salida = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
-            salida.write(String.join(",", A1_1_AyudanteBD.COLUMNAS_FOTO_RENTA) + "\n");
-            Cursor c = db.rawQuery("SELECT " + String.join(", ", A1_1_AyudanteBD.COLUMNAS_FOTO_RENTA) +
-                    " FROM " + A1_1_AyudanteBD.TABLE_FOTO_RENTA_ANUAL + " ORDER BY anio_fiscal, cuenta_id", null);
+            // ⭐ (3-nov, pedido de Jorge) con código y nombre de los renglones.
+            salida.write(String.join(",", A1_1_AyudanteBD.COLUMNAS_FOTO_RENTA_CSV) + "\n");
+            Cursor c = db.rawQuery(A1_1_AyudanteBD.SQL_SELECT_FOTO_RENTA_CSV, null);
             try {
                 while (c.moveToNext()) {
                     StringBuilder linea = new StringBuilder();

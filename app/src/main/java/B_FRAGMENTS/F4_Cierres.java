@@ -343,7 +343,8 @@ public class F4_Cierres extends Fragment {
     /**
      * Antes del cierre total: propone el año fiscal de la foto (el que acaba de terminar si el
      * cierre se hace en los primeros 90 días del año fiscal; si no, el año en curso). El usuario
-     * lo confirma o lo cambia; también puede cerrar sin foto o cancelar todo.
+     * lo confirma o lo cambia, o cancela todo. (3-nov, Jorge) No hay "cerrar sin foto": era un
+     * riesgo alto de omitir la foto sin querer.
      */
     private void _2dialogoFotoRentaAnual() {
         int propuesto;
@@ -377,7 +378,6 @@ public class F4_Cierres extends Fragment {
                     }
                     _2confirmarReemplazoFoto(anio);
                 })
-                .setNeutralButton("Cerrar sin foto", (d, w) -> _2iniciarCierreAutonomoTransaccionesTodasLasCuentas())
                 .setNegativeButton("Cancelar", (d, w) ->
                         Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show())
                 .show();
