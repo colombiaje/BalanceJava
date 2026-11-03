@@ -67,7 +67,8 @@ public class A6_1_GoogleDriveManager {
      */
     private String extraerNombreBase(String nombreCompleto) {
         // Eliminar la extensión
-        String sinExtension = nombreCompleto.replaceFirst("\\.csv$", "");
+        // ⭐ CAMBIO (3-nov, renta R4): también ".pdf" (antes solo se subían CSV).
+        String sinExtension = nombreCompleto.replaceFirst("\\.(csv|pdf)$", "");
         // Eliminar el timestamp si existe
         //return sinExtension.replaceFirst("_F-\\d{4}-\\d{2}-\\d{2}_H-\\d{2}-\\d{2}-\\d{2}$", "");
         return sinExtension.replaceFirst("_\\d{4}_\\d{6}$", "");
@@ -77,9 +78,21 @@ public class A6_1_GoogleDriveManager {
      * Genera el nombre del archivo con timestamp
      */
     private String generarNombreConTimestamp(String nombreOriginal) {
-        String nombreBase = nombreOriginal.replaceFirst("\\.csv$", "");
+        // ⭐ CAMBIO (3-nov, renta R4, fix): conserva la extensión real. Antes forzaba ".csv" y el
+        // PDF del reporte de renta llegaba a Drive como "...pdf_<hora>.csv" (no se podía abrir).
+        String extension = esPdf(nombreOriginal) ? ".pdf" : ".csv";
+        String nombreBase = nombreOriginal.replaceFirst("\\.(csv|pdf)$", "");
         String timestamp = generarTimestamp();
-        return nombreBase + timestamp + ".csv";
+        return nombreBase + timestamp + extension;
+    }
+
+    // ⭐ NUEVO (3-nov, renta R4): tipo del archivo según su extensión (CSV salvo ".pdf").
+    private static boolean esPdf(String nombre) {
+        return nombre != null && nombre.toLowerCase(Locale.ROOT).endsWith(".pdf");
+    }
+
+    private static String tipoMime(String nombre) {
+        return esPdf(nombre) ? "application/pdf" : "text/csv";
     }
 
     public void uploadFileToDrive() {
@@ -110,7 +123,7 @@ public class A6_1_GoogleDriveManager {
                 File fileMetadata = new File();
                 fileMetadata.setName(nombreConTimestamp);
                 fileMetadata.setParents(Collections.singletonList(folderId));
-                FileContent mediaContent = new FileContent("text/csv", csvFile);
+                FileContent mediaContent = new FileContent(tipoMime(fileName), csvFile); // ⭐ 3-nov: PDF o CSV
 
                 // Subir archivo
                 File uploadedFile = driveService.files().create(fileMetadata, mediaContent)
@@ -151,9 +164,10 @@ public class A6_1_GoogleDriveManager {
 
             // Buscar archivos en la carpeta con el nombre base
             String query = String.format(
-                    "'%s' in parents and name contains '%s' and mimeType='text/csv' and trashed=false",
+                    "'%s' in parents and name contains '%s' and mimeType='%s' and trashed=false",
                     folderId,
-                    nombreBase
+                    nombreBase,
+                    tipoMime(nombreArchivoOriginal) // ⭐ 3-nov: rota PDF y CSV por separado
             );
 
             FileList result = driveService.files().list()
