@@ -80,10 +80,13 @@ public class A22_QueryManager {
     // tipo_cuenta, igual que ya se hizo en la parte B para las 3 pantallas de lista de
     // transacciones. Puramente aditivo: cuentas.* conserva las mismas columnas, solo se agrega
     // tipo_cuenta_nombre al final.
+    // ⭐ CAMBIO (3-nov, BD v24, renta R1): se agrega el código del renglón de renta.
     private static final String SELECT_CUENTAS_CON_TIPO_CUENTA =
-            "cuentas.*, tipo_cuenta.nombre AS tipo_cuenta_nombre";
+            "cuentas.*, tipo_cuenta.nombre AS tipo_cuenta_nombre, " +
+                    "renglon_renta.codigo AS renglon_renta_codigo";
     private static final String FROM_CUENTAS_CON_TIPO_CUENTA =
-            "cuentas LEFT JOIN tipo_cuenta ON cuentas.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id";
+            "cuentas LEFT JOIN tipo_cuenta ON cuentas.tipo_cuenta_id = tipo_cuenta.tipo_cuenta_id " +
+                    "LEFT JOIN renglon_renta ON cuentas.renglon_renta_id = renglon_renta.renglon_id";
 
     //Inicio metodos
     // ⭐ CORRECCIÓN — encontrado por Jorge (28-sep): estas 4 consultas nunca tuvieron ORDER BY

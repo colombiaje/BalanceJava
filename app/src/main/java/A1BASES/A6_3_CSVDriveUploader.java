@@ -106,6 +106,15 @@ public class A6_3_CSVDriveUploader {
                 driveManager.uploadFileToDrive();
 
                 Log.d(TAG, "Proceso de subida iniciado para cuentas: " + nombreArchivo);
+
+                // ⭐ NUEVO (3-nov, BD v24, renta R1 — decisión de Jorge): el catálogo de renglones
+                // de renta viaja con el backup de cuentas a la misma carpeta de Drive.
+                String nombreRenglones = A9_2_BackupFile.CSV_RENGLONES_RENTA.getFileName();
+                if (A5_1_BackupManager.backupRenglonesRentaCSV(context, nombreRenglones)) {
+                    new A6_1_GoogleDriveManager(context, filePath, nombreRenglones, folderId)
+                            .uploadFileToDrive();
+                    Log.d(TAG, "Proceso de subida iniciado para renglones de renta: " + nombreRenglones);
+                }
             } else {
                 String mensaje = "El archivo no existe: " + nombreArchivo;
                 Log.e(TAG, mensaje);

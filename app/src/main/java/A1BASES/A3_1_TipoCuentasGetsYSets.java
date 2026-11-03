@@ -89,4 +89,16 @@ public class A3_1_TipoCuentasGetsYSets {
     public Boolean tipoTgetCuenta_13ConInventario() {return tipoT_13ConInventario_Boolean;}
     public void tipoTsetCuenta_13ConInventario(Boolean tipoT_13ConInventario_Boolean) {this.tipoT_13ConInventario_Boolean = tipoT_13ConInventario_Boolean;}
 
+    // ⭐ NUEVO (3-nov, BD v24, renta R1): código del renglón de renta (renglon_renta.codigo),
+    // entidad y tipo de soporte de la cuenta. Fuera del constructor, como los anteriores.
+    private String tipoT_14RenglonRentaCodigo_String;
+    private String tipoT_15Entidad_String;
+    private String tipoT_16TipoSoporte_String;
+    public String tipoTgetCuenta_14RenglonRentaCodigo() {return tipoT_14RenglonRentaCodigo_String;}
+    public void tipoTsetCuenta_14RenglonRentaCodigo(String v) {this.tipoT_14RenglonRentaCodigo_String = v;}
+    public String tipoTgetCuenta_15Entidad() {return tipoT_15Entidad_String;}
+    public void tipoTsetCuenta_15Entidad(String v) {this.tipoT_15Entidad_String = v;}
+    public String tipoTgetCuenta_16TipoSoporte() {return tipoT_16TipoSoporte_String;}
+    public void tipoTsetCuenta_16TipoSoporte(String v) {this.tipoT_16TipoSoporte_String = v;}
+
 }

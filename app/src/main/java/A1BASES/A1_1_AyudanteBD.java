@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 23; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos
+    public static final int version1BalanceSqlite_int_PSF = 24; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -318,7 +318,14 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // por defecto, así que ninguna cuenta existente ni nueva cambia de
                     // comportamiento en esta tanda). 1 = cuenta con inventario por unidades —
                     // habilitada para tener artículos propios en items_inventario.
-                    "con_inventario INTEGER NOT NULL DEFAULT 0)";
+                    "con_inventario INTEGER NOT NULL DEFAULT 0, " +
+                    // ⭐ NUEVO (3-nov, BD v24, renta fase R1 — diseño acordado con Jorge):
+                    // renglón de renta de la cuenta (catálogo renglon_renta), entidad que emite su
+                    // certificado y tipo de soporte a pedir. Al final, para no correr el orden
+                    // posicional de Item, Cuenta, Fecha (ver A21_OptimizedQuery.mapCuentasFromCursor).
+                    "renglon_renta_id INTEGER REFERENCES renglon_renta(renglon_id), " +
+                    "entidad TEXT, " +
+                    "tipo_soporte TEXT)";
 
     // ─────────────────────────────────────────────
     //  DDL — MODELO DE COSTEO POR INVENTARIO  ⭐ NUEVO v14
@@ -537,7 +544,10 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     // Jorge: "Inmediata", "Requiere trámite", "Depende de terceros",
                     // "No disponible a corto plazo" o "No aplica". Es efectivo todo lo "Inmediata"
                     // (reemplaza la columna cuentas.es_efectivo del modelo original).
-                    "liquidez TEXT)";
+                    "liquidez TEXT, " +
+                    // ⭐ NUEVO (3-nov, BD v24, renta R1): soporte que se suele pedir para las
+                    // cuentas de este tipo (lo heredan como cuentas.tipo_soporte; editable).
+                    "soporte_sugerido TEXT)";
 
     // ⭐ NUEVO v9 — Fase 6: clase_contable se siembra con los mismos 9 valores y el mismo orden
     // que SEED_GRUPO1 (arriba) — en el modelo aprobado, Grupo1 YA ES esa clasificación de primer
@@ -763,29 +773,36 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // Criterio de Jorge: corriente / no corriente por liquidez real a 12 meses, no por moneda.
     // Los tipos sin cuentas hoy (3, 6, 7, 12, 16, 17-20) se dejan creados a propósito, reservados.
     // { tipo_cuenta_id, clase (clase_contable.nombre), clasificación (clasificacion_contable.nombre),
-    //   nombre visible, liquidez (⭐ BD v17) }. La naturaleza normal se toma de la clase.
+    //   nombre visible, liquidez (⭐ BD v17), soporte sugerido (⭐ BD v24), naturaleza propia
+    //   (⭐ BD v24, solo tipos correctores; vacío = la de la clase) }.
     private static final String[][] CATALOGO_TIPO_CUENTA_DEFINITIVO = {
-            {"1", "Activo", "Activo corriente", "Efectivo y bancos", "Inmediata"},
-            {"2", "Activo", "Activo corriente", "Inversiones temporales", "Requiere trámite"},
-            {"3", "Activo", "Activo corriente", "Fondos de inversión", "Requiere trámite"},
-            {"4", "Activo", "Activo corriente", "Cuentas por cobrar", "Depende de terceros"},
-            {"5", "Activo", "Activo corriente", "Efectivo y bancos en moneda extranjera", "Inmediata"},
-            {"6", "Activo", "Activo corriente", "Cuentas por cobrar en moneda extranjera", "Depende de terceros"},
-            {"7", "Activo", "Activo no corriente", "Inversiones de largo plazo en el exterior", "No disponible a corto plazo"},
-            {"8", "Pasivo", "Pasivo corriente", "Tarjetas de crédito", "No aplica"},
-            {"9", "Pasivo", "Pasivo corriente", "Cuentas por pagar - gastos del hogar", "No aplica"},
-            {"10", "Pasivo", "Pasivo corriente", "Cuentas por pagar personales", "No aplica"},
-            {"11", "Pasivo", "Pasivo corriente", "Tarjetas y cuentas por pagar en moneda extranjera", "No aplica"},
-            {"12", "Pasivo", "Pasivo no corriente", "Obligaciones financieras de largo plazo", "No aplica"},
-            {"13", "Cuentas de orden Db", "Cuentas de orden Db", "Cuenta de orden deudora", "No aplica"},
-            {"14", "Cuentas de orden Cr", "Cuentas de orden Cr", "Cuenta de orden acreedora", "No aplica"},
-            {"15", "Patrimonio", "Patrimonio", "Capital", "No aplica"},
-            {"16", "Patrimonio", "Patrimonio", "Resultados / utilidades acumuladas", "No aplica"},
-            {"17", "Ingresos", "Ingresos", "Ingresos (genérico)", "No aplica"},
-            {"18", "Gastos", "Gastos", "Gastos (genérico)", "No aplica"},
-            {"19", "Costo de ventas", "Costo de ventas", "Costo de ventas (genérico)", "No aplica"},
-            {"20", "Costos de produccion", "Costos de produccion", "Costos de producción (genérico)", "No aplica"},
-            {"21", "Pasivo", "Pasivo corriente", "Efectivo por pagar en moneda extranjera", "No aplica"}
+            {"1", "Activo", "Activo corriente", "Efectivo y bancos", "Inmediata", "Certificado bancario", ""},
+            {"2", "Activo", "Activo corriente", "Inversiones temporales", "Requiere trámite", "Certificado de la entidad", ""},
+            {"3", "Activo", "Activo corriente", "Fondos de inversión", "Requiere trámite", "Certificado de la entidad", ""},
+            {"4", "Activo", "Activo corriente", "Cuentas por cobrar", "Depende de terceros", "Documento de la deuda", ""},
+            {"5", "Activo", "Activo corriente", "Efectivo y bancos en moneda extranjera", "Inmediata", "Certificado bancario", ""},
+            {"6", "Activo", "Activo corriente", "Cuentas por cobrar en moneda extranjera", "Depende de terceros", "Documento de la deuda", ""},
+            {"7", "Activo", "Activo no corriente", "Inversiones de largo plazo en el exterior", "No disponible a corto plazo", "Certificado de la entidad", ""},
+            {"8", "Pasivo", "Pasivo corriente", "Tarjetas de crédito", "No aplica", "Certificado de saldo de la entidad", ""},
+            {"9", "Pasivo", "Pasivo corriente", "Cuentas por pagar - gastos del hogar", "No aplica", "Documento de la deuda", ""},
+            {"10", "Pasivo", "Pasivo corriente", "Cuentas por pagar personales", "No aplica", "Documento de la deuda", ""},
+            {"11", "Pasivo", "Pasivo corriente", "Tarjetas y cuentas por pagar en moneda extranjera", "No aplica", "Certificado de saldo de la entidad", ""},
+            {"12", "Pasivo", "Pasivo no corriente", "Obligaciones financieras de largo plazo", "No aplica", "Certificado de deuda de la entidad", ""},
+            {"13", "Cuentas de orden Db", "Cuentas de orden Db", "Cuenta de orden deudora", "No aplica", "Ninguno", ""},
+            {"14", "Cuentas de orden Cr", "Cuentas de orden Cr", "Cuenta de orden acreedora", "No aplica", "Ninguno", ""},
+            {"15", "Patrimonio", "Patrimonio", "Capital", "No aplica", "Ninguno", ""},
+            {"16", "Patrimonio", "Patrimonio", "Resultados / utilidades acumuladas", "No aplica", "Ninguno", ""},
+            {"17", "Ingresos", "Ingresos", "Ingresos (genérico)", "No aplica", "Ninguno", ""},
+            {"18", "Gastos", "Gastos", "Gastos (genérico)", "No aplica", "Ninguno", ""},
+            {"19", "Costo de ventas", "Costo de ventas", "Costo de ventas (genérico)", "No aplica", "Ninguno", ""},
+            {"20", "Costos de produccion", "Costos de produccion", "Costos de producción (genérico)", "No aplica", "Ninguno", ""},
+            {"21", "Pasivo", "Pasivo corriente", "Efectivo por pagar en moneda extranjera", "No aplica", "Documento de la deuda", ""},
+            // ⭐ NUEVO (3-nov, BD v24, renta R1 — decisión de Jorge): tipos correctores reservados,
+            // sin cuentas. Están dentro del Activo pero son de naturaleza ACREEDORA (columna 7):
+            // su saldo negativo es normal, restan dentro de su renglón y no aparecen en la
+            // depuración de saldos contrarios.
+            {"22", "Activo", "Activo corriente", "Provisión de cuentas por cobrar", "Depende de terceros", "Ninguno", "ACREEDORA"},
+            {"23", "Activo", "Activo no corriente", "Depreciación acumulada", "No disponible a corto plazo", "Ninguno", "ACREEDORA"}
     };
 
     // Asignación de cada cuenta real a su tipo definitivo (Excel de Jorge, 31-oct). Se usa en la
@@ -874,6 +891,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // La migración v16 (que llama a este método) corre ANTES de la v17 que agrega la columna
         // liquidez: en ese caso se inserta sin ella y la v17 la completa después.
         boolean tieneColumnaLiquidez = tieneColumna(db, TABLE_TIPO_CUENTA, "liquidez");
+        boolean tieneColumnaSoporte = tieneColumna(db, TABLE_TIPO_CUENTA, "soporte_sugerido");
         for (String[] fila : CATALOGO_TIPO_CUENTA_DEFINITIVO) {
             Long clasificacionId = null;
             String naturaleza = null;
@@ -898,11 +916,18 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             cv.put("tipo_cuenta_id", Long.parseLong(fila[0]));
             cv.put("clasificacion_id", clasificacionId);
             cv.put("nombre", fila[3]);
-            cv.put("naturaleza_normal", naturaleza);
+            // ⭐ (BD v24) los tipos correctores traen su propia naturaleza (columna 7).
+            cv.put("naturaleza_normal", fila[6].isEmpty() ? naturaleza : fila[6]);
             if (tieneColumnaLiquidez) {
                 cv.put("liquidez", fila[4]);
             }
-            if (db.insert(TABLE_TIPO_CUENTA, null, cv) != -1L) {
+            if (tieneColumnaSoporte) {
+                cv.put("soporte_sugerido", fila[5]);
+            }
+            // ⭐ (BD v24) CONFLICT_IGNORE: insertarTiposFaltantesDelCatalogo() lo reusa sobre una
+            // tabla con datos; un id o nombre ya existente se omite sin error.
+            if (db.insertWithOnConflict(TABLE_TIPO_CUENTA, null, cv,
+                    SQLiteDatabase.CONFLICT_IGNORE) != -1L) {
                 insertados++;
             }
         }
@@ -932,6 +957,273 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             db.execSQL("UPDATE " + TABLE_TIPO_CUENTA + " SET liquidez = ? " +
                             "WHERE tipo_cuenta_id = ? AND liquidez IS NULL",
                     new Object[]{fila[4], Long.parseLong(fila[0])});
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (3-nov, BD v24) — MODELO DE RENTA FISCAL, FASE R1
+    //  Diseño acordado con Jorge (doc "BalanceJava — Diseño del modelo de renta fiscal"):
+    //  catálogo universal de renglones por país y vigencia, cargado por plantilla CSV; cada
+    //  cuenta con su renglón (asignado por la clase de su tipo de cuenta, editable), entidad y
+    //  tipo de soporte. La app clasifica y totaliza; no liquida impuestos.
+    // ─────────────────────────────────────────────
+    public static final String TABLE_RENGLON_RENTA = "renglon_renta";
+    public static final String TABLE_CONFIGURACION_APP = "configuracion_app";
+
+    private static final String SQL_CREAR_RENGLON_RENTA =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_RENGLON_RENTA + " (" +
+                    "renglon_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "pais TEXT NOT NULL, " +
+                    "formulario TEXT, " +
+                    "seccion TEXT, " +
+                    "codigo TEXT NOT NULL, " +          // texto: "29", "Box 3", "Label 10"...
+                    "nombre TEXT NOT NULL, " +
+                    // Activo, Pasivo, Ingreso, Gasto, Calculado o No se declara
+                    "naturaleza TEXT NOT NULL, " +
+                    "formula TEXT, " +                  // solo renglones calculados, ej. "29-30"
+                    "por_defecto INTEGER NOT NULL DEFAULT 0, " + // 1 = sugerido para su naturaleza
+                    "orden INTEGER, " +
+                    "vigente_desde INTEGER, " +         // año fiscal
+                    "vigente_hasta INTEGER, " +         // NULL = vigente
+                    "UNIQUE (pais, formulario, codigo, vigente_desde))";
+
+    // Una sola fila (config_id = 1). El fin del año fiscal no se guarda: inicio + 1 año − 1 día.
+    private static final String SQL_CREAR_CONFIGURACION_APP =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_CONFIGURACION_APP + " (" +
+                    "config_id INTEGER PRIMARY KEY CHECK (config_id = 1), " +
+                    "pais TEXT NOT NULL, " +
+                    "moneda TEXT NOT NULL, " +
+                    "inicio_anio_fiscal_mes INTEGER NOT NULL, " +
+                    "inicio_anio_fiscal_dia INTEGER NOT NULL)";
+
+    // Plantilla de Colombia (Formulario 210, vigente desde el año gravable 2023), dentro de la
+    // app. Mismo formato que cualquier plantilla importada: columnas de renglon_renta.
+    public static final String PLANTILLA_RENTA_COLOMBIA =
+            "pais,formulario,seccion,codigo,nombre,naturaleza,formula,por_defecto,orden,vigente_desde,vigente_hasta\n" +
+            "CO,210,Patrimonio,29,Total patrimonio bruto,Activo,,1,1,2023,\n" +
+            "CO,210,Patrimonio,30,Deudas,Pasivo,,1,2,2023,\n" +
+            "CO,210,Patrimonio,31,Total patrimonio líquido,Calculado,29-30,0,3,2023,\n" +
+            "CO,210,,NA,No se declara,No se declara,,1,99,2023,\n";
+
+    public static final String[] COLUMNAS_PLANTILLA_RENTA = {
+            "pais", "formulario", "seccion", "codigo", "nombre", "naturaleza", "formula",
+            "por_defecto", "orden", "vigente_desde", "vigente_hasta"};
+
+    // Cuentas de efectivo físico: no tienen certificado (decisión de Jorge, 3-nov). Solo se usa
+    // al llenar tipo_soporte por primera vez en la migración v24; después el usuario lo cambia.
+    private static final String[] CUENTAS_SIN_SOPORTE = {
+            "Caja", "Bolsillo", "A Caja Euros", "A Caja Mayor Euros"};
+
+    private static void crearTablasRenta(SQLiteDatabase db) {
+        db.execSQL(SQL_CREAR_RENGLON_RENTA);
+        db.execSQL(SQL_CREAR_CONFIGURACION_APP);
+        db.execSQL("INSERT OR IGNORE INTO " + TABLE_CONFIGURACION_APP +
+                " (config_id, pais, moneda, inicio_anio_fiscal_mes, inicio_anio_fiscal_dia) " +
+                "VALUES (1, 'CO', 'COP', 1, 1)");
+    }
+
+    /** Completa tipo_cuenta.soporte_sugerido por id, solo donde esté vacío. */
+    private static void completarSoporteSugeridoCatalogo(SQLiteDatabase db) {
+        for (String[] fila : CATALOGO_TIPO_CUENTA_DEFINITIVO) {
+            db.execSQL("UPDATE " + TABLE_TIPO_CUENTA + " SET soporte_sugerido = ? " +
+                            "WHERE tipo_cuenta_id = ? AND soporte_sugerido IS NULL",
+                    new Object[]{fila[5], Long.parseLong(fila[0])});
+        }
+    }
+
+    /** País configurado (por defecto "CO"). */
+    public static String paisConfigurado(SQLiteDatabase db) {
+        Cursor c = db.rawQuery("SELECT pais FROM " + TABLE_CONFIGURACION_APP +
+                " WHERE config_id = 1", null);
+        try {
+            return c.moveToFirst() ? c.getString(0) : "CO";
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
+     * Año fiscal en curso según el inicio configurado: si hoy es anterior al inicio de este año
+     * calendario, el año fiscal en curso empezó el año anterior. El año fiscal se nombra por el
+     * año calendario en que empieza (inicio 1-ene → coincide con el año calendario).
+     */
+    public static int anioFiscalActual(SQLiteDatabase db) {
+        int mes = 1, dia = 1;
+        Cursor c = db.rawQuery("SELECT inicio_anio_fiscal_mes, inicio_anio_fiscal_dia FROM " +
+                TABLE_CONFIGURACION_APP + " WHERE config_id = 1", null);
+        if (c.moveToFirst()) {
+            mes = c.getInt(0);
+            dia = c.getInt(1);
+        }
+        c.close();
+        java.util.Calendar hoy = java.util.Calendar.getInstance();
+        int anio = hoy.get(java.util.Calendar.YEAR);
+        int mesHoy = hoy.get(java.util.Calendar.MONTH) + 1;
+        int diaHoy = hoy.get(java.util.Calendar.DAY_OF_MONTH);
+        boolean antesDelInicio = mesHoy < mes || (mesHoy == mes && diaHoy < dia);
+        return antesDelInicio ? anio - 1 : anio;
+    }
+
+    /**
+     * Importa una plantilla de renglones (texto CSV con encabezado; columnas por nombre, ver
+     * COLUMNAS_PLANTILLA_RENTA). Por cada (país, vigente_desde X) de la plantilla, los renglones
+     * de ese país todavía abiertos y que empezaron antes de X quedan "vigentes hasta X−1" (cambio
+     * de formulario). Reimportar la misma plantilla no duplica nada (UNIQUE + IGNORE).
+     * @return cuántos renglones se insertaron.
+     */
+    public static int importarPlantillaRenta(SQLiteDatabase db, String textoCsv) {
+        String[] lineas = textoCsv.replace("\r", "").split("\n");
+        if (lineas.length < 2) return 0;
+        String[] encabezado = lineas[0].split(",", -1);
+        java.util.Map<String, Integer> col = new java.util.HashMap<>();
+        for (int i = 0; i < encabezado.length; i++) {
+            col.put(encabezado[i].trim().toLowerCase(java.util.Locale.ROOT), i);
+        }
+        java.util.Set<String> vigenciasCerradas = new java.util.HashSet<>();
+        int insertados = 0;
+        for (int n = 1; n < lineas.length; n++) {
+            if (lineas[n].trim().isEmpty()) continue;
+            String[] d = lineas[n].split(",", -1);
+            String pais = campoPlantilla(d, col, "pais");
+            String codigo = campoPlantilla(d, col, "codigo");
+            String nombre = campoPlantilla(d, col, "nombre");
+            String naturaleza = campoPlantilla(d, col, "naturaleza");
+            if (pais == null || codigo == null || nombre == null || naturaleza == null) {
+                android.util.Log.w("A1_1_AyudanteBD", "Plantilla de renta: línea " + (n + 1) +
+                        " sin país, código, nombre o naturaleza; se omite");
+                continue;
+            }
+            Integer desde = enteroPlantilla(campoPlantilla(d, col, "vigente_desde"));
+            if (desde != null && vigenciasCerradas.add(pais + "|" + desde)) {
+                db.execSQL("UPDATE " + TABLE_RENGLON_RENTA + " SET vigente_hasta = ? " +
+                                "WHERE pais = ? AND vigente_hasta IS NULL AND vigente_desde < ?",
+                        new Object[]{desde - 1, pais, desde});
+            }
+            ContentValues cv = new ContentValues();
+            cv.put("pais", pais);
+            cv.put("formulario", campoPlantilla(d, col, "formulario"));
+            cv.put("seccion", campoPlantilla(d, col, "seccion"));
+            cv.put("codigo", codigo);
+            cv.put("nombre", nombre);
+            cv.put("naturaleza", naturaleza);
+            cv.put("formula", campoPlantilla(d, col, "formula"));
+            cv.put("por_defecto", "1".equals(campoPlantilla(d, col, "por_defecto")) ? 1 : 0);
+            cv.put("orden", enteroPlantilla(campoPlantilla(d, col, "orden")));
+            cv.put("vigente_desde", desde);
+            cv.put("vigente_hasta", enteroPlantilla(campoPlantilla(d, col, "vigente_hasta")));
+            if (db.insertWithOnConflict(TABLE_RENGLON_RENTA, null, cv,
+                    SQLiteDatabase.CONFLICT_IGNORE) != -1L) {
+                insertados++;
+            }
+        }
+        android.util.Log.w("A1_1_AyudanteBD", "Plantilla de renta importada: " + insertados + " renglones");
+        return insertados;
+    }
+
+    private static String campoPlantilla(String[] d, java.util.Map<String, Integer> col, String nombre) {
+        Integer i = col.get(nombre);
+        if (i == null || i >= d.length) return null;
+        String v = d[i].trim();
+        return v.isEmpty() ? null : v;
+    }
+
+    private static Integer enteroPlantilla(String v) {
+        if (v == null) return null;
+        try {
+            return Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    // Naturaleza del renglón según la clase contable del tipo de cuenta.
+    private static final String SQL_NATURALEZA_RENTA_DE_CLASE =
+            "CASE cl.nombre WHEN 'Activo' THEN 'Activo' WHEN 'Pasivo' THEN 'Pasivo' " +
+                    "WHEN 'Ingresos' THEN 'Ingreso' WHEN 'Gastos' THEN 'Gasto' " +
+                    "WHEN 'Costo de ventas' THEN 'Gasto' WHEN 'Costos de produccion' THEN 'Gasto' " +
+                    "ELSE 'No se declara' END";
+
+    // Renglón por defecto y vigente para una naturaleza (país ?1, año ?2 dos veces).
+    private static final String SQL_RENGLON_POR_DEFECTO =
+            "SELECT r.renglon_id FROM " + TABLE_RENGLON_RENTA + " r " +
+                    "WHERE r.pais = ? AND r.por_defecto = 1 AND r.naturaleza = ? " +
+                    "AND (r.vigente_desde IS NULL OR r.vigente_desde <= ?) " +
+                    "AND (r.vigente_hasta IS NULL OR r.vigente_hasta >= ?) " +
+                    "ORDER BY r.orden LIMIT 1";
+
+    /**
+     * Asigna el renglón de renta por defecto a las cuentas que no tienen uno vigente (sin
+     * renglón, o con un renglón que dejó de estar vigente por un cambio de formulario), según la
+     * clase de su tipo de cuenta; si no hay renglón por defecto para esa naturaleza, va a
+     * "No se declara". Las cuentas sin tipo de cuenta quedan sin asignar. Además completa
+     * tipo_soporte vacío con el soporte sugerido de su tipo. No toca lo que el usuario ya eligió.
+     * @return cuántas cuentas recibieron renglón.
+     */
+    public static int asignarRenglonYSoportePendientes(SQLiteDatabase db) {
+        String pais = paisConfigurado(db);
+        int anio = anioFiscalActual(db);
+        String a = String.valueOf(anio);
+        int asignadas = 0;
+        Cursor c = db.rawQuery(
+                "SELECT cu.cuenta_id, " + SQL_NATURALEZA_RENTA_DE_CLASE + " " +
+                        "FROM cuentas cu " +
+                        "JOIN " + TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id " +
+                        "JOIN " + TABLE_CLASIFICACION_CONTABLE + " cc ON cc.clasificacion_id = tc.clasificacion_id " +
+                        "JOIN " + TABLE_CLASE_CONTABLE + " cl ON cl.clase_id = cc.clase_id " +
+                        "WHERE cu.renglon_renta_id IS NULL OR cu.renglon_renta_id NOT IN (" +
+                        "SELECT renglon_id FROM " + TABLE_RENGLON_RENTA + " WHERE pais = ? " +
+                        "AND (vigente_desde IS NULL OR vigente_desde <= ?) " +
+                        "AND (vigente_hasta IS NULL OR vigente_hasta >= ?))",
+                new String[]{pais, a, a});
+        java.util.Map<String, Long> porNaturaleza = new java.util.HashMap<>();
+        try {
+            while (c.moveToNext()) {
+                long cuentaId = c.getLong(0);
+                String naturaleza = c.getString(1);
+                Long renglon = porNaturaleza.containsKey(naturaleza)
+                        ? porNaturaleza.get(naturaleza)
+                        : renglonPorDefecto(db, pais, naturaleza, a);
+                if (renglon == null && !"No se declara".equals(naturaleza)) {
+                    renglon = renglonPorDefecto(db, pais, "No se declara", a);
+                }
+                porNaturaleza.put(naturaleza, renglon);
+                if (renglon != null) {
+                    db.execSQL("UPDATE cuentas SET renglon_renta_id = ? WHERE cuenta_id = ?",
+                            new Object[]{renglon, cuentaId});
+                    asignadas++;
+                }
+            }
+        } finally {
+            c.close();
+        }
+        db.execSQL("UPDATE cuentas SET tipo_soporte = (SELECT tc.soporte_sugerido FROM " +
+                TABLE_TIPO_CUENTA + " tc WHERE tc.tipo_cuenta_id = cuentas.tipo_cuenta_id) " +
+                "WHERE tipo_soporte IS NULL AND tipo_cuenta_id IS NOT NULL");
+        return asignadas;
+    }
+
+    private static Long renglonPorDefecto(SQLiteDatabase db, String pais, String naturaleza, String anio) {
+        Cursor c = db.rawQuery(SQL_RENGLON_POR_DEFECTO, new String[]{pais, naturaleza, anio, anio});
+        try {
+            return c.moveToFirst() ? c.getLong(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
+    /** Busca un renglón vigente por su código (al restaurar cuentas desde CSV). */
+    public static Long buscarRenglonRentaVigentePorCodigo(SQLiteDatabase db, String codigo) {
+        if (codigo == null || codigo.trim().isEmpty()) return null;
+        String a = String.valueOf(anioFiscalActual(db));
+        Cursor c = db.rawQuery("SELECT renglon_id FROM " + TABLE_RENGLON_RENTA +
+                        " WHERE pais = ? AND codigo = ? " +
+                        "AND (vigente_desde IS NULL OR vigente_desde <= ?) " +
+                        "AND (vigente_hasta IS NULL OR vigente_hasta >= ?) ORDER BY orden LIMIT 1",
+                new String[]{paisConfigurado(db), codigo.trim(), a, a});
+        try {
+            return c.moveToFirst() ? c.getLong(0) : null;
+        } finally {
+            c.close();
         }
     }
 
@@ -1187,6 +1479,9 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_ITEMS_INVENTARIO);
         db.execSQL(SQL_CREAR_TRANSACCIONES_INVENTARIO);
         crearIndicesInventario(db);
+        // ⭐ NUEVO (3-nov, BD v24, renta R1): configuración y catálogo de renglones (Colombia).
+        crearTablasRenta(db);
+        importarPlantillaRenta(db, PLANTILLA_RENTA_COLOMBIA);
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -2047,6 +2342,36 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         filasAntes + " después=" + filasDespues);
             }
             android.util.Log.w("A1_1_AyudanteBD", "Migración v23: borradores completos; filas=" + filasDespues);
+        }
+
+        // ⭐ NUEVO (3-nov): versión 24 de la BD — modelo de renta fiscal, fase R1 (diseño
+        // acordado con Jorge). Solo agrega: tablas configuracion_app y renglon_renta (con la
+        // plantilla de Colombia), soporte sugerido y 2 tipos correctores reservados en
+        // tipo_cuenta, y 3 columnas al final de "cuentas", que quedan llenas por defecto.
+        if (oldVersion < 24) {
+            if (!tieneColumna(db, TABLE_TIPO_CUENTA, "soporte_sugerido")) {
+                db.execSQL("ALTER TABLE " + TABLE_TIPO_CUENTA + " ADD COLUMN soporte_sugerido TEXT");
+            }
+            completarSoporteSugeridoCatalogo(db);
+            insertarCatalogoDefinitivo(db); // solo entran los que faltan (22 y 23)
+            crearTablasRenta(db);
+            importarPlantillaRenta(db, PLANTILLA_RENTA_COLOMBIA);
+            if (!tieneColumna(db, "cuentas", "renglon_renta_id")) {
+                db.execSQL("ALTER TABLE cuentas ADD COLUMN renglon_renta_id INTEGER " +
+                        "REFERENCES " + TABLE_RENGLON_RENTA + "(renglon_id)");
+            }
+            if (!tieneColumna(db, "cuentas", "entidad")) {
+                db.execSQL("ALTER TABLE cuentas ADD COLUMN entidad TEXT");
+            }
+            if (!tieneColumna(db, "cuentas", "tipo_soporte")) {
+                db.execSQL("ALTER TABLE cuentas ADD COLUMN tipo_soporte TEXT");
+            }
+            for (String nombre : CUENTAS_SIN_SOPORTE) {
+                db.execSQL("UPDATE cuentas SET tipo_soporte = 'Ninguno' " +
+                        "WHERE Cuenta = ? AND tipo_soporte IS NULL", new Object[]{nombre});
+            }
+            int asignadas = asignarRenglonYSoportePendientes(db);
+            android.util.Log.w("A1_1_AyudanteBD", "Migración v24: renta R1; cuentas con renglón=" + asignadas);
         }
     }
 

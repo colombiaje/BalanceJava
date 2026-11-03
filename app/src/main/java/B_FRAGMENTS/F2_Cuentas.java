@@ -2234,6 +2234,11 @@ public class F2_Cuentas extends DialogFragment {
                 restauracionConBackupFormatoAntiguo = false;
             }
             int sinClasificar = ayudanteBD_Class.repararTipoCuentaDeCuentasSinClasificar(sqliteDatabase_Abstracta);
+            // ⭐ NUEVO (3-nov, BD v24, renta R1): cuentas restauradas sin renglón de renta o sin
+            // tipo de soporte (backups anteriores) los reciben por defecto.
+            int conRenglonNuevo = A1_1_AyudanteBD.asignarRenglonYSoportePendientes(sqliteDatabase_Abstracta);
+            Log.w(TAG, "Restauración (" + origenRestauracion + "): renglón de renta asignado por defecto a " +
+                    conRenglonNuevo + " cuentas");
             if (sinClasificar > 0) {
                 Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + sinClasificar +
                         " cuentas quedaron sin tipo_cuenta_id tras reclasificar " +
@@ -3290,6 +3295,23 @@ public class F2_Cuentas extends DialogFragment {
                 }
             } else {
                 restauracionConBackupFormatoAntiguo = true;
+            }
+
+            // ⭐ NUEVO (3-nov, BD v24, renta R1): columnas 14-16 (renglón de renta por código,
+            // entidad, tipo de soporte). Si no vienen (backup anterior) o el código no existe en
+            // el catálogo vigente, se completan por defecto al terminar la restauración (ver
+            // repararReferenciasCuentaIdTrasRestaurarCuentas()).
+            if (datos.length >= 14) {
+                Long renglon = A1_1_AyudanteBD.buscarRenglonRentaVigentePorCodigo(db, datos[13]);
+                if (renglon != null) {
+                    valores.put("renglon_renta_id", renglon);
+                }
+            }
+            if (datos.length >= 15 && datos[14] != null && !datos[14].trim().isEmpty()) {
+                valores.put("entidad", datos[14].trim());
+            }
+            if (datos.length >= 16 && datos[15] != null && !datos[15].trim().isEmpty()) {
+                valores.put("tipo_soporte", datos[15].trim());
             }
 
             // ⭐ CAMBIO — diagnóstico (30-oct): insertOrThrow en vez de insert, SOLO para

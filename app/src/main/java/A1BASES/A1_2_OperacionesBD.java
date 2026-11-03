@@ -106,6 +106,9 @@ public class A1_2_OperacionesBD extends Activity {
         // columna, así que modificar una cuenta existente nunca cambia su con_inventario.
         contenedor_ContentValues.put("con_inventario", conInventario_boolean ? 1 : 0);
         sqliteDatabase_Abstracta.insert("cuentas", null, contenedor_ContentValues);
+        // ⭐ NUEVO (3-nov, BD v24, renta R1): la cuenta nueva recibe su renglón de renta por
+        // defecto (según la clase de su tipo) y el soporte sugerido de su tipo; editables.
+        A1_1_AyudanteBD.asignarRenglonYSoportePendientes(sqliteDatabase_Abstracta);
 
         // ⭐ AGREGAR ESTO:
         cerrarBaseDatos();

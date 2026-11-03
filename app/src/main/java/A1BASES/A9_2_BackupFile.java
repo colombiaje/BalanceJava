@@ -18,6 +18,8 @@ public enum A9_2_BackupFile {
     CSV_ACCOUNTS_AFTER_CLOSING_RESTORING_SHEETS("222_2_BackupDespuesDeRestaurarCuentasDesdeSheets", A9_1_FileType.CSV),
     CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL("231_BackupAntesDeRestaurarCuentasDesdeBackupInicial", A9_1_FileType.CSV),
     CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL("232_BackuPDespuesDeRestaurarCuentasDesdeBackupInicial", A9_1_FileType.CSV),
+    // ⭐ NUEVO (3-nov, BD v24, renta R1): catálogo de renglones de renta, sube con las cuentas.
+    CSV_RENGLONES_RENTA("213_CatalogoRenglonesRenta", A9_1_FileType.CSV),
 
     /* ─────────── CLOSURES ─────────── */
     CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES("411_AntesDeIniciarCierres", A9_1_FileType.CSV),

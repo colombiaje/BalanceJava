@@ -631,6 +631,20 @@ public class A21_OptimizedQuery {
         if (indiceConInventario != -1 && !cursor.isNull(indiceConInventario)) {
             item.tipoTsetCuenta_13ConInventario(cursor.getInt(indiceConInventario) == 1);
         }
+        // ⭐ NUEVO (3-nov, BD v24, renta R1): renglón de renta (código, por el JOIN de
+        // A22_QueryManager.queryAllAccounts()), entidad y tipo de soporte.
+        int indiceRenglon = cursor.getColumnIndex("renglon_renta_codigo");
+        if (indiceRenglon != -1 && !cursor.isNull(indiceRenglon)) {
+            item.tipoTsetCuenta_14RenglonRentaCodigo(cursor.getString(indiceRenglon));
+        }
+        int indiceEntidad = cursor.getColumnIndex("entidad");
+        if (indiceEntidad != -1 && !cursor.isNull(indiceEntidad)) {
+            item.tipoTsetCuenta_15Entidad(cursor.getString(indiceEntidad));
+        }
+        int indiceTipoSoporte = cursor.getColumnIndex("tipo_soporte");
+        if (indiceTipoSoporte != -1 && !cursor.isNull(indiceTipoSoporte)) {
+            item.tipoTsetCuenta_16TipoSoporte(cursor.getString(indiceTipoSoporte));
+        }
         return item;
     }
 

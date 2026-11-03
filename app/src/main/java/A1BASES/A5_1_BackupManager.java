@@ -57,6 +57,46 @@ public class A5_1_BackupManager {
             "c1_Documento,c2_ItemDoc,c5_Valor,c6_Descripcion,c7_FechaYHora,c8_FechaInicial," +
                     "c9_FechaModificacion,cuenta_id,tipo_cuenta_id,transaccion_id,con_inventario\n";
 
+    // ⭐ NUEVO (3-nov, BD v24): texto seguro para una celda de CSV (null → "", sin comas).
+    private static String textoCsv(String v) {
+        return v == null ? "" : v.replace(",", " ").replace("\n", " ");
+    }
+
+    /**
+     * ⭐ NUEVO (3-nov, BD v24, renta R1 — decisión de Jorge): exporta el catálogo de renglones de
+     * renta en el mismo formato de las plantillas (A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA), para
+     * que viaje con los backups a Drive y pueda reimportarse tal cual.
+     */
+    public static boolean backupRenglonesRentaCSV(Context context, String nombreArchivo) {
+        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) return false;
+        File archivo = new File(Environment.getExternalStorageDirectory().getPath() + "/Balance/" + nombreArchivo);
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try (OutputStreamWriter salida = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
+            salida.write(String.join(",", A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA) + "\n");
+            Cursor c = db.rawQuery("SELECT " + String.join(", ", A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA) +
+                    " FROM " + A1_1_AyudanteBD.TABLE_RENGLON_RENTA + " ORDER BY pais, vigente_desde, orden", null);
+            try {
+                while (c.moveToNext()) {
+                    StringBuilder linea = new StringBuilder();
+                    for (int i = 0; i < c.getColumnCount(); i++) {
+                        if (i > 0) linea.append(",");
+                        linea.append(c.isNull(i) ? "" : textoCsv(c.getString(i)));
+                    }
+                    salida.write(linea.append("\n").toString());
+                }
+            } finally {
+                c.close();
+            }
+            return true;
+        } catch (Exception ex) {
+            Log.e("BackupManager", "Error al guardar el catálogo de renglones: " + ex.getMessage());
+            return false;
+        } finally {
+            db.close();
+        }
+    }
+
     public boolean backupCuentasArchivoCSV(String nombreArchivo, A22_QueryManager a22QueryManager) {
 
         if (a22QueryManager == null) {
@@ -102,7 +142,8 @@ public class A5_1_BackupManager {
                 // 3 lectores de este archivo (insertarCuenta(), ver F2_Cuentas) ya saben saltarla
                 // — detectan la fila por su primer campo literal "Item" (nunca un dato real, que
                 // siempre es numérico), así que esto no afecta ninguna cuenta real al restaurar.
-                salidaArchivo.write("Item,Cuenta,Grupo1,Grupo2,Fecha,cuenta_id,codigo_cuenta,Cerrable,tipo_cuenta_id,cuenta_seguimiento,conciliable,con_inventario,tipo_cuenta_nombre\n");
+                // ⭐ (3-nov, BD v24) columnas 14-16: renglón de renta (código), entidad, tipo de soporte.
+                salidaArchivo.write("Item,Cuenta,Grupo1,Grupo2,Fecha,cuenta_id,codigo_cuenta,Cerrable,tipo_cuenta_id,cuenta_seguimiento,conciliable,con_inventario,tipo_cuenta_nombre,renglon_renta_codigo,entidad,tipo_soporte\n");
 
                 // Escribir datos
                 // ⭐ CAMBIO — Fase 4 (parte C): se agregan cuenta_id, codigo_cuenta y Cerrable al
@@ -138,7 +179,12 @@ public class A5_1_BackupManager {
                             (cuenta.tipoTgetCuenta_13ConInventario() == null ? "" : (cuenta.tipoTgetCuenta_13ConInventario() ? "1" : "0")) + "," +
                             // ⭐ NUEVO (31-oct): columna 13, nombre del tipo de cuenta — al restaurar
                             // se resuelve el tipo por este nombre (ver F2_Cuentas.insertarCuenta).
-                            (cuenta.tipoTgetCuenta_12TipoCuentaNombre() == null ? "" : cuenta.tipoTgetCuenta_12TipoCuentaNombre().replace(",", " ")) + "\n";
+                            (cuenta.tipoTgetCuenta_12TipoCuentaNombre() == null ? "" : cuenta.tipoTgetCuenta_12TipoCuentaNombre().replace(",", " ")) + "," +
+                            // ⭐ NUEVO (3-nov, BD v24, renta R1): columnas 14-16. Al restaurar, el
+                            // renglón se resuelve por su código (ver F2_Cuentas.insertarCuenta).
+                            textoCsv(cuenta.tipoTgetCuenta_14RenglonRentaCodigo()) + "," +
+                            textoCsv(cuenta.tipoTgetCuenta_15Entidad()) + "," +
+                            textoCsv(cuenta.tipoTgetCuenta_16TipoSoporte()) + "\n";
 
                     salidaArchivo.write(linea);
                     Log.d("BackupManager", "Escribiendo línea: " + linea.trim());
