@@ -162,6 +162,12 @@ public class F4_Cierres extends Fragment {
             _6_opcionReporteRentaFiscal_XRb.setChecked(false);
             new A1BASES.A17_ReporteRentaDialogo().mostrar(getActivity(), FOLDER_ID_DRIVE);
         });
+        // ⭐ NUEVO (3-nov, renta R5): "7. Depurar saldos contrarios".
+        RadioButton _7_opcionDepurarSaldosContrarios_XRb = view.findViewById(R.id._7_opcionDepurarSaldosContrarios_XRb);
+        _7_opcionDepurarSaldosContrarios_XRb.setOnClickListener(v -> {
+            _7_opcionDepurarSaldosContrarios_XRb.setChecked(false);
+            new A1BASES.A18_DepuracionRentaDialogo().mostrar(getActivity(), FOLDER_ID_DRIVE);
+        });
         _3_opcionTransaccionesAlgunasCuentas_XRb = view.findViewById(R.id._3_opcionTransaccionesAlgunasCuentas_XRb);
         opcionSaleDeLaApp_XRb = view.findViewById(R.id.opcionSaleDeLaApp_XRb);
 
@@ -444,7 +450,8 @@ public class F4_Cierres extends Fragment {
         new AlertDialog.Builder(getActivity())
                 .setTitle("Foto de " + anio + " tomada")
                 .setMessage(cuentas + " cuentas con saldo o movimiento.\n\n" + resumen.toString().trim() +
-                        "\n\nAl aceptar se hace el cierre de todas las cuentas.")
+                        "\n\nLos saldos contrarios (ej.: bancos sobregirados) se depuran después con la " +
+                        "opción 7.\n\nAl aceptar se hace el cierre de todas las cuentas.")
                 .setCancelable(false)
                 .setPositiveButton("Aceptar y cerrar", (d, w) -> _2iniciarCierreAutonomoTransaccionesTodasLasCuentas())
                 .show();

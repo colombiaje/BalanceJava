@@ -43,8 +43,8 @@ import androidx.appcompat.app.AlertDialog;
  * A17_ReporteRentaDialogo — (3-nov, renta R4, decisiones de Jorge): opción "6. Reporte renta
  * fiscal" de F4. Renglones de la declaración con su total, en modo resumido o detallado (las
  * cuentas de cada renglón), para un año o para todos (histórico, un año por columna). Los años
- * con foto (cierre 421) usan la foto; el año en curso sin foto se calcula con los datos de hoy y
- * se marca "provisional". Exporta CSV y PDF a la carpeta Balance y a la carpeta de cierres en
+ * con foto (cierre 421) usan la foto; el año en curso se ofrece además, siempre, calculado con
+ * los datos de hoy y marcado "provisional" (aunque ya tenga foto, para compararlos). Exporta CSV y PDF a la carpeta Balance y a la carpeta de cierres en
  * Drive, para el contador.
  *
  * Signo de presentación: los renglones de naturaleza Pasivo o Ingreso se muestran con el signo
@@ -60,7 +60,7 @@ public class A17_ReporteRentaDialogo {
     private static final class Fila {
         final boolean esRenglon;
         final String codigo, etiqueta;
-        final Map<Integer, Long> valores = new HashMap<>();
+        final Map<Integer, Long> valores = new HashMap<>(); // índice de columna → valor
         Fila(boolean esRenglon, String codigo, String etiqueta) {
             this.esRenglon = esRenglon;
             this.codigo = codigo;
@@ -68,10 +68,25 @@ public class A17_ReporteRentaDialogo {
         }
     }
 
+    /** Una columna del reporte: un año, de su foto o provisional (datos de hoy). */
+    private static final class Columna {
+        final int anio;
+        final boolean provisional;
+        Columna(int anio, boolean provisional) {
+            this.anio = anio;
+            this.provisional = provisional;
+        }
+        String titulo(boolean corto) {
+            return anio + (provisional ? (corto ? " prov." : " (prov.)") : "");
+        }
+    }
+
     private final DecimalFormat formato = new DecimalFormat("#,##0");
     private TableLayout tabla;
-    private List<Integer> aniosVista = new ArrayList<>();
-    private final Map<Integer, Boolean> provisional = new HashMap<>();
+    // ⭐ CAMBIO (3-nov, Jorge): el año en curso se ofrece SIEMPRE como provisional, aunque ya
+    // tenga foto (así se compara la foto con los datos de hoy). Por eso las columnas son
+    // (año, provisional) y no solo el año.
+    private List<Columna> columnasVista = new ArrayList<>();
     private List<Fila> filasVista = new ArrayList<>();
     private boolean detalladoVista = false;
     private String pais = "CO", moneda = "COP";
@@ -94,18 +109,13 @@ public class A17_ReporteRentaDialogo {
         } finally {
             db.close();
         }
-        List<Integer> anios = new ArrayList<>();
+        List<Columna> opciones = new ArrayList<>();
         List<String> etiquetas = new ArrayList<>();
-        provisional.clear();
-        if (!aniosConFoto.contains(actual)) {
-            anios.add(actual);
-            etiquetas.add(actual + " (provisional, datos de hoy)");
-            provisional.put(actual, true);
-        }
+        opciones.add(new Columna(actual, true));
+        etiquetas.add(actual + " (provisional, datos de hoy)");
         for (Integer a : aniosConFoto) {
-            anios.add(a);
+            opciones.add(new Columna(a, false));
             etiquetas.add(a + " (foto del cierre)");
-            provisional.put(a, false);
         }
         etiquetas.add("Todos los años (histórico)");
 
@@ -138,14 +148,16 @@ public class A17_ReporteRentaDialogo {
 
         Runnable refrescar = () -> {
             int pos = anio_XSp.getSelectedItemPosition();
-            List<Integer> elegidos = new ArrayList<>();
-            if (pos >= 0 && pos < anios.size()) {
-                elegidos.add(anios.get(pos));
+            List<Columna> elegidas = new ArrayList<>();
+            if (pos >= 0 && pos < opciones.size()) {
+                elegidas.add(opciones.get(pos));
             } else {
-                elegidos.addAll(anios);
-                Collections.sort(elegidos);
+                elegidas.addAll(opciones);
+                // De más antiguo a más reciente; en el mismo año, la foto antes que el provisional.
+                Collections.sort(elegidas, (x, y) -> x.anio != y.anio ? Integer.compare(x.anio, y.anio)
+                        : Boolean.compare(x.provisional, y.provisional));
             }
-            construir(context, elegidos, detallado_XRb.isChecked());
+            construir(context, elegidas, detallado_XRb.isChecked());
         };
         anio_XSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -169,8 +181,8 @@ public class A17_ReporteRentaDialogo {
 
     // ── Construcción del reporte ────────────────────────────────────────
 
-    private void construir(Context context, List<Integer> anios, boolean detallado) {
-        aniosVista = anios;
+    private void construir(Context context, List<Columna> columnas, boolean detallado) {
+        columnasVista = columnas;
         detalladoVista = detallado;
         // Filas de renglón por código (en el orden del catálogo, años de menor a mayor); las
         // cuentas de cada renglón, a continuación de él.
@@ -178,7 +190,8 @@ public class A17_ReporteRentaDialogo {
         Map<String, LinkedHashMap<String, Fila>> cuentasPorRenglon = new HashMap<>();
         SQLiteDatabase db = abrir(context);
         try {
-            for (Integer anio : anios) {
+            for (int col = 0; col < columnas.size(); col++) {
+                int anio = columnas.get(col).anio;
                 List<Object[]> catalogo = A1_1_AyudanteBD.renglonesDelAnio(db, anio);
                 Map<Long, Object[]> porId = new HashMap<>();
                 for (Object[] r : catalogo) {
@@ -189,7 +202,7 @@ public class A17_ReporteRentaDialogo {
                     }
                 }
                 Map<String, Long> totalPresentado = new HashMap<>();
-                for (Object[] s : A1_1_AyudanteBD.saldosRentaDelAnio(db, anio, !Boolean.TRUE.equals(provisional.get(anio)))) {
+                for (Object[] s : A1_1_AyudanteBD.saldosRentaDelAnio(db, anio, !columnas.get(col).provisional)) {
                     Object[] r = s[2] == null ? null : porId.get((Long) s[2]);
                     String codigo;
                     long valor = (Long) s[3];
@@ -214,17 +227,17 @@ public class A17_ReporteRentaDialogo {
                         fc = new Fila(false, codigo, nombre);
                         cuentas.put(nombre, fc);
                     }
-                    fc.valores.put(anio, valor);
+                    fc.valores.put(col, valor);
                 }
                 for (Object[] r : catalogo) {
                     String codigo = (String) r[1];
                     long total = "Calculado".equals(r[3])
                             ? A1_1_AyudanteBD.evaluarFormulaRenta((String) r[4], totalPresentado)
                             : (totalPresentado.containsKey(codigo) ? totalPresentado.get(codigo) : 0);
-                    renglones.get(codigo).valores.put(anio, total);
+                    renglones.get(codigo).valores.put(col, total);
                 }
                 if (totalPresentado.containsKey(CLAVE_SIN_RENGLON)) {
-                    renglones.get(CLAVE_SIN_RENGLON).valores.put(anio, totalPresentado.get(CLAVE_SIN_RENGLON));
+                    renglones.get(CLAVE_SIN_RENGLON).valores.put(col, totalPresentado.get(CLAVE_SIN_RENGLON));
                 }
             }
         } catch (Exception e) {
@@ -249,8 +262,8 @@ public class A17_ReporteRentaDialogo {
         tabla.removeAllViews();
         TableRow encabezado = new TableRow(context);
         encabezado.addView(celda(context, "Renglón / cuenta", true, false));
-        for (Integer a : aniosVista) {
-            encabezado.addView(celda(context, a + (Boolean.TRUE.equals(provisional.get(a)) ? " (prov.)" : ""), true, true));
+        for (Columna co : columnasVista) {
+            encabezado.addView(celda(context, co.titulo(false), true, true));
         }
         tabla.addView(encabezado);
         if (filasVista.isEmpty()) {
@@ -262,8 +275,8 @@ public class A17_ReporteRentaDialogo {
         for (Fila f : filasVista) {
             TableRow fila = new TableRow(context);
             fila.addView(celda(context, f.esRenglon ? f.etiqueta : "      " + f.etiqueta, f.esRenglon, false));
-            for (Integer a : aniosVista) {
-                Long v = f.valores.get(a);
+            for (int col = 0; col < columnasVista.size(); col++) {
+                Long v = f.valores.get(col);
                 fila.addView(celda(context, v == null ? "" : "$ " + formato.format(v), f.esRenglon, true));
             }
             if (f.esRenglon) fila.setBackgroundColor(Color.parseColor("#DCE8F5"));
@@ -306,10 +319,11 @@ public class A17_ReporteRentaDialogo {
             String renglonActual = "";
             for (Fila f : filasVista) {
                 if (f.esRenglon) renglonActual = f.etiqueta;
-                for (Integer a : aniosVista) {
-                    Long v = f.valores.get(a);
+                for (int col = 0; col < columnasVista.size(); col++) {
+                    Long v = f.valores.get(col);
                     if (v == null) continue;
-                    w.write(a + "," + (Boolean.TRUE.equals(provisional.get(a)) ? "provisional" : "foto") + "," +
+                    Columna co = columnasVista.get(col);
+                    w.write(co.anio + "," + (co.provisional ? "provisional" : "foto") + "," +
                             (CLAVE_SIN_RENGLON.equals(f.codigo) ? "" : limpio(f.codigo)) + "," + limpio(renglonActual) + "," +
                             (f.esRenglon ? "" : limpio(f.etiqueta)) + "," + v + "\n");
                 }
@@ -333,7 +347,7 @@ public class A17_ReporteRentaDialogo {
             negrita.setTypeface(Typeface.DEFAULT_BOLD);
             Paint titulo = new Paint(negrita);
             titulo.setTextSize(13f);
-            int columnas = aniosVista.size();
+            int columnas = columnasVista.size();
             int anchoValor = 80;
             int xValores = ancho - margen - columnas * anchoValor;
 
@@ -343,7 +357,7 @@ public class A17_ReporteRentaDialogo {
                 l[0] = f.esRenglon ? "R" : "C";
                 l[1] = f.etiqueta;
                 for (int i = 0; i < columnas; i++) {
-                    Long v = f.valores.get(aniosVista.get(i));
+                    Long v = f.valores.get(i);
                     l[i + 2] = v == null ? "" : formato.format(v);
                 }
                 lineas.add(l);
@@ -363,8 +377,7 @@ public class A17_ReporteRentaDialogo {
                 y += 20;
                 c.drawText("Renglón / cuenta", margen, y, negrita);
                 for (int k = 0; k < columnas; k++) {
-                    Integer a = aniosVista.get(k);
-                    String t = a + (Boolean.TRUE.equals(provisional.get(a)) ? " prov." : "");
+                    String t = columnasVista.get(k).titulo(true);
                     c.drawText(t, xValores + (k + 1) * anchoValor - negrita.measureText(t), y, negrita);
                 }
                 y += 6;
@@ -387,7 +400,7 @@ public class A17_ReporteRentaDialogo {
                 }
                 if (i >= lineas.size()) {
                     y += 10;
-                    c.drawText("prov. = año en curso calculado con los datos del día; sin foto del cierre.",
+                    c.drawText("prov. = año en curso calculado con los datos del día (no es la foto del cierre).",
                             margen, Math.min(y, alto - margen), texto);
                 }
                 pdf.finishPage(p);

@@ -1240,7 +1240,12 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * sin los calculados), en el orden del catálogo: {renglon_id, "código · nombre"}.
      */
     public static java.util.List<Object[]> renglonesAsignables(SQLiteDatabase db) {
-        String a = String.valueOf(anioFiscalActual(db));
+        return renglonesAsignablesEnAnio(db, anioFiscalActual(db));
+    }
+
+    /** Igual que renglonesAsignables(), pero vigentes en el año fiscal dado (depuración, R5). */
+    public static java.util.List<Object[]> renglonesAsignablesEnAnio(SQLiteDatabase db, int anio) {
+        String a = String.valueOf(anio);
         java.util.List<Object[]> lista = new java.util.ArrayList<>();
         Cursor c = db.rawQuery("SELECT renglon_id, codigo, nombre FROM " + TABLE_RENGLON_RENTA +
                         " WHERE pais = ? AND naturaleza <> 'Calculado' " +
@@ -1660,6 +1665,76 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         } finally {
             c.close();
         }
+    }
+
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (3-nov, renta R5) — DEPURACIÓN DE SALDOS CONTRARIOS
+    //  Una cuenta de la foto tiene saldo contrario si su saldo va contra la naturaleza de su tipo
+    //  de cuenta (DEUDORA con saldo negativo, ACREEDORA con saldo positivo). Los tipos correctores
+    //  (provisión, depreciación) son ACREEDORA dentro del Activo: su saldo negativo es normal y no
+    //  aparecen. Solo cuentan las de renglones de Activo, Pasivo, Ingreso o Gasto. La decisión del
+    //  usuario cambia renglon_efectivo_id de la foto y queda registrada en "decision".
+    // ─────────────────────────────────────────────
+    public static final String DECISION_DEPURACION_CONFIRMADA = "confirmada";
+
+    /**
+     * Cuentas con saldo contrario en la foto del año:
+     * {cuenta_id (Long), nombre, saldo (Long), renglon_asignado_id (Long), naturaleza del renglón
+     * asignado, renglon_efectivo_id (Long o null), decision}.
+     */
+    public static java.util.List<Object[]> cuentasConSaldoContrario(SQLiteDatabase db, int anio) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT f.cuenta_id, f.cuenta_nombre, f.saldo, f.renglon_asignado_id, " +
+                        "r.naturaleza, f.renglon_efectivo_id, f.decision FROM " + TABLE_FOTO_RENTA_ANUAL + " f " +
+                        "JOIN " + TABLE_RENGLON_RENTA + " r ON r.renglon_id = f.renglon_asignado_id " +
+                        "WHERE f.anio_fiscal = ? AND r.naturaleza IN ('Activo', 'Pasivo', 'Ingreso', 'Gasto') " +
+                        "AND ((f.naturaleza_tipo = 'DEUDORA' AND f.saldo < 0) " +
+                        "OR (f.naturaleza_tipo = 'ACREEDORA' AND f.saldo > 0)) " +
+                        "ORDER BY ABS(f.saldo) DESC",
+                new String[]{String.valueOf(anio)});
+        try {
+            while (c.moveToNext()) {
+                lista.add(new Object[]{c.getLong(0), c.getString(1), c.getLong(2), c.getLong(3),
+                        c.getString(4), c.isNull(5) ? null : c.getLong(5), c.getString(6)});
+            }
+        } finally {
+            c.close();
+        }
+        return lista;
+    }
+
+    /**
+     * Destino sugerido para un saldo contrario: {renglon_id (Long), motivo}. Primero la decisión
+     * del año anterior para esa cuenta (por código del renglón, decisión de Jorge: "recordar,
+     * solo como sugerencia"); si no hay, el renglón por defecto de la naturaleza contraria
+     * (Activo ↔ Pasivo, Ingreso ↔ Gasto).
+     */
+    public static Object[] sugerenciaDepuracion(SQLiteDatabase db, int anio, long cuentaId, String naturalezaAsignado) {
+        Cursor c = db.rawQuery("SELECT r.codigo FROM " + TABLE_FOTO_RENTA_ANUAL + " f JOIN " +
+                        TABLE_RENGLON_RENTA + " r ON r.renglon_id = f.renglon_efectivo_id " +
+                        "WHERE f.anio_fiscal = ? AND f.cuenta_id = ? AND f.decision IS NOT NULL",
+                new String[]{String.valueOf(anio - 1), String.valueOf(cuentaId)});
+        String codigoAnterior = c.moveToFirst() ? c.getString(0) : null;
+        c.close();
+        Long anterior = buscarRenglonPorCodigoEnAnio(db, codigoAnterior, anio);
+        if (anterior != null) return new Object[]{anterior, "como en " + (anio - 1)};
+        String contraria;
+        switch (naturalezaAsignado == null ? "" : naturalezaAsignado) {
+            case "Activo": contraria = "Pasivo"; break;
+            case "Pasivo": contraria = "Activo"; break;
+            case "Ingreso": contraria = "Gasto"; break;
+            case "Gasto": contraria = "Ingreso"; break;
+            default: return new Object[]{null, ""};
+        }
+        return new Object[]{renglonPorDefecto(db, paisConfigurado(db), contraria, String.valueOf(anio)),
+                "naturaleza contraria"};
+    }
+
+    /** Guarda la decisión: el renglón efectivo de esa cuenta en la foto del año. */
+    public static void guardarDecisionDepuracion(SQLiteDatabase db, int anio, long cuentaId, long renglonId) {
+        db.execSQL("UPDATE " + TABLE_FOTO_RENTA_ANUAL + " SET renglon_efectivo_id = ?, decision = ? " +
+                        "WHERE anio_fiscal = ? AND cuenta_id = ?",
+                new Object[]{renglonId, DECISION_DEPURACION_CONFIRMADA, anio, cuentaId});
     }
 
     /** Busca un renglón vigente por su código (al restaurar cuentas desde CSV). */
