@@ -51,6 +51,8 @@ import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A1_2_OperacionesBD;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A5_1_BackupManager;
+import android.widget.EditText;
+import A1BASES.A9_2_BackupFile;
 import A1BASES.A6_2_GoogleDriveDownloader;
 import A1BASES.A99_MetodosVarios;
 import A1BASES.A6_5_SheetsDownloader;
@@ -321,9 +323,9 @@ public class F4_Cierres extends Fragment {
                 .setMessage("Actualmente hay: " + _7verNumeroDeTransacciones() + " Transacciones. " +
                         "¿Eliminarlas todas y recuperar un resumen por cuenta para saldos iniciales?")
                 .setCancelable(false)
-                .setPositiveButton("Si", (dialog, id) ->{
-
-                _2iniciarCierreAutonomoTransaccionesTodasLasCuentas();})
+                // ⭐ CAMBIO (3-nov, renta R3): antes de cerrar, la foto anual de renta (el 421 es
+                // también el cierre del período fiscal, decisión de Jorge).
+                .setPositiveButton("Si", (dialog, id) -> _2dialogoFotoRentaAnual())
 
                 .setNegativeButton("No", (dialog, id) -> {
 
@@ -334,6 +336,116 @@ public class F4_Cierres extends Fragment {
                 })
 
                 .show();
+    }
+
+    // ==================== FOTO ANUAL DE RENTA (⭐ NUEVO 3-nov, renta R3) ====================
+
+    /**
+     * Antes del cierre total: propone el año fiscal de la foto (el que acaba de terminar si el
+     * cierre se hace en los primeros 90 días del año fiscal; si no, el año en curso). El usuario
+     * lo confirma o lo cambia; también puede cerrar sin foto o cancelar todo.
+     */
+    private void _2dialogoFotoRentaAnual() {
+        int propuesto;
+        int[] limites;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            propuesto = A1_1_AyudanteBD.anioFiscalPropuestoParaFoto(db);
+            limites = A1_1_AyudanteBD.limitesAnioFiscal(db, propuesto);
+        } finally {
+            db.close();
+        }
+        EditText anio_XEt = new EditText(getActivity());
+        anio_XEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        anio_XEt.setText(String.valueOf(propuesto));
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Foto anual de renta")
+                .setMessage("El cierre total es también el cierre del período fiscal. Antes de cerrar se " +
+                        "guardan los saldos de cada cuenta al fin del año fiscal, con su renglón de renta.\n\n" +
+                        "Año propuesto: " + propuesto + " (" + fechaLegible(limites[0]) + " a " +
+                        fechaLegible(limites[1]) + "). Puede cambiar el año:")
+                .setView(anio_XEt)
+                .setCancelable(false)
+                .setPositiveButton("Tomar foto y cerrar", (d, w) -> {
+                    int anio;
+                    try {
+                        anio = Integer.parseInt(anio_XEt.getText().toString().trim());
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(getActivity(), "Año no válido; no se realizaron acciones", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    _2confirmarReemplazoFoto(anio);
+                })
+                .setNeutralButton("Cerrar sin foto", (d, w) -> _2iniciarCierreAutonomoTransaccionesTodasLasCuentas())
+                .setNegativeButton("Cancelar", (d, w) ->
+                        Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show())
+                .show();
+    }
+
+    private void _2confirmarReemplazoFoto(int anio) {
+        boolean existe;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            existe = A1_1_AyudanteBD.existeFotoRenta(db, anio);
+        } finally {
+            db.close();
+        }
+        if (!existe) {
+            _2tomarFotoYCerrar(anio);
+            return;
+        }
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Ya existe la foto de " + anio)
+                .setMessage("La foto del año " + anio + " ya existe y se reemplazará por la de hoy. ¿Continuar?")
+                .setCancelable(false)
+                .setPositiveButton("Reemplazar y cerrar", (d, w) -> _2tomarFotoYCerrar(anio))
+                .setNegativeButton("Cancelar", (d, w) ->
+                        Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show())
+                .show();
+    }
+
+    /** Toma la foto, la respalda (local + Drive), muestra el resumen y, al aceptar, cierra. */
+    private void _2tomarFotoYCerrar(int anio) {
+        StringBuilder resumen = new StringBuilder();
+        int cuentas;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getWritableDatabase();
+        try {
+            cuentas = A1_1_AyudanteBD.tomarFotoRentaAnual(db, anio);
+            java.text.DecimalFormat formato = new java.text.DecimalFormat("#,##0");
+            for (Object[] r : A1_1_AyudanteBD.resumenFotoRentaPorRenglon(db, anio)) {
+                resumen.append(r[0]).append(" ").append(r[1]).append(": $ ")
+                        .append(formato.format((Long) r[2]))
+                        .append((Integer) r[3] > 0 ? "  (" + r[3] + " cuentas)" : "").append("\n");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo tomar la foto de renta: " + e.getMessage(), e);
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("No se tomó la foto")
+                    .setMessage("Error: " + e.getMessage() + "\n\nEl cierre no se realizó.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            return;
+        } finally {
+            db.close();
+        }
+        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileName();
+        if (A5_1_BackupManager.backupFotoRentaCSV(getActivity(), nombreFoto)) {
+            A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(requireContext(), nombreFoto, FOLDER_ID_DRIVE);
+        }
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Foto de " + anio + " tomada")
+                .setMessage(cuentas + " cuentas con saldo o movimiento.\n\n" + resumen.toString().trim() +
+                        "\n\nAl aceptar se hace el cierre de todas las cuentas.")
+                .setCancelable(false)
+                .setPositiveButton("Aceptar y cerrar", (d, w) -> _2iniciarCierreAutonomoTransaccionesTodasLasCuentas())
+                .show();
+    }
+
+    private static String fechaLegible(int aaaammdd) {
+        return (aaaammdd % 100) + "/" + ((aaaammdd / 100) % 100) + "/" + (aaaammdd / 10000);
     }
 
     // ==================== MÉTODOS DE CIERRE ALGUNAS CUENTAS ====================

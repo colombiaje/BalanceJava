@@ -114,7 +114,7 @@ public class A16_ConfiguracionRentaDialogo {
         mostrarCatalogo(context);
 
         Button importar_XBt = new Button(context);
-        importar_XBt.setText("Importar plantilla CSV");
+        importar_XBt.setText("Importar CSV (plantilla o fotos)");
         importar_XBt.setOnClickListener(v -> elegirPlantilla(context, alCambiar));
         raiz.addView(importar_XBt);
 
@@ -180,14 +180,17 @@ public class A16_ConfiguracionRentaDialogo {
             if (archivos == null) continue;
             for (File f : archivos) {
                 String primera = primeraLinea(f);
-                if (primera != null && primera.trim().toLowerCase().startsWith("pais,")) plantillas.add(f);
+                // Plantilla de renglones ("pais,...") o respaldo de fotos anuales ("anio_fiscal,...").
+                if (primera != null && (primera.trim().toLowerCase().startsWith("pais,")
+                        || primera.trim().toLowerCase().startsWith("anio_fiscal,"))) plantillas.add(f);
             }
         }
         if (plantillas.isEmpty()) {
             new AlertDialog.Builder(context)
                     .setTitle("Importar plantilla")
-                    .setMessage("No hay plantillas en la carpeta Balance.\n\nUna plantilla es un CSV cuya " +
-                            "primera fila es:\n" + String.join(",", A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA))
+                    .setMessage("No hay plantillas ni fotos en la carpeta Balance.\n\nUna plantilla es un CSV cuya " +
+                            "primera fila es:\n" + String.join(",", A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA) +
+                            "\n\nEl respaldo de fotos anuales es el archivo 423_FotoRentaAnual.")
                     .setPositiveButton("OK", null)
                     .show();
             return;
@@ -202,6 +205,17 @@ public class A16_ConfiguracionRentaDialogo {
     }
 
     private void confirmarImportacion(Context context, File archivo, Runnable alCambiar) {
+        String primera = primeraLinea(archivo);
+        if (primera != null && primera.trim().toLowerCase().startsWith("anio_fiscal,")) {
+            new AlertDialog.Builder(context)
+                    .setTitle("Restaurar " + archivo.getName())
+                    .setMessage("Se restaurarán las fotos anuales de renta del archivo. Las fotos del mismo " +
+                            "año y cuenta que ya existan se reemplazan. ¿Continuar?")
+                    .setPositiveButton("Restaurar", (d, w) -> restaurarFotos(context, archivo))
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+            return;
+        }
         new AlertDialog.Builder(context)
                 .setTitle("Importar " + archivo.getName())
                 .setMessage("Se agregarán los renglones de la plantilla. Si trae un año \"vigente desde\" " +
@@ -239,6 +253,27 @@ public class A16_ConfiguracionRentaDialogo {
         }
         mostrarCatalogo(context);
         if (alCambiar != null) alCambiar.run();
+    }
+
+    private void restaurarFotos(Context context, File archivo) {
+        SQLiteDatabase db = abrir(context);
+        try {
+            String texto = leerTexto(archivo);
+            db.beginTransaction();
+            int filas;
+            try {
+                filas = A1_1_AyudanteBD.importarFotosRenta(db, texto);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            Toast.makeText(context, "Fotos restauradas: " + filas + " filas", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudieron restaurar las fotos: " + e.getMessage(), e);
+            Toast.makeText(context, "Error al restaurar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        } finally {
+            db.close();
+        }
     }
 
     // ── Vistas y utilidades ─────────────────────────────────────────────

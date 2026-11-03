@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 24; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1
+    public static final int version1BalanceSqlite_int_PSF = 25; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3)
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -1299,6 +1299,241 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         }
     }
 
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (3-nov, BD v25) — FOTO ANUAL DE RENTA, FASE R3
+    //  Saldos por cuenta y renglón congelados en el cierre total 421 (cierre del período contable
+    //  y fiscal, decisión de Jorge). La foto nunca se modifica después (las correcciones de años
+    //  cerrados van aparte, fase R6) y no depende de que la cuenta siga existiendo: guarda su
+    //  nombre y no tiene llave foránea. renglon_efectivo_id = renglon_asignado_id hasta que la
+    //  depuración de saldos contrarios (fase R5) lo cambie; "decision" la registra.
+    // ─────────────────────────────────────────────
+    public static final String TABLE_FOTO_RENTA_ANUAL = "foto_renta_anual";
+
+    public static final String[] COLUMNAS_FOTO_RENTA = {
+            "anio_fiscal", "cuenta_id", "cuenta_nombre", "tipo_cuenta_id", "naturaleza_tipo",
+            "renglon_asignado_id", "renglon_efectivo_id", "saldo", "movimientos", "decision", "fecha_foto"};
+
+    private static final String SQL_CREAR_FOTO_RENTA_ANUAL =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_FOTO_RENTA_ANUAL + " (" +
+                    "anio_fiscal INTEGER NOT NULL, " +
+                    "cuenta_id INTEGER NOT NULL, " +
+                    "cuenta_nombre TEXT, " +
+                    "tipo_cuenta_id INTEGER, " +
+                    "naturaleza_tipo TEXT, " +          // DEUDORA / ACREEDORA del tipo, al momento de la foto
+                    "renglon_asignado_id INTEGER, " +
+                    "renglon_efectivo_id INTEGER, " +
+                    "saldo INTEGER NOT NULL, " +        // al fin del año fiscal
+                    "movimientos INTEGER NOT NULL, " +  // transacciones del año, sin saldos iniciales
+                    "decision TEXT, " +                 // depuración (R5); NULL = sin depurar
+                    "fecha_foto TEXT, " +
+                    "PRIMARY KEY (anio_fiscal, cuenta_id))";
+
+    /** {inicio, fin} del año fiscal "anio" como enteros AAAAMMDD (fin = inicio + 1 año − 1 día). */
+    public static int[] limitesAnioFiscal(SQLiteDatabase db, int anio) {
+        int mes = 1, dia = 1;
+        Cursor c = db.rawQuery("SELECT inicio_anio_fiscal_mes, inicio_anio_fiscal_dia FROM " +
+                TABLE_CONFIGURACION_APP + " WHERE config_id = 1", null);
+        if (c.moveToFirst()) {
+            mes = c.getInt(0);
+            dia = c.getInt(1);
+        }
+        c.close();
+        java.util.Calendar fin = java.util.Calendar.getInstance();
+        fin.clear();
+        fin.set(anio + 1, mes - 1, dia);
+        fin.add(java.util.Calendar.DAY_OF_MONTH, -1);
+        int inicio = anio * 10000 + mes * 100 + dia;
+        int finInt = fin.get(java.util.Calendar.YEAR) * 10000 +
+                (fin.get(java.util.Calendar.MONTH) + 1) * 100 + fin.get(java.util.Calendar.DAY_OF_MONTH);
+        return new int[]{inicio, finInt};
+    }
+
+    /**
+     * Año fiscal que se propone para la foto: el que acaba de terminar si hoy cae en los primeros
+     * 90 días del año fiscal en curso (el cierre anual se hace al empezar el año); si no, el año
+     * en curso. El usuario lo confirma o lo cambia.
+     */
+    public static int anioFiscalPropuestoParaFoto(SQLiteDatabase db) {
+        int actual = anioFiscalActual(db);
+        int inicio = limitesAnioFiscal(db, actual)[0];
+        java.util.Calendar limite = java.util.Calendar.getInstance();
+        limite.clear();
+        limite.set(inicio / 10000, (inicio / 100) % 100 - 1, inicio % 100);
+        limite.add(java.util.Calendar.DAY_OF_MONTH, 90);
+        return java.util.Calendar.getInstance().before(limite) ? actual - 1 : actual;
+    }
+
+    public static boolean existeFotoRenta(SQLiteDatabase db, int anio) {
+        return android.database.DatabaseUtils.queryNumEntries(db, TABLE_FOTO_RENTA_ANUAL,
+                "anio_fiscal = ?", new String[]{String.valueOf(anio)}) > 0;
+    }
+
+    /**
+     * Toma (o reemplaza) la foto del año fiscal "anio": por cada cuenta con saldo o movimiento,
+     * su saldo al fin del año fiscal (transacciones con c8_FechaInicial hasta ese día, incluidos
+     * los saldos iniciales) y cuántas transacciones tuvo en el año (sin contar saldos iniciales,
+     * documento 0). Antes asigna renglón por defecto a las cuentas que no tengan uno vigente.
+     * @return cuántas cuentas quedaron en la foto.
+     */
+    public static int tomarFotoRentaAnual(SQLiteDatabase db, int anio) {
+        asignarRenglonYSoportePendientes(db);
+        int[] lim = limitesAnioFiscal(db, anio);
+        String inicio = String.valueOf(lim[0]), fin = String.valueOf(lim[1]);
+        String ahora = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT)
+                .format(new java.util.Date());
+        int filas = 0;
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_FOTO_RENTA_ANUAL, "anio_fiscal = ?", new String[]{String.valueOf(anio)});
+            Cursor c = db.rawQuery(
+                    "SELECT cu.cuenta_id, cu.Cuenta, cu.tipo_cuenta_id, tc.naturaleza_normal, cu.renglon_renta_id, " +
+                            "COALESCE(SUM(CASE WHEN COALESCE(t.c8_FechaInicial, 0) <= ? THEN t.c5_Valor END), 0), " +
+                            "COALESCE(SUM(CASE WHEN t.c8_FechaInicial BETWEEN ? AND ? " +
+                            "AND CAST(t.c1_Documento AS INTEGER) <> 0 THEN 1 END), 0) " +
+                            "FROM cuentas cu " +
+                            "LEFT JOIN " + TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id " +
+                            "LEFT JOIN transacciones t ON t.cuenta_id = cu.cuenta_id " +
+                            "GROUP BY cu.cuenta_id",
+                    new String[]{fin, inicio, fin});
+            try {
+                while (c.moveToNext()) {
+                    long saldo = c.getLong(5);
+                    long movimientos = c.getLong(6);
+                    if (saldo == 0 && movimientos == 0) continue;
+                    ContentValues cv = new ContentValues();
+                    cv.put("anio_fiscal", anio);
+                    cv.put("cuenta_id", c.getLong(0));
+                    cv.put("cuenta_nombre", c.getString(1));
+                    if (c.isNull(2)) cv.putNull("tipo_cuenta_id"); else cv.put("tipo_cuenta_id", c.getLong(2));
+                    cv.put("naturaleza_tipo", c.getString(3));
+                    if (c.isNull(4)) {
+                        cv.putNull("renglon_asignado_id");
+                        cv.putNull("renglon_efectivo_id");
+                    } else {
+                        cv.put("renglon_asignado_id", c.getLong(4));
+                        cv.put("renglon_efectivo_id", c.getLong(4));
+                    }
+                    cv.put("saldo", saldo);
+                    cv.put("movimientos", movimientos);
+                    cv.put("fecha_foto", ahora);
+                    db.insert(TABLE_FOTO_RENTA_ANUAL, null, cv);
+                    filas++;
+                }
+            } finally {
+                c.close();
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        android.util.Log.w("A1_1_AyudanteBD", "Foto de renta " + anio + " tomada: " + filas + " cuentas");
+        return filas;
+    }
+
+    /**
+     * Resumen de una foto por renglón efectivo, en el orden del catálogo, incluidos los renglones
+     * calculados (fórmula simple de sumas y restas de códigos, ej. "29-30"):
+     * {código, nombre, total, número de cuentas}.
+     * Signo: la app guarda los saldos acreedores (pasivos, ingresos) en negativo; un renglón de
+     * naturaleza Pasivo o Ingreso se presenta con el signo invertido, como se declara (Deudas en
+     * positivo), para que "29-30" reste. Un saldo contrario dentro del renglón resta, como debe.
+     */
+    public static java.util.List<Object[]> resumenFotoRentaPorRenglon(SQLiteDatabase db, int anio) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        java.util.Map<String, Long> totalPorCodigo = new java.util.HashMap<>();
+        Cursor c = db.rawQuery("SELECT r.codigo, r.nombre, r.naturaleza, r.formula, " +
+                "SUM(f.saldo), COUNT(f.cuenta_id) FROM " + TABLE_RENGLON_RENTA + " r " +
+                "LEFT JOIN " + TABLE_FOTO_RENTA_ANUAL + " f ON f.renglon_efectivo_id = r.renglon_id AND f.anio_fiscal = ? " +
+                "WHERE r.pais = ? AND (r.vigente_desde IS NULL OR r.vigente_desde <= ?) " +
+                "AND (r.vigente_hasta IS NULL OR r.vigente_hasta >= ?) " +
+                "GROUP BY r.renglon_id ORDER BY r.orden, r.codigo",
+                new String[]{String.valueOf(anio), paisConfigurado(db), String.valueOf(anio), String.valueOf(anio)});
+        java.util.List<Object[]> calculados = new java.util.ArrayList<>();
+        try {
+            while (c.moveToNext()) {
+                String codigo = c.getString(0);
+                long total = c.isNull(4) ? 0 : c.getLong(4);
+                if (esNaturalezaDePresentacionNegativa(c.getString(2))) total = -total;
+                Object[] fila = {codigo, c.getString(1), total, c.getInt(5)};
+                if ("Calculado".equals(c.getString(2))) {
+                    calculados.add(new Object[]{fila, c.getString(3)});
+                } else {
+                    totalPorCodigo.put(codigo, total);
+                }
+                lista.add(fila);
+            }
+        } finally {
+            c.close();
+        }
+        for (Object[] calc : calculados) {
+            Object[] fila = (Object[]) calc[0];
+            fila[2] = evaluarFormulaRenta((String) calc[1], totalPorCodigo);
+        }
+        return lista;
+    }
+
+    /** Renglones cuyo saldo se presenta con el signo invertido (saldos acreedores). */
+    public static boolean esNaturalezaDePresentacionNegativa(String naturaleza) {
+        return "Pasivo".equals(naturaleza) || "Ingreso".equals(naturaleza);
+    }
+
+    /** Suma y resta de códigos de renglón: "29-30", "1+2-5". Un código desconocido vale 0. */
+    static long evaluarFormulaRenta(String formula, java.util.Map<String, Long> totales) {
+        if (formula == null) return 0;
+        long resultado = 0;
+        int signo = 1;
+        StringBuilder codigo = new StringBuilder();
+        String f = formula.replace(" ", "") + "+";
+        for (int i = 0; i < f.length(); i++) {
+            char ch = f.charAt(i);
+            if ((ch == '+' || ch == '-') && codigo.length() > 0) {
+                Long v = totales.get(codigo.toString());
+                resultado += signo * (v == null ? 0 : v);
+                codigo.setLength(0);
+                signo = ch == '+' ? 1 : -1;
+            } else if (ch == '+' || ch == '-') {
+                signo = ch == '+' ? 1 : -1;
+            } else {
+                codigo.append(ch);
+            }
+        }
+        return resultado;
+    }
+
+    /**
+     * Restaura fotos desde el CSV de respaldo (encabezado = COLUMNAS_FOTO_RENTA, por nombre).
+     * Reemplaza las filas del mismo año y cuenta. @return filas restauradas.
+     */
+    public static int importarFotosRenta(SQLiteDatabase db, String textoCsv) {
+        String[] lineas = textoCsv.replace("\r", "").split("\n");
+        if (lineas.length < 2) return 0;
+        String[] encabezado = lineas[0].split(",", -1);
+        java.util.Map<String, Integer> col = new java.util.HashMap<>();
+        for (int i = 0; i < encabezado.length; i++) {
+            col.put(encabezado[i].trim().toLowerCase(java.util.Locale.ROOT), i);
+        }
+        int filas = 0;
+        for (int n = 1; n < lineas.length; n++) {
+            if (lineas[n].trim().isEmpty()) continue;
+            String[] d = lineas[n].split(",", -1);
+            Integer anio = enteroPlantilla(campoPlantilla(d, col, "anio_fiscal"));
+            Integer cuenta = enteroPlantilla(campoPlantilla(d, col, "cuenta_id"));
+            if (anio == null || cuenta == null) continue;
+            ContentValues cv = new ContentValues();
+            for (String nombre : COLUMNAS_FOTO_RENTA) {
+                String v = campoPlantilla(d, col, nombre);
+                if (v == null) cv.putNull(nombre); else cv.put(nombre, v);
+            }
+            if (cv.get("saldo") == null) cv.put("saldo", 0);
+            if (cv.get("movimientos") == null) cv.put("movimientos", 0);
+            if (db.insertWithOnConflict(TABLE_FOTO_RENTA_ANUAL, null, cv,
+                    SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
+                filas++;
+            }
+        }
+        return filas;
+    }
+
     /** Busca un renglón vigente por su código (al restaurar cuentas desde CSV). */
     public static Long buscarRenglonRentaVigentePorCodigo(SQLiteDatabase db, String codigo) {
         if (codigo == null || codigo.trim().isEmpty()) return null;
@@ -1570,6 +1805,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // ⭐ NUEVO (3-nov, BD v24, renta R1): configuración y catálogo de renglones (Colombia).
         crearTablasRenta(db);
         importarPlantillaRenta(db, PLANTILLA_RENTA_COLOMBIA);
+        db.execSQL(SQL_CREAR_FOTO_RENTA_ANUAL); // ⭐ NUEVO (3-nov, BD v25, renta R3)
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -2460,6 +2696,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             }
             int asignadas = asignarRenglonYSoportePendientes(db);
             android.util.Log.w("A1_1_AyudanteBD", "Migración v24: renta R1; cuentas con renglón=" + asignadas);
+        }
+
+        // ⭐ NUEVO (3-nov): versión 25 de la BD — renta fase R3: tabla foto_renta_anual (vacía).
+        if (oldVersion < 25) {
+            db.execSQL(SQL_CREAR_FOTO_RENTA_ANUAL);
         }
     }
 

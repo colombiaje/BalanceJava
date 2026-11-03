@@ -97,6 +97,41 @@ public class A5_1_BackupManager {
         }
     }
 
+    /**
+     * ⭐ NUEVO (3-nov, BD v25, renta R3): exporta TODAS las fotos anuales de renta (encabezado =
+     * A1_1_AyudanteBD.COLUMNAS_FOTO_RENTA). Se restauran con "Importar CSV" de la opción
+     * "4. Configuración renta fiscal" de F2.
+     */
+    public static boolean backupFotoRentaCSV(Context context, String nombreArchivo) {
+        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) return false;
+        File archivo = new File(Environment.getExternalStorageDirectory().getPath() + "/Balance/" + nombreArchivo);
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try (OutputStreamWriter salida = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
+            salida.write(String.join(",", A1_1_AyudanteBD.COLUMNAS_FOTO_RENTA) + "\n");
+            Cursor c = db.rawQuery("SELECT " + String.join(", ", A1_1_AyudanteBD.COLUMNAS_FOTO_RENTA) +
+                    " FROM " + A1_1_AyudanteBD.TABLE_FOTO_RENTA_ANUAL + " ORDER BY anio_fiscal, cuenta_id", null);
+            try {
+                while (c.moveToNext()) {
+                    StringBuilder linea = new StringBuilder();
+                    for (int i = 0; i < c.getColumnCount(); i++) {
+                        if (i > 0) linea.append(",");
+                        linea.append(c.isNull(i) ? "" : textoCsv(c.getString(i)));
+                    }
+                    salida.write(linea.append("\n").toString());
+                }
+            } finally {
+                c.close();
+            }
+            return true;
+        } catch (Exception ex) {
+            Log.e("BackupManager", "Error al guardar las fotos de renta: " + ex.getMessage());
+            return false;
+        } finally {
+            db.close();
+        }
+    }
+
     public boolean backupCuentasArchivoCSV(String nombreArchivo, A22_QueryManager a22QueryManager) {
 
         if (a22QueryManager == null) {
