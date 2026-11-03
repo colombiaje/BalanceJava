@@ -1211,6 +1211,94 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         }
     }
 
+    // ⭐ NUEVO (3-nov, renta R2): tipos de soporte que ofrece el selector de F2 (además de los que
+    // ya estén guardados en tipos de cuenta o cuentas).
+    public static final String[] TIPOS_SOPORTE_BASE = {
+            "Certificado bancario", "Certificado de la entidad", "Certificado de saldo de la entidad",
+            "Certificado de deuda de la entidad", "Documento de la deuda", "Ninguno"};
+
+    /** Opciones del selector de soporte: las base + las ya usadas, sin repetir, en orden. */
+    public static java.util.List<String> opcionesTipoSoporte(SQLiteDatabase db) {
+        java.util.LinkedHashSet<String> opciones = new java.util.LinkedHashSet<>(
+                java.util.Arrays.asList(TIPOS_SOPORTE_BASE));
+        Cursor c = db.rawQuery("SELECT soporte_sugerido FROM " + TABLE_TIPO_CUENTA +
+                " WHERE soporte_sugerido IS NOT NULL UNION SELECT tipo_soporte FROM cuentas " +
+                "WHERE tipo_soporte IS NOT NULL", null);
+        try {
+            while (c.moveToNext()) {
+                String v = c.getString(0);
+                if (v != null && !v.trim().isEmpty()) opciones.add(v.trim());
+            }
+        } finally {
+            c.close();
+        }
+        return new java.util.ArrayList<>(opciones);
+    }
+
+    /**
+     * Renglones que se pueden asignar a una cuenta (vigentes en el país y año fiscal actuales,
+     * sin los calculados), en el orden del catálogo: {renglon_id, "código · nombre"}.
+     */
+    public static java.util.List<Object[]> renglonesAsignables(SQLiteDatabase db) {
+        String a = String.valueOf(anioFiscalActual(db));
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT renglon_id, codigo, nombre FROM " + TABLE_RENGLON_RENTA +
+                        " WHERE pais = ? AND naturaleza <> 'Calculado' " +
+                        "AND (vigente_desde IS NULL OR vigente_desde <= ?) " +
+                        "AND (vigente_hasta IS NULL OR vigente_hasta >= ?) ORDER BY orden, codigo",
+                new String[]{paisConfigurado(db), a, a});
+        try {
+            while (c.moveToNext()) {
+                lista.add(new Object[]{c.getLong(0), c.getString(1) + " · " + c.getString(2)});
+            }
+        } finally {
+            c.close();
+        }
+        return lista;
+    }
+
+    /** Renglón por defecto que le corresponde a un tipo de cuenta (por la clase del tipo). */
+    public static Long renglonPorDefectoParaTipo(SQLiteDatabase db, Long tipoCuentaId) {
+        if (tipoCuentaId == null) return null;
+        String naturaleza = null;
+        Cursor c = db.rawQuery("SELECT " + SQL_NATURALEZA_RENTA_DE_CLASE + " FROM " +
+                TABLE_TIPO_CUENTA + " tc " +
+                "JOIN " + TABLE_CLASIFICACION_CONTABLE + " cc ON cc.clasificacion_id = tc.clasificacion_id " +
+                "JOIN " + TABLE_CLASE_CONTABLE + " cl ON cl.clase_id = cc.clase_id " +
+                "WHERE tc.tipo_cuenta_id = ?", new String[]{String.valueOf(tipoCuentaId)});
+        if (c.moveToFirst()) naturaleza = c.getString(0);
+        c.close();
+        if (naturaleza == null) return null;
+        String pais = paisConfigurado(db);
+        String a = String.valueOf(anioFiscalActual(db));
+        Long renglon = renglonPorDefecto(db, pais, naturaleza, a);
+        return renglon != null ? renglon : renglonPorDefecto(db, pais, "No se declara", a);
+    }
+
+    /** Soporte sugerido de un tipo de cuenta, o null. */
+    public static String soporteSugeridoDeTipo(SQLiteDatabase db, Long tipoCuentaId) {
+        if (tipoCuentaId == null) return null;
+        Cursor c = db.rawQuery("SELECT soporte_sugerido FROM " + TABLE_TIPO_CUENTA +
+                " WHERE tipo_cuenta_id = ?", new String[]{String.valueOf(tipoCuentaId)});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
+    /** Texto "código · nombre" del renglón de una cuenta, para el panel de atributos. */
+    public static String renglonRentaDeCuenta(SQLiteDatabase db, String nombreCuenta) {
+        Cursor c = db.rawQuery("SELECT r.codigo || ' · ' || r.nombre FROM cuentas cu JOIN " +
+                TABLE_RENGLON_RENTA + " r ON r.renglon_id = cu.renglon_renta_id WHERE cu.Cuenta = ?",
+                new String[]{nombreCuenta});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
     /** Busca un renglón vigente por su código (al restaurar cuentas desde CSV). */
     public static Long buscarRenglonRentaVigentePorCodigo(SQLiteDatabase db, String codigo) {
         if (codigo == null || codigo.trim().isEmpty()) return null;

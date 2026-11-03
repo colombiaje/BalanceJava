@@ -169,7 +169,7 @@
         app:layout_column="0"
         app:layout_gravity="left"
         app:layout_row="2"
-        app:rowCount="16"
+        app:rowCount="19"
         app:useDefaultMargins="true">
 
         <TextView
@@ -559,6 +559,74 @@
             app:layout_column="2"
             app:layout_row="13" />
 
+        <!-- ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): renglón de renta, entidad y soporte de la
+             cuenta. Al elegir el Tipo se proponen el renglón y el soporte; el usuario los cambia.
+             Los botones de abajo se corrieron 3 filas (14 → 17). -->
+        <TextView
+            android:layout_width="70dp"
+            android:layout_height="25dp"
+            android:background="@android:color/holo_purple"
+            android:text="Renglón"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="@android:color/white"
+            android:textSize="18dp"
+            app:layout_column="1"
+            app:layout_gravity="center"
+            app:layout_row="14" />
+
+        <Spinner
+            android:id="@+id/renglonRentaCuenta_XSp"
+            android:layout_width="260dp"
+            android:layout_height="40dp"
+            android:background="#F4D7F5"
+            app:layout_column="2"
+            app:layout_row="14" />
+
+        <TextView
+            android:layout_width="70dp"
+            android:layout_height="25dp"
+            android:background="@android:color/holo_purple"
+            android:text="Entidad"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="@android:color/white"
+            android:textSize="18dp"
+            app:layout_column="1"
+            app:layout_gravity="center"
+            app:layout_row="15" />
+
+        <EditText
+            android:id="@+id/entidadCuenta_XEt"
+            android:layout_width="260dp"
+            android:layout_height="40dp"
+            android:background="#F4D7F5"
+            android:hint="Banco, fiduciaria, persona..."
+            android:inputType="textCapSentences"
+            android:paddingStart="12dp"
+            android:textColor="@android:color/black"
+            android:textSize="16dp"
+            app:layout_column="2"
+            app:layout_row="15" />
+
+        <TextView
+            android:layout_width="70dp"
+            android:layout_height="25dp"
+            android:background="@android:color/holo_purple"
+            android:text="Soporte"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="@android:color/white"
+            android:textSize="18dp"
+            app:layout_column="1"
+            app:layout_gravity="center"
+            app:layout_row="16" />
+
+        <Spinner
+            android:id="@+id/soporteCuenta_XSp"
+            android:layout_width="260dp"
+            android:layout_height="40dp"
+            android:background="#F4D7F5"
+            app:layout_column="2"
+            app:layout_row="16" />
+
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -567,7 +635,7 @@
             app:layout_column="0"
             app:layout_columnSpan="4"
             app:layout_gravity="center_horizontal"
-            app:layout_row="14">
+            app:layout_row="17">
 
             <Button
                 android:id="@+id/cleanFieldsAccount_XBt"
@@ -660,7 +728,7 @@
             android:layout_height="wrap_content"
             android:visibility="gone"
             app:layout_column="0"
-            app:layout_row="15">
+            app:layout_row="18">
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/alertaAlEscribirEnModificar_XTiL"
@@ -669,7 +737,7 @@
                 android:hint="hint"
                 android:visibility="gone"
                 app:layout_column="0"
-                app:layout_row="15"
+                app:layout_row="18"
 
                 tools:layout_editor_absoluteX="1dp" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -926,6 +994,19 @@
                 android:textStyle="bold"
                 android:textColor="@android:color/white"
                 android:text="3. Restaurar backup"
+                 />
+
+            <!-- ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): país, moneda, año fiscal y catálogo
+                 de renglones de renta (importar plantilla). -->
+            <RadioButton
+                android:id="@+id/_4_opcionConfiguracionRentaFiscal_XRb"
+                android:layout_width="300dp"
+                android:layout_height="33dp"
+                android:background="#58A5E3"
+                android:textSize="15dp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:text="4. Configuración renta fiscal"
                  />
 
                 </RadioGroup>

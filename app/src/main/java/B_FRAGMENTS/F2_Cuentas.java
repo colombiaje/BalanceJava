@@ -150,6 +150,17 @@ public class F2_Cuentas extends DialogFragment {
     CheckBox conInventarioCuentaNueva_XChB;
     TextView conInventarioCuentaNueva_XTv;
     TextView liquidezCuentaNueva_XTv; // ⭐ NUEVO (31-oct): liquidez heredada del Tipo, solo lectura
+    // ⭐ NUEVO (3-nov, renta R2): renglón de renta, entidad y soporte de la cuenta.
+    Spinner renglonRentaCuenta_XSp;
+    EditText entidadCuenta_XEt;
+    Spinner soporteCuenta_XSp;
+    // Posición 0 = vacío (sin asignar). renglonIdsRenta_List.get(i) es el renglon_id de la posición i.
+    private final List<Long> renglonIdsRenta_List = new ArrayList<>();
+    private final List<String> opcionesSoporte_List = new ArrayList<>();
+    // Tipo de cuenta para el que ya se propusieron renglón y soporte: evita que, al cargar una
+    // cuenta en el formulario, la propuesta del Tipo pise lo que la cuenta ya tiene guardado.
+    private Long tipoIdDeLaPropuestaRenta = null;
+    RadioButton _4_opcionConfiguracionRentaFiscal_XRb;
     // ⭐ NUEVO — v12 tanda 3 (ajuste a pedido de Jorge, 28-sep): valor real de con_inventario
     // de la cuenta que se está modificando, cargado por interrelationsAccountsGroups() al
     // abrirla — permite detectar en ejecutarActualizacionCuenta() si esta edición ACTIVÓ el
@@ -525,6 +536,11 @@ public class F2_Cuentas extends DialogFragment {
         conInventarioCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XChB);
         conInventarioCuentaNueva_XTv=(TextView) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XTv);
         liquidezCuentaNueva_XTv=(TextView) inflarViews_View.findViewById(R.id.liquidezCuentaNueva_XTv);
+        // ⭐ NUEVO (3-nov, renta R2).
+        renglonRentaCuenta_XSp=(Spinner) inflarViews_View.findViewById(R.id.renglonRentaCuenta_XSp);
+        entidadCuenta_XEt=(EditText) inflarViews_View.findViewById(R.id.entidadCuenta_XEt);
+        soporteCuenta_XSp=(Spinner) inflarViews_View.findViewById(R.id.soporteCuenta_XSp);
+        cargarListasRenta();
         // ⭐ NUEVO — Tanda 5 (1-oct).
         verHistorialInventario_XBt=(Button) inflarViews_View.findViewById(R.id.verHistorialInventario_XBt);
         verHistorialInventario_XBt.setOnClickListener(v -> {
@@ -604,6 +620,7 @@ public class F2_Cuentas extends DialogFragment {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 mostrarLiquidezDelTipo(obtenerTipoCuentaIdSeleccionado(position));
+                proponerRentaParaTipo(obtenerTipoCuentaIdSeleccionado(position)); // ⭐ renta R2
             }
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
@@ -812,6 +829,13 @@ public class F2_Cuentas extends DialogFragment {
 
                 }, 6000); // 5 segundos
             }
+        });
+
+        // ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): "4. Configuración renta fiscal".
+        _4_opcionConfiguracionRentaFiscal_XRb = (RadioButton) inflarViews_View.findViewById(R.id._4_opcionConfiguracionRentaFiscal_XRb);
+        _4_opcionConfiguracionRentaFiscal_XRb.setOnClickListener(v -> {
+            _4_opcionConfiguracionRentaFiscal_XRb.setChecked(false);
+            new A1BASES.A16_ConfiguracionRentaDialogo().mostrar(getActivity(), this::cargarListasRenta);
         });
 
         _31_opcionRestaurarCuentasBackup_XRb.setOnClickListener(new View.OnClickListener() {
@@ -1256,6 +1280,10 @@ public class F2_Cuentas extends DialogFragment {
                     grupo1CuentaNueva_String, grupo2CuentaNueva_String, fechaCuentaNueva_String,
                     cerrableCuentaNueva_String, tipoCuentaIdSeleccionado, conciliableCuentaNueva_String,
                     conInventarioCuentaNueva_boolean);
+            // ⭐ NUEVO (3-nov, renta R2): renglón, entidad y soporte elegidos en el formulario
+            // (insertarCuentas ya asignó los valores por defecto; aquí manda lo que se ve en
+            // pantalla). Antes de cleanClickFieldsAccount(), que limpia los campos.
+            guardarDatosRentaDeCuenta(cuentaNueva_String);
 
             cleanClickFieldsAccount();
             Toast.makeText(getActivity(), "! Registro de cuenta nueva guardado ! ", Toast.LENGTH_SHORT).show();
@@ -1489,6 +1517,103 @@ public class F2_Cuentas extends DialogFragment {
     // ⭐ NUEVO — tanda 2 v10: dada la posición seleccionada en el spinner de tipo_cuenta,
     // devuelve el tipo_cuenta_id real (null si es la opción en blanco, posición 0, o si la
     // posición no calza con el array por algún motivo — nunca debería pasar).
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): filas Renglón, Entidad y Soporte.
+    // ─────────────────────────────────────────────
+
+    /** Llena los selectores de renglón (vigentes, sin calculados) y de soporte. */
+    public void cargarListasRenta() {
+        if (renglonRentaCuenta_XSp == null || getActivity() == null) return;
+        List<String> etiquetasRenglon = new ArrayList<>();
+        renglonIdsRenta_List.clear();
+        opcionesSoporte_List.clear();
+        etiquetasRenglon.add("");
+        renglonIdsRenta_List.add(null);
+        opcionesSoporte_List.add("");
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            for (Object[] r : A1_1_AyudanteBD.renglonesAsignables(db)) {
+                renglonIdsRenta_List.add((Long) r[0]);
+                etiquetasRenglon.add((String) r[1]);
+            }
+            opcionesSoporte_List.addAll(A1_1_AyudanteBD.opcionesTipoSoporte(db));
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudieron cargar los renglones de renta: " + e.getMessage());
+        } finally {
+            db.close();
+        }
+        renglonRentaCuenta_XSp.setAdapter(new ArrayAdapter<>(getActivity(),
+                android.R.layout.simple_list_item_1, etiquetasRenglon));
+        soporteCuenta_XSp.setAdapter(new ArrayAdapter<>(getActivity(),
+                android.R.layout.simple_list_item_1, opcionesSoporte_List));
+    }
+
+    /** Pone en el formulario el renglón, la entidad y el soporte (null = vacío). */
+    private void mostrarDatosRentaEnFormulario(Long renglonId, String entidad, String soporte) {
+        if (renglonRentaCuenta_XSp == null) return;
+        int posRenglon = renglonId == null ? 0 : Math.max(0, renglonIdsRenta_List.indexOf(renglonId));
+        renglonRentaCuenta_XSp.setSelection(posRenglon);
+        entidadCuenta_XEt.setText(entidad != null ? entidad : "");
+        int posSoporte = soporte == null ? 0 : opcionesSoporte_List.indexOf(soporte);
+        if (soporte != null && posSoporte < 0) { // un soporte que no está en la lista: se agrega
+            opcionesSoporte_List.add(soporte);
+            ((ArrayAdapter<?>) soporteCuenta_XSp.getAdapter()).notifyDataSetChanged();
+            posSoporte = opcionesSoporte_List.size() - 1;
+        }
+        soporteCuenta_XSp.setSelection(Math.max(0, posSoporte));
+    }
+
+    /** Al elegir otro Tipo: propone su renglón por defecto y su soporte sugerido. */
+    private void proponerRentaParaTipo(Long tipoCuentaId) {
+        if (tipoCuentaId == null || tipoCuentaId.equals(tipoIdDeLaPropuestaRenta)) return;
+        tipoIdDeLaPropuestaRenta = tipoCuentaId;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            mostrarDatosRentaEnFormulario(
+                    A1_1_AyudanteBD.renglonPorDefectoParaTipo(db, tipoCuentaId),
+                    entidadCuenta_XEt.getText().toString().trim().isEmpty() ? null : entidadCuenta_XEt.getText().toString().trim(),
+                    A1_1_AyudanteBD.soporteSugeridoDeTipo(db, tipoCuentaId));
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo proponer el renglón de renta: " + e.getMessage());
+        } finally {
+            db.close();
+        }
+    }
+
+    /** Copia del formulario a los valores de "cuentas" (vacío = NULL). */
+    private void ponerDatosRentaDelFormulario(ContentValues valores) {
+        int posRenglon = renglonRentaCuenta_XSp.getSelectedItemPosition();
+        Long renglonId = posRenglon > 0 && posRenglon < renglonIdsRenta_List.size()
+                ? renglonIdsRenta_List.get(posRenglon) : null;
+        if (renglonId == null) valores.putNull("renglon_renta_id"); else valores.put("renglon_renta_id", renglonId);
+        String entidad = entidadCuenta_XEt.getText().toString().trim().replace(",", " ");
+        if (entidad.isEmpty()) valores.putNull("entidad"); else valores.put("entidad", entidad);
+        int posSoporte = soporteCuenta_XSp.getSelectedItemPosition();
+        String soporte = posSoporte > 0 && posSoporte < opcionesSoporte_List.size()
+                ? opcionesSoporte_List.get(posSoporte) : null;
+        if (soporte == null) valores.putNull("tipo_soporte"); else valores.put("tipo_soporte", soporte);
+    }
+
+    /** Cuenta recién creada: guarda renglón, entidad y soporte del formulario (por nombre). */
+    private void guardarDatosRentaDeCuenta(String nombreCuenta) {
+        ContentValues valores = new ContentValues();
+        ponerDatosRentaDelFormulario(valores);
+        // Un renglón vacío no borra el que insertarCuentas asignó por defecto.
+        if (valores.get("renglon_renta_id") == null) valores.remove("renglon_renta_id");
+        if (valores.get("tipo_soporte") == null) valores.remove("tipo_soporte");
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getWritableDatabase();
+        try {
+            db.update("cuentas", valores, "Cuenta = ?", new String[]{nombreCuenta});
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudieron guardar los datos de renta de la cuenta: " + e.getMessage());
+        } finally {
+            db.close();
+        }
+    }
+
     // ⭐ NUEVO (31-oct): muestra la liquidez del tipo de cuenta en la fila "Liquidez".
     private void mostrarLiquidezDelTipo(Long tipoCuentaId) {
         if (liquidezCuentaNueva_XTv == null) return;
@@ -1541,7 +1666,8 @@ public class F2_Cuentas extends DialogFragment {
             // SIEMPRE en su último estado en pantalla en vez del valor real guardado de la
             // cuenta al abrirla en "Modificar cuenta" (reportado por Jorge: "no pude probar").
             Cursor fila = db.rawQuery
-                    ("select Item, Cerrable, cuenta_id, tipo_cuenta_id, conciliable, con_inventario from" +
+                    ("select Item, Cerrable, cuenta_id, tipo_cuenta_id, conciliable, con_inventario, " +
+                            "renglon_renta_id, entidad, tipo_soporte from" + /* ⭐ renta R2: índices 6-8 */
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1568,7 +1694,11 @@ public class F2_Cuentas extends DialogFragment {
                         }
                     }
                 }
+                // ⭐ NUEVO (3-nov, renta R2): la propuesta del Tipo no debe pisar lo guardado.
+                tipoIdDeLaPropuestaRenta = fila.isNull(3) ? null : fila.getLong(3);
                 grupo1CuentaNueva_XSp.setSelection(indiceTipoCuenta);
+                mostrarDatosRentaEnFormulario(fila.isNull(6) ? null : fila.getLong(6),
+                        fila.getString(7), fila.getString(8));
 
                 // ⭐ NUEVO — Fase 4 (parte B).
                 // ⭐ CAMBIO (31-oct, BD v18): 0/1 real.
@@ -1753,6 +1883,8 @@ public class F2_Cuentas extends DialogFragment {
         conciliableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v11 tanda 3 (parte A)
         conInventarioCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v12 tanda 3
         if (liquidezCuentaNueva_XTv != null) liquidezCuentaNueva_XTv.setText(""); // ⭐ 31-oct
+        tipoIdDeLaPropuestaRenta = null; // ⭐ renta R2
+        mostrarDatosRentaEnFormulario(null, null, null);
 
         // ⭐ NUEVO — Fase 4 Objetivo 2: se limpian junto con el resto de los campos, para
         // que no quede un cuenta_id de una cuenta ya no visible listo para reutilizarse
@@ -1970,6 +2102,8 @@ public class F2_Cuentas extends DialogFragment {
             // una que no lo tenía, o desactivar en una que sí. ejecutarActualizacionCuenta()
             // usa este mismo valor para detectar si esta edición lo ACTIVÓ (pasó de 0 a 1).
             contenedor_ContentValues.put("con_inventario", conInventarioCuentaNueva_XChB.isChecked() ? 1 : 0);
+            // ⭐ NUEVO (3-nov, renta R2): renglón de renta, entidad y soporte.
+            ponerDatosRentaDelFormulario(contenedor_ContentValues);
 
             if (seEstaRenombrando) {
                 String nombreViejo = nombreOriginalEnModificar_String;
@@ -2112,6 +2246,33 @@ public class F2_Cuentas extends DialogFragment {
                 Log.e(TAG, "No se pudo consultar la liquidez de la cuenta: " + e.getMessage());
             } finally {
                 dbLiq.close();
+            }
+        }
+
+        // ⭐ NUEVO (3-nov, renta R2): renglón de renta, entidad y soporte, como 3 líneas más.
+        atributos_ArrayS = Arrays.copyOf(atributos_ArrayS, atributos_ArrayS.length + 3);
+        atributos_ArrayS[atributos_ArrayS.length - 3] = "renglón renta";
+        atributos_ArrayS[atributos_ArrayS.length - 2] = "entidad";
+        atributos_ArrayS[atributos_ArrayS.length - 1] = "soporte";
+        if (valoresAtributos.length == atributos_ArrayS.length - 3 && cuentaSeleccionadaAqui_ArrayS_Result.length > 1) {
+            valoresAtributos = Arrays.copyOf(valoresAtributos, valoresAtributos.length + 3);
+            A1_1_AyudanteBD ayudanteRenta = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
+                    version1BalanceSqlite_int_PSF);
+            SQLiteDatabase dbRenta = ayudanteRenta.getReadableDatabase();
+            try {
+                String nombre = cuentaSeleccionadaAqui_ArrayS_Result[1];
+                valoresAtributos[valoresAtributos.length - 3] = A1_1_AyudanteBD.renglonRentaDeCuenta(dbRenta, nombre);
+                Cursor cr = dbRenta.rawQuery("SELECT entidad, tipo_soporte FROM cuentas WHERE Cuenta = ?",
+                        new String[]{nombre});
+                if (cr.moveToFirst()) {
+                    valoresAtributos[valoresAtributos.length - 2] = cr.getString(0);
+                    valoresAtributos[valoresAtributos.length - 1] = cr.getString(1);
+                }
+                cr.close();
+            } catch (Exception e) {
+                Log.e(TAG, "No se pudo consultar los datos de renta de la cuenta: " + e.getMessage());
+            } finally {
+                dbRenta.close();
             }
         }
 
