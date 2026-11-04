@@ -160,26 +160,44 @@ public class A17_ReporteRentaDialogo {
 
     // ── 1. Detalle sin depurar ──────────────────────────────────────────
 
+    /** ⭐ (4-nov, Jorge) ¿Ya se depuró algo? Entonces la primera pantalla muestra la foto depurada. */
+    private boolean hayDepuracion() {
+        if (!conFoto) return !decisionesMemoria.isEmpty();
+        SQLiteDatabase db = abrir();
+        try {
+            for (Object[] f : A1_1_AyudanteBD.filasFotoRenta(db, anio)) {
+                if (f[6] != null) return true;
+            }
+            return false;
+        } finally {
+            db.close();
+        }
+    }
+
     private void pantallaDetalle() {
-        Datos sinDepurar = calcularActual(false);
+        boolean depurada = hayDepuracion();
+        Datos datos = calcularActual(depurada);
         LinearLayout raiz = contenedor();
-        raiz.addView(botonInfo("Detalle sin depurar",
+        raiz.addView(botonInfo(depurada ? "Detalle depurado" : "Detalle sin depurar",
                 (conFoto
-                        ? "Los saldos congelados en el cierre del año " + anio + ", cada cuenta en su renglón original. "
-                        : "El año " + anio + " todavía no tiene cierre: estos son los saldos con los datos de hoy, "
-                        + "cada cuenta en su renglón original. ")
-                        + "Un saldo contrario (ej.: un banco sobregirado) resta dentro de su renglón; se corrige en "
-                        + "\"Depurar saldos contrarios\"."));
-        raiz.addView(tablaDetalle(sinDepurar));
+                        ? "Los saldos congelados en el cierre del año " + anio + ". "
+                        : "El año " + anio + " todavía no tiene cierre: estos son los saldos con los datos de hoy. ")
+                        + (depurada
+                        ? "Ya se depuró: los saldos contrarios están en el renglón decidido. Para cambiarlo, "
+                        + "\"Revisar depuración\"."
+                        : "Cada cuenta está en su renglón original. Un saldo contrario (ej.: un banco "
+                        + "sobregirado) resta dentro de su renglón; se corrige en \"Depurar saldos contrarios\".")));
+        raiz.addView(tablaDetalle(datos));
         AlertDialog[] dialogo = new AlertDialog[1];
         raiz.addView(botones(
-                new String[]{"Depurar saldos contrarios", "Ver resumen", "Exportar y salir", "Cancelar"},
+                new String[]{depurada ? "Revisar depuración" : "Depurar saldos contrarios", "Ver resumen",
+                        "Exportar y salir", "Cancelar"},
                 new Runnable[]{
                         () -> { dialogo[0].dismiss(); pantallaDepuracion(); },
-                        () -> verResumen(sinDepurar),
-                        () -> { exportarDetalle(sinDepurar); dialogo[0].dismiss(); },
+                        () -> verResumen(datos),
+                        () -> { exportarDetalle(depurada); dialogo[0].dismiss(); },
                         () -> dialogo[0].dismiss()}));
-        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sin depurar", raiz);
+        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + (depurada ? " depurada" : " sin depurar"), raiz);
     }
 
     private void verResumen(Datos datos) {
@@ -192,7 +210,7 @@ public class A17_ReporteRentaDialogo {
             t.addView(fila);
         }
         new AlertDialog.Builder(context)
-                .setTitle("Renta fiscal " + nombreAnio() + " resumen")
+                .setCustomTitle(tituloCentrado("Renta fiscal " + nombreAnio() + " resumen"))
                 .setView(t)
                 .setPositiveButton("Cerrar", null)
                 .show();
@@ -333,7 +351,7 @@ public class A17_ReporteRentaDialogo {
                         + "porcentaje. Una cuenta depurada aparece en su renglón original (sale) y en el renglón "
                         + "decidido (entra). El patrimonio líquido no cambia: la depuración solo reubica."));
         raiz.addView(tablaComparativo(filas, "Sin depurar", "Depurada"));
-        accionesFinales(raiz, "Renta fiscal " + nombreAnio() + " comparativo actual");
+        accionesFinales(raiz, "Renta fiscal " + nombreAnio() + " comparativo actual", filas, "Sin depurar", "Depurada");
     }
 
     private void pantallaComparativoAnios() {
@@ -345,18 +363,33 @@ public class A17_ReporteRentaDialogo {
                         + "diferencia en valor y en porcentaje. Sirve como planeación tributaria."));
         if (anterior.vacio) raiz.addView(texto("No hay foto del cierre de " + (anio - 1) + " para comparar.", false));
         raiz.addView(tablaComparativo(filas, String.valueOf(anio - 1), String.valueOf(anio)));
-        accionesFinales(raiz, "Renta fiscal comparativo " + (anio - 1) + " – " + anio);
+        accionesFinales(raiz, "Renta fiscal comparativo " + (anio - 1) + " – " + anio, filas,
+                String.valueOf(anio - 1), String.valueOf(anio));
     }
 
-    private void accionesFinales(LinearLayout raiz, String titulo) {
+    private void accionesFinales(LinearLayout raiz, String titulo, List<FilaComp> filas, String tituloA, String tituloB) {
         AlertDialog[] dialogo = new AlertDialog[1];
         raiz.addView(botones(
-                new String[]{"Exportar y salir", "Volver a depurar", "Salir sin exportar"},
+                new String[]{"Exportar y salir", "Ver resumen", "Volver a depurar", "Volver al inicio", "Salir sin exportar"},
                 new Runnable[]{
                         () -> { exportarFinal(); dialogo[0].dismiss(); },
+                        () -> verResumenComparativo(titulo, filas, tituloA, tituloB),
                         () -> { dialogo[0].dismiss(); pantallaDepuracion(); },
+                        () -> { dialogo[0].dismiss(); pantallaDetalle(); },
                         () -> dialogo[0].dismiss()}));
         dialogo[0] = dialogo(titulo, raiz);
+    }
+
+    /** ⭐ (4-nov, Jorge) Resumen de un comparativo: solo los renglones, con las dos fotos y la diferencia. */
+    private void verResumenComparativo(String titulo, List<FilaComp> filas, String tituloA, String tituloB) {
+        List<FilaComp> renglones = new ArrayList<>();
+        for (FilaComp f : filas) if (f.esRenglon) renglones.add(f);
+        View tabla = tablaComparativo(renglones, tituloA, tituloB);
+        new AlertDialog.Builder(context)
+                .setCustomTitle(tituloCentrado(titulo + " · resumen"))
+                .setView(tabla)
+                .setPositiveButton("Cerrar", null)
+                .show();
     }
 
     // ── Cálculo ─────────────────────────────────────────────────────────
@@ -578,7 +611,7 @@ public class A17_ReporteRentaDialogo {
         i.setText("i");
         i.setAllCaps(false);
         i.setOnClickListener(v -> new AlertDialog.Builder(context)
-                .setTitle(titulo)
+                .setCustomTitle(tituloCentrado(titulo))
                 .setMessage(explicacion)
                 .setPositiveButton("Entendido", null)
                 .show());
@@ -609,16 +642,40 @@ public class A17_ReporteRentaDialogo {
         return col;
     }
 
+    /**
+     * ⭐ (4-nov, Jorge) Título centrado y, fija arriba (fuera del desplazamiento), una barra que
+     * avisa que las opciones para continuar están al final y lleva hasta ellas con un toque.
+     */
     private AlertDialog dialogo(String titulo, View contenido) {
         ScrollView scroll = new ScrollView(context);
         scroll.addView(contenido);
+        Button irAOpciones = new Button(context);
+        irAOpciones.setText("▼  Las opciones para continuar están al final  ▼");
+        irAOpciones.setAllCaps(false);
+        irAOpciones.setOnClickListener(v -> scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN)));
+        LinearLayout marco = new LinearLayout(context);
+        marco.setOrientation(LinearLayout.VERTICAL);
+        marco.addView(irAOpciones, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        marco.addView(scroll);
         AlertDialog d = new AlertDialog.Builder(context)
-                .setTitle(titulo)
-                .setView(scroll)
+                .setCustomTitle(tituloCentrado(titulo))
+                .setView(marco)
                 .setCancelable(true)
                 .create();
         d.show();
         return d;
+    }
+
+    private TextView tituloCentrado(String titulo) {
+        TextView t = new TextView(context);
+        t.setText(titulo);
+        t.setGravity(Gravity.CENTER);
+        t.setTextSize(19);
+        t.setTypeface(null, Typeface.BOLD);
+        t.setTextColor(Color.BLACK);
+        t.setPadding(24, 28, 24, 12);
+        return t;
     }
 
     private TextView texto(String t, boolean negrita) {
@@ -642,13 +699,16 @@ public class A17_ReporteRentaDialogo {
 
     // ── Exportar ────────────────────────────────────────────────────────
 
-    /** Paso 1: solo el detalle sin depurar. */
-    private void exportarDetalle(Datos sinDepurar) {
-        String titulo = "Renta fiscal " + nombreAnio() + " sin depurar";
-        String base = "424_Renta_" + anio + (conFoto ? "_foto_sin_depurar" : "_sin_cierre_sin_depurar");
+    /** Paso 1: el detalle que se ve (depurado si ya se depuró). El CSV va completo. */
+    private void exportarDetalle(boolean depurada) {
+        Datos sinDepurar = calcularActual(false);
+        Datos dep = calcularActual(true);
+        String estado = depurada ? "depurada" : "sin depurar";
+        String titulo = "Renta fiscal " + nombreAnio() + " " + estado;
+        String base = "424_Renta_" + anio + (conFoto ? "_foto_" : "_sin_cierre_") + estado.replace(" ", "_");
         List<Seccion> secciones = new ArrayList<>();
-        secciones.add(seccionDetalle("Detalle sin depurar", sinDepurar));
-        exportar(base, titulo, secciones, sinDepurar, null, new Datos());
+        secciones.add(seccionDetalle(depurada ? "Detalle depurado" : "Detalle sin depurar", depurada ? dep : sinDepurar));
+        exportar(base, titulo, secciones, sinDepurar, dep, calcularAnterior());
     }
 
     /** Pasos 3a/3b: detalle depurado + comparativo actual + comparativo entre años. */
@@ -716,9 +776,10 @@ public class A17_ReporteRentaDialogo {
      */
     private boolean escribirCsv(File archivo, Datos sinDepurar, Datos depurada, Datos anterior) {
         try (OutputStreamWriter w = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
-            w.write("anio,origen,tipo_fila,codigo_sin_depurar,renglon_sin_depurar,codigo_depurado,renglon_depurado," +
+            // ⭐ (4-nov, Jorge) encabezados: año, diferencia_valor, diferencia_%.
+            w.write("año,origen,tipo_fila,codigo_sin_depurar,renglon_sin_depurar,codigo_depurado,renglon_depurado," +
                     "cuenta_id,cuenta,saldo_contable,naturaleza_tipo,valor_sin_depurar,valor_depurado," +
-                    "dif_depuracion,decision,valor_anio_anterior,dif_anios,dif_anios_pct\n");
+                    "dif_depuracion,decision,valor_anio_anterior,diferencia_valor,diferencia_%\n");
             String origen = conFoto ? "foto_cierre" : "datos_hoy_sin_cierre";
             Datos ref = depurada != null ? depurada : sinDepurar;
             // Renglones
@@ -733,8 +794,8 @@ public class A17_ReporteRentaDialogo {
                 Long vd = rd == null ? null : rd.total;
                 Long va = ra == null ? null : ra.total;
                 Double pct = depurada == null ? null : porcentaje(va, vd);
-                w.write(anio + "," + origen + ",renglon," + cod + "," + limpio(r.etiqueta()) + "," +
-                        (depurada == null ? "," : cod + "," + limpio(r.etiqueta())) + ",,,,," +
+                w.write(anio + "," + origen + ",resumen renglón," + cod + "," + limpio(textoRenglon(r)) + "," +
+                        (depurada == null ? "," : cod + "," + limpio(textoRenglon(r))) + ",,,,," +
                         (rs == null ? "" : rs.total) + "," + (vd == null ? "" : vd) + "," +
                         (depurada == null ? "" : String.valueOf(cero(vd) - (rs == null ? 0 : rs.total))) + ",," +
                         (va == null ? "" : va) + "," +
@@ -747,8 +808,8 @@ public class A17_ReporteRentaDialogo {
             Map<Long, Long> depPorCuenta = depurada == null ? new HashMap<>() : valoresPorCuenta(depurada);
             Map<Long, String> nombres = nombresPorCuenta(sinDepurar);
             Map<String, String> etiquetaPorCodigo = new HashMap<>();
-            for (Renglon r : sinDepurar.renglones.values()) etiquetaPorCodigo.put(r.codigo, r.etiqueta());
-            if (depurada != null) for (Renglon r : depurada.renglones.values()) etiquetaPorCodigo.put(r.codigo, r.etiqueta());
+            for (Renglon r : sinDepurar.renglones.values()) etiquetaPorCodigo.put(r.codigo, textoRenglon(r));
+            if (depurada != null) for (Renglon r : depurada.renglones.values()) etiquetaPorCodigo.put(r.codigo, textoRenglon(r));
             for (Map.Entry<Long, Info> e : sinDepurar.info.entrySet()) {
                 long id = e.getKey();
                 Info inf = depurada != null && depurada.info.containsKey(id) ? depurada.info.get(id) : e.getValue();
@@ -770,6 +831,11 @@ public class A17_ReporteRentaDialogo {
             Log.e(TAG, "Error al escribir el CSV: " + e.getMessage(), e);
             return false;
         }
+    }
+
+    /** "Renglón 29 · Total patrimonio bruto" (CSV). */
+    private static String textoRenglon(Renglon r) {
+        return SIN.equals(r.codigo) ? "Sin renglón asignado" : "Renglón " + r.etiqueta();
     }
 
     private static Map<Long, Long> valoresPorCuenta(Datos d) {
