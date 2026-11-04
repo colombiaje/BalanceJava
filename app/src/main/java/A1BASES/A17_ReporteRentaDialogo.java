@@ -70,67 +70,81 @@ public class A17_ReporteRentaDialogo {
     }
 
     /**
-     * Una columna del reporte: un año en una de sus tres vistas (A1_1_AyudanteBD.VISTA_*): la foto
-     * del cierre tal como se tomó, la foto depurada (la que se declara) o el provisional de hoy.
+     * Una columna del reporte: un año en una de sus vistas (A1_1_AyudanteBD.VISTA_*).
+     * ⭐ (4-nov, Jorge) Dos vistas por año: la FOTO DEL CIERRE (depurada, la que se declara; con la
+     * casilla "Ver sin depurar" muestra los saldos contables en su renglón original) y EN CURSO
+     * (el año abierto, con los datos de hoy). La constante VISTA_PROVISIONAL es la vista "en curso".
      */
     private static final class Columna {
         final int anio;
         final int vista;
-        final boolean provisional;
+        final boolean provisional; // true = en curso
         Columna(int anio, int vista) {
             this.anio = anio;
             this.vista = vista;
             this.provisional = vista == A1_1_AyudanteBD.VISTA_PROVISIONAL;
         }
-        // ⭐ (3-nov, Jorge) Nombres: la foto sin depurar es la PROVISIONAL (aún puede cambiar con
-        // la depuración); la depurada es la DEFINITIVA (la que se declara); la de los datos de
-        // hoy es EN CURSO. (La constante VISTA_PROVISIONAL del código es la vista "en curso".)
         String titulo(boolean corto) {
             switch (vista) {
-                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return anio + (corto ? " en curso" : " (en curso)");
-                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return anio + (corto ? " prov." : " (provisional)");
-                default: return anio + (corto ? " def." : " (definitiva)");
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return anio + " en curso";
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return anio + (corto ? " s/dep." : " sin depurar");
+                default: return anio + (corto ? " dep." : " depurada");
+            }
+        }
+        /** Nombre completo de la vista, para el título del reporte. */
+        String nombreVista() {
+            switch (vista) {
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return "en curso";
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return "foto del cierre (sin depurar)";
+                default: return "foto del cierre (depurada)";
+            }
+        }
+        /** Parte del nombre de archivo. */
+        String claveArchivo() {
+            switch (vista) {
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return "en_curso";
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return "cierre_sin_depurar";
+                default: return "cierre_depurada";
             }
         }
         String estado() {
             switch (vista) {
                 case A1_1_AyudanteBD.VISTA_PROVISIONAL: return "en_curso";
-                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return "foto_provisional";
-                default: return "foto_definitiva";
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return "foto_sin_depurar";
+                default: return "foto_depurada";
             }
         }
         String explicacion() {
             switch (vista) {
                 case A1_1_AyudanteBD.VISTA_PROVISIONAL:
-                    return anio + " en curso: saldos calculados con los datos de hoy; cambian con cada " +
+                    return "Año " + anio + " en curso: el año abierto, con los datos de hoy; cambia con cada " +
                             "movimiento nuevo. Los saldos contrarios ya van al renglón de la depuración " +
-                            "(decisión tomada o sugerida). Sirve para ver cómo va el año.";
+                            "(decisión tomada o sugerida). Sirve para ver cómo va el año; no es lo que se declara.";
                 case A1_1_AyudanteBD.VISTA_FOTO_CIERRE:
-                    return anio + " provisional: la foto tal como se tomó en el cierre, con los saldos " +
-                            "contables congelados y cada cuenta en su renglón original, sin depurar " +
-                            "(ej.: un banco sobregirado resta dentro del patrimonio bruto).";
+                    return "Año " + anio + " foto del cierre, sin depurar: los saldos contables congelados en " +
+                            "el cierre, cada cuenta en su renglón original (ej.: un banco sobregirado resta " +
+                            "dentro del patrimonio bruto).";
                 default:
-                    return anio + " definitiva: la misma foto del cierre, depurada con la opción 7: los " +
-                            "saldos contrarios están en el renglón decidido (ej.: un banco sobregirado " +
-                            "en Deudas). Es la que se declara. Los saldos no cambian; solo su renglón.";
+                    return "Año " + anio + " foto del cierre, depurada: los saldos congelados en el cierre, " +
+                            "con los saldos contrarios en el renglón decidido en la opción 7 (ej.: un banco " +
+                            "sobregirado en Deudas). Es lo que se declara.";
             }
         }
     }
 
     private final DecimalFormat formato = new DecimalFormat("#,##0");
     private TableLayout tabla;
-    // ⭐ CAMBIO (3-nov, Jorge): el año en curso se ofrece SIEMPRE como provisional, aunque ya
-    // tenga foto (así se compara la foto con los datos de hoy). Por eso las columnas son
-    // (año, provisional) y no solo el año.
     private List<Columna> columnasVista = new ArrayList<>();
     private List<Fila> filasVista = new ArrayList<>();
     private boolean detalladoVista = false;
     private String pais = "CO", moneda = "COP";
+    // ⭐ (4-nov, Jorge) Título y nombre de archivo según lo que se está viendo.
+    private String tituloVista = "";
+    private String archivoVista = "424_Renta";
 
     public void mostrar(Context context, String folderIdDrive) {
         if (context == null) return;
 
-        // Opciones del selector: año en curso (provisional, si no tiene foto), años con foto, todos.
         List<Integer> aniosConFoto;
         int actual;
         SQLiteDatabase db = abrir(context);
@@ -145,15 +159,14 @@ public class A17_ReporteRentaDialogo {
         } finally {
             db.close();
         }
+        // Opciones: el año en curso y cada año con foto (de más reciente a más antiguo), y todos.
         List<Columna> opciones = new ArrayList<>();
         List<String> etiquetas = new ArrayList<>();
         opciones.add(new Columna(actual, A1_1_AyudanteBD.VISTA_PROVISIONAL));
-        etiquetas.add(actual + " en curso (datos de hoy)");
+        etiquetas.add("Año " + actual + " en curso (datos de hoy)");
         for (Integer a : aniosConFoto) {
             opciones.add(new Columna(a, A1_1_AyudanteBD.VISTA_FOTO_DEPURADA));
-            etiquetas.add(a + " definitiva (foto depurada)");
-            opciones.add(new Columna(a, A1_1_AyudanteBD.VISTA_FOTO_CIERRE));
-            etiquetas.add(a + " provisional (foto sin depurar)");
+            etiquetas.add("Año " + a + " foto del cierre");
         }
         etiquetas.add("Todos los años (histórico)");
 
@@ -165,7 +178,11 @@ public class A17_ReporteRentaDialogo {
         anio_XSp.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, etiquetas));
         raiz.addView(anio_XSp);
 
-        // ⭐ (3-nov, Jorge) Comentario explicativo de la vista elegida.
+        // ⭐ (4-nov, Jorge) Solo para las fotos del cierre: ver los saldos sin depurar.
+        android.widget.CheckBox sinDepurar_XChB = new android.widget.CheckBox(context);
+        sinDepurar_XChB.setText("Ver la foto sin depurar (saldos contables originales)");
+        raiz.addView(sinDepurar_XChB);
+
         TextView explicacion_XTv = new TextView(context);
         explicacion_XTv.setTextSize(12);
         explicacion_XTv.setPadding(8, 4, 8, 8);
@@ -192,24 +209,47 @@ public class A17_ReporteRentaDialogo {
 
         Runnable refrescar = () -> {
             int pos = anio_XSp.getSelectedItemPosition();
+            int vistaFoto = sinDepurar_XChB.isChecked()
+                    ? A1_1_AyudanteBD.VISTA_FOTO_CIERRE : A1_1_AyudanteBD.VISTA_FOTO_DEPURADA;
             List<Columna> elegidas = new ArrayList<>();
+            List<Columna> base = new ArrayList<>();
             if (pos >= 0 && pos < opciones.size()) {
-                elegidas.add(opciones.get(pos));
+                base.add(opciones.get(pos));
             } else {
-                // Histórico: la foto depurada de cada año y el provisional (sin la foto sin depurar).
-                for (Columna co : opciones) {
-                    if (co.vista != A1_1_AyudanteBD.VISTA_FOTO_CIERRE) elegidas.add(co);
-                }
-                // De más antiguo a más reciente; en el mismo año, la foto antes que el provisional.
-                Collections.sort(elegidas, (x, y) -> x.anio != y.anio ? Integer.compare(x.anio, y.anio)
-                        : Integer.compare(x.vista, y.vista));
+                base.addAll(opciones);
             }
+            boolean hayFoto = false;
+            for (Columna co : base) {
+                if (co.provisional) {
+                    elegidas.add(co);
+                } else {
+                    elegidas.add(new Columna(co.anio, vistaFoto));
+                    hayFoto = true;
+                }
+            }
+            sinDepurar_XChB.setEnabled(hayFoto);
+            // De más antiguo a más reciente; en el mismo año, la foto antes que el en curso.
+            Collections.sort(elegidas, (x, y) -> x.anio != y.anio ? Integer.compare(x.anio, y.anio)
+                    : Boolean.compare(x.provisional, y.provisional));
+
+            if (elegidas.size() == 1) {
+                Columna co = elegidas.get(0);
+                tituloVista = "Año " + co.anio + " " + co.nombreVista();
+                archivoVista = "424_Renta_" + co.anio + "_" + co.claveArchivo();
+            } else {
+                int desde = elegidas.get(0).anio, hasta = elegidas.get(elegidas.size() - 1).anio;
+                String rango = desde == hasta ? String.valueOf(desde) : desde + "-" + hasta;
+                String foto = vistaFoto == A1_1_AyudanteBD.VISTA_FOTO_CIERRE ? "sin depurar" : "depurado";
+                tituloVista = "Años " + rango + " histórico (" + foto + ")";
+                archivoVista = "424_Renta_" + rango + "_historico_" + foto.replace(" ", "_");
+            }
+
             StringBuilder texto = new StringBuilder();
-            java.util.Set<Integer> vistasVistas = new java.util.HashSet<>();
+            java.util.Set<Integer> vistasExplicadas = new java.util.HashSet<>();
             for (Columna co : elegidas) {
-                if (vistasVistas.add(co.vista)) {
+                if (vistasExplicadas.add(co.vista)) {
                     if (texto.length() > 0) texto.append("\n\n");
-                    texto.append(elegidas.size() > 1 ? co.explicacion().replaceFirst("^\\d+ ", "") : co.explicacion());
+                    texto.append(co.explicacion());
                 }
             }
             explicacion_XTv.setText(texto.toString());
@@ -222,7 +262,8 @@ public class A17_ReporteRentaDialogo {
             public void onNothingSelected(AdapterView<?> p) { }
         });
         modo_XRg.setOnCheckedChangeListener((g, id) -> refrescar.run());
-        // ⭐ (3-nov, R5) Si hay fotos, abre en la foto depurada más reciente (posición 1).
+        sinDepurar_XChB.setOnCheckedChangeListener((b, marcado) -> refrescar.run());
+        // Si hay fotos, abre en la foto del cierre más reciente (posición 1).
         if (opciones.size() > 1) anio_XSp.setSelection(1);
         refrescar.run();
 
@@ -359,8 +400,9 @@ public class A17_ReporteRentaDialogo {
             Toast.makeText(context, "No hay datos para exportar", Toast.LENGTH_LONG).show();
             return;
         }
-        String nombreCsv = A9_2_BackupFile.CSV_REPORTE_RENTA.getFileName();
-        String nombrePdf = A9_2_BackupFile.PDF_REPORTE_RENTA.getFileName();
+        // ⭐ (4-nov, Jorge) El nombre dice qué reporte es (año y vista).
+        String nombreCsv = archivoVista + A9_1_FileType.CSV.getExtension();
+        String nombrePdf = archivoVista + A9_1_FileType.PDF.getExtension();
         File carpeta = new File(Environment.getExternalStorageDirectory(), "Balance");
         boolean csvOk = escribirCsv(new File(carpeta, nombreCsv));
         boolean pdfOk = escribirPdf(new File(carpeta, nombrePdf));
@@ -427,9 +469,9 @@ public class A17_ReporteRentaDialogo {
                 PdfDocument.Page p = pdf.startPage(new PdfDocument.PageInfo.Builder(ancho, alto, pagina).create());
                 Canvas c = p.getCanvas();
                 int y = margen + 14;
-                c.drawText("Reporte de renta fiscal — " + pais + " — valores en " + moneda, margen, y, titulo);
+                c.drawText(tituloVista + " — Reporte de renta fiscal", margen, y, titulo);
                 y += 16;
-                c.drawText((detalladoVista ? "Detallado" : "Resumido") + " · generado " +
+                c.drawText(pais + " · valores en " + moneda + " · " + (detalladoVista ? "Detallado" : "Resumido") + " · generado " +
                         new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.ROOT).format(new java.util.Date()) +
                         " · página " + pagina, margen, y, texto);
                 y += 20;
