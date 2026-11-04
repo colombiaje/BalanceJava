@@ -42,9 +42,10 @@ import androidx.appcompat.app.AlertDialog;
 /**
  * A17_ReporteRentaDialogo — (3-nov, renta R4, decisiones de Jorge): opción "6. Reporte renta
  * fiscal" de F4. Renglones de la declaración con su total, en modo resumido o detallado (las
- * cuentas de cada renglón), para un año o para todos (histórico, un año por columna). Los años
- * con foto (cierre 421) usan la foto; el año en curso se ofrece además, siempre, calculado con
- * los datos de hoy y marcado "provisional" (aunque ya tenga foto, para compararlos). Exporta CSV y PDF a la carpeta Balance y a la carpeta de cierres en
+ * cuentas de cada renglón), para un año o para todos (histórico, un año por columna). Cada año
+ * con foto (cierre 421) tiene dos vistas: "provisional" (la foto sin depurar) y "definitiva" (la
+ * foto depurada con la opción 7, la que se declara); el año en curso se ofrece además, siempre,
+ * calculado con los datos de hoy ("en curso"). Cada vista lleva su explicación en pantalla y PDF. Exporta CSV y PDF a la carpeta Balance y a la carpeta de cierres en
  * Drive, para el contador.
  *
  * Signo de presentación: los renglones de naturaleza Pasivo o Ingreso se muestran con el signo
@@ -81,18 +82,37 @@ public class A17_ReporteRentaDialogo {
             this.vista = vista;
             this.provisional = vista == A1_1_AyudanteBD.VISTA_PROVISIONAL;
         }
+        // ⭐ (3-nov, Jorge) Nombres: la foto sin depurar es la PROVISIONAL (aún puede cambiar con
+        // la depuración); la depurada es la DEFINITIVA (la que se declara); la de los datos de
+        // hoy es EN CURSO. (La constante VISTA_PROVISIONAL del código es la vista "en curso".)
         String titulo(boolean corto) {
             switch (vista) {
-                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return anio + (corto ? " prov." : " (prov.)");
-                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return anio + (corto ? " cierre" : " (cierre)");
-                default: return anio + (corto ? " dep." : " (depurada)");
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return anio + (corto ? " en curso" : " (en curso)");
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return anio + (corto ? " prov." : " (provisional)");
+                default: return anio + (corto ? " def." : " (definitiva)");
             }
         }
         String estado() {
             switch (vista) {
-                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return "provisional";
-                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return "foto_cierre";
-                default: return "foto_depurada";
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return "en_curso";
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return "foto_provisional";
+                default: return "foto_definitiva";
+            }
+        }
+        String explicacion() {
+            switch (vista) {
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL:
+                    return anio + " en curso: saldos calculados con los datos de hoy; cambian con cada " +
+                            "movimiento nuevo. Los saldos contrarios ya van al renglón de la depuración " +
+                            "(decisión tomada o sugerida). Sirve para ver cómo va el año.";
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE:
+                    return anio + " provisional: la foto tal como se tomó en el cierre, con los saldos " +
+                            "contables congelados y cada cuenta en su renglón original, sin depurar " +
+                            "(ej.: un banco sobregirado resta dentro del patrimonio bruto).";
+                default:
+                    return anio + " definitiva: la misma foto del cierre, depurada con la opción 7: los " +
+                            "saldos contrarios están en el renglón decidido (ej.: un banco sobregirado " +
+                            "en Deudas). Es la que se declara. Los saldos no cambian; solo su renglón.";
             }
         }
     }
@@ -128,12 +148,12 @@ public class A17_ReporteRentaDialogo {
         List<Columna> opciones = new ArrayList<>();
         List<String> etiquetas = new ArrayList<>();
         opciones.add(new Columna(actual, A1_1_AyudanteBD.VISTA_PROVISIONAL));
-        etiquetas.add(actual + " (provisional, datos de hoy)");
+        etiquetas.add(actual + " en curso (datos de hoy)");
         for (Integer a : aniosConFoto) {
             opciones.add(new Columna(a, A1_1_AyudanteBD.VISTA_FOTO_DEPURADA));
-            etiquetas.add(a + " (foto depurada)");
+            etiquetas.add(a + " definitiva (foto depurada)");
             opciones.add(new Columna(a, A1_1_AyudanteBD.VISTA_FOTO_CIERRE));
-            etiquetas.add(a + " (foto del cierre, sin depurar)");
+            etiquetas.add(a + " provisional (foto sin depurar)");
         }
         etiquetas.add("Todos los años (histórico)");
 
@@ -144,6 +164,12 @@ public class A17_ReporteRentaDialogo {
         Spinner anio_XSp = new Spinner(context);
         anio_XSp.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, etiquetas));
         raiz.addView(anio_XSp);
+
+        // ⭐ (3-nov, Jorge) Comentario explicativo de la vista elegida.
+        TextView explicacion_XTv = new TextView(context);
+        explicacion_XTv.setTextSize(12);
+        explicacion_XTv.setPadding(8, 4, 8, 8);
+        raiz.addView(explicacion_XTv);
 
         RadioGroup modo_XRg = new RadioGroup(context);
         modo_XRg.setOrientation(RadioGroup.HORIZONTAL);
@@ -178,6 +204,15 @@ public class A17_ReporteRentaDialogo {
                 Collections.sort(elegidas, (x, y) -> x.anio != y.anio ? Integer.compare(x.anio, y.anio)
                         : Integer.compare(x.vista, y.vista));
             }
+            StringBuilder texto = new StringBuilder();
+            java.util.Set<Integer> vistasVistas = new java.util.HashSet<>();
+            for (Columna co : elegidas) {
+                if (vistasVistas.add(co.vista)) {
+                    if (texto.length() > 0) texto.append("\n\n");
+                    texto.append(elegidas.size() > 1 ? co.explicacion().replaceFirst("^\\d+ ", "") : co.explicacion());
+                }
+            }
+            explicacion_XTv.setText(texto.toString());
             construir(context, elegidas, detallado_XRb.isChecked());
         };
         anio_XSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -422,9 +457,19 @@ public class A17_ReporteRentaDialogo {
                     i++;
                 }
                 if (i >= lineas.size()) {
-                    y += 10;
-                    c.drawText("cierre = foto tal como se tomó · dep. = foto depurada · prov. = datos del día, depurados.",
-                            margen, Math.min(y, alto - margen), texto);
+                    // ⭐ (3-nov, Jorge) explicación de cada vista del reporte, en líneas que caben.
+                    java.util.Set<Integer> vistas = new java.util.LinkedHashSet<>();
+                    for (Columna co : columnasVista) vistas.add(co.vista);
+                    for (Integer v : vistas) {
+                        Columna ejemplo = null;
+                        for (Columna co : columnasVista) if (co.vista == v) { ejemplo = co; break; }
+                        y += 6;
+                        for (String linea : partirTexto(ejemplo.explicacion(), texto, ancho - 2 * margen)) {
+                            y += alturaLinea - 2;
+                            if (y > alto - margen) break;
+                            c.drawText(linea, margen, y, texto);
+                        }
+                    }
                 }
                 pdf.finishPage(p);
                 if (lineas.isEmpty()) break;
@@ -439,6 +484,23 @@ public class A17_ReporteRentaDialogo {
         } finally {
             pdf.close();
         }
+    }
+
+    /** Parte un texto en líneas que caben en el ancho dado (para el PDF). */
+    private static List<String> partirTexto(String texto, Paint pinta, float ancho) {
+        List<String> lineas = new ArrayList<>();
+        StringBuilder actual = new StringBuilder();
+        for (String palabra : texto.split(" ")) {
+            String prueba = actual.length() == 0 ? palabra : actual + " " + palabra;
+            if (pinta.measureText(prueba) > ancho && actual.length() > 0) {
+                lineas.add(actual.toString());
+                actual = new StringBuilder(palabra);
+            } else {
+                actual = new StringBuilder(prueba);
+            }
+        }
+        if (actual.length() > 0) lineas.add(actual.toString());
+        return lineas;
     }
 
     private static String limpio(String v) {
