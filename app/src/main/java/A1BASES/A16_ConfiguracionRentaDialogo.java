@@ -190,7 +190,7 @@ public class A16_ConfiguracionRentaDialogo {
                     .setTitle("Importar plantilla")
                     .setMessage("No hay plantillas ni fotos en la carpeta Balance.\n\nUna plantilla es un CSV cuya " +
                             "primera fila es:\n" + String.join(",", A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA) +
-                            "\n\nEl respaldo de fotos anuales es el archivo 423_FotoRentaAnual.")
+                            "\n\nEl respaldo de fotos anuales es el archivo 423_FotoRentaCierre (sin_depurar o depurada).")
                     .setPositiveButton("OK", null)
                     .show();
             return;

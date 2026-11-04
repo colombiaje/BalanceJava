@@ -338,7 +338,7 @@ public class A17_ReporteRentaDialogo {
             db.close();
         }
         // El respaldo 423 (todas las fotos) se regenera y sube con las decisiones.
-        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileName();
+        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileName() + "_depurada";
         if (A5_1_BackupManager.backupFotoRentaCSV(context, nombreFoto) && folderIdDrive != null) {
             A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(context, nombreFoto, folderIdDrive);
         }
@@ -864,16 +864,19 @@ public class A17_ReporteRentaDialogo {
     private boolean escribirPdf(File archivo, String titulo, List<Seccion> secciones) {
         PdfDocument pdf = new PdfDocument();
         try {
-            final int ancho = 595, alto = 842, margen = 36, linea = 14, anchoValor = 72;
+            final int ancho = 595, alto = 842, margen = 36, linea = 15, anchoValor = 72;
             Paint texto = new Paint();
-            texto.setTextSize(9f);
+            texto.setTextSize(10f);
             texto.setColor(Color.BLACK);
             Paint negrita = new Paint(texto);
             negrita.setTypeface(Typeface.DEFAULT_BOLD);
             Paint grande = new Paint(negrita);
             grande.setTextSize(13f);
             Paint seccionP = new Paint(negrita);
-            seccionP.setTextSize(10.5f);
+            seccionP.setTextSize(11.5f);
+            // Puntos guía (gris claro) entre el nombre y su valor, para leer la fila sin perderse.
+            Paint guia = new Paint(texto);
+            guia.setColor(Color.GRAY);
 
             int[] pagina = {0};
             Canvas[] c = {null};
@@ -920,6 +923,13 @@ public class A17_ReporteRentaDialogo {
                         etiqueta = etiqueta.substring(0, etiqueta.length() - 2);
                     }
                     c[0].drawText(etiqueta, margen, y[0], pinta);
+                    if (columnas > 0) {
+                        float desde = margen + pinta.measureText(etiqueta) + 4;
+                        float hasta = xValores + anchoValor - pinta.measureText(f[2]) - 4;
+                        StringBuilder puntos = new StringBuilder();
+                        while (desde + guia.measureText(puntos + " .") <= hasta) puntos.append(" .");
+                        if (puntos.length() > 0) c[0].drawText(puntos.toString(), desde, y[0], guia);
+                    }
                     for (int k = 0; k < columnas; k++) {
                         String v = f[k + 2];
                         c[0].drawText(v, xValores + (k + 1) * anchoValor - pinta.measureText(v), y[0], pinta);
