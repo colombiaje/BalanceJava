@@ -440,7 +440,8 @@ public class F4_Cierres extends Fragment {
             db.close();
         }
         // Al cierre la foto aún no tiene depuración: el nombre lo dice.
-        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileName() + "_sin_depurar";
+        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getBaseName() + "_sin_depurar"
+                + A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileType().getExtension();
         if (A5_1_BackupManager.backupFotoRentaCSV(getActivity(), nombreFoto)) {
             A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(requireContext(), nombreFoto, FOLDER_ID_DRIVE);
         }

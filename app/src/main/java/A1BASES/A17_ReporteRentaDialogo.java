@@ -338,7 +338,8 @@ public class A17_ReporteRentaDialogo {
             db.close();
         }
         // El respaldo 423 (todas las fotos) se regenera y sube con las decisiones.
-        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileName() + "_depurada";
+        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getBaseName() + "_depurada"
+                + A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileType().getExtension();
         if (A5_1_BackupManager.backupFotoRentaCSV(context, nombreFoto) && folderIdDrive != null) {
             A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(context, nombreFoto, folderIdDrive);
         }
@@ -901,21 +902,30 @@ public class A17_ReporteRentaDialogo {
                 int columnas = s.encabezados.length - 1;
                 int xValores = ancho - margen - columnas * anchoValor;
                 if (y[0] > alto - margen - 60) nuevaPagina.run();
-                y[0] += 8;
-                c[0].drawText(s.titulo, margen, y[0], seccionP);
-                y[0] += 16;
-                c[0].drawText(s.encabezados[0], margen, y[0], negrita);
-                for (int k = 0; k < columnas; k++) {
-                    String t = s.encabezados[k + 1];
-                    c[0].drawText(t, xValores + (k + 1) * anchoValor - negrita.measureText(t), y[0], negrita);
-                }
-                y[0] += 5;
-                c[0].drawLine(margen, y[0], ancho - margen, y[0], texto);
-                y[0] += linea;
+                // Título de la sección y encabezados de columna; se repiten en cada página nueva
+                // de la misma sección (con "(continuación)") para no perder qué es cada columna.
+                Runnable encabezado = new Runnable() {
+                    boolean primera = true;
+                    @Override public void run() {
+                        y[0] += 8;
+                        c[0].drawText(primera ? s.titulo : s.titulo + " (continuación)", margen, y[0], seccionP);
+                        primera = false;
+                        y[0] += 16;
+                        c[0].drawText(s.encabezados[0], margen, y[0], negrita);
+                        for (int k = 0; k < columnas; k++) {
+                            String t = s.encabezados[k + 1];
+                            c[0].drawText(t, xValores + (k + 1) * anchoValor - negrita.measureText(t), y[0], negrita);
+                        }
+                        y[0] += 5;
+                        c[0].drawLine(margen, y[0], ancho - margen, y[0], texto);
+                        y[0] += linea;
+                    }
+                };
+                encabezado.run();
                 for (String[] f : s.filas) {
                     if (y[0] > alto - margen - 10) {
                         nuevaPagina.run();
-                        y[0] += linea;
+                        encabezado.run();
                     }
                     Paint pinta = "R".equals(f[0]) ? negrita : texto;
                     String etiqueta = "R".equals(f[0]) ? f[1] : "    " + f[1];
