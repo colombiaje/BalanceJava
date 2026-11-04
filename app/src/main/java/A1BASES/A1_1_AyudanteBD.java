@@ -1371,10 +1371,18 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * diga la depuración: la decisión ya tomada en la foto de ese año, o si no la sugerencia
      * (decisión del año anterior o naturaleza contraria). Así muestra cómo quedaría declarada.
      */
-    public static java.util.List<Object[]> saldosRentaDelAnio(SQLiteDatabase db, int anio, boolean desdeFoto) {
+    // ⭐ (3-nov, Jorge) Tres vistas de un año en el reporte: la foto tal como se tomó (renglón
+    // asignado, sin depurar), la foto depurada (renglón efectivo, la que se declara) y el
+    // provisional con los datos de hoy (depurado).
+    public static final int VISTA_FOTO_CIERRE = 0;
+    public static final int VISTA_FOTO_DEPURADA = 1;
+    public static final int VISTA_PROVISIONAL = 2;
+
+    public static java.util.List<Object[]> saldosRentaDelAnio(SQLiteDatabase db, int anio, int vista) {
         java.util.List<Object[]> lista = new java.util.ArrayList<>();
-        if (desdeFoto) {
-            Cursor c = db.rawQuery("SELECT cuenta_id, cuenta_nombre, renglon_efectivo_id, saldo FROM " +
+        if (vista != VISTA_PROVISIONAL) {
+            String columnaRenglon = vista == VISTA_FOTO_CIERRE ? "renglon_asignado_id" : "renglon_efectivo_id";
+            Cursor c = db.rawQuery("SELECT cuenta_id, cuenta_nombre, " + columnaRenglon + ", saldo FROM " +
                     TABLE_FOTO_RENTA_ANUAL + " WHERE anio_fiscal = ? ORDER BY cuenta_nombre",
                     new String[]{String.valueOf(anio)});
             try {

@@ -68,16 +68,32 @@ public class A17_ReporteRentaDialogo {
         }
     }
 
-    /** Una columna del reporte: un año, de su foto o provisional (datos de hoy). */
+    /**
+     * Una columna del reporte: un año en una de sus tres vistas (A1_1_AyudanteBD.VISTA_*): la foto
+     * del cierre tal como se tomó, la foto depurada (la que se declara) o el provisional de hoy.
+     */
     private static final class Columna {
         final int anio;
+        final int vista;
         final boolean provisional;
-        Columna(int anio, boolean provisional) {
+        Columna(int anio, int vista) {
             this.anio = anio;
-            this.provisional = provisional;
+            this.vista = vista;
+            this.provisional = vista == A1_1_AyudanteBD.VISTA_PROVISIONAL;
         }
         String titulo(boolean corto) {
-            return anio + (provisional ? (corto ? " prov." : " (prov.)") : "");
+            switch (vista) {
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return anio + (corto ? " prov." : " (prov.)");
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return anio + (corto ? " cierre" : " (cierre)");
+                default: return anio + (corto ? " dep." : " (depurada)");
+            }
+        }
+        String estado() {
+            switch (vista) {
+                case A1_1_AyudanteBD.VISTA_PROVISIONAL: return "provisional";
+                case A1_1_AyudanteBD.VISTA_FOTO_CIERRE: return "foto_cierre";
+                default: return "foto_depurada";
+            }
         }
     }
 
@@ -111,11 +127,13 @@ public class A17_ReporteRentaDialogo {
         }
         List<Columna> opciones = new ArrayList<>();
         List<String> etiquetas = new ArrayList<>();
-        opciones.add(new Columna(actual, true));
+        opciones.add(new Columna(actual, A1_1_AyudanteBD.VISTA_PROVISIONAL));
         etiquetas.add(actual + " (provisional, datos de hoy)");
         for (Integer a : aniosConFoto) {
-            opciones.add(new Columna(a, false));
-            etiquetas.add(a + " (foto del cierre)");
+            opciones.add(new Columna(a, A1_1_AyudanteBD.VISTA_FOTO_DEPURADA));
+            etiquetas.add(a + " (foto depurada)");
+            opciones.add(new Columna(a, A1_1_AyudanteBD.VISTA_FOTO_CIERRE));
+            etiquetas.add(a + " (foto del cierre, sin depurar)");
         }
         etiquetas.add("Todos los años (histórico)");
 
@@ -152,10 +170,13 @@ public class A17_ReporteRentaDialogo {
             if (pos >= 0 && pos < opciones.size()) {
                 elegidas.add(opciones.get(pos));
             } else {
-                elegidas.addAll(opciones);
+                // Histórico: la foto depurada de cada año y el provisional (sin la foto sin depurar).
+                for (Columna co : opciones) {
+                    if (co.vista != A1_1_AyudanteBD.VISTA_FOTO_CIERRE) elegidas.add(co);
+                }
                 // De más antiguo a más reciente; en el mismo año, la foto antes que el provisional.
                 Collections.sort(elegidas, (x, y) -> x.anio != y.anio ? Integer.compare(x.anio, y.anio)
-                        : Boolean.compare(x.provisional, y.provisional));
+                        : Integer.compare(x.vista, y.vista));
             }
             construir(context, elegidas, detallado_XRb.isChecked());
         };
@@ -166,7 +187,7 @@ public class A17_ReporteRentaDialogo {
             public void onNothingSelected(AdapterView<?> p) { }
         });
         modo_XRg.setOnCheckedChangeListener((g, id) -> refrescar.run());
-        // ⭐ (3-nov, R5) Si hay fotos, abre en la más reciente (posición 1); si no, el provisional.
+        // ⭐ (3-nov, R5) Si hay fotos, abre en la foto depurada más reciente (posición 1).
         if (opciones.size() > 1) anio_XSp.setSelection(1);
         refrescar.run();
 
@@ -204,7 +225,7 @@ public class A17_ReporteRentaDialogo {
                     }
                 }
                 Map<String, Long> totalPresentado = new HashMap<>();
-                for (Object[] s : A1_1_AyudanteBD.saldosRentaDelAnio(db, anio, !columnas.get(col).provisional)) {
+                for (Object[] s : A1_1_AyudanteBD.saldosRentaDelAnio(db, anio, columnas.get(col).vista)) {
                     Object[] r = s[2] == null ? null : porId.get((Long) s[2]);
                     String codigo;
                     long valor = (Long) s[3];
@@ -325,7 +346,7 @@ public class A17_ReporteRentaDialogo {
                     Long v = f.valores.get(col);
                     if (v == null) continue;
                     Columna co = columnasVista.get(col);
-                    w.write(co.anio + "," + (co.provisional ? "provisional" : "foto") + "," +
+                    w.write(co.anio + "," + co.estado() + "," +
                             (CLAVE_SIN_RENGLON.equals(f.codigo) ? "" : limpio(f.codigo)) + "," + limpio(renglonActual) + "," +
                             (f.esRenglon ? "" : limpio(f.etiqueta)) + "," + v + "\n");
                 }
@@ -402,7 +423,7 @@ public class A17_ReporteRentaDialogo {
                 }
                 if (i >= lineas.size()) {
                     y += 10;
-                    c.drawText("prov. = datos del día (no es la foto del cierre), saldos contrarios según la depuración.",
+                    c.drawText("cierre = foto tal como se tomó · dep. = foto depurada · prov. = datos del día, depurados.",
                             margen, Math.min(y, alto - margen), texto);
                 }
                 pdf.finishPage(p);
