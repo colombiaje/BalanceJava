@@ -1440,6 +1440,62 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         return lista;
     }
 
+    /**
+     * ⭐ NUEVO (4-nov, flujo guiado de renta): saldos del año calculados con los datos de hoy, SIN
+     * depurar: {cuenta_id (Long), nombre, renglon_renta_id de la cuenta (Long o null), saldo (Long),
+     * naturaleza del tipo (DEUDORA/ACREEDORA)}. Solo cuentas con saldo o movimiento, por nombre.
+     */
+    public static java.util.List<Object[]> saldosCrudosDelAnio(SQLiteDatabase db, int anio) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        int[] lim = limitesAnioFiscal(db, anio);
+        Cursor c = db.rawQuery(SQL_SALDOS_RENTA_POR_CUENTA, new String[]{
+                String.valueOf(lim[1]), String.valueOf(lim[0]), String.valueOf(lim[1])});
+        try {
+            while (c.moveToNext()) {
+                long saldo = c.getLong(5), movimientos = c.getLong(6);
+                if (saldo == 0 && movimientos == 0) continue;
+                lista.add(new Object[]{c.getLong(0), c.getString(1),
+                        c.isNull(4) ? null : c.getLong(4), saldo, c.getString(3)});
+            }
+        } finally {
+            c.close();
+        }
+        java.util.Collections.sort(lista, (x, y) -> String.valueOf(x[1]).compareToIgnoreCase(String.valueOf(y[1])));
+        return lista;
+    }
+
+    /**
+     * Filas de la foto del año: {cuenta_id (Long), nombre, renglon_asignado_id (Long o null),
+     * saldo (Long), naturaleza_tipo, renglon_efectivo_id (Long o null), decision}, por nombre.
+     */
+    public static java.util.List<Object[]> filasFotoRenta(SQLiteDatabase db, int anio) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT cuenta_id, cuenta_nombre, renglon_asignado_id, saldo, naturaleza_tipo, " +
+                "renglon_efectivo_id, decision FROM " + TABLE_FOTO_RENTA_ANUAL +
+                " WHERE anio_fiscal = ? ORDER BY cuenta_nombre COLLATE NOCASE", new String[]{String.valueOf(anio)});
+        try {
+            while (c.moveToNext()) {
+                lista.add(new Object[]{c.getLong(0), c.getString(1), c.isNull(2) ? null : c.getLong(2),
+                        c.getLong(3), c.getString(4), c.isNull(5) ? null : c.getLong(5), c.getString(6)});
+            }
+        } finally {
+            c.close();
+        }
+        return lista;
+    }
+
+    /** Naturaleza (Activo, Pasivo, ...) de un renglón por id, o null. */
+    public static String naturalezaDeRenglon(SQLiteDatabase db, Long renglonId) {
+        if (renglonId == null) return null;
+        Cursor c = db.rawQuery("SELECT naturaleza FROM " + TABLE_RENGLON_RENTA + " WHERE renglon_id = ?",
+                new String[]{String.valueOf(renglonId)});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
     /** Años con foto, de más reciente a más antiguo. */
     public static java.util.List<Integer> aniosConFotoRenta(SQLiteDatabase db) {
         java.util.List<Integer> anios = new java.util.ArrayList<>();
