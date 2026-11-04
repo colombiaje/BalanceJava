@@ -53,7 +53,8 @@ import androidx.appcompat.app.AlertDialog;
  *      guarda las decisiones (en la foto; si el año no tiene cierre, solo para este recorrido).
  *   3a. Comparativo actual: sin depurar vs depurada, diferencia y %.
  *   3b. Comparativo entre años: año anterior (foto depurada) vs este año (depurado), dif. y %.
- *       Opciones en 3a y 3b: Exportar y salir · Volver a depurar · Salir sin exportar.
+ *       Opciones en 3a y 3b: Exportar · Ver resumen · Volver a depurar · Pantalla anterior ·
+ *       Volver al inicio · Salir.
  *
  * Un solo título por pantalla, sin subtítulos; las explicaciones, con el botón "i". Exportar crea
  * PDF y CSV (el CSV con más datos que el PDF) en la carpeta Balance y en Drive (carpeta de cierres).
@@ -125,6 +126,8 @@ public class A17_ReporteRentaDialogo {
     private String pais = "CO", moneda = "COP";
     /** Decisiones de depuración de este recorrido si el año no tiene foto (cuenta → renglón). */
     private final Map<Long, Long> decisionesMemoria = new HashMap<>();
+    /** ⭐ (4-nov, Jorge) Pantalla desde la que se llegó a un comparativo ("Pantalla anterior"). */
+    private Runnable pantallaAnterior = null;
 
     public void mostrar(Context context, String folderIdDrive) {
         if (context == null) return;
@@ -300,8 +303,8 @@ public class A17_ReporteRentaDialogo {
         raiz.addView(botones(
                 new String[]{"Comparativo actual", "Comparativo entre años", "Cancelar"},
                 new Runnable[]{
-                        () -> { guardar.run(); dialogo[0].dismiss(); pantallaComparativoActual(); },
-                        () -> { guardar.run(); dialogo[0].dismiss(); pantallaComparativoAnios(); },
+                        () -> { guardar.run(); dialogo[0].dismiss(); pantallaAnterior = this::pantallaDepuracion; pantallaComparativoActual(); },
+                        () -> { guardar.run(); dialogo[0].dismiss(); pantallaAnterior = this::pantallaDepuracion; pantallaComparativoAnios(); },
                         () -> dialogo[0].dismiss()}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " depuración", raiz);
     }
@@ -369,12 +372,16 @@ public class A17_ReporteRentaDialogo {
 
     private void accionesFinales(LinearLayout raiz, String titulo, List<FilaComp> filas, String tituloA, String tituloB) {
         AlertDialog[] dialogo = new AlertDialog[1];
+        // ⭐ (4-nov, Jorge) "Exportar" no cierra (para seguir); "Salir" cierra.
+        Runnable anterior = pantallaAnterior != null ? pantallaAnterior : this::pantallaDepuracion;
         raiz.addView(botones(
-                new String[]{"Exportar y salir", "Ver resumen", "Volver a depurar", "Volver al inicio", "Salir sin exportar"},
+                new String[]{"Exportar", "Ver resumen", "Volver a depurar", "Pantalla anterior",
+                        "Volver al inicio", "Salir"},
                 new Runnable[]{
-                        () -> { exportarFinal(); dialogo[0].dismiss(); },
+                        this::exportarFinal,
                         () -> verResumenComparativo(titulo, filas, tituloA, tituloB),
                         () -> { dialogo[0].dismiss(); pantallaDepuracion(); },
+                        () -> { dialogo[0].dismiss(); anterior.run(); },
                         () -> { dialogo[0].dismiss(); pantallaDetalle(); },
                         () -> dialogo[0].dismiss()}));
         dialogo[0] = dialogo(titulo, raiz);
@@ -777,9 +784,10 @@ public class A17_ReporteRentaDialogo {
     private boolean escribirCsv(File archivo, Datos sinDepurar, Datos depurada, Datos anterior) {
         try (OutputStreamWriter w = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
             // ⭐ (4-nov, Jorge) encabezados: año, diferencia_valor, diferencia_%.
-            w.write("año,origen,tipo_fila,codigo_sin_depurar,renglon_sin_depurar,codigo_depurado,renglon_depurado," +
+            // (4-nov, Jorge) "periodo" en vez de "año"/"anio".
+            w.write("periodo,origen,tipo_fila,codigo_sin_depurar,renglon_sin_depurar,codigo_depurado,renglon_depurado," +
                     "cuenta_id,cuenta,saldo_contable,naturaleza_tipo,valor_sin_depurar,valor_depurado," +
-                    "dif_depuracion,decision,valor_anio_anterior,diferencia_valor,diferencia_%\n");
+                    "dif_depuracion,decision,valor_periodo_anterior,diferencia_valor,diferencia_%\n");
             String origen = conFoto ? "foto_cierre" : "datos_hoy_sin_cierre";
             Datos ref = depurada != null ? depurada : sinDepurar;
             // Renglones
