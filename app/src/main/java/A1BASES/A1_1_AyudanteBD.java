@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 26; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6)
+    public static final int version1BalanceSqlite_int_PSF = 27; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -1833,58 +1833,106 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     }
 
     // ─────────────────────────────────────────────
-    //  ⭐ NUEVO (7-nov, BD v26) — RENTA FASE R6: AJUSTES A AÑOS CERRADOS (diseño acordado con Jorge).
-    //  Un ajuste es un documento normal del año abierto (corrige la contabilidad desde ese año)
-    //  marcado "afecta al año fiscal X" (corrige la renta de X: foto de X + ajuste). La foto de X
-    //  no se toca. Un documento afecta un solo año. La marca se pone en la opción 6 de F4, no en F1.
-    //  Se guarda una COPIA de las partidas del documento porque el cierre 421 siguiente borra los
-    //  movimientos: la copia se refresca sola mientras el documento existe (por si se modificó en
-    //  F1) y se congela en el cierre 421, justo antes de borrar. Sin llave foránea (guarda el nombre).
+    //  ⭐ NUEVO (7-nov, BD v27) — RENTA FASE R6: AJUSTES FISCALES A AÑOS CERRADOS, diseño de Jorge:
+    //  van DE LO FISCAL A LO CONTABLE. Ya hecho el cierre, el usuario encuentra un valor fiscal
+    //  equivocado (sin ningún registro contable previo que lo delate) y lo corrige en el reporte
+    //  de renta (opción 6 de F4), en una SESIÓN de ajuste con uno o varios registros: cuenta,
+    //  valor correcto, descripción y contrapartida. La renta queda corregida al momento (foto +
+    //  ajustes; la foto no se toca) y la sesión genera UN documento contable como BORRADOR en
+    //  F1 › Nuevo, con fecha del primer día del año fiscal siguiente, para revisarlo y guardarlo.
+    //  Estado de cada sesión: borrador_generado (0 = pendiente, F1 › Nuevo estaba ocupado) y
+    //  documento (número, cuando la app encuentra el documento ya guardado en transacciones).
+    //  Valores: valor_reporte y valor_correcto con el signo de PRESENTACIÓN (como se ven en el
+    //  reporte, deudas en positivo); diferencia con el signo CONTABLE (el de c5_Valor).
     // ─────────────────────────────────────────────
     public static final String TABLE_AJUSTE_RENTA = "ajuste_renta";
 
     public static final String[] COLUMNAS_AJUSTE_RENTA = {
-            "anio_fiscal_afectado", "anio_registro", "documento", "item", "cuenta_id", "cuenta_nombre",
-            "valor", "descripcion", "fecha", "congelado", "fecha_marca"};
+            "anio_fiscal_afectado", "sesion_id", "fecha_sesion", "registro", "cuenta_id", "cuenta_nombre",
+            "valor_reporte", "valor_correcto", "diferencia", "descripcion", "contrapartida_id",
+            "contrapartida_nombre", "fecha_documento", "borrador_generado", "documento"};
 
     private static final String SQL_CREAR_AJUSTE_RENTA =
             "CREATE TABLE IF NOT EXISTS " + TABLE_AJUSTE_RENTA + " (" +
-                    "anio_fiscal_afectado INTEGER NOT NULL, " + // X: el año cerrado que corrige
-                    "anio_registro INTEGER, " +                  // año fiscal del documento (X+1)
-                    "documento TEXT NOT NULL, " +
-                    "item TEXT NOT NULL, " +
+                    "anio_fiscal_afectado INTEGER NOT NULL, " + // X: el año cerrado que se corrige
+                    "sesion_id INTEGER NOT NULL, " +
+                    "fecha_sesion TEXT, " +
+                    "registro INTEGER NOT NULL, " +
                     "cuenta_id INTEGER, " +
                     "cuenta_nombre TEXT, " +
-                    "valor INTEGER NOT NULL, " +                 // con el signo contable (c5_Valor)
+                    "valor_reporte INTEGER, " +                 // antes del ajuste, como se ve
+                    "valor_correcto INTEGER, " +                // el que escribió el usuario
+                    "diferencia INTEGER NOT NULL, " +           // contable: efecto en la cuenta
                     "descripcion TEXT, " +
-                    "fecha INTEGER, " +                          // c8_FechaInicial, AAAAMMDD
-                    "congelado INTEGER NOT NULL DEFAULT 0, " +   // 1 = ya pasó un cierre 421
-                    "fecha_marca TEXT, " +
-                    "PRIMARY KEY (documento, item))";
+                    "contrapartida_id INTEGER, " +
+                    "contrapartida_nombre TEXT, " +
+                    "fecha_documento INTEGER, " +               // AAAAMMDD: inicio del año fiscal X+1
+                    "borrador_generado INTEGER NOT NULL DEFAULT 0, " +
+                    "documento TEXT, " +
+                    "PRIMARY KEY (sesion_id, registro))";
 
-    /** Año fiscal al que pertenece una fecha AAAAMMDD, según el inicio configurado. */
-    public static int anioFiscalDeFecha(SQLiteDatabase db, int aaaammdd) {
-        int anio = aaaammdd / 10000;
-        return aaaammdd < limitesAnioFiscal(db, anio)[0] ? anio - 1 : anio;
+    public static int siguienteSesionAjuste(SQLiteDatabase db) {
+        return (int) android.database.DatabaseUtils.longForQuery(db,
+                "SELECT COALESCE(MAX(sesion_id), 0) + 1 FROM " + TABLE_AJUSTE_RENTA, null);
     }
 
     /**
-     * Documentos que se pueden marcar como ajuste: los del año abierto (sin el 0 de saldos
-     * iniciales) que aún no están marcados para ningún año. Después de un cierre 421 solo quedan
-     * movimientos posteriores a él. {documento, fecha (Integer o null), descripción, total positivo}.
-     * Del más reciente al más antiguo.
+     * Guarda una sesión completa (todo o nada). registros: {cuenta_id (Long), cuenta_nombre,
+     * valor_reporte (Long), valor_correcto (Long), diferencia (Long), descripción,
+     * contrapartida_id (Long), contrapartida_nombre}. @return el número de la sesión.
      */
-    public static java.util.List<Object[]> documentosCandidatosAjuste(SQLiteDatabase db) {
+    public static int guardarSesionAjuste(SQLiteDatabase db, int anio, java.util.List<Object[]> registros) {
+        String ahora = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT)
+                .format(new java.util.Date());
+        int fechaDocumento = limitesAnioFiscal(db, anio + 1)[0];
+        db.beginTransaction();
+        try {
+            int sesion = siguienteSesionAjuste(db);
+            int n = 0;
+            for (Object[] r : registros) {
+                ContentValues cv = new ContentValues();
+                cv.put("anio_fiscal_afectado", anio);
+                cv.put("sesion_id", sesion);
+                cv.put("fecha_sesion", ahora);
+                cv.put("registro", ++n);
+                cv.put("cuenta_id", (Long) r[0]);
+                cv.put("cuenta_nombre", (String) r[1]);
+                cv.put("valor_reporte", (Long) r[2]);
+                cv.put("valor_correcto", (Long) r[3]);
+                cv.put("diferencia", (Long) r[4]);
+                cv.put("descripcion", (String) r[5]);
+                cv.put("contrapartida_id", (Long) r[6]);
+                cv.put("contrapartida_nombre", (String) r[7]);
+                cv.put("fecha_documento", fechaDocumento);
+                cv.put("borrador_generado", 0);
+                db.insertOrThrow(TABLE_AJUSTE_RENTA, null, cv);
+            }
+            db.setTransactionSuccessful();
+            return sesion;
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    /**
+     * Registros de ajuste del año, por sesión y registro: {sesion_id (Integer), fecha_sesion,
+     * registro (Integer), cuenta_id (Long o null), cuenta_nombre, valor_reporte (Long),
+     * valor_correcto (Long), diferencia (Long), descripción, contrapartida_id (Long o null),
+     * contrapartida_nombre, fecha_documento (Integer), borrador_generado (Boolean), documento}.
+     */
+    public static java.util.List<Object[]> ajustesRentaDelAnio(SQLiteDatabase db, int anio) {
         java.util.List<Object[]> lista = new java.util.ArrayList<>();
-        Cursor c = db.rawQuery("SELECT c1_Documento, MAX(c8_FechaInicial), MIN(c6_Descripcion), " +
-                "SUM(CASE WHEN c5_Valor > 0 THEN c5_Valor ELSE 0 END) FROM transacciones " +
-                "WHERE CAST(c1_Documento AS INTEGER) <> 0 AND c1_Documento NOT IN " +
-                "(SELECT documento FROM " + TABLE_AJUSTE_RENTA + ") " +
-                "GROUP BY c1_Documento ORDER BY CAST(c1_Documento AS INTEGER) DESC", null);
+        Cursor c = db.rawQuery("SELECT sesion_id, fecha_sesion, registro, cuenta_id, cuenta_nombre, valor_reporte, " +
+                        "valor_correcto, diferencia, descripcion, contrapartida_id, contrapartida_nombre, " +
+                        "fecha_documento, borrador_generado, documento FROM " + TABLE_AJUSTE_RENTA +
+                        " WHERE anio_fiscal_afectado = ? ORDER BY sesion_id, registro",
+                new String[]{String.valueOf(anio)});
         try {
             while (c.moveToNext()) {
-                lista.add(new Object[]{c.getString(0), c.isNull(1) ? null : c.getInt(1),
-                        c.getString(2), c.getLong(3)});
+                lista.add(new Object[]{c.getInt(0), c.getString(1), c.getInt(2), c.isNull(3) ? null : c.getLong(3),
+                        c.getString(4), c.getLong(5), c.getLong(6), c.getLong(7), c.getString(8),
+                        c.isNull(9) ? null : c.getLong(9), c.getString(10), c.getInt(11), c.getInt(12) == 1,
+                        c.getString(13)});
             }
         } finally {
             c.close();
@@ -1892,106 +1940,99 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         return lista;
     }
 
-    /** Copia (o vuelve a copiar) las partidas del documento como ajuste del año "anio". @return partidas. */
-    public static int marcarAjusteRenta(SQLiteDatabase db, int anio, String documento) {
-        String fechaMarca = null;
-        Cursor m = db.rawQuery("SELECT MIN(fecha_marca) FROM " + TABLE_AJUSTE_RENTA + " WHERE documento = ?",
-                new String[]{documento});
-        if (m.moveToFirst() && !m.isNull(0)) fechaMarca = m.getString(0);
-        m.close();
-        if (fechaMarca == null) {
-            fechaMarca = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT)
-                    .format(new java.util.Date());
-        }
-        int partidas = 0;
-        db.beginTransaction();
-        try {
-            db.delete(TABLE_AJUSTE_RENTA, "documento = ?", new String[]{documento});
-            Cursor c = db.rawQuery("SELECT t.c2_ItemDoc, t.cuenta_id, cu.Cuenta, t.c5_Valor, t.c6_Descripcion, " +
-                    "t.c8_FechaInicial FROM transacciones t LEFT JOIN cuentas cu ON cu.cuenta_id = t.cuenta_id " +
-                    "WHERE t.c1_Documento = ?", new String[]{documento});
-            try {
-                while (c.moveToNext()) {
-                    ContentValues cv = new ContentValues();
-                    cv.put("anio_fiscal_afectado", anio);
-                    if (c.isNull(5)) cv.putNull("anio_registro");
-                    else cv.put("anio_registro", anioFiscalDeFecha(db, c.getInt(5)));
-                    cv.put("documento", documento);
-                    cv.put("item", c.getString(0));
-                    if (c.isNull(1)) cv.putNull("cuenta_id"); else cv.put("cuenta_id", c.getLong(1));
-                    cv.put("cuenta_nombre", c.getString(2));
-                    cv.put("valor", c.isNull(3) ? 0 : c.getLong(3));
-                    cv.put("descripcion", c.getString(4));
-                    if (c.isNull(5)) cv.putNull("fecha"); else cv.put("fecha", c.getInt(5));
-                    cv.put("congelado", 0);
-                    cv.put("fecha_marca", fechaMarca);
-                    if (db.insertWithOnConflict(TABLE_AJUSTE_RENTA, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
-                        partidas++;
-                    }
-                }
-            } finally {
-                c.close();
-            }
-            db.setTransactionSuccessful();
-        } finally {
-            db.endTransaction();
-        }
-        return partidas;
-    }
-
-    public static void quitarAjusteRenta(SQLiteDatabase db, String documento) {
-        db.delete(TABLE_AJUSTE_RENTA, "documento = ?", new String[]{documento});
-    }
-
-    /**
-     * Vuelve a copiar los ajustes NO congelados cuyo documento todavía existe (por si se
-     * modificó en F1). Si el documento ya no existe, la copia se deja tal cual (el reporte avisa).
-     */
-    public static void refrescarAjustesRenta(SQLiteDatabase db) {
-        java.util.List<Object[]> docs = new java.util.ArrayList<>();
-        Cursor c = db.rawQuery("SELECT documento, MIN(anio_fiscal_afectado) FROM " + TABLE_AJUSTE_RENTA +
-                " WHERE congelado = 0 AND documento IN (SELECT c1_Documento FROM transacciones) " +
-                "GROUP BY documento", null);
-        try {
-            while (c.moveToNext()) docs.add(new Object[]{c.getString(0), c.getInt(1)});
-        } finally {
-            c.close();
-        }
-        for (Object[] d : docs) marcarAjusteRenta(db, (Integer) d[1], (String) d[0]);
-    }
-
-    /** En el cierre 421, antes de borrar: refresca y congela todas las copias. @return documentos. */
-    public static int congelarAjustesRenta(SQLiteDatabase db) {
-        refrescarAjustesRenta(db);
-        ContentValues cv = new ContentValues();
-        cv.put("congelado", 1);
-        db.update(TABLE_AJUSTE_RENTA, cv, "congelado = 0", null);
-        return (int) android.database.DatabaseUtils.longForQuery(db,
-                "SELECT COUNT(DISTINCT documento) FROM " + TABLE_AJUSTE_RENTA, null);
-    }
-
     public static boolean hayAjustesRenta(SQLiteDatabase db) {
         return android.database.DatabaseUtils.queryNumEntries(db, TABLE_AJUSTE_RENTA) > 0;
     }
 
+    public static void marcarBorradorAjusteGenerado(SQLiteDatabase db, int sesion) {
+        db.execSQL("UPDATE " + TABLE_AJUSTE_RENTA + " SET borrador_generado = 1 WHERE sesion_id = ?",
+                new Object[]{sesion});
+    }
+
+    public static void quitarSesionAjuste(SQLiteDatabase db, int sesion) {
+        db.delete(TABLE_AJUSTE_RENTA, "sesion_id = ?", new String[]{String.valueOf(sesion)});
+    }
+
     /**
-     * Partidas de ajuste que afectan al año, por documento e ítem:
-     * {documento, item, cuenta_id (Long o null), cuenta_nombre, valor (Long), descripción,
-     * fecha (Integer o null), documento_existe (Boolean: falso si no está congelado y ya no existe)}.
+     * Busca el documento contable ya guardado de una sesión: el de su fecha que tenga la partida
+     * origen del primer registro (misma cuenta, valor y descripción). @return número o null.
      */
-    public static java.util.List<Object[]> ajustesRentaDelAnio(SQLiteDatabase db, int anio) {
-        java.util.List<Object[]> lista = new java.util.ArrayList<>();
-        Cursor c = db.rawQuery("SELECT a.documento, a.item, a.cuenta_id, a.cuenta_nombre, a.valor, a.descripcion, " +
-                        "a.fecha, (a.congelado = 1 OR EXISTS (SELECT 1 FROM transacciones t " +
-                        "WHERE t.c1_Documento = a.documento)) FROM " + TABLE_AJUSTE_RENTA + " a " +
-                        "WHERE a.anio_fiscal_afectado = ? " +
-                        "ORDER BY CAST(a.documento AS INTEGER), CAST(a.item AS INTEGER)",
-                new String[]{String.valueOf(anio)});
+    public static String buscarDocumentoDeAjuste(SQLiteDatabase db, int fecha, Long cuentaId, long diferencia,
+                                                 String descripcion) {
+        if (cuentaId == null) return null;
+        Cursor c = db.rawQuery("SELECT c1_Documento FROM transacciones WHERE c8_FechaInicial = ? AND cuenta_id = ? " +
+                        "AND c5_Valor = ? AND c6_Descripcion = ? ORDER BY CAST(c1_Documento AS INTEGER) DESC LIMIT 1",
+                new String[]{String.valueOf(fecha), String.valueOf(cuentaId), String.valueOf(diferencia),
+                        descripcion == null ? "" : descripcion});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
+     * Revisa las sesiones con borrador generado y sin documento: si el documento ya se guardó en
+     * F1, anota su número. @return cuántas sesiones quedaron contabilizadas en esta revisión.
+     */
+    public static int actualizarDocumentosDeAjuste(SQLiteDatabase db) {
+        java.util.List<Object[]> pendientes = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT sesion_id, fecha_documento, cuenta_id, diferencia, descripcion FROM " +
+                TABLE_AJUSTE_RENTA + " WHERE borrador_generado = 1 AND documento IS NULL AND registro = " +
+                "(SELECT MIN(a2.registro) FROM " + TABLE_AJUSTE_RENTA + " a2 WHERE a2.sesion_id = " +
+                TABLE_AJUSTE_RENTA + ".sesion_id)", null);
         try {
             while (c.moveToNext()) {
-                lista.add(new Object[]{c.getString(0), c.getString(1), c.isNull(2) ? null : c.getLong(2),
-                        c.getString(3), c.getLong(4), c.getString(5), c.isNull(6) ? null : c.getInt(6),
-                        c.getInt(7) == 1});
+                pendientes.add(new Object[]{c.getInt(0), c.getInt(1), c.isNull(2) ? null : c.getLong(2),
+                        c.getLong(3), c.getString(4)});
+            }
+        } finally {
+            c.close();
+        }
+        int n = 0;
+        for (Object[] p : pendientes) {
+            String doc = buscarDocumentoDeAjuste(db, (Integer) p[1], (Long) p[2], (Long) p[3], (String) p[4]);
+            if (doc == null) continue;
+            db.execSQL("UPDATE " + TABLE_AJUSTE_RENTA + " SET documento = ? WHERE sesion_id = ?", new Object[]{doc, p[0]});
+            n++;
+        }
+        return n;
+    }
+
+    /** ¿El borrador de la sesión está en F1 › Nuevo (caché del área 1, por fecha y descripción)? */
+    public static boolean borradorDeAjusteEnF1(SQLiteDatabase db, int fecha, String descripcion) {
+        return android.database.DatabaseUtils.queryNumEntries(db, TABLE_CACHE_RECORDS,
+                "area_id = ? AND c8_FechaInicial = ? AND c6_Descripcion = ?",
+                new String[]{String.valueOf(AREA_CREATE), String.valueOf(fecha),
+                        descripcion == null ? "" : descripcion}) > 0;
+    }
+
+    /** Sesiones de ajuste sin terminar (sin borrador o sin documento guardado), de cualquier año. */
+    public static int sesionesAjusteSinTerminar(SQLiteDatabase db) {
+        return (int) android.database.DatabaseUtils.longForQuery(db,
+                "SELECT COUNT(DISTINCT sesion_id) FROM " + TABLE_AJUSTE_RENTA + " WHERE documento IS NULL", null);
+    }
+
+    /** Siguiente número de documento (mismo formato que F1); F1 lo vuelve a tomar al guardar. */
+    public static String siguienteNumeroDocumento(SQLiteDatabase db) {
+        long ultimo = android.database.DatabaseUtils.longForQuery(db,
+                "SELECT COALESCE(MAX(CAST(c1_Documento AS INTEGER)), 0) FROM transacciones", null);
+        return String.format(java.util.Locale.ROOT, "%04d", ultimo + 1);
+    }
+
+    /**
+     * Todas las cuentas para elegir en un ajuste, por nombre: {cuenta_id (Long), nombre,
+     * renglon_renta_id (Long o null), naturaleza del tipo, tipo_cuenta_id (Long o null), nombre del tipo}.
+     */
+    public static java.util.List<Object[]> cuentasParaAjuste(SQLiteDatabase db) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT cu.cuenta_id, cu.Cuenta, cu.renglon_renta_id, tc.naturaleza_normal, " +
+                "cu.tipo_cuenta_id, tc.nombre FROM cuentas cu LEFT JOIN " + TABLE_TIPO_CUENTA +
+                " tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id ORDER BY cu.Cuenta COLLATE NOCASE", null);
+        try {
+            while (c.moveToNext()) {
+                lista.add(new Object[]{c.getLong(0), c.getString(1), c.isNull(2) ? null : c.getLong(2),
+                        c.getString(3), c.isNull(4) ? null : c.getLong(4), c.getString(5)});
             }
         } finally {
             c.close();
@@ -2030,7 +2071,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
     public static final String SQL_SELECT_AJUSTES_RENTA_CSV =
             "SELECT " + String.join(", ", COLUMNAS_AJUSTE_RENTA) + " FROM " + TABLE_AJUSTE_RENTA +
-                    " ORDER BY anio_fiscal_afectado, CAST(documento AS INTEGER), CAST(item AS INTEGER)";
+                    " ORDER BY anio_fiscal_afectado, sesion_id, registro";
 
     /** Restaura ajustes desde el CSV 425 (encabezado = COLUMNAS_AJUSTE_RENTA, por nombre). */
     public static int importarAjustesRenta(SQLiteDatabase db, String textoCsv) {
@@ -2041,19 +2082,21 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         for (int i = 0; i < encabezado.length; i++) {
             col.put(encabezado[i].trim().toLowerCase(java.util.Locale.ROOT), i);
         }
+        if (!col.containsKey("sesion_id")) return 0; // formato de la primera versión de R6: no aplica
         int filas = 0;
         for (int n = 1; n < lineas.length; n++) {
             if (lineas[n].trim().isEmpty()) continue;
             String[] d = lineas[n].split(",", -1);
             if (enteroPlantilla(campoPlantilla(d, col, "anio_fiscal_afectado")) == null
-                    || campoPlantilla(d, col, "documento") == null || campoPlantilla(d, col, "item") == null) continue;
+                    || enteroPlantilla(campoPlantilla(d, col, "sesion_id")) == null
+                    || enteroPlantilla(campoPlantilla(d, col, "registro")) == null) continue;
             ContentValues cv = new ContentValues();
             for (String nombre : COLUMNAS_AJUSTE_RENTA) {
                 String v = campoPlantilla(d, col, nombre);
                 if (v == null) cv.putNull(nombre); else cv.put(nombre, v);
             }
-            if (cv.get("valor") == null) cv.put("valor", 0);
-            if (cv.get("congelado") == null) cv.put("congelado", 0);
+            if (cv.get("diferencia") == null) cv.put("diferencia", 0);
+            if (cv.get("borrador_generado") == null) cv.put("borrador_generado", 0);
             if (db.insertWithOnConflict(TABLE_AJUSTE_RENTA, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
                 filas++;
             }
@@ -3231,8 +3274,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             db.execSQL(SQL_CREAR_FOTO_RENTA_ANUAL);
         }
 
-        // ⭐ NUEVO (7-nov): versión 26 de la BD — renta fase R6: tabla ajuste_renta (vacía).
-        if (oldVersion < 26) {
+        // ⭐ (7-nov): versión 26 de la BD — renta fase R6, primera versión (marcar documentos).
+        // ⭐ (7-nov): versión 27 — R6 rehecho con el diseño de Jorge (de lo fiscal a lo contable):
+        // la tabla ajuste_renta cambia de estructura. Lo de la v26 eran solo pruebas: se descarta.
+        if (oldVersion < 27) {
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_AJUSTE_RENTA);
             db.execSQL(SQL_CREAR_AJUSTE_RENTA);
         }
     }

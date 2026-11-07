@@ -405,6 +405,14 @@ public class B12_DocumentPersistence {
     public void assignDocumentDate(String radioButtonName) {
         switch (radioButtonName) {
             case "create_XRb":
+                // ⭐ (7-nov, aprobado por Jorge) El documento nuevo toma el consecutivo disponible
+                // AL GUARDAR, no el que tenía cuando se agregaron sus ítems: un borrador que quedó
+                // en espera (p. ej. el de un ajuste fiscal de la opción 6 de F4) ya no puede
+                // repetir el número de un documento guardado mientras tanto.
+                f1.numerarDocumentoConsecutivo();
+                for (A3_2_TipoTransaccionesGetsYSets item : f1.listaDocumento_ArrayLTT) {
+                    item.tipoTset_1DocumentoMetodoEnA5(f1.nuevoNumeroDocEnAdicionar_String);
+                }
                 if (!f1.dateInCreateNew_XTv.getText().toString().isEmpty()) {
                     f1.DateOfDocument_Integer = f1.dateCurrent_ArrayInteger[5];
                 }
