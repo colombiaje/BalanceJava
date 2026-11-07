@@ -51,7 +51,11 @@ import androidx.appcompat.app.AlertDialog;
  *   2. Depurar saldos contrarios: cada cuenta con saldo contrario a su tipo, con un destino
  *      sugerido. Opciones: Comparativo actual · Comparativo entre años · Cancelar. Seguir adelante
  *      guarda las decisiones (en la foto; si el año no tiene cierre, solo para este recorrido).
- *   3a. Comparativo actual: sin depurar vs depurada, diferencia y %.
+ *   2b. ⭐ (7-nov, R6) Ajustes posteriores al cierre (solo con foto): documentos del año abierto
+ *      marcados "afecta al año fiscal X". Opciones: Marcar documento · Quitar marca (por documento)
+ *      · Comparativo actual · Comparativo entre años · Cancelar. La foto no cambia: la columna
+ *      "Depurada" pasa a ser "Depurada y ajustada" (foto + ajustes, con la depuración).
+ *   3a. Comparativo actual: sin depurar vs depurada (y ajustada), diferencia y %.
  *   3b. Comparativo entre años: año anterior (foto depurada) vs este año (depurado), dif. y %.
  *       Opciones en 3a y 3b: Exportar · Ver resumen · Volver a depurar · Pantalla anterior ·
  *       Volver al inicio · Salir.
@@ -71,6 +75,8 @@ public class A17_ReporteRentaDialogo {
         final long id;
         final String nombre;
         long valor;
+        /** ⭐ (7-nov, R6) Saldo contrario por un ajuste y sin decisión de depuración. */
+        boolean alerta;
         Cuenta(long id, String nombre) {
             this.id = id;
             this.nombre = nombre;
@@ -94,14 +100,14 @@ public class A17_ReporteRentaDialogo {
 
     /** Datos de una cuenta para el CSV: saldo contable, naturaleza, renglones y decisión. */
     private static final class Info {
-        long saldo;
+        long saldo, ajuste;
         String naturaleza, codigoSinDepurar, codigoDepurado, decision;
     }
 
     private static final class Datos {
         final LinkedHashMap<String, Renglon> renglones = new LinkedHashMap<>();
         final LinkedHashMap<Long, Info> info = new LinkedHashMap<>();
-        boolean vacio = true;
+        boolean vacio = true, hayAlerta;
     }
 
     /** Una fila de un comparativo. */
@@ -146,6 +152,8 @@ public class A17_ReporteRentaDialogo {
                 anio = actual;
                 conFoto = false;
             }
+            // ⭐ (7-nov, R6) Por si un documento marcado como ajuste se modificó en F1.
+            if (conFoto) A1_1_AyudanteBD.refrescarAjustesRenta(db);
             pais = A1_1_AyudanteBD.paisConfigurado(db);
             android.database.Cursor c = db.rawQuery("SELECT moneda FROM " +
                     A1_1_AyudanteBD.TABLE_CONFIGURACION_APP + " WHERE config_id = 1", null);
@@ -159,6 +167,26 @@ public class A17_ReporteRentaDialogo {
 
     private String nombreAnio() {
         return anio + (conFoto ? " foto" : " sin cierre");
+    }
+
+    /** ⭐ (7-nov, R6) ¿Hay documentos marcados como ajuste de este año? (solo con foto). */
+    private boolean hayAjustes() {
+        if (!conFoto) return false;
+        SQLiteDatabase db = abrir();
+        try {
+            return !A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio).isEmpty();
+        } finally {
+            db.close();
+        }
+    }
+
+    /** b2 (7-nov, Jorge): con ajustes, "depurada" se llama "depurada y ajustada". */
+    private String estadoDepurada(boolean ajustes) {
+        return ajustes ? "depurada y ajustada" : "depurada";
+    }
+
+    private String columnaDepurada(boolean ajustes) {
+        return ajustes ? "Depurada y ajustada" : "Depurada";
     }
 
     // ── 1. Detalle sin depurar ──────────────────────────────────────────
@@ -178,29 +206,42 @@ public class A17_ReporteRentaDialogo {
     }
 
     private void pantallaDetalle() {
-        boolean depurada = hayDepuracion();
+        boolean ajustes = hayAjustes();
+        boolean depurada = hayDepuracion() || ajustes;
         Datos datos = calcularActual(depurada);
         LinearLayout raiz = contenedor();
-        raiz.addView(botonInfo(depurada ? "Detalle depurado" : "Detalle sin depurar",
+        raiz.addView(botonInfo(depurada ? (ajustes ? "Detalle depurado y ajustado" : "Detalle depurado") : "Detalle sin depurar",
                 (conFoto
                         ? "Los saldos congelados en el cierre del año " + anio + ". "
                         : "El año " + anio + " todavía no tiene cierre: estos son los saldos con los datos de hoy. ")
+                        + (ajustes ? "Incluye los ajustes posteriores al cierre (foto + ajustes); la foto no cambia. " : "")
                         + (depurada
-                        ? "Ya se depuró: los saldos contrarios están en el renglón decidido. Para cambiarlo, "
+                        ? "Los saldos contrarios están en el renglón decidido. Para cambiarlo, "
                         + "\"Revisar depuración\"."
                         : "Cada cuenta está en su renglón original. Un saldo contrario (ej.: un banco "
                         + "sobregirado) resta dentro de su renglón; se corrige en \"Depurar saldos contrarios\".")));
+        if (datos.hayAlerta) {
+            raiz.addView(texto("⚠ Saldo contrario por un ajuste: depúrelo en \"Revisar depuración\".", false));
+        }
         raiz.addView(tablaDetalle(datos));
         AlertDialog[] dialogo = new AlertDialog[1];
-        raiz.addView(botones(
-                new String[]{depurada ? "Revisar depuración" : "Depurar saldos contrarios", "Ver resumen",
-                        "Exportar y salir", "Cancelar"},
-                new Runnable[]{
-                        () -> { dialogo[0].dismiss(); pantallaDepuracion(); },
-                        () -> verResumen(datos),
-                        () -> { exportarDetalle(depurada); dialogo[0].dismiss(); },
-                        () -> dialogo[0].dismiss()}));
-        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + (depurada ? " depurada" : " sin depurar"), raiz);
+        List<String> textos = new ArrayList<>();
+        List<Runnable> acciones = new ArrayList<>();
+        textos.add(hayDepuracion() ? "Revisar depuración" : "Depurar saldos contrarios");
+        acciones.add(() -> { dialogo[0].dismiss(); pantallaDepuracion(); });
+        if (conFoto) {
+            // ⭐ (7-nov, R6) Ajustes a este año cerrado, registrados después del cierre.
+            textos.add(ajustes ? "Revisar ajustes" : "Ajustes posteriores al cierre");
+            acciones.add(() -> { dialogo[0].dismiss(); pantallaAjustes(); });
+        }
+        textos.add("Ver resumen");
+        acciones.add(() -> verResumen(datos));
+        textos.add("Exportar y salir");
+        acciones.add(() -> { exportarDetalle(depurada); dialogo[0].dismiss(); });
+        textos.add("Cancelar");
+        acciones.add(() -> dialogo[0].dismiss());
+        raiz.addView(botones(textos.toArray(new String[0]), acciones.toArray(new Runnable[0])));
+        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " " + (depurada ? estadoDepurada(ajustes) : "sin depurar"), raiz);
     }
 
     private void verResumen(Datos datos) {
@@ -229,19 +270,28 @@ public class A17_ReporteRentaDialogo {
         try {
             renglones = A1_1_AyudanteBD.renglonesAsignablesEnAnio(db, anio);
             if (conFoto) {
-                for (Object[] f : A1_1_AyudanteBD.cuentasConSaldoContrario(db, anio)) {
+                // ⭐ (7-nov, R6) Contraria según el saldo corregido (foto + ajustes del año).
+                Map<Long, Long> ajustes = ajustesPorCuenta(db, anio);
+                for (Object[] f : A1_1_AyudanteBD.filasFotoRenta(db, anio)) {
+                    long ajuste = cero(ajustes.get((Long) f[0]));
+                    long saldo = (Long) f[3] + ajuste;
+                    if (f[2] == null || !esContrario((String) f[4], saldo)) continue;
+                    String nat = A1_1_AyudanteBD.naturalezaDeRenglon(db, (Long) f[2]);
+                    if (!esNaturalezaDepurable(nat)) continue;
                     Long propuesto;
                     String motivo;
                     if (f[6] != null && f[5] != null) {
                         propuesto = (Long) f[5];
                         motivo = "decidido";
                     } else {
-                        Object[] s = A1_1_AyudanteBD.sugerenciaDepuracion(db, anio, (Long) f[0], (String) f[4]);
+                        Object[] s = A1_1_AyudanteBD.sugerenciaDepuracion(db, anio, (Long) f[0], nat);
                         propuesto = (Long) s[0];
                         motivo = "sugerido: " + s[1];
                     }
-                    contrarias.add(new Object[]{f[0], f[1], f[2], f[3], f[4], propuesto, motivo});
+                    if (ajuste != 0) motivo += " · con ajuste";
+                    contrarias.add(new Object[]{f[0], f[1], saldo, f[2], nat, propuesto, motivo});
                 }
+                Collections.sort(contrarias, (x, y) -> Long.compare(Math.abs((Long) y[2]), Math.abs((Long) x[2])));
             } else {
                 for (Object[] r : A1_1_AyudanteBD.saldosCrudosDelAnio(db, anio)) {
                     long saldo = (Long) r[3];
@@ -278,6 +328,7 @@ public class A17_ReporteRentaDialogo {
                 "Cuentas que terminaron el año con saldo contrario a su tipo de cuenta (ej.: un banco "
                         + "sobregirado). Para cada una viene un destino sugerido: la decisión del año anterior, "
                         + "o el renglón de la naturaleza contraria (activo negativo → Deudas). Puede elegir otro. "
+                        + "Con ajustes posteriores al cierre, cuenta el saldo corregido (foto + ajustes). "
                         + "Los saldos no cambian; solo el renglón donde se declaran. Al pasar a un comparativo, "
                         + "las decisiones se guardan" + (conFoto ? " en la foto." : " para este recorrido (el año aún no tiene cierre).")));
         List<Spinner> selectores = new ArrayList<>();
@@ -345,17 +396,155 @@ public class A17_ReporteRentaDialogo {
         }
     }
 
+    // ── 2b. Ajustes posteriores al cierre (R6) ──────────────────────────
+
+    /**
+     * ⭐ NUEVO (7-nov, renta R6, diseño acordado con Jorge): documentos del año abierto marcados
+     * como ajuste de este año cerrado. Cada marca se guarda al momento y sube el respaldo 425.
+     */
+    private void pantallaAjustes() {
+        List<Object[]> partidas;
+        SQLiteDatabase db = abrir();
+        try {
+            partidas = A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio);
+        } finally {
+            db.close();
+        }
+        LinearLayout raiz = contenedor();
+        raiz.addView(botonInfo("Ajustes posteriores al cierre",
+                "Correcciones del año " + anio + " que aparecieron después del cierre (ej.: un extracto que "
+                        + "llegó tarde). El ajuste se registra en F1 como cualquier documento del año abierto: "
+                        + "así la contabilidad queda corregida desde ese año. Aquí solo se marca \"afecta al año "
+                        + "fiscal " + anio + "\": la renta de " + anio + " queda en foto + ajustes, y la foto no "
+                        + "cambia. Un documento afecta un solo año. Si después se modifica en F1, el ajuste se "
+                        + "actualiza solo; el cierre 421 siguiente lo deja fijo. Si un ajuste deja una cuenta con "
+                        + "saldo contrario (⚠), se depura en \"Revisar depuración\"."));
+        AlertDialog[] dialogo = new AlertDialog[1];
+        if (partidas.isEmpty()) {
+            raiz.addView(texto("No hay documentos marcados como ajuste del año " + anio + ".", false));
+        }
+        // Un bloque por documento: encabezado, sus partidas y "Quitar marca".
+        String docActual = null;
+        for (int i = 0; i < partidas.size(); i++) {
+            Object[] p = partidas.get(i);
+            String doc = (String) p[0];
+            if (!doc.equals(docActual)) {
+                docActual = doc;
+                long total = 0;
+                for (Object[] q : partidas) if (doc.equals(q[0]) && (Long) q[4] > 0) total += (Long) q[4];
+                raiz.addView(texto("Doc. " + doc + " · " + fechaLegible((Integer) p[6]) + " · "
+                        + (p[5] == null ? "" : p[5]) + "   $ " + formato.format(total), true));
+                if (!(Boolean) p[7]) {
+                    raiz.addView(texto("⚠ El documento ya no existe en las transacciones: quite la marca si se borró a propósito.", false));
+                }
+            }
+            TextView partida = texto("      " + (p[3] == null ? "(cuenta sin nombre)" : p[3]) + "   $ "
+                    + formato.format((Long) p[4]), false);
+            partida.setTextSize(13);
+            raiz.addView(partida);
+            boolean ultimaDelDoc = i == partidas.size() - 1 || !doc.equals(partidas.get(i + 1)[0]);
+            if (ultimaDelDoc) {
+                Button quitar = new Button(context);
+                quitar.setText("Quitar marca del doc. " + doc);
+                quitar.setAllCaps(false);
+                quitar.setOnClickListener(v -> {
+                    SQLiteDatabase w = abrir();
+                    try {
+                        A1_1_AyudanteBD.quitarAjusteRenta(w, doc);
+                    } finally {
+                        w.close();
+                    }
+                    respaldarAjustes();
+                    dialogo[0].dismiss();
+                    pantallaAjustes();
+                });
+                raiz.addView(quitar, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT));
+            }
+        }
+        raiz.addView(botones(
+                new String[]{"Marcar documento", "Comparativo actual", "Comparativo entre años", "Cancelar"},
+                new Runnable[]{
+                        () -> elegirDocumentoAjuste(dialogo[0]),
+                        () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoActual(); },
+                        () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoAnios(); },
+                        () -> dialogo[0].dismiss()}));
+        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " ajustes", raiz);
+    }
+
+    /** Lista de documentos del año abierto aún sin marcar; al elegir uno, lo marca para este año. */
+    private void elegirDocumentoAjuste(AlertDialog pantalla) {
+        List<Object[]> docs;
+        SQLiteDatabase db = abrir();
+        try {
+            docs = A1_1_AyudanteBD.documentosCandidatosAjuste(db);
+        } finally {
+            db.close();
+        }
+        if (docs.isEmpty()) {
+            Toast.makeText(context, "No hay documentos sin marcar en las transacciones.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String[] items = new String[docs.size()];
+        for (int i = 0; i < items.length; i++) {
+            Object[] d = docs.get(i);
+            items[i] = "Doc. " + d[0] + " · " + fechaLegible((Integer) d[1]) + " · "
+                    + (d[2] == null ? "" : d[2]) + " · $ " + formato.format((Long) d[3]);
+        }
+        new AlertDialog.Builder(context)
+                .setCustomTitle(tituloCentrado("Marcar como ajuste de " + anio))
+                .setItems(items, (dlg, i) -> {
+                    SQLiteDatabase w = abrir();
+                    try {
+                        A1_1_AyudanteBD.marcarAjusteRenta(w, anio, (String) docs.get(i)[0]);
+                    } finally {
+                        w.close();
+                    }
+                    respaldarAjustes();
+                    pantalla.dismiss();
+                    pantallaAjustes();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    /** Regenera el respaldo 425 (todos los ajustes) y lo sube a Drive. */
+    private void respaldarAjustes() {
+        String nombre = A5_1_BackupManager.backupAjustesRentaCSV(context);
+        if (nombre != null && folderIdDrive != null) {
+            A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(context, nombre, folderIdDrive);
+        }
+    }
+
+    private static String fechaLegible(Integer aaaammdd) {
+        if (aaaammdd == null || aaaammdd <= 0) return "sin fecha";
+        return (aaaammdd % 100) + "/" + ((aaaammdd / 100) % 100) + "/" + (aaaammdd / 10000);
+    }
+
+    /** Suma de los ajustes del año por cuenta (signo contable). */
+    private static Map<Long, Long> ajustesPorCuenta(SQLiteDatabase db, int a) {
+        Map<Long, Long> m = new HashMap<>();
+        for (Object[] p : A1_1_AyudanteBD.ajustesRentaDelAnio(db, a)) {
+            if (p[2] == null) continue;
+            m.put((Long) p[2], cero(m.get((Long) p[2])) + (Long) p[4]);
+        }
+        return m;
+    }
+
     // ── 3. Comparativos ─────────────────────────────────────────────────
 
     private void pantallaComparativoActual() {
+        boolean ajustes = hayAjustes();
+        String colB = columnaDepurada(ajustes);
         List<FilaComp> filas = comparar(calcularActual(false), calcularActual(true));
         LinearLayout raiz = contenedor();
         raiz.addView(botonInfo("Comparativo actual",
-                "Año " + anio + ": cada renglón y cuenta sin depurar y depurada, con la diferencia en valor y en "
-                        + "porcentaje. Una cuenta depurada aparece en su renglón original (sale) y en el renglón "
-                        + "decidido (entra). El patrimonio líquido no cambia: la depuración solo reubica."));
-        raiz.addView(tablaComparativo(filas, "Sin depurar", "Depurada"));
-        accionesFinales(raiz, "Renta fiscal " + nombreAnio() + " comparativo actual", filas, "Sin depurar", "Depurada");
+                "Año " + anio + ": cada renglón y cuenta sin depurar y " + estadoDepurada(ajustes) + ", con la "
+                        + "diferencia en valor y en porcentaje. Una cuenta depurada aparece en su renglón original "
+                        + "(sale) y en el renglón decidido (entra). La depuración solo reubica: no cambia el "
+                        + "patrimonio líquido" + (ajustes ? "; los ajustes posteriores al cierre sí lo cambian." : ".")));
+        raiz.addView(tablaComparativo(filas, "Sin depurar", colB));
+        accionesFinales(raiz, "Renta fiscal " + nombreAnio() + " comparativo actual", filas, "Sin depurar", colB);
     }
 
     private void pantallaComparativoAnios() {
@@ -363,7 +552,8 @@ public class A17_ReporteRentaDialogo {
         List<FilaComp> filas = comparar(anterior, calcularActual(true));
         LinearLayout raiz = contenedor();
         raiz.addView(botonInfo("Comparativo entre años",
-                "Año " + (anio - 1) + " (foto del cierre, depurada) frente al año " + anio + " (depurado), con la "
+                "Año " + (anio - 1) + " (foto del cierre, depurada y con sus ajustes) frente al año " + anio
+                        + " (depurado y con sus ajustes), con la "
                         + "diferencia en valor y en porcentaje. Sirve como planeación tributaria."));
         if (anterior.vacio) raiz.addView(texto("No hay foto del cierre de " + (anio - 1) + " para comparar.", false));
         raiz.addView(tablaComparativo(filas, String.valueOf(anio - 1), String.valueOf(anio)));
@@ -432,11 +622,35 @@ public class A17_ReporteRentaDialogo {
             porId.put((Long) r[0], rg);
         }
         // {cuenta_id, nombre, renglón sin depurar, saldo, naturaleza del tipo, renglón depurado, decisión}
+        // ⭐ (7-nov, R6) [7] = ajuste del año a la cuenta (solo en la vista depurada de una foto).
         List<Object[]> filas = new ArrayList<>();
         if (desdeFoto) {
+            Map<Long, Long> ajustes = depurada ? ajustesPorCuenta(db, a) : new HashMap<>();
+            Map<Long, String> nombresAjuste = new HashMap<>();
+            if (depurada) {
+                for (Object[] p : A1_1_AyudanteBD.ajustesRentaDelAnio(db, a)) {
+                    if (p[2] != null) nombresAjuste.put((Long) p[2], (String) p[3]);
+                }
+            }
             for (Object[] f : A1_1_AyudanteBD.filasFotoRenta(db, a)) {
+                long ajuste = cero(ajustes.remove((Long) f[0]));
+                long corregido = (Long) f[3] + ajuste;
                 Long efectivo = f[5] != null ? (Long) f[5] : (Long) f[2];
-                filas.add(new Object[]{f[0], f[1], f[2], f[3], f[4], efectivo, f[6] != null ? "confirmada" : ""});
+                String decision = f[6] != null ? "confirmada" : "";
+                // Una decisión de depuración vale mientras la cuenta siga contraria: si un ajuste
+                // la deja con saldo normal, vuelve a su renglón asignado.
+                if (f[6] != null && ajuste != 0 && !esContrario((String) f[4], corregido)) {
+                    efectivo = (Long) f[2];
+                    decision = "sin efecto por ajuste";
+                }
+                filas.add(new Object[]{f[0], f[1], f[2], f[3], f[4], efectivo, decision, ajuste});
+            }
+            // Cuentas con ajuste que no estaban en la foto: van a su renglón actual.
+            for (Map.Entry<Long, Long> e : ajustes.entrySet()) {
+                Object[] rn = A1_1_AyudanteBD.renglonYNaturalezaDeCuenta(db, e.getKey());
+                String nombre = nombresAjuste.get(e.getKey());
+                filas.add(new Object[]{e.getKey(), nombre == null ? "Cuenta " + e.getKey() : nombre,
+                        rn[0], 0L, rn[1], rn[0], "", e.getValue()});
             }
         } else {
             for (Object[] r : A1_1_AyudanteBD.saldosCrudosDelAnio(db, a)) {
@@ -456,12 +670,13 @@ public class A17_ReporteRentaDialogo {
                         }
                     }
                 }
-                filas.add(new Object[]{r[0], r[1], renglon, r[3], r[4], depuradoId, decision});
+                filas.add(new Object[]{r[0], r[1], renglon, r[3], r[4], depuradoId, decision, 0L});
             }
         }
         for (Object[] f : filas) {
             d.vacio = false;
-            long saldo = (Long) f[3];
+            long ajuste = (Long) f[7];
+            long saldo = (Long) f[3] + (depurada ? ajuste : 0);
             Renglon sinDep = (Long) f[2] == null ? null : porId.get((Long) f[2]);
             Renglon dep = (Long) f[5] == null ? null : porId.get((Long) f[5]);
             Renglon destino = depurada ? dep : sinDep;
@@ -481,8 +696,15 @@ public class A17_ReporteRentaDialogo {
             }
             c.valor += valor;
             destino.total += valor;
+            // ⭐ (7-nov, R6) ⚠ si el ajuste deja la cuenta contraria y no hay decisión que la depure.
+            if (depurada && ajuste != 0 && ((String) f[6]).isEmpty() && esContrario((String) f[4], saldo)
+                    && sinDep != null && esNaturalezaDepurable(sinDep.naturaleza)) {
+                c.alerta = true;
+                d.hayAlerta = true;
+            }
             Info info = new Info();
-            info.saldo = saldo;
+            info.saldo = (Long) f[3];
+            info.ajuste = ajuste;
             info.naturaleza = (String) f[4];
             info.codigoSinDepurar = sinDep == null ? "" : sinDep.codigo;
             info.codigoDepurado = dep == null ? "" : dep.codigo;
@@ -561,7 +783,7 @@ public class A17_ReporteRentaDialogo {
             t.addView(fila);
             for (Cuenta c : r.cuentas.values()) {
                 TableRow fc = new TableRow(context);
-                fc.addView(celda("      " + c.nombre, false, false));
+                fc.addView(celda("      " + (c.alerta ? "⚠ " : "") + c.nombre, false, false));
                 fc.addView(celda("$ " + formato.format(c.valor), false, true));
                 t.addView(fc);
             }
@@ -709,27 +931,33 @@ public class A17_ReporteRentaDialogo {
 
     /** Paso 1: el detalle que se ve (depurado si ya se depuró). El CSV va completo. */
     private void exportarDetalle(boolean depurada) {
+        boolean ajustes = hayAjustes();
         Datos sinDepurar = calcularActual(false);
         Datos dep = calcularActual(true);
-        String estado = depurada ? "depurada" : "sin depurar";
+        String estado = depurada ? estadoDepurada(ajustes) : "sin depurar";
         String titulo = "Renta fiscal " + nombreAnio() + " " + estado;
         String base = "424_Renta_" + anio + (conFoto ? "_foto_" : "_sin_cierre_") + estado.replace(" ", "_");
         List<Seccion> secciones = new ArrayList<>();
-        secciones.add(seccionDetalle(depurada ? "Detalle depurado" : "Detalle sin depurar", depurada ? dep : sinDepurar));
+        secciones.add(seccionDetalle(depurada ? (ajustes ? "Detalle depurado y ajustado" : "Detalle depurado")
+                : "Detalle sin depurar", depurada ? dep : sinDepurar));
+        if (ajustes) secciones.add(seccionAjustes());
         exportar(base, titulo, secciones, sinDepurar, dep, calcularAnterior());
     }
 
     /** Pasos 3a/3b: detalle depurado + comparativo actual + comparativo entre años. */
     private void exportarFinal() {
+        boolean ajustes = hayAjustes();
         Datos sinDepurar = calcularActual(false);
         Datos depurada = calcularActual(true);
         Datos anterior = calcularAnterior();
-        String titulo = "Renta fiscal " + nombreAnio() + " depurada";
-        String base = "424_Renta_" + anio + (conFoto ? "_foto_depurada" : "_sin_cierre_depurada");
+        String estado = estadoDepurada(ajustes);
+        String titulo = "Renta fiscal " + nombreAnio() + " " + estado;
+        String base = "424_Renta_" + anio + (conFoto ? "_foto_" : "_sin_cierre_") + estado.replace(" ", "_");
         List<Seccion> secciones = new ArrayList<>();
-        secciones.add(seccionDetalle("Detalle depurado", depurada));
-        secciones.add(seccionComparativo("Comparativo actual: sin depurar y depurada",
-                comparar(sinDepurar, depurada), "Sin dep.", "Depurada"));
+        secciones.add(seccionDetalle(ajustes ? "Detalle depurado y ajustado" : "Detalle depurado", depurada));
+        if (ajustes) secciones.add(seccionAjustes());
+        secciones.add(seccionComparativo("Comparativo actual: sin depurar y " + estado,
+                comparar(sinDepurar, depurada), "Sin dep.", ajustes ? "Dep. y aj." : "Depurada"));
         secciones.add(seccionComparativo("Comparativo entre años: " + (anio - 1) + " y " + anio
                         + (anterior.vacio ? " (no hay foto de " + (anio - 1) + ")" : ""),
                 comparar(anterior, depurada), String.valueOf(anio - 1), String.valueOf(anio)));
@@ -751,6 +979,31 @@ public class A17_ReporteRentaDialogo {
         for (Renglon r : d.renglones.values()) {
             s.filas.add(new String[]{"R", r.etiqueta(), formato.format(r.total)});
             for (Cuenta c : r.cuentas.values()) s.filas.add(new String[]{"C", c.nombre, formato.format(c.valor)});
+        }
+        return s;
+    }
+
+    /** ⭐ (7-nov, R6) Los documentos marcados como ajuste del año, con sus partidas (signo contable). */
+    private Seccion seccionAjustes() {
+        Seccion s = new Seccion("Ajustes posteriores al cierre (afectan a " + anio + ")",
+                new String[]{"Documento / cuenta", "Valor"});
+        SQLiteDatabase db = abrir();
+        try {
+            List<Object[]> partidas = A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio);
+            String docActual = null;
+            for (Object[] p : partidas) {
+                String doc = (String) p[0];
+                if (!doc.equals(docActual)) {
+                    docActual = doc;
+                    long total = 0;
+                    for (Object[] q : partidas) if (doc.equals(q[0]) && (Long) q[4] > 0) total += (Long) q[4];
+                    s.filas.add(new String[]{"R", "Doc. " + doc + " · " + fechaLegible((Integer) p[6]) + " · "
+                            + (p[5] == null ? "" : p[5]), formato.format(total)});
+                }
+                s.filas.add(new String[]{"C", p[3] == null ? "" : (String) p[3], formato.format((Long) p[4])});
+            }
+        } finally {
+            db.close();
         }
         return s;
     }
@@ -786,9 +1039,10 @@ public class A17_ReporteRentaDialogo {
         try (OutputStreamWriter w = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
             // ⭐ (4-nov, Jorge) encabezados: año, diferencia_valor, diferencia_%.
             // (4-nov, Jorge) "periodo" en vez de "año"/"anio".
+            // ⭐ (7-nov, R6, b2) ajuste_contable; "depurado" pasa a "depurado_ajustado".
             w.write("periodo,origen,tipo_fila,codigo_sin_depurar,renglon_sin_depurar,codigo_depurado,renglon_depurado," +
-                    "cuenta_id,cuenta,saldo_contable,naturaleza_tipo,valor_sin_depurar,valor_depurado," +
-                    "dif_depuracion,decision,valor_periodo_anterior,diferencia_valor,diferencia_%\n");
+                    "cuenta_id,cuenta,saldo_contable,ajuste_contable,naturaleza_tipo,valor_sin_depurar,valor_depurado_ajustado," +
+                    "dif_depuracion_ajuste,decision,valor_periodo_anterior,diferencia_valor,diferencia_%\n");
             String origen = conFoto ? "foto_cierre" : "datos_hoy_sin_cierre";
             Datos ref = depurada != null ? depurada : sinDepurar;
             // Renglones
@@ -804,7 +1058,7 @@ public class A17_ReporteRentaDialogo {
                 Long va = ra == null ? null : ra.total;
                 Double pct = depurada == null ? null : porcentaje(va, vd);
                 w.write(anio + "," + origen + ",resumen renglón," + cod + "," + limpio(textoRenglon(r)) + "," +
-                        (depurada == null ? "," : cod + "," + limpio(textoRenglon(r))) + ",,,,," +
+                        (depurada == null ? "," : cod + "," + limpio(textoRenglon(r))) + ",,,,,," +
                         (rs == null ? "" : rs.total) + "," + (vd == null ? "" : vd) + "," +
                         (depurada == null ? "" : String.valueOf(cero(vd) - (rs == null ? 0 : rs.total))) + ",," +
                         (va == null ? "" : va) + "," +
@@ -816,10 +1070,16 @@ public class A17_ReporteRentaDialogo {
             Map<Long, Long> sinPorCuenta = valoresPorCuenta(sinDepurar);
             Map<Long, Long> depPorCuenta = depurada == null ? new HashMap<>() : valoresPorCuenta(depurada);
             Map<Long, String> nombres = nombresPorCuenta(sinDepurar);
+            if (depurada != null) {
+                for (Map.Entry<Long, String> e : nombresPorCuenta(depurada).entrySet()) nombres.putIfAbsent(e.getKey(), e.getValue());
+            }
             Map<String, String> etiquetaPorCodigo = new HashMap<>();
             for (Renglon r : sinDepurar.renglones.values()) etiquetaPorCodigo.put(r.codigo, textoRenglon(r));
             if (depurada != null) for (Renglon r : depurada.renglones.values()) etiquetaPorCodigo.put(r.codigo, textoRenglon(r));
-            for (Map.Entry<Long, Info> e : sinDepurar.info.entrySet()) {
+            // ⭐ (7-nov, R6) también las cuentas que solo aparecen por un ajuste (no estaban en la foto).
+            LinkedHashMap<Long, Info> todas = new LinkedHashMap<>(sinDepurar.info);
+            if (depurada != null) for (Map.Entry<Long, Info> e : depurada.info.entrySet()) todas.putIfAbsent(e.getKey(), e.getValue());
+            for (Map.Entry<Long, Info> e : todas.entrySet()) {
                 long id = e.getKey();
                 Info inf = depurada != null && depurada.info.containsKey(id) ? depurada.info.get(id) : e.getValue();
                 Long vs = sinPorCuenta.get(id), vd = depPorCuenta.get(id), va = anteriorPorCuenta.get(id);
@@ -828,7 +1088,8 @@ public class A17_ReporteRentaDialogo {
                 w.write(anio + "," + origen + ",cuenta," + codS + "," +
                         limpio(etiquetaPorCodigo.containsKey(codS) ? etiquetaPorCodigo.get(codS) : "") + "," +
                         (depurada == null ? "," : codD + "," + limpio(etiquetaPorCodigo.containsKey(codD) ? etiquetaPorCodigo.get(codD) : "")) + "," +
-                        id + "," + limpio(nombres.get(id)) + "," + inf.saldo + "," + limpio(inf.naturaleza) + "," +
+                        id + "," + limpio(nombres.get(id)) + "," + inf.saldo + "," +
+                        (depurada == null ? "" : String.valueOf(inf.ajuste)) + "," + limpio(inf.naturaleza) + "," +
                         (vs == null ? "" : vs) + "," + (vd == null ? "" : vd) + "," +
                         (depurada == null ? "" : String.valueOf(cero(vd) - cero(vs))) + "," +
                         (depurada == null ? "" : limpio(inf.decision)) + "," + (va == null ? "" : va) + "," +

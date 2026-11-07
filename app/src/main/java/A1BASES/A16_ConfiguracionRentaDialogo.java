@@ -180,9 +180,11 @@ public class A16_ConfiguracionRentaDialogo {
             if (archivos == null) continue;
             for (File f : archivos) {
                 String primera = primeraLinea(f);
-                // Plantilla de renglones ("pais,...") o respaldo de fotos anuales ("anio_fiscal,...").
+                // Plantilla de renglones ("pais,..."), respaldo de fotos anuales ("anio_fiscal,...")
+                // o ⭐ (7-nov, R6) respaldo de ajustes a años cerrados ("anio_fiscal_afectado,...").
                 if (primera != null && (primera.trim().toLowerCase().startsWith("pais,")
-                        || primera.trim().toLowerCase().startsWith("anio_fiscal,"))) plantillas.add(f);
+                        || primera.trim().toLowerCase().startsWith("anio_fiscal,")
+                        || primera.trim().toLowerCase().startsWith("anio_fiscal_afectado,"))) plantillas.add(f);
             }
         }
         if (plantillas.isEmpty()) {
@@ -190,7 +192,8 @@ public class A16_ConfiguracionRentaDialogo {
                     .setTitle("Importar plantilla")
                     .setMessage("No hay plantillas ni fotos en la carpeta Balance.\n\nUna plantilla es un CSV cuya " +
                             "primera fila es:\n" + String.join(",", A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA) +
-                            "\n\nEl respaldo de fotos anuales es el archivo 423_FotoRentaCierre (sin_depurar o depurada).")
+                            "\n\nEl respaldo de fotos anuales es el archivo 423_FotoRentaCierre (sin_depurar o depurada)" +
+                            " y el de ajustes a años cerrados, 425_AjustesRentaCierre.")
                     .setPositiveButton("OK", null)
                     .show();
             return;
@@ -206,6 +209,16 @@ public class A16_ConfiguracionRentaDialogo {
 
     private void confirmarImportacion(Context context, File archivo, Runnable alCambiar) {
         String primera = primeraLinea(archivo);
+        if (primera != null && primera.trim().toLowerCase().startsWith("anio_fiscal_afectado,")) {
+            new AlertDialog.Builder(context)
+                    .setTitle("Restaurar " + archivo.getName())
+                    .setMessage("Se restaurarán los ajustes a años cerrados del archivo. Las partidas del mismo " +
+                            "documento e ítem que ya existan se reemplazan. ¿Continuar?")
+                    .setPositiveButton("Restaurar", (d, w) -> restaurarAjustes(context, archivo))
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+            return;
+        }
         if (primera != null && primera.trim().toLowerCase().startsWith("anio_fiscal,")) {
             new AlertDialog.Builder(context)
                     .setTitle("Restaurar " + archivo.getName())
@@ -270,6 +283,28 @@ public class A16_ConfiguracionRentaDialogo {
             Toast.makeText(context, "Fotos restauradas: " + filas + " filas", Toast.LENGTH_LONG).show();
         } catch (Exception e) {
             Log.e(TAG, "No se pudieron restaurar las fotos: " + e.getMessage(), e);
+            Toast.makeText(context, "Error al restaurar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        } finally {
+            db.close();
+        }
+    }
+
+    /** ⭐ NUEVO (7-nov, renta R6): restaura el respaldo 425 de ajustes a años cerrados. */
+    private void restaurarAjustes(Context context, File archivo) {
+        SQLiteDatabase db = abrir(context);
+        try {
+            String texto = leerTexto(archivo);
+            db.beginTransaction();
+            int filas;
+            try {
+                filas = A1_1_AyudanteBD.importarAjustesRenta(db, texto);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            Toast.makeText(context, "Ajustes restaurados: " + filas + " partidas", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudieron restaurar los ajustes: " + e.getMessage(), e);
             Toast.makeText(context, "Error al restaurar: " + e.getMessage(), Toast.LENGTH_LONG).show();
         } finally {
             db.close();

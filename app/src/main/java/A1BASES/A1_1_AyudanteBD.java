@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 25; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3)
+    public static final int version1BalanceSqlite_int_PSF = 26; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6)
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -1832,6 +1832,235 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 new Object[]{renglonId, DECISION_DEPURACION_CONFIRMADA, anio, cuentaId});
     }
 
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (7-nov, BD v26) — RENTA FASE R6: AJUSTES A AÑOS CERRADOS (diseño acordado con Jorge).
+    //  Un ajuste es un documento normal del año abierto (corrige la contabilidad desde ese año)
+    //  marcado "afecta al año fiscal X" (corrige la renta de X: foto de X + ajuste). La foto de X
+    //  no se toca. Un documento afecta un solo año. La marca se pone en la opción 6 de F4, no en F1.
+    //  Se guarda una COPIA de las partidas del documento porque el cierre 421 siguiente borra los
+    //  movimientos: la copia se refresca sola mientras el documento existe (por si se modificó en
+    //  F1) y se congela en el cierre 421, justo antes de borrar. Sin llave foránea (guarda el nombre).
+    // ─────────────────────────────────────────────
+    public static final String TABLE_AJUSTE_RENTA = "ajuste_renta";
+
+    public static final String[] COLUMNAS_AJUSTE_RENTA = {
+            "anio_fiscal_afectado", "anio_registro", "documento", "item", "cuenta_id", "cuenta_nombre",
+            "valor", "descripcion", "fecha", "congelado", "fecha_marca"};
+
+    private static final String SQL_CREAR_AJUSTE_RENTA =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_AJUSTE_RENTA + " (" +
+                    "anio_fiscal_afectado INTEGER NOT NULL, " + // X: el año cerrado que corrige
+                    "anio_registro INTEGER, " +                  // año fiscal del documento (X+1)
+                    "documento TEXT NOT NULL, " +
+                    "item TEXT NOT NULL, " +
+                    "cuenta_id INTEGER, " +
+                    "cuenta_nombre TEXT, " +
+                    "valor INTEGER NOT NULL, " +                 // con el signo contable (c5_Valor)
+                    "descripcion TEXT, " +
+                    "fecha INTEGER, " +                          // c8_FechaInicial, AAAAMMDD
+                    "congelado INTEGER NOT NULL DEFAULT 0, " +   // 1 = ya pasó un cierre 421
+                    "fecha_marca TEXT, " +
+                    "PRIMARY KEY (documento, item))";
+
+    /** Año fiscal al que pertenece una fecha AAAAMMDD, según el inicio configurado. */
+    public static int anioFiscalDeFecha(SQLiteDatabase db, int aaaammdd) {
+        int anio = aaaammdd / 10000;
+        return aaaammdd < limitesAnioFiscal(db, anio)[0] ? anio - 1 : anio;
+    }
+
+    /**
+     * Documentos que se pueden marcar como ajuste: los del año abierto (sin el 0 de saldos
+     * iniciales) que aún no están marcados para ningún año. Después de un cierre 421 solo quedan
+     * movimientos posteriores a él. {documento, fecha (Integer o null), descripción, total positivo}.
+     * Del más reciente al más antiguo.
+     */
+    public static java.util.List<Object[]> documentosCandidatosAjuste(SQLiteDatabase db) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT c1_Documento, MAX(c8_FechaInicial), MIN(c6_Descripcion), " +
+                "SUM(CASE WHEN c5_Valor > 0 THEN c5_Valor ELSE 0 END) FROM transacciones " +
+                "WHERE CAST(c1_Documento AS INTEGER) <> 0 AND c1_Documento NOT IN " +
+                "(SELECT documento FROM " + TABLE_AJUSTE_RENTA + ") " +
+                "GROUP BY c1_Documento ORDER BY CAST(c1_Documento AS INTEGER) DESC", null);
+        try {
+            while (c.moveToNext()) {
+                lista.add(new Object[]{c.getString(0), c.isNull(1) ? null : c.getInt(1),
+                        c.getString(2), c.getLong(3)});
+            }
+        } finally {
+            c.close();
+        }
+        return lista;
+    }
+
+    /** Copia (o vuelve a copiar) las partidas del documento como ajuste del año "anio". @return partidas. */
+    public static int marcarAjusteRenta(SQLiteDatabase db, int anio, String documento) {
+        String fechaMarca = null;
+        Cursor m = db.rawQuery("SELECT MIN(fecha_marca) FROM " + TABLE_AJUSTE_RENTA + " WHERE documento = ?",
+                new String[]{documento});
+        if (m.moveToFirst() && !m.isNull(0)) fechaMarca = m.getString(0);
+        m.close();
+        if (fechaMarca == null) {
+            fechaMarca = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT)
+                    .format(new java.util.Date());
+        }
+        int partidas = 0;
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_AJUSTE_RENTA, "documento = ?", new String[]{documento});
+            Cursor c = db.rawQuery("SELECT t.c2_ItemDoc, t.cuenta_id, cu.Cuenta, t.c5_Valor, t.c6_Descripcion, " +
+                    "t.c8_FechaInicial FROM transacciones t LEFT JOIN cuentas cu ON cu.cuenta_id = t.cuenta_id " +
+                    "WHERE t.c1_Documento = ?", new String[]{documento});
+            try {
+                while (c.moveToNext()) {
+                    ContentValues cv = new ContentValues();
+                    cv.put("anio_fiscal_afectado", anio);
+                    if (c.isNull(5)) cv.putNull("anio_registro");
+                    else cv.put("anio_registro", anioFiscalDeFecha(db, c.getInt(5)));
+                    cv.put("documento", documento);
+                    cv.put("item", c.getString(0));
+                    if (c.isNull(1)) cv.putNull("cuenta_id"); else cv.put("cuenta_id", c.getLong(1));
+                    cv.put("cuenta_nombre", c.getString(2));
+                    cv.put("valor", c.isNull(3) ? 0 : c.getLong(3));
+                    cv.put("descripcion", c.getString(4));
+                    if (c.isNull(5)) cv.putNull("fecha"); else cv.put("fecha", c.getInt(5));
+                    cv.put("congelado", 0);
+                    cv.put("fecha_marca", fechaMarca);
+                    if (db.insertWithOnConflict(TABLE_AJUSTE_RENTA, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
+                        partidas++;
+                    }
+                }
+            } finally {
+                c.close();
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        return partidas;
+    }
+
+    public static void quitarAjusteRenta(SQLiteDatabase db, String documento) {
+        db.delete(TABLE_AJUSTE_RENTA, "documento = ?", new String[]{documento});
+    }
+
+    /**
+     * Vuelve a copiar los ajustes NO congelados cuyo documento todavía existe (por si se
+     * modificó en F1). Si el documento ya no existe, la copia se deja tal cual (el reporte avisa).
+     */
+    public static void refrescarAjustesRenta(SQLiteDatabase db) {
+        java.util.List<Object[]> docs = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT documento, MIN(anio_fiscal_afectado) FROM " + TABLE_AJUSTE_RENTA +
+                " WHERE congelado = 0 AND documento IN (SELECT c1_Documento FROM transacciones) " +
+                "GROUP BY documento", null);
+        try {
+            while (c.moveToNext()) docs.add(new Object[]{c.getString(0), c.getInt(1)});
+        } finally {
+            c.close();
+        }
+        for (Object[] d : docs) marcarAjusteRenta(db, (Integer) d[1], (String) d[0]);
+    }
+
+    /** En el cierre 421, antes de borrar: refresca y congela todas las copias. @return documentos. */
+    public static int congelarAjustesRenta(SQLiteDatabase db) {
+        refrescarAjustesRenta(db);
+        ContentValues cv = new ContentValues();
+        cv.put("congelado", 1);
+        db.update(TABLE_AJUSTE_RENTA, cv, "congelado = 0", null);
+        return (int) android.database.DatabaseUtils.longForQuery(db,
+                "SELECT COUNT(DISTINCT documento) FROM " + TABLE_AJUSTE_RENTA, null);
+    }
+
+    public static boolean hayAjustesRenta(SQLiteDatabase db) {
+        return android.database.DatabaseUtils.queryNumEntries(db, TABLE_AJUSTE_RENTA) > 0;
+    }
+
+    /**
+     * Partidas de ajuste que afectan al año, por documento e ítem:
+     * {documento, item, cuenta_id (Long o null), cuenta_nombre, valor (Long), descripción,
+     * fecha (Integer o null), documento_existe (Boolean: falso si no está congelado y ya no existe)}.
+     */
+    public static java.util.List<Object[]> ajustesRentaDelAnio(SQLiteDatabase db, int anio) {
+        java.util.List<Object[]> lista = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT a.documento, a.item, a.cuenta_id, a.cuenta_nombre, a.valor, a.descripcion, " +
+                        "a.fecha, (a.congelado = 1 OR EXISTS (SELECT 1 FROM transacciones t " +
+                        "WHERE t.c1_Documento = a.documento)) FROM " + TABLE_AJUSTE_RENTA + " a " +
+                        "WHERE a.anio_fiscal_afectado = ? " +
+                        "ORDER BY CAST(a.documento AS INTEGER), CAST(a.item AS INTEGER)",
+                new String[]{String.valueOf(anio)});
+        try {
+            while (c.moveToNext()) {
+                lista.add(new Object[]{c.getString(0), c.getString(1), c.isNull(2) ? null : c.getLong(2),
+                        c.getString(3), c.getLong(4), c.getString(5), c.isNull(6) ? null : c.getInt(6),
+                        c.getInt(7) == 1});
+            }
+        } finally {
+            c.close();
+        }
+        return lista;
+    }
+
+    /**
+     * Datos actuales de una cuenta para un ajuste que no está en la foto:
+     * {renglon_renta_id (Long o null), naturaleza del tipo (DEUDORA/ACREEDORA o null)}.
+     */
+    public static Object[] renglonYNaturalezaDeCuenta(SQLiteDatabase db, long cuentaId) {
+        Cursor c = db.rawQuery("SELECT cu.renglon_renta_id, tc.naturaleza_normal FROM cuentas cu " +
+                        "LEFT JOIN " + TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id " +
+                        "WHERE cu.cuenta_id = ?", new String[]{String.valueOf(cuentaId)});
+        try {
+            if (!c.moveToFirst()) return new Object[]{null, null};
+            return new Object[]{c.isNull(0) ? null : c.getLong(0), c.getString(1)};
+        } finally {
+            c.close();
+        }
+    }
+
+    /** Años fiscales afectados por algún ajuste, en orden. */
+    public static java.util.List<Integer> aniosConAjusteRenta(SQLiteDatabase db) {
+        java.util.List<Integer> anios = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT DISTINCT anio_fiscal_afectado FROM " + TABLE_AJUSTE_RENTA +
+                " ORDER BY anio_fiscal_afectado", null);
+        try {
+            while (c.moveToNext()) anios.add(c.getInt(0));
+        } finally {
+            c.close();
+        }
+        return anios;
+    }
+
+    public static final String SQL_SELECT_AJUSTES_RENTA_CSV =
+            "SELECT " + String.join(", ", COLUMNAS_AJUSTE_RENTA) + " FROM " + TABLE_AJUSTE_RENTA +
+                    " ORDER BY anio_fiscal_afectado, CAST(documento AS INTEGER), CAST(item AS INTEGER)";
+
+    /** Restaura ajustes desde el CSV 425 (encabezado = COLUMNAS_AJUSTE_RENTA, por nombre). */
+    public static int importarAjustesRenta(SQLiteDatabase db, String textoCsv) {
+        String[] lineas = textoCsv.replace("\r", "").split("\n");
+        if (lineas.length < 2) return 0;
+        String[] encabezado = lineas[0].split(",", -1);
+        java.util.Map<String, Integer> col = new java.util.HashMap<>();
+        for (int i = 0; i < encabezado.length; i++) {
+            col.put(encabezado[i].trim().toLowerCase(java.util.Locale.ROOT), i);
+        }
+        int filas = 0;
+        for (int n = 1; n < lineas.length; n++) {
+            if (lineas[n].trim().isEmpty()) continue;
+            String[] d = lineas[n].split(",", -1);
+            if (enteroPlantilla(campoPlantilla(d, col, "anio_fiscal_afectado")) == null
+                    || campoPlantilla(d, col, "documento") == null || campoPlantilla(d, col, "item") == null) continue;
+            ContentValues cv = new ContentValues();
+            for (String nombre : COLUMNAS_AJUSTE_RENTA) {
+                String v = campoPlantilla(d, col, nombre);
+                if (v == null) cv.putNull(nombre); else cv.put(nombre, v);
+            }
+            if (cv.get("valor") == null) cv.put("valor", 0);
+            if (cv.get("congelado") == null) cv.put("congelado", 0);
+            if (db.insertWithOnConflict(TABLE_AJUSTE_RENTA, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
+                filas++;
+            }
+        }
+        return filas;
+    }
+
     /** Busca un renglón vigente por su código (al restaurar cuentas desde CSV). */
     public static Long buscarRenglonRentaVigentePorCodigo(SQLiteDatabase db, String codigo) {
         if (codigo == null || codigo.trim().isEmpty()) return null;
@@ -2104,6 +2333,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         crearTablasRenta(db);
         importarPlantillaRenta(db, PLANTILLA_RENTA_COLOMBIA);
         db.execSQL(SQL_CREAR_FOTO_RENTA_ANUAL); // ⭐ NUEVO (3-nov, BD v25, renta R3)
+        db.execSQL(SQL_CREAR_AJUSTE_RENTA); // ⭐ NUEVO (7-nov, BD v26, renta R6)
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -2999,6 +3229,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // ⭐ NUEVO (3-nov): versión 25 de la BD — renta fase R3: tabla foto_renta_anual (vacía).
         if (oldVersion < 25) {
             db.execSQL(SQL_CREAR_FOTO_RENTA_ANUAL);
+        }
+
+        // ⭐ NUEVO (7-nov): versión 26 de la BD — renta fase R6: tabla ajuste_renta (vacía).
+        if (oldVersion < 26) {
+            db.execSQL(SQL_CREAR_AJUSTE_RENTA);
         }
     }
 

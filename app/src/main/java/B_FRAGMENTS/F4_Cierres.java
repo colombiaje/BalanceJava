@@ -417,11 +417,14 @@ public class F4_Cierres extends Fragment {
     /** Toma la foto, la respalda (local + Drive), muestra el resumen y, al aceptar, cierra. */
     private void _2tomarFotoYCerrar(int anio) {
         StringBuilder resumen = new StringBuilder();
-        int cuentas;
+        int cuentas, ajustes;
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getWritableDatabase();
         try {
             cuentas = A1_1_AyudanteBD.tomarFotoRentaAnual(db, anio);
+            // ⭐ (7-nov, renta R6) El cierre borra los movimientos: antes se refresca y congela la
+            // copia de los documentos marcados como ajuste a años cerrados.
+            ajustes = A1_1_AyudanteBD.hayAjustesRenta(db) ? A1_1_AyudanteBD.congelarAjustesRenta(db) : 0;
             java.text.DecimalFormat formato = new java.text.DecimalFormat("#,##0");
             for (Object[] r : A1_1_AyudanteBD.resumenFotoRentaPorRenglon(db, anio)) {
                 resumen.append(r[0]).append(" ").append(r[1]).append(": $ ")
@@ -444,6 +447,12 @@ public class F4_Cierres extends Fragment {
                 + A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileType().getExtension();
         if (A5_1_BackupManager.backupFotoRentaCSV(getActivity(), nombreFoto)) {
             A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(requireContext(), nombreFoto, FOLDER_ID_DRIVE);
+        }
+        if (ajustes > 0) {
+            String nombreAjustes = A5_1_BackupManager.backupAjustesRentaCSV(getActivity());
+            if (nombreAjustes != null) {
+                A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(requireContext(), nombreAjustes, FOLDER_ID_DRIVE);
+            }
         }
         new AlertDialog.Builder(getActivity())
                 .setTitle("Foto de " + anio + " tomada")

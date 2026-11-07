@@ -30,6 +30,8 @@ public enum A9_2_BackupFile {
     // ⭐ NUEVO (3-nov, BD v25, renta R3): todas las fotos anuales de renta; se genera y sube a
     // la carpeta de cierres de Drive en cada cierre total 421.
     CSV_FOTO_RENTA_ANUAL("423_FotoRentaCierre", A9_1_FileType.CSV),
+    // ⭐ NUEVO (7-nov, renta R6): ajustes a años cerrados; el nombre lleva los años afectados.
+    CSV_AJUSTES_RENTA("425_AjustesRentaCierre", A9_1_FileType.CSV),
     // (4-nov) El reporte de renta (424) ya no usa un nombre fijo: A17_ReporteRentaDialogo lo arma
     // con el año y la vista, ej. "424_Renta_2026_cierre_depurada".
     //"422 Backup saldos de todas las cuentas.csv"
