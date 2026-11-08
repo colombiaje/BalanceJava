@@ -144,8 +144,6 @@ public class A17_ReporteRentaDialogo {
     private Runnable pantallaAnterior = null;
     /** ⭐ (8-nov) Filtro de la lista de sesiones: "Sin terminar", "Todas" o "Sesión N" (null = automático). */
     private String filtroAjustes = null;
-    /** Contrapartida usada en el último registro (se propone en el siguiente). */
-    private Long ultimaContrapartida = null;
 
     public void mostrar(Context context, String folderIdDrive) {
         if (context == null) return;
@@ -586,30 +584,43 @@ public class A17_ReporteRentaDialogo {
     }
 
     private static final int FONDO_ALTERNO = Color.parseColor("#F1F3F4");
+    private static final int FONDO_ENCABEZADO = Color.parseColor("#DCE8F5");
+    /** ⭐ (8-nov, Jorge) Fucsia: donde el usuario debe llenar datos. */
+    private static final int COLOR_ENTRADA = Color.parseColor("#D81B60");
+    private static final int COLOR_ENTRADA_PISTA = Color.parseColor("#F06292");
 
     /**
-     * ⭐ (8-nov, Jorge) Tabla de asientos: Reg. · Ítem · Tipo · Descripción · Cuenta · Débito (+) ·
-     * Crédito (−), con una fila de título por registro (✕ para quitarlo, si aplica), fondo alterno
-     * por registro, partida en azul y contrapartidas en morado; al pie Totales y Neto.
+     * ⭐ (8-nov, Jorge) Tabla de asientos, a lo ancho y sin desplazamiento: Ítem (registro.ítem) ·
+     * Tipo · Descripción · Cuenta · Valor (+) (−). Tipo, Descripción y Cuenta se ajustan al ancho
+     * y crecen en altura. Una fila de título por registro (▾/▸ para expandir o contraer, ✕ para
+     * quitarlo si aplica); solo el último registro se ve expandido. Fondo alterno por registro,
+     * partida en azul y contrapartidas en morado; al pie Total (+), Total (−) y Neto.
      */
     private View tablaAsientos(List<Asiento> asientos) {
         TableLayout t = new TableLayout(context);
         t.setPadding(0, 6, 0, 6);
+        t.setColumnShrinkable(1, true);
+        t.setColumnShrinkable(2, true);
+        t.setColumnShrinkable(3, true);
+        t.setColumnStretchable(3, true);
         TableRow enc = new TableRow(context);
-        for (String c : new String[]{"Reg.", "Ítem", "Tipo", "Descripción", "Cuenta", "Débito (+)", "Crédito (−)", ""}) {
-            enc.addView(celda(c, true, c.startsWith("Débito") || c.startsWith("Crédito")));
+        for (String c : new String[]{"Ítem", "Tipo", "Descripción", "Cuenta", "Valor (+) (−)", ""}) {
+            enc.addView(celda(c, true, c.startsWith("Valor")));
         }
-        enc.setBackgroundColor(Color.parseColor("#DCE8F5"));
+        enc.setBackgroundColor(FONDO_ENCABEZADO);
         t.addView(enc);
         long mas = 0, menos = 0;
         for (int i = 0; i < asientos.size(); i++) {
             Asiento a = asientos.get(i);
             int fondo = i % 2 == 0 ? Color.WHITE : FONDO_ALTERNO;
+            boolean expandido = i == asientos.size() - 1;
+            List<View> detalle = new ArrayList<>();
             TableRow titulo = new TableRow(context);
-            titulo.addView(celda(String.valueOf(i + 1), true, false));
+            TextView flecha = celda((expandido ? "▾ " : "▸ ") + (i + 1), true, false);
+            titulo.addView(flecha);
             TextView tt = celda(a.titulo, true, false);
             TableRow.LayoutParams span = new TableRow.LayoutParams();
-            span.span = 6;
+            span.span = 4;
             titulo.addView(tt, span);
             if (a.quitar != null) {
                 Button x = new Button(context);
@@ -620,32 +631,44 @@ public class A17_ReporteRentaDialogo {
                 titulo.addView(celda("", false, false));
             }
             titulo.setBackgroundColor(fondo);
+            final int reg = i + 1;
+            titulo.setOnClickListener(v -> {
+                boolean ver = detalle.isEmpty() || detalle.get(0).getVisibility() != View.VISIBLE;
+                for (View d : detalle) d.setVisibility(ver ? View.VISIBLE : View.GONE);
+                flecha.setText((ver ? "▾ " : "▸ ") + reg);
+            });
             t.addView(titulo);
             int item = 0;
-            t.addView(filaAsiento("", ++item, "Partida", a.descripcion, a.cuenta, a.valor, COLOR_PARTIDA, fondo));
+            detalle.add(filaAsiento(reg + "." + (++item), "Partida", a.descripcion, a.cuenta, a.valor, COLOR_PARTIDA, fondo));
             if (a.valor > 0) mas += a.valor; else menos += a.valor;
             for (int k = 0; k < a.contras.size(); k++) {
                 Object[] c = a.contras.get(k);
                 long v = (Long) c[1];
-                t.addView(filaAsiento("", ++item, "Contrapartida " + (k + 1), a.descripcion, (String) c[0], v,
+                detalle.add(filaAsiento(reg + "." + (++item), "Contrapartida " + (k + 1), a.descripcion, (String) c[0], v,
                         COLOR_CONTRAPARTIDA, fondo));
                 if (v > 0) mas += v; else menos += v;
             }
+            for (View d : detalle) {
+                d.setVisibility(expandido ? View.VISIBLE : View.GONE);
+                t.addView(d);
+            }
         }
-        t.addView(filaTotales(mas, menos));
-        t.addView(filaNeto(mas + menos));
-        HorizontalScrollView h = new HorizontalScrollView(context);
-        h.addView(t);
-        return h;
+        t.addView(filaTotal("Total (+)", formato.format(mas), Color.BLACK, true));
+        t.addView(filaTotal("Total (−)", formato.format(menos), Color.BLACK, true));
+        long neto = mas + menos;
+        t.addView(filaTotal("Neto", neto == 0 ? "0" : "Falta por registrar: " + formato.format(Math.abs(neto)),
+                Color.parseColor(neto == 0 ? "#1B5E20" : "#B71C1C"), false));
+        t.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        return t;
     }
 
-    private TableRow filaAsiento(String reg, int item, String tipo, String descripcion, String cuenta, long valor,
+    private TableRow filaAsiento(String item, String tipo, String descripcion, String cuenta, long valor,
                                  int color, int fondo) {
         TableRow f = new TableRow(context);
-        String[] celdas = {reg, String.valueOf(item), tipo, descripcion, cuenta,
-                valor > 0 ? formato.format(valor) : "", valor < 0 ? formato.format(valor) : "", ""};
+        String[] celdas = {item, tipo, descripcion, cuenta, firmado(valor), ""};
         for (int i = 0; i < celdas.length; i++) {
-            TextView c = celda(celdas[i], false, i == 5 || i == 6);
+            TextView c = celda(celdas[i], false, i == 4);
             c.setTextColor(color);
             f.addView(c);
         }
@@ -653,28 +676,53 @@ public class A17_ReporteRentaDialogo {
         return f;
     }
 
-    private TableRow filaTotales(long mas, long menos) {
+    /** Fila del pie: etiqueta en la columna Cuenta y el valor en la de Valor. */
+    private TableRow filaTotal(String etiqueta, String valor, int color, boolean fondo) {
         TableRow f = new TableRow(context);
-        String[] celdas = {"", "", "", "", "Totales", formato.format(mas), formato.format(menos), ""};
-        for (int i = 0; i < celdas.length; i++) f.addView(celda(celdas[i], true, i == 5 || i == 6));
-        f.setBackgroundColor(Color.parseColor("#DCE8F5"));
+        f.addView(celda("", false, false));
+        f.addView(celda("", false, false));
+        f.addView(celda("", false, false));
+        f.addView(celda(etiqueta, true, false));
+        TextView v = celda(valor, true, true);
+        v.setTextColor(color);
+        f.addView(v);
+        f.addView(celda("", false, false));
+        if (fondo) f.setBackgroundColor(FONDO_ENCABEZADO);
         return f;
     }
 
-    private TableRow filaNeto(long neto) {
-        TableRow f = new TableRow(context);
-        f.addView(celda("", false, false));
-        f.addView(celda("", false, false));
-        f.addView(celda("", false, false));
-        f.addView(celda("", false, false));
-        f.addView(celda("Neto", true, false));
-        TextView v = celda(neto == 0 ? "0" : "Falta por registrar: " + formato.format(Math.abs(neto)), true, true);
-        v.setTextColor(Color.parseColor(neto == 0 ? "#1B5E20" : "#B71C1C"));
-        TableRow.LayoutParams span = new TableRow.LayoutParams();
-        span.span = 2;
-        f.addView(v, span);
-        f.addView(celda("", false, false));
-        return f;
+    /** Franja de color que separa zonas de la pantalla. */
+    private View franja() {
+        View v = new View(context);
+        v.setBackgroundColor(Color.parseColor("#7E57C2"));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 8);
+        lp.setMargins(0, 18, 0, 18);
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    /** Spinner con el texto elegido en fucsia (campo que el usuario debe llenar). */
+    private Spinner spinnerEntrada(List<String> opciones, int seleccion) {
+        Spinner sp = new Spinner(context);
+        sp.setAdapter(new ArrayAdapter<String>(context, android.R.layout.simple_list_item_1, opciones) {
+            @Override
+            public View getView(int posicion, View convertView, android.view.ViewGroup parent) {
+                View v = super.getView(posicion, convertView, parent);
+                if (v instanceof TextView) ((TextView) v).setTextColor(COLOR_ENTRADA);
+                return v;
+            }
+        });
+        sp.setSelection(seleccion);
+        return sp;
+    }
+
+    private EditText campoEntrada(String pista, String texto) {
+        EditText e = new EditText(context);
+        e.setHint(pista);
+        e.setText(texto);
+        e.setTextColor(COLOR_ENTRADA);
+        e.setHintTextColor(COLOR_ENTRADA_PISTA);
+        return e;
     }
 
     /** Estado de la sesión (con el primer registro): contabilizada, borrador en F1, perdido o pendiente. */
@@ -892,29 +940,22 @@ public class A17_ReporteRentaDialogo {
     }
 
     /**
-     * ⭐ NUEVO (7-nov, renta R6; 8-nov: tablas, modos, varias contrapartidas y colores, pedidos de
-     * Jorge): una sesión de ajuste. Arriba, la tabla de los registros ya hechos; abajo, el registro
-     * en curso: cuenta, modo, valor y explicación, y su tabla de asientos (partida calculada y
-     * contrapartidas con cuenta y valor sin signo). Mientras quede saldo por registrar aparece sola
-     * una fila nueva; cada fila se puede quitar (✕). Al pie, Totales (+ y −) y Neto: "Agregar
-     * registro" exige neto 0. Los registros se guardan todos juntos al terminar la sesión.
-     * registros: {Apoyo cuenta, valor correcto (Long), diferencia contable (Long), descripción,
-     * List de {Apoyo, valor contable (Long)} contrapartidas}.
+     * ⭐ NUEVO (7-nov, renta R6; 8-nov: tablas, modos, varias contrapartidas, colores; afinado con
+     * Jorge): una sesión de ajuste. Arriba, la tabla de los registros ya hechos (solo el último
+     * expandido); una franja de color; abajo, el registro en curso: cuenta, modo, valor y
+     * explicación (en fucsia, donde se llenan datos) y su tabla Ítem · Tipo · Cuenta · Valor (+) (−)
+     * con la partida calculada y las contrapartidas (cuenta y valor sin signo). Mientras quede
+     * saldo por registrar aparece sola una fila nueva; cada fila se puede quitar (✕). Al pie Total
+     * (+), Total (−) y Neto: "Agregar registro" exige neto 0. Los registros se guardan todos juntos
+     * al terminar la sesión. registros: {Apoyo cuenta, valor correcto (Long), diferencia contable
+     * (Long), descripción, List de {Apoyo, valor contable (Long)} contrapartidas}.
      */
     private void pantallaSesion(List<Object[]> registros, Formulario form) {
         List<Apoyo> cuentas = apoyoCuentas();
-        if (form.contras.isEmpty()) {
-            int pos = 0;
-            if (ultimaContrapartida != null) {
-                for (int k = 0; k < cuentas.size(); k++) if (cuentas.get(k).cuentaId == ultimaContrapartida) pos = k + 1;
-            }
-            form.contras.add(new Object[]{pos, ""});
-        }
+        if (form.contras.isEmpty()) form.contras.add(new Object[]{0, ""});
         List<String> nombres = new ArrayList<>();
         nombres.add("(elija la cuenta)");
         for (Apoyo a : cuentas) nombres.add(a.nombre);
-        List<String> nombresContra = new ArrayList<>(nombres);
-        nombresContra.set(0, "(elija la cuenta)");
 
         LinearLayout raiz = contenedor();
         raiz.addView(botonInfo("Sesión de ajuste fiscal",
@@ -924,9 +965,10 @@ public class A17_ReporteRentaDialogo {
                         + "suma al del reporte: + aumenta lo que se ve, − lo disminuye). La app calcula la partida "
                         + "con su signo contable. En la tabla, cada contrapartida lleva su cuenta y su valor sin "
                         + "signo (la app le pone el opuesto); mientras quede saldo por registrar aparece una fila "
-                        + "nueva. Débito (+) y Crédito (−) se suman al pie y el Neto debe quedar en 0. Al terminar "
-                        + "la sesión se guardan todos los registros, el reporte queda corregido y se genera un solo "
-                        + "documento borrador en F1 › Nuevo con fecha " + fechaLegible(fechaDocumentoAjuste()) + "."));
+                        + "nueva. Lo que va en fucsia es lo que usted llena. Al pie, Total (+), Total (−) y Neto, que "
+                        + "debe quedar en 0. Al terminar la sesión se guardan todos los registros, el reporte queda "
+                        + "corregido y se genera un solo documento borrador en F1 › Nuevo con fecha "
+                        + fechaLegible(fechaDocumentoAjuste()) + "."));
 
         // Registros ya hechos en esta sesión (aún sin guardar), en una sola tabla.
         AlertDialog[] dialogo = new AlertDialog[1];
@@ -953,95 +995,81 @@ public class A17_ReporteRentaDialogo {
                 hechos.add(as);
             }
             raiz.addView(tablaAsientos(hechos));
+            raiz.addView(franja());
         }
 
         // Registro en curso.
         raiz.addView(texto("Registro " + (registros.size() + 1), true));
-        Spinner cuenta = new Spinner(context);
-        cuenta.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, nombres));
-        cuenta.setSelection(form.cuenta);
-        raiz.addView(cuenta);
         TextView apoyo = texto("", false);
         apoyo.setTextSize(13);
         raiz.addView(apoyo);
-        Spinner modo = new Spinner(context);
-        modo.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1,
-                new String[]{"Corregir saldo (valor correcto)", "Registrar valor (se suma al del reporte)"}));
-        modo.setSelection(form.porValor ? 1 : 0);
+        Spinner cuenta = spinnerEntrada(nombres, form.cuenta);
+        raiz.addView(cuenta);
+        TextView detalleCuenta = texto("", false);
+        detalleCuenta.setTextSize(13);
+        raiz.addView(detalleCuenta);
+        List<String> modos = new ArrayList<>();
+        modos.add("Corregir saldo (valor correcto)");
+        modos.add("Registrar valor (se suma al del reporte)");
+        Spinner modo = spinnerEntrada(modos, form.porValor ? 1 : 0);
         raiz.addView(modo);
-        EditText valor = new EditText(context);
+        EditText valor = campoEntrada("", form.valor);
         valor.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
-        valor.setText(form.valor);
         raiz.addView(valor);
-        EditText descripcion = new EditText(context);
-        descripcion.setHint("Explicación breve del ajuste");
-        descripcion.setText(form.descripcion);
+        EditText descripcion = campoEntrada("Explicación breve del ajuste", form.descripcion);
         raiz.addView(descripcion);
 
-        // Tabla del registro en curso: Ítem · Tipo · Descripción · Cuenta · Débito (+) · Crédito (−) · ✕
+        // Tabla del registro en curso: Ítem · Tipo · Cuenta · Valor (+) (−) · ✕ (a lo ancho).
         TableLayout tabla = new TableLayout(context);
+        tabla.setColumnShrinkable(1, true);
+        tabla.setColumnShrinkable(2, true);
+        tabla.setColumnStretchable(2, true);
+        tabla.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         TableRow enc = new TableRow(context);
-        for (String c : new String[]{"Ítem", "Tipo", "Descripción", "Cuenta", "Débito (+)", "Crédito (−)", ""}) {
-            enc.addView(celda(c, true, c.startsWith("Débito") || c.startsWith("Crédito")));
+        for (String c : new String[]{"Ítem", "Tipo", "Cuenta", "Valor (+) (−)", ""}) {
+            enc.addView(celda(c, true, c.startsWith("Valor")));
         }
-        enc.setBackgroundColor(Color.parseColor("#DCE8F5"));
+        enc.setBackgroundColor(FONDO_ENCABEZADO);
         tabla.addView(enc);
         TableRow filaPartida = new TableRow(context);
-        TextView[] pc = new TextView[6];
-        for (int i = 0; i < 6; i++) {
-            pc[i] = celda(i == 0 ? "1" : i == 1 ? "Partida" : "", false, i >= 4);
+        TextView[] pc = new TextView[4];
+        for (int i = 0; i < 4; i++) {
+            pc[i] = celda(i == 0 ? "1" : i == 1 ? "Partida" : "", false, i == 3);
             pc[i].setTextColor(COLOR_PARTIDA);
             filaPartida.addView(pc[i]);
         }
         filaPartida.addView(celda("", false, false));
         tabla.addView(filaPartida);
-        TableRow filaTot = new TableRow(context);
-        TextView totMas = celda("", true, true), totMenos = celda("", true, true), neto = celda("", true, true);
-        for (String c : new String[]{"", "", "", "Totales"}) filaTot.addView(celda(c, true, false));
-        filaTot.addView(totMas);
-        filaTot.addView(totMenos);
-        filaTot.addView(celda("", false, false));
-        filaTot.setBackgroundColor(Color.parseColor("#DCE8F5"));
-        TableRow filaNeto = new TableRow(context);
-        for (String c : new String[]{"", "", "", "Neto"}) filaNeto.addView(celda(c, true, false));
-        TableRow.LayoutParams span2 = new TableRow.LayoutParams();
-        span2.span = 2;
-        filaNeto.addView(neto, span2);
-        filaNeto.addView(celda("", false, false));
-        HorizontalScrollView hTabla = new HorizontalScrollView(context);
-        hTabla.addView(tabla);
-        raiz.addView(hTabla);
+        TableRow filaMas = filaTotalEdicion("Total (+)"), filaMenos = filaTotalEdicion("Total (−)"),
+                filaNeto = filaTotalEdicion("Neto");
+        filaNeto.setBackgroundColor(Color.TRANSPARENT);
+        TextView totMas = (TextView) filaMas.getChildAt(3), totMenos = (TextView) filaMenos.getChildAt(3),
+                neto = (TextView) filaNeto.getChildAt(3);
+        raiz.addView(tabla);
 
         // Filas de contrapartida (se agregan y quitan en la tabla, sin redibujar la pantalla).
-        // Cada una: {TableRow, Spinner, EditText débito, EditText crédito, TextView ítem, TextView tipo, TextView desc}.
+        // Cada una: {TableRow, Spinner, EditText valor, TextView ítem, TextView tipo}.
         List<Object[]> filas = new ArrayList<>();
         Runnable[] actualizar = new Runnable[1];
-        boolean[] ocupado = {false};
         Runnable renumerar = () -> {
             for (int k = 0; k < filas.size(); k++) {
-                ((TextView) filas.get(k)[4]).setText(String.valueOf(k + 2));
-                ((TextView) filas.get(k)[5]).setText("Contrapartida " + (k + 1));
+                ((TextView) filas.get(k)[3]).setText(String.valueOf(k + 2));
+                ((TextView) filas.get(k)[4]).setText("Contrapartida " + (k + 1));
             }
         };
         java.util.function.BiConsumer<Integer, String> agregarFila = (posCuenta, texto) -> {
             TableRow tr = new TableRow(context);
-            TextView ci = celda("", false, false), ct = celda("", false, false), cd = celda("", false, false);
+            TextView ci = celda("", false, false), ct = celda("", false, false);
             ci.setTextColor(COLOR_CONTRAPARTIDA);
             ct.setTextColor(COLOR_CONTRAPARTIDA);
-            cd.setTextColor(COLOR_CONTRAPARTIDA);
-            Spinner sp = new Spinner(context);
-            sp.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, nombresContra));
-            sp.setSelection(posCuenta);
-            EditText eMas = new EditText(context), eMenos = new EditText(context);
-            for (EditText e : new EditText[]{eMas, eMenos}) {
-                e.setInputType(InputType.TYPE_CLASS_NUMBER);
-                e.setHint("valor");
-                e.setText(texto);
-                e.setTextColor(COLOR_CONTRAPARTIDA);
-            }
+            Spinner sp = spinnerEntrada(nombres, posCuenta);
+            EditText ev = campoEntrada("valor", texto);
+            ev.setInputType(InputType.TYPE_CLASS_NUMBER);
+            ev.setGravity(Gravity.END);
             Button x = new Button(context);
             x.setText("✕");
-            Object[] fila = {tr, sp, eMas, eMenos, ci, ct, cd};
+            Object[] fila = {tr, sp, ev, ci, ct};
             x.setOnClickListener(v -> {
                 tabla.removeView(tr);
                 filas.remove(fila);
@@ -1050,33 +1078,22 @@ public class A17_ReporteRentaDialogo {
             });
             tr.addView(ci);
             tr.addView(ct);
-            tr.addView(cd);
             tr.addView(sp);
-            tr.addView(eMas);
-            tr.addView(eMenos);
+            tr.addView(ev);
             tr.addView(x);
             tabla.addView(tr, 2 + filas.size()); // después del encabezado y la partida
             filas.add(fila);
             sp.setOnItemSelectedListener(alSeleccionar(() -> actualizar[0].run()));
-            TextWatcher w = new TextWatcher() {
+            ev.addTextChangedListener(new TextWatcher() {
                 @Override public void beforeTextChanged(CharSequence t, int a, int b, int c) {}
                 @Override public void onTextChanged(CharSequence t, int a, int b, int c) {}
-                @Override public void afterTextChanged(Editable e) {
-                    if (ocupado[0]) return;
-                    // Las dos casillas de la fila llevan el mismo valor (solo una se ve).
-                    ocupado[0] = true;
-                    EditText otra = e == eMas.getText() ? eMenos : eMas;
-                    if (!otra.getText().toString().equals(e.toString())) otra.setText(e.toString());
-                    ocupado[0] = false;
-                    actualizar[0].run();
-                }
-            };
-            eMas.addTextChangedListener(w);
-            eMenos.addTextChangedListener(w);
+                @Override public void afterTextChanged(Editable e) { actualizar[0].run(); }
+            });
             renumerar.run();
         };
         for (Object[] c : form.contras) agregarFila.accept((Integer) c[0], (String) c[1]);
-        tabla.addView(filaTot);
+        tabla.addView(filaMas);
+        tabla.addView(filaMenos);
         tabla.addView(filaNeto);
 
         // Copia lo escrito al formulario (para redibujar sin perder nada).
@@ -1092,40 +1109,33 @@ public class A17_ReporteRentaDialogo {
             }
         };
         actualizar[0] = () -> {
-            if (ocupado[0]) return;
             guardarForm.run();
             valor.setHint(form.porValor ? "Valor del ajuste (+ o −)" : "Valor fiscal correcto");
-            String desc = descripcionSegura(form.descripcion);
-            pc[2].setText(desc);
-            for (Object[] f : filas) ((TextView) f[6]).setText(desc);
             Apoyo a = form.cuenta > 0 ? cuentas.get(form.cuenta - 1) : null;
-            pc[3].setText(a == null ? "" : a.nombre);
-            if (a == null) {
-                apoyo.setText("Elija la cuenta cuyo valor fiscal va a corregir.");
-            } else {
-                apoyo.setText("En el reporte: $ " + formato.format(a.valorReporte) + "  ·  " + a.renglon + "  ·  "
-                        + (a.naturalezaTipo == null ? "naturaleza sin dato" : a.naturalezaTipo.toLowerCase())
-                        + (A1_1_AyudanteBD.esNaturalezaDePresentacionNegativa(a.naturalezaRenglon)
-                        ? "  ·  (en este renglón el valor se ve en positivo; en la contabilidad va en negativo)" : ""));
-            }
+            pc[2].setText(a == null ? "" : a.nombre);
+            apoyo.setText(a == null ? "Elija la cuenta cuyo valor fiscal va a corregir." : "Cuenta a corregir:");
             Long correcto = a == null ? null : valorCorrecto(a, form.porValor, leerValor(form.valor));
             long dif = correcto == null ? 0 : diferenciaContable(a, correcto);
-            if (a != null && correcto != null) {
-                apoyo.setText(apoyo.getText() + "\nReporte: $ " + formato.format(a.valorReporte) + " → $ "
-                        + formato.format(correcto) + "  (" + firmado(correcto - a.valorReporte) + ")");
+            if (a == null) {
+                detalleCuenta.setText("");
+            } else {
+                detalleCuenta.setText("En el reporte: $ " + formato.format(a.valorReporte) + "  ·  " + a.renglon + "  ·  "
+                        + (a.naturalezaTipo == null ? "naturaleza sin dato" : a.naturalezaTipo.toLowerCase())
+                        + (A1_1_AyudanteBD.esNaturalezaDePresentacionNegativa(a.naturalezaRenglon)
+                        ? "  ·  (en este renglón el valor se ve en positivo; en la contabilidad va en negativo)" : "")
+                        + (correcto == null ? "" : "\nReporte: $ " + formato.format(a.valorReporte) + " → $ "
+                        + formato.format(correcto) + "  (" + firmado(correcto - a.valorReporte) + ")"));
             }
-            pc[4].setText(dif > 0 ? formato.format(dif) : "");
-            pc[5].setText(dif < 0 ? formato.format(dif) : "");
-            // Las contrapartidas van en la columna contraria a la partida.
+            pc[3].setText(dif == 0 ? "" : firmado(dif));
+            // Las contrapartidas llevan el signo contrario a la partida.
             long mas = Math.max(dif, 0), menos = Math.min(dif, 0);
-            long signo = dif > 0 ? -1 : 1;
+            boolean contraNegativa = dif >= 0;
             for (Object[] f : filas) {
-                boolean enCredito = dif >= 0;
-                ((EditText) f[2]).setVisibility(enCredito ? View.INVISIBLE : View.VISIBLE);
-                ((EditText) f[3]).setVisibility(enCredito ? View.VISIBLE : View.INVISIBLE);
-                Long v = leerValor(((EditText) f[2]).getText().toString());
+                EditText ev = (EditText) f[2];
+                ev.setHint(contraNegativa ? "valor (−)" : "valor (+)");
+                Long v = leerValor(ev.getText().toString());
                 if (v != null) {
-                    if (signo < 0) menos -= Math.abs(v); else mas += Math.abs(v);
+                    if (contraNegativa) menos -= Math.abs(v); else mas += Math.abs(v);
                 }
             }
             totMas.setText(formato.format(mas));
@@ -1162,7 +1172,6 @@ public class A17_ReporteRentaDialogo {
             @Override public void afterTextChanged(Editable e) { actualizar[0].run(); }
         };
         valor.addTextChangedListener(alEscribir);
-        descripcion.addTextChangedListener(alEscribir);
         actualizar[0].run();
 
         Runnable agregar = () -> {
@@ -1197,10 +1206,9 @@ public class A17_ReporteRentaDialogo {
                 Toast.makeText(context, error, Toast.LENGTH_LONG).show();
                 return;
             }
-            ultimaContrapartida = ((Apoyo) contras.get(0)[0]).cuentaId;
             registros.add(new Object[]{a, correcto, diferenciaContable(a, correcto), desc, contras});
             dialogo[0].dismiss();
-            pantallaSesion(registros, new Formulario());
+            pantallaSesion(registros, new Formulario()); // formulario limpio, contrapartida incluida
         };
         raiz.addView(botones(
                 new String[]{"Agregar registro", "Terminar sesión", "Cancelar sesión"},
@@ -1209,6 +1217,18 @@ public class A17_ReporteRentaDialogo {
                         () -> confirmarTerminarSesion(registros, dialogo[0]),
                         () -> confirmarCancelarSesion(registros, dialogo[0])}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sesión de ajuste", raiz);
+    }
+
+    /** Fila del pie de la tabla del registro en curso (Ítem · Tipo · Cuenta · Valor · ✕). */
+    private TableRow filaTotalEdicion(String etiqueta) {
+        TableRow f = new TableRow(context);
+        f.addView(celda("", false, false));
+        f.addView(celda("", false, false));
+        f.addView(celda(etiqueta, true, false));
+        f.addView(celda("", true, true));
+        f.addView(celda("", false, false));
+        f.setBackgroundColor(FONDO_ENCABEZADO);
+        return f;
     }
 
     private static android.widget.AdapterView.OnItemSelectedListener alSeleccionar(Runnable r) {
