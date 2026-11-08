@@ -186,6 +186,9 @@ public class B12_DocumentPersistence {
                 // los VALUES; ya no se escriben (desde parte C solo se guardaba "" de todas
                 // formas). p.tipoTget_10Grupo1MetodoEnA5()/p.tipoTget_11Grupo2MetodoEnA5() dejan
                 // de leerse aquí.
+                // ⭐ CAMBIO (8-nov, Jorge): valores como parámetros, no pegados entre comillas. Se
+                // pasan los MISMOS textos que antes iban entre comillas (la afinidad de cada columna
+                // los convierte igual), pero un apóstrofo en la descripción ya no rompe el guardado.
                 db.execSQL(
                         "INSERT INTO transacciones (" +
                                 "c1_Documento, c2_ItemDoc, c5_Valor, " + // c3 (BD v22) y c4 (BD v21) retiradas
@@ -193,17 +196,17 @@ public class B12_DocumentPersistence {
                                 "c9_FechaModificacion, " +
                                 "cuenta_id, " + // c12 (BD v20) y c13 (BD v19) retiradas
                                 "tipo_cuenta_id) " +
-                                "VALUES ('" +
-                                p.tipoTget_1DocumentoMetodoEnA5()          + "','" +
-                                p.tipoTget_2ItemDocMetodoEnA5()            + "','" +
-                                p.tipoTget_5ValorMetodoEnA5()              + "','" +
-                                p.tipoTget_6DescripcionMetodoEnA5()        + "','" +
-                                p.tipoTget_7FechaYHoraMetodoEnA5()         + "','" +
-                                p.tipoTget_8FechaInicialMetodoEnA5()       + "','" +
-                                p.tipoTget_9FechaModificacionMetodoEnA5()  + "'," +
-                                (cuentaIdParaGuardar != null ? cuentaIdParaGuardar : "NULL") + "," +
-                                (tipoCuentaIdParaGuardar != null ? tipoCuentaIdParaGuardar : "NULL") +
-                                ")"
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        new Object[]{
+                                String.valueOf(p.tipoTget_1DocumentoMetodoEnA5()),
+                                String.valueOf(p.tipoTget_2ItemDocMetodoEnA5()),
+                                String.valueOf(p.tipoTget_5ValorMetodoEnA5()),
+                                String.valueOf(p.tipoTget_6DescripcionMetodoEnA5()),
+                                String.valueOf(p.tipoTget_7FechaYHoraMetodoEnA5()),
+                                String.valueOf(p.tipoTget_8FechaInicialMetodoEnA5()),
+                                String.valueOf(p.tipoTget_9FechaModificacionMetodoEnA5()),
+                                cuentaIdParaGuardar,
+                                tipoCuentaIdParaGuardar}
                 );
             }
             db.setTransactionSuccessful();

@@ -142,8 +142,8 @@ public class A17_ReporteRentaDialogo {
     private final Map<Long, Long> decisionesMemoria = new HashMap<>();
     /** ⭐ (4-nov, Jorge) Pantalla desde la que se llegó a un comparativo ("Pantalla anterior"). */
     private Runnable pantallaAnterior = null;
-    /** ⭐ (7-nov, R6) Sesiones de ajuste sin terminar, al abrir la opción 6. */
-    private int sinTerminar = 0;
+    /** ⭐ (8-nov) Filtro de la lista de sesiones: "Sin terminar", "Todas" o "Sesión N" (null = automático). */
+    private String filtroAjustes = null;
     /** Contrapartida usada en el último registro (se propone en el siguiente). */
     private Long ultimaContrapartida = null;
 
@@ -166,7 +166,6 @@ public class A17_ReporteRentaDialogo {
             }
             // ⭐ (7-nov, R6) ¿Ya se guardó en F1 el documento de alguna sesión de ajuste?
             A1_1_AyudanteBD.actualizarDocumentosDeAjuste(db);
-            sinTerminar = A1_1_AyudanteBD.sesionesAjusteSinTerminar(db);
             pais = A1_1_AyudanteBD.paisConfigurado(db);
             android.database.Cursor c = db.rawQuery("SELECT moneda FROM " +
                     A1_1_AyudanteBD.TABLE_CONFIGURACION_APP + " WHERE config_id = 1", null);
@@ -175,26 +174,7 @@ public class A17_ReporteRentaDialogo {
         } finally {
             db.close();
         }
-        if (sinTerminar > 0 && conFoto) {
-            avisoAjustesSinTerminar(sinTerminar);
-        } else {
-            pantallaDetalle();
-        }
-    }
-
-    /** ⭐ (7-nov, Jorge) Un ajuste fiscal no puede quedar a medias: aviso llamativo al entrar. */
-    private void avisoAjustesSinTerminar(int sesiones) {
-        TextView aviso = alerta("Hay " + sesiones + (sesiones == 1 ? " sesión" : " sesiones")
-                + " de ajuste fiscal sin terminar (sin borrador en F1 o con el borrador sin guardar).\n\n"
-                + "El reporte ya está corregido, pero la contabilidad todavía no. Termine la sesión para "
-                + "que las dos queden iguales.", true);
-        new AlertDialog.Builder(context)
-                .setCustomTitle(tituloCentrado("⚠ Ajuste fiscal sin terminar"))
-                .setView(aviso)
-                .setCancelable(false)
-                .setPositiveButton("Ir a ajustes", (d, w) -> pantallaAjustes())
-                .setNegativeButton("Más tarde", (d, w) -> pantallaDetalle())
-                .show();
+        pantallaDetalle();
     }
 
     private String nombreAnio() {
@@ -264,7 +244,7 @@ public class A17_ReporteRentaDialogo {
         if (conFoto) {
             // ⭐ (7-nov, R6) Ajustes a este año cerrado, registrados después del cierre.
             textos.add(ajustes ? "Revisar ajustes" : "Ajustes posteriores al cierre");
-            acciones.add(() -> { dialogo[0].dismiss(); pantallaAjustes(); });
+            acciones.add(() -> { dialogo[0].dismiss(); entrarAjustes(); });
         }
         textos.add("Ver resumen");
         acciones.add(() -> verResumen(datos));
@@ -430,63 +410,177 @@ public class A17_ReporteRentaDialogo {
 
     // ── 2b. Ajustes posteriores al cierre (R6) ──────────────────────────
 
+    private static final int COLOR_PARTIDA = Color.parseColor("#0D47A1");        // azul
+    private static final int COLOR_CONTRAPARTIDA = Color.parseColor("#6A1B9A");  // morado
+
     /**
-     * ⭐ NUEVO (7-nov, renta R6, diseño de Jorge): sesiones de ajuste fiscal del año y su estado.
-     * Si F1 › Nuevo tiene un documento sin terminar, se avisa de forma llamativa: el borrador del
-     * ajuste necesita ese espacio.
+     * ⭐ (8-nov, Jorge) Entrada a los ajustes desde el Detalle: si hay sesiones sin terminar, el
+     * aviso aparece aquí (no al abrir la opción 6, que puede ser por otro motivo).
+     */
+    private void entrarAjustes() {
+        filtroAjustes = null;
+        pantallaAjustes();
+        int sinTerminar = 0;
+        Integer enF1;
+        SQLiteDatabase db = abrir();
+        try {
+            Integer anterior = null;
+            for (Object[] r : A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio)) {
+                if (r[13] == null && !((Integer) r[0]).equals(anterior)) sinTerminar++;
+                anterior = (Integer) r[0];
+            }
+            enF1 = A1_1_AyudanteBD.sesionConBorradorEnF1(db);
+        } finally {
+            db.close();
+        }
+        if (sinTerminar == 0) return;
+        AlertDialog.Builder b = new AlertDialog.Builder(context)
+                .setCustomTitle(tituloCentrado("⚠ Ajuste fiscal sin terminar"))
+                .setView(alerta("Hay " + sinTerminar + (sinTerminar == 1 ? " sesión" : " sesiones")
+                        + " de ajuste fiscal sin terminar (sin borrador en F1 o con el borrador sin guardar).\n\n"
+                        + "El reporte ya está corregido, pero la contabilidad todavía no. Termine la sesión para "
+                        + "que las dos queden iguales.", true))
+                .setNegativeButton("Continuar", null);
+        if (enF1 != null) {
+            b.setPositiveButton("Ir a F1 › Nuevo", (d, w) -> irAF1Nuevo());
+        }
+        b.show();
+    }
+
+    /**
+     * ⭐ (8-nov, Jorge) Abre F1 en el área Nuevo, que restaura sola el borrador (F1 abre en el área
+     * guardada en sus preferencias: se deja en Nuevo y se navega como el menú lateral).
+     */
+    private void irAF1Nuevo() {
+        cerrarDialogos();
+        context.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE).edit()
+                .putInt("lastSelectedRadioButtonId", com.jj.appbalancev31.R.id.create_XRb)
+                .putInt("areaGuardadaCanalA", com.jj.appbalancev31.R.id.create_XRb)
+                .apply();
+        if (context instanceof C_ACTIVITYS.C2_ActivityMenu) {
+            ((C_ACTIVITYS.C2_ActivityMenu) context).cambiarElFragmentPredeterminado();
+        } else {
+            Toast.makeText(context, "Abra F1 desde el menú: quedará en Nuevo con el borrador.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * ⭐ NUEVO (7-nov, renta R6, diseño de Jorge): sesiones de ajuste fiscal del año, con filtro
+     * (Sin terminar · Todas · Sesión N) y su estado.
      */
     private void pantallaAjustes() {
         List<Object[]> registros;
+        Map<String, List<Object[]>> contras;
+        Integer sesionEnF1;
         boolean f1Ocupado = A5_CacheManager.tieneTrabajoPendienteReal(context, A1_1_AyudanteBD.AREA_CREATE);
         SQLiteDatabase db = abrir();
         try {
             A1_1_AyudanteBD.actualizarDocumentosDeAjuste(db);
             registros = A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio);
+            contras = A1_1_AyudanteBD.contrapartidasDelAnio(db, anio);
+            sesionEnF1 = f1Ocupado ? A1_1_AyudanteBD.sesionConBorradorEnF1(db) : null;
         } finally {
             db.close();
         }
         LinearLayout raiz = contenedor();
         raiz.addView(botonInfo("Ajustes posteriores al cierre",
                 "Ya hecho el cierre, si encuentra un valor fiscal equivocado del año " + anio + ", lo corrige "
-                        + "aquí en una sesión de ajuste: elige la cuenta, escribe el valor correcto (como se ve en "
-                        + "el reporte), la explicación y la contrapartida. El reporte queda corregido al momento "
-                        + "(foto + ajustes; la foto no cambia) y la sesión genera un documento contable como "
-                        + "borrador en F1 › Nuevo, con fecha " + fechaLegible(fechaDocumentoAjuste()) + ", para que "
-                        + "lo revise y lo guarde: así la contabilidad del año siguiente parte de los valores "
-                        + "correctos. Solo la cuenta corregida cambia la renta; la contrapartida es contable. "
-                        + "Si un ajuste deja una cuenta con saldo contrario (⚠), se depura en \"Revisar depuración\"."));
-        if (f1Ocupado) {
+                        + "aquí en una sesión de ajuste: elige la cuenta y escribe el valor correcto (como se ve en "
+                        + "el reporte) o el valor del ajuste, la explicación y una o varias contrapartidas. El "
+                        + "reporte queda corregido al momento (foto + ajustes; la foto no cambia) y la sesión genera "
+                        + "un documento contable como borrador en F1 › Nuevo, con fecha "
+                        + fechaLegible(fechaDocumentoAjuste()) + ", para que lo revise y lo guarde: así la "
+                        + "contabilidad del año siguiente parte de los valores correctos. Solo la cuenta corregida "
+                        + "(azul) cambia la renta; las contrapartidas (morado) son contables. Si un ajuste deja una "
+                        + "cuenta con saldo contrario (⚠), se depura en \"Revisar depuración\"."));
+        AlertDialog[] dialogo = new AlertDialog[1];
+        if (f1Ocupado && sesionEnF1 != null) {
+            raiz.addView(alerta("⚠ El borrador de la sesión " + sesionEnF1 + " está en F1 › Nuevo: ábralo, revíselo y "
+                    + "guárdelo.", true));
+            raiz.addView(botones(new String[]{"Ir a F1 › Nuevo"}, new Runnable[]{this::irAF1Nuevo}));
+        } else if (f1Ocupado) {
             raiz.addView(alerta("⚠ F1 › Nuevo tiene un documento sin terminar. Es muy recomendable terminarlo y "
                     + "guardarlo (o descartarlo) para poder continuar: el borrador del ajuste necesita ese espacio.", true));
+            raiz.addView(botones(new String[]{"Ir a F1 › Nuevo"}, new Runnable[]{this::irAF1Nuevo}));
         }
-        AlertDialog[] dialogo = new AlertDialog[1];
+
+        // Filtro: por defecto "Sin terminar" si hay alguna, si no "Todas".
+        List<Integer> sesiones = new ArrayList<>();
+        boolean haySinTerminar = false;
+        for (Object[] r : registros) {
+            if (!sesiones.contains((Integer) r[0])) sesiones.add((Integer) r[0]);
+            if (r[13] == null) haySinTerminar = true;
+        }
+        if (filtroAjustes == null) filtroAjustes = haySinTerminar ? "Sin terminar" : "Todas";
+        List<String> opciones = new ArrayList<>();
+        opciones.add("Sin terminar");
+        opciones.add("Todas");
+        for (int k = sesiones.size() - 1; k >= 0; k--) opciones.add("Sesión " + sesiones.get(k));
+        if (!opciones.contains(filtroAjustes)) filtroAjustes = "Todas";
+        if (!registros.isEmpty()) {
+            Spinner filtro = new Spinner(context);
+            filtro.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, opciones));
+            filtro.setSelection(opciones.indexOf(filtroAjustes));
+            filtro.setOnItemSelectedListener(alSeleccionar(() -> {
+                String elegido = opciones.get(filtro.getSelectedItemPosition());
+                if (elegido.equals(filtroAjustes)) return;
+                filtroAjustes = elegido;
+                dialogo[0].dismiss();
+                pantallaAjustes();
+            }));
+            raiz.addView(texto("Ver:", false));
+            raiz.addView(filtro);
+        }
+
         if (registros.isEmpty()) {
             raiz.addView(texto("No hay ajustes fiscales del año " + anio + ".", false));
         }
+        int mostradas = 0;
         for (int i = 0; i < registros.size(); i++) {
             Object[] r = registros.get(i);
             int sesion = (Integer) r[0];
-            boolean primero = i == 0 || (Integer) registros.get(i - 1)[0] != sesion;
-            if (primero) {
+            Object[] primero = r;
+            for (Object[] q : registros) if ((Integer) q[0] == sesion) { primero = q; break; }
+            boolean pasa = "Todas".equals(filtroAjustes)
+                    || ("Sin terminar".equals(filtroAjustes) && primero[13] == null)
+                    || ("Sesión " + sesion).equals(filtroAjustes);
+            if (!pasa) continue;
+            boolean esPrimero = i == 0 || (Integer) registros.get(i - 1)[0] != sesion;
+            if (esPrimero) {
+                mostradas++;
                 raiz.addView(texto("Sesión " + sesion + " · " + (r[1] == null ? "" : r[1]), true));
                 raiz.addView(estadoSesion(r));
             }
-            TextView linea = texto("      " + r[4] + ": $ " + formato.format((Long) r[5]) + " → $ "
-                    + formato.format((Long) r[6]) + "  ·  " + (r[8] == null ? "" : r[8])
-                    + "  ·  contrapartida: " + (r[10] == null ? "" : r[10]), false);
-            linea.setTextSize(13);
-            raiz.addView(linea);
+            raiz.addView(lineaPartida(r[4] + ": $ " + formato.format((Long) r[5]) + " → $ "
+                    + formato.format((Long) r[6]) + "  (" + firmado((Long) r[7]) + ")  ·  "
+                    + (r[8] == null ? "" : r[8]), COLOR_PARTIDA));
+            List<Object[]> lista = contras.get(sesion + "-" + r[2]);
+            if (lista != null) {
+                for (Object[] k : lista) {
+                    raiz.addView(lineaPartida("   ↳ " + k[1] + "  " + firmado((Long) k[2]), COLOR_CONTRAPARTIDA));
+                }
+            }
             boolean ultimo = i == registros.size() - 1 || (Integer) registros.get(i + 1)[0] != sesion;
-            if (ultimo) raiz.addView(botonesSesion(r, f1Ocupado, dialogo));
+            if (ultimo) raiz.addView(botonesSesion(r, dialogo));
+        }
+        if (!registros.isEmpty() && mostradas == 0) {
+            raiz.addView(texto("No hay sesiones sin terminar.", false));
         }
         raiz.addView(botones(
                 new String[]{"Nueva sesión de ajuste", "Comparativo actual", "Comparativo entre años", "Cancelar"},
                 new Runnable[]{
-                        () -> { dialogo[0].dismiss(); pantallaSesion(new ArrayList<>()); },
+                        () -> { dialogo[0].dismiss(); pantallaSesion(new ArrayList<>(), new Formulario()); },
                         () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoActual(); },
                         () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoAnios(); },
                         () -> dialogo[0].dismiss()}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " ajustes", raiz);
+    }
+
+    private TextView lineaPartida(String t, int color) {
+        TextView v = texto("      " + t, false);
+        v.setTextSize(13);
+        v.setTextColor(color);
+        return v;
     }
 
     /** Estado de la sesión (con el primer registro): contabilizada, borrador en F1, perdido o pendiente. */
@@ -499,38 +593,33 @@ public class A17_ReporteRentaDialogo {
         if (!(Boolean) r[12]) {
             return alerta("⚠ Pendiente: falta generar el borrador en F1 › Nuevo.", false);
         }
-        boolean enF1;
-        SQLiteDatabase db = abrir();
-        try {
-            enF1 = A1_1_AyudanteBD.borradorDeAjusteEnF1(db, (Integer) r[11], (String) r[8]);
-        } finally {
-            db.close();
-        }
-        return enF1
+        return borradorEnF1(r)
                 ? alerta("⚠ Borrador en F1 › Nuevo sin guardar: revíselo y guárdelo en F1.", false)
                 : alerta("⚠ El borrador ya no está en F1 › Nuevo y no se encontró el documento guardado: "
                 + "regenérelo.", false);
     }
 
-    private View botonesSesion(Object[] r, boolean f1Ocupado, AlertDialog[] dialogo) {
+    private View botonesSesion(Object[] r, AlertDialog[] dialogo) {
         int sesion = (Integer) r[0];
         List<String> textos = new ArrayList<>();
         List<Runnable> acciones = new ArrayList<>();
         if (r[13] == null) {
-            textos.add((Boolean) r[12] ? "Regenerar borrador" : "Generar borrador");
-            acciones.add(() -> {
-                if (A5_CacheManager.tieneTrabajoPendienteReal(context, A1_1_AyudanteBD.AREA_CREATE)) {
-                    avisoF1Ocupado();
-                    return;
-                }
-                if ((Boolean) r[12] && borradorEnF1(r)) {
-                    Toast.makeText(context, "El borrador ya está en F1 › Nuevo: guárdelo allí.", Toast.LENGTH_LONG).show();
-                    return;
-                }
-                generarBorrador(sesion);
-                dialogo[0].dismiss();
-                pantallaAjustes();
-            });
+            if ((Boolean) r[12] && borradorEnF1(r)) {
+                // El borrador existe: lo que falta es guardarlo en F1.
+                textos.add("Ir a F1 › Nuevo");
+                acciones.add(this::irAF1Nuevo);
+            } else {
+                textos.add((Boolean) r[12] ? "Regenerar borrador" : "Generar borrador");
+                acciones.add(() -> {
+                    if (A5_CacheManager.tieneTrabajoPendienteReal(context, A1_1_AyudanteBD.AREA_CREATE)) {
+                        avisoF1Ocupado();
+                        return;
+                    }
+                    generarBorrador(sesion);
+                    dialogo[0].dismiss();
+                    pantallaAjustes();
+                });
+            }
         }
         textos.add("Quitar sesión " + sesion);
         acciones.add(() -> confirmarQuitarSesion(r, dialogo[0]));
@@ -576,8 +665,9 @@ public class A17_ReporteRentaDialogo {
                 .setCustomTitle(tituloCentrado("⚠ F1 › Nuevo está ocupado"))
                 .setView(alerta("F1 › Nuevo tiene un documento sin terminar. Termínelo y guárdelo (o descártelo) "
                         + "y vuelva aquí a generar el borrador. El ajuste fiscal ya quedó guardado y la sesión "
-                        + "queda pendiente, con aviso cada vez que entre a la opción 6.", true))
-                .setPositiveButton("Entendido", null)
+                        + "queda pendiente, con aviso cada vez que entre a los ajustes.", true))
+                .setPositiveButton("Ir a F1 › Nuevo", (d, w) -> irAF1Nuevo())
+                .setNegativeButton("Entendido", null)
                 .show();
     }
 
@@ -599,6 +689,17 @@ public class A17_ReporteRentaDialogo {
         String nombre, renglon = "Sin renglón asignado", naturalezaRenglon, naturalezaTipo;
         Long tipoCuentaId;
         String tipoNombre;
+    }
+
+    /**
+     * Lo que el usuario lleva escrito en el registro nuevo; sobrevive al redibujar la pantalla
+     * (al agregar o quitar una contrapartida). contras: {posición del spinner (Integer), valor (String)}.
+     */
+    private static final class Formulario {
+        int cuenta = 0;
+        boolean porValor = false;
+        String valor = "", descripcion = "";
+        final List<Object[]> contras = new ArrayList<>();
     }
 
     private List<Apoyo> apoyoCuentas() {
@@ -647,6 +748,12 @@ public class A17_ReporteRentaDialogo {
         return A1_1_AyudanteBD.esNaturalezaDePresentacionNegativa(a.naturalezaRenglon) ? -vista : vista;
     }
 
+    /** Valor correcto según el modo: el escrito (corregir saldo) o reporte + X (suma algebraica). */
+    private static Long valorCorrecto(Apoyo a, boolean porValor, Long escrito) {
+        if (escrito == null) return null;
+        return porValor ? a.valorReporte + escrito : escrito;
+    }
+
     private static Long leerValor(String texto) {
         if (texto == null) return null;
         String t = texto.trim().replace("$", "").replace(".", "").replace(",", "").replace(" ", "");
@@ -664,13 +771,59 @@ public class A17_ReporteRentaDialogo {
     }
 
     /**
-     * ⭐ NUEVO (7-nov, renta R6): una sesión de ajuste. Los registros se guardan todos juntos al
-     * terminar la sesión (nada queda a medias); cada registro muestra el valor del reporte, el
-     * renglón, la naturaleza y la vista previa de los dos asientos, para evitar errores.
-     * registros: {Apoyo cuenta, valor correcto (Long), diferencia contable (Long), descripción, Apoyo contrapartida}.
+     * Reparte el opuesto de la diferencia entre las contrapartidas del formulario: cada una con
+     * su valor (positivo, en pesos) y la ÚLTIMA con lo que falte. @return {Apoyo, valor contable
+     * (Long)} por contrapartida, o null si no cuadra (mensaje en error[0]).
      */
-    private void pantallaSesion(List<Object[]> registros) {
+    private static List<Object[]> repartirContrapartidas(Formulario f, List<Apoyo> cuentas, long dif, String[] error) {
+        List<Object[]> salida = new ArrayList<>();
+        long total = Math.abs(dif), usado = 0;
+        long signo = dif > 0 ? -1 : 1;
+        for (int k = 0; k < f.contras.size(); k++) {
+            Object[] c = f.contras.get(k);
+            int pos = (Integer) c[0];
+            if (pos <= 0) {
+                error[0] = "Elija la cuenta de la contrapartida " + (k + 1) + ".";
+                return null;
+            }
+            long valor;
+            if (k == f.contras.size() - 1) {
+                valor = total - usado;
+            } else {
+                Long v = leerValor((String) c[1]);
+                if (v == null || v <= 0) {
+                    error[0] = "Escriba el valor (positivo) de la contrapartida " + (k + 1) + ".";
+                    return null;
+                }
+                valor = v;
+            }
+            if (valor <= 0) {
+                error[0] = "Los valores de las contrapartidas superan el total del ajuste.";
+                return null;
+            }
+            usado += valor;
+            salida.add(new Object[]{cuentas.get(pos - 1), signo * valor});
+        }
+        return salida;
+    }
+
+    /**
+     * ⭐ NUEVO (7-nov, renta R6; 8-nov: modos, varias contrapartidas y colores): una sesión de
+     * ajuste. Los registros se guardan todos juntos al terminar la sesión (nada queda a medias);
+     * cada registro muestra el valor del reporte, el renglón, la naturaleza y la vista previa de
+     * los asientos (partida en azul, contrapartidas en morado), para evitar errores.
+     * registros: {Apoyo cuenta, valor correcto (Long), diferencia contable (Long), descripción,
+     * List de {Apoyo, valor contable (Long)} contrapartidas}.
+     */
+    private void pantallaSesion(List<Object[]> registros, Formulario form) {
         List<Apoyo> cuentas = apoyoCuentas();
+        if (form.contras.isEmpty()) {
+            int pos = 0;
+            if (ultimaContrapartida != null) {
+                for (int k = 0; k < cuentas.size(); k++) if (cuentas.get(k).cuentaId == ultimaContrapartida) pos = k + 1;
+            }
+            form.contras.add(new Object[]{pos, ""});
+        }
         List<String> nombres = new ArrayList<>();
         nombres.add("(elija la cuenta)");
         for (Apoyo a : cuentas) nombres.add(a.nombre);
@@ -680,24 +833,25 @@ public class A17_ReporteRentaDialogo {
         LinearLayout raiz = contenedor();
         raiz.addView(botonInfo("Sesión de ajuste fiscal",
                 "Agregue uno o varios registros. Cada uno corrige el valor fiscal de una cuenta en el año " + anio
-                        + ": escriba el valor correcto tal como debe verse en el reporte (las deudas en positivo). "
-                        + "La app calcula la diferencia y su signo contable. La contrapartida lleva el signo "
-                        + "opuesto y la misma explicación. Al terminar la sesión se guardan todos los registros, "
-                        + "el reporte queda corregido y se genera un solo documento borrador en F1 › Nuevo con "
-                        + "fecha " + fechaLegible(fechaDocumentoAjuste()) + "."));
+                        + ", de dos formas: \"Corregir saldo\" (escribe el valor correcto, tal como debe verse en el "
+                        + "reporte; las deudas en positivo) o \"Registrar valor\" (escribe el valor del ajuste, que se "
+                        + "suma al del reporte: + aumenta lo que se ve, − lo disminuye). La app calcula el signo "
+                        + "contable. Las contrapartidas llevan el signo opuesto y la misma explicación; con varias, "
+                        + "escriba el valor de cada una y la última se completa sola. Al terminar la sesión se "
+                        + "guardan todos los registros, el reporte queda corregido y se genera un solo documento "
+                        + "borrador en F1 › Nuevo con fecha " + fechaLegible(fechaDocumentoAjuste()) + "."));
 
         // Registros ya agregados en esta sesión (aún sin guardar).
         AlertDialog[] dialogo = new AlertDialog[1];
         for (int i = 0; i < registros.size(); i++) {
             Object[] g = registros.get(i);
-            Apoyo a = (Apoyo) g[0], c = (Apoyo) g[4];
-            long dif = (Long) g[2];
+            Apoyo a = (Apoyo) g[0];
             raiz.addView(texto((i + 1) + ". " + a.nombre + ": $ " + formato.format(a.valorReporte) + " → $ "
                     + formato.format((Long) g[1]) + "  ·  " + g[3], true));
-            TextView asientos = texto("      " + a.nombre + " " + firmado(dif) + "  /  " + c.nombre + " "
-                    + firmado(-dif), false);
-            asientos.setTextSize(13);
-            raiz.addView(asientos);
+            raiz.addView(lineaPartida(a.nombre + "  " + firmado((Long) g[2]), COLOR_PARTIDA));
+            @SuppressWarnings("unchecked")
+            List<Object[]> cs = (List<Object[]>) g[4];
+            for (Object[] c : cs) raiz.addView(lineaPartida("   ↳ " + ((Apoyo) c[0]).nombre + "  " + firmado((Long) c[1]), COLOR_CONTRAPARTIDA));
             final int pos = i;
             Button quitar = new Button(context);
             quitar.setText("Quitar el registro " + (i + 1));
@@ -705,7 +859,7 @@ public class A17_ReporteRentaDialogo {
             quitar.setOnClickListener(v -> {
                 registros.remove(pos);
                 dialogo[0].dismiss();
-                pantallaSesion(registros);
+                pantallaSesion(registros, form);
             });
             raiz.addView(quitar, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -715,94 +869,169 @@ public class A17_ReporteRentaDialogo {
         raiz.addView(texto("Registro " + (registros.size() + 1), true));
         Spinner cuenta = new Spinner(context);
         cuenta.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, nombres));
+        cuenta.setSelection(form.cuenta);
         raiz.addView(cuenta);
         TextView apoyo = texto("", false);
         apoyo.setTextSize(13);
         raiz.addView(apoyo);
+        Spinner modo = new Spinner(context);
+        modo.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1,
+                new String[]{"Corregir saldo (valor correcto)", "Registrar valor (se suma al del reporte)"}));
+        modo.setSelection(form.porValor ? 1 : 0);
+        raiz.addView(modo);
         EditText valor = new EditText(context);
-        valor.setHint("Valor fiscal correcto");
         valor.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        valor.setText(form.valor);
         raiz.addView(valor);
         EditText descripcion = new EditText(context);
         descripcion.setHint("Explicación breve del ajuste");
+        descripcion.setText(form.descripcion);
         raiz.addView(descripcion);
-        Spinner contra = new Spinner(context);
-        contra.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, nombresContra));
-        if (ultimaContrapartida != null) {
-            for (int k = 0; k < cuentas.size(); k++) {
-                if (cuentas.get(k).cuentaId == ultimaContrapartida) contra.setSelection(k + 1);
-            }
+
+        // Contrapartidas: cuenta + valor; la última se completa sola.
+        List<Spinner> spContras = new ArrayList<>();
+        List<EditText> valContras = new ArrayList<>();
+        for (int k = 0; k < form.contras.size(); k++) {
+            Object[] c = form.contras.get(k);
+            TextView t = texto("Contrapartida " + (k + 1), false);
+            t.setTextColor(COLOR_CONTRAPARTIDA);
+            raiz.addView(t);
+            Spinner sp = new Spinner(context);
+            sp.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, nombresContra));
+            sp.setSelection((Integer) c[0]);
+            raiz.addView(sp);
+            spContras.add(sp);
+            EditText ev = new EditText(context);
+            ev.setInputType(InputType.TYPE_CLASS_NUMBER);
+            boolean ultima = k == form.contras.size() - 1;
+            ev.setHint(ultima ? "Se completa sola con lo que falte" : "Valor de esta contrapartida");
+            ev.setText(ultima ? "" : (String) c[1]);
+            ev.setEnabled(!ultima);
+            if (form.contras.size() > 1) raiz.addView(ev);
+            valContras.add(ev);
         }
-        raiz.addView(contra);
-        TextView vista = texto("", false);
-        vista.setTextSize(13);
+        LinearLayout vista = new LinearLayout(context);
+        vista.setOrientation(LinearLayout.VERTICAL);
         raiz.addView(vista);
 
+        // Copia lo escrito al formulario (para redibujar sin perder nada).
+        Runnable guardarForm = () -> {
+            form.cuenta = cuenta.getSelectedItemPosition();
+            form.porValor = modo.getSelectedItemPosition() == 1;
+            form.valor = valor.getText().toString();
+            form.descripcion = descripcion.getText().toString();
+            for (int k = 0; k < form.contras.size(); k++) {
+                form.contras.get(k)[0] = spContras.get(k).getSelectedItemPosition();
+                form.contras.get(k)[1] = valContras.get(k).getText().toString();
+            }
+        };
         Runnable actualizar = () -> {
-            int pc = cuenta.getSelectedItemPosition();
-            if (pc <= 0) {
+            guardarForm.run();
+            valor.setHint(form.porValor ? "Valor del ajuste (+ o −)" : "Valor fiscal correcto");
+            vista.removeAllViews();
+            if (form.cuenta <= 0) {
                 apoyo.setText("Elija la cuenta cuyo valor fiscal va a corregir.");
-                vista.setText("");
                 return;
             }
-            Apoyo a = cuentas.get(pc - 1);
+            Apoyo a = cuentas.get(form.cuenta - 1);
             apoyo.setText("En el reporte: $ " + formato.format(a.valorReporte) + "  ·  " + a.renglon + "  ·  "
                     + (a.naturalezaTipo == null ? "naturaleza sin dato" : a.naturalezaTipo.toLowerCase())
                     + (A1_1_AyudanteBD.esNaturalezaDePresentacionNegativa(a.naturalezaRenglon)
                     ? "  ·  (en este renglón el valor se ve en positivo; en la contabilidad va en negativo)" : ""));
-            Long correcto = leerValor(valor.getText().toString());
+            Long correcto = valorCorrecto(a, form.porValor, leerValor(form.valor));
             if (correcto == null) {
-                vista.setText("Escriba el valor correcto para ver la diferencia y los asientos.");
+                vista.addView(texto("Escriba el valor para ver la diferencia y los asientos.", false));
                 return;
             }
             long dif = diferenciaContable(a, correcto);
-            int pk = contra.getSelectedItemPosition();
-            String nombreContra = pk <= 0 ? "(contrapartida)" : cuentas.get(pk - 1).nombre;
-            vista.setText("Diferencia en el reporte: " + firmado(correcto - a.valorReporte)
-                    + "\nAsientos del borrador: " + a.nombre + " " + firmado(dif) + "  /  " + nombreContra + " "
-                    + firmado(-dif));
+            vista.addView(texto("Reporte: $ " + formato.format(a.valorReporte) + " → $ " + formato.format(correcto)
+                    + "  (" + firmado(correcto - a.valorReporte) + ")", false));
+            vista.addView(lineaPartida(a.nombre + "  " + firmado(dif), COLOR_PARTIDA));
+            String[] error = new String[1];
+            List<Object[]> reparto = repartirContrapartidas(form, cuentas, dif, error);
+            if (reparto == null) {
+                vista.addView(alerta(error[0], false));
+            } else {
+                for (int k = 0; k < reparto.size(); k++) {
+                    Object[] c = reparto.get(k);
+                    vista.addView(lineaPartida("   ↳ " + ((Apoyo) c[0]).nombre + "  " + firmado((Long) c[1]), COLOR_CONTRAPARTIDA));
+                    if (k == reparto.size() - 1 && form.contras.size() > 1) {
+                        valContras.get(k).setText(formato.format(Math.abs((Long) c[1])));
+                    }
+                }
+            }
         };
         cuenta.setOnItemSelectedListener(alSeleccionar(actualizar));
-        contra.setOnItemSelectedListener(alSeleccionar(actualizar));
-        valor.addTextChangedListener(new TextWatcher() {
+        modo.setOnItemSelectedListener(alSeleccionar(actualizar));
+        for (Spinner sp : spContras) sp.setOnItemSelectedListener(alSeleccionar(actualizar));
+        TextWatcher alEscribir = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence t, int a, int b, int c) {}
             @Override public void onTextChanged(CharSequence t, int a, int b, int c) {}
             @Override public void afterTextChanged(Editable e) { actualizar.run(); }
-        });
+        };
+        valor.addTextChangedListener(alEscribir);
+        for (int k = 0; k < valContras.size() - 1; k++) valContras.get(k).addTextChangedListener(alEscribir);
         actualizar.run();
 
+        Runnable masContra = () -> {
+            guardarForm.run();
+            form.contras.add(new Object[]{0, ""});
+            dialogo[0].dismiss();
+            pantallaSesion(registros, form);
+        };
+        Runnable menosContra = () -> {
+            guardarForm.run();
+            if (form.contras.size() > 1) form.contras.remove(form.contras.size() - 1);
+            dialogo[0].dismiss();
+            pantallaSesion(registros, form);
+        };
         Runnable agregar = () -> {
-            int pc = cuenta.getSelectedItemPosition(), pk = contra.getSelectedItemPosition();
-            Long correcto = leerValor(valor.getText().toString());
-            String desc = descripcionSegura(descripcion.getText().toString());
+            guardarForm.run();
+            Long escrito = leerValor(form.valor);
+            String desc = descripcionSegura(form.descripcion);
             String error = null;
-            if (pc <= 0) error = "Elija la cuenta a corregir.";
-            else if (correcto == null) error = "Escriba el valor correcto.";
-            else if (diferenciaContable(cuentas.get(pc - 1), correcto) == 0) error = "El valor correcto es igual al del reporte.";
+            List<Object[]> reparto = null;
+            Apoyo a = form.cuenta > 0 ? cuentas.get(form.cuenta - 1) : null;
+            Long correcto = a == null ? null : valorCorrecto(a, form.porValor, escrito);
+            if (a == null) error = "Elija la cuenta a corregir.";
+            else if (correcto == null) error = "Escriba el valor.";
+            else if (diferenciaContable(a, correcto) == 0) error = "El ajuste no cambia el valor del reporte.";
             else if (desc.isEmpty()) error = "Escriba la explicación del ajuste.";
-            else if (pk <= 0) error = "Elija la contrapartida.";
-            else if (pk == pc) error = "La contrapartida debe ser otra cuenta.";
             else {
-                for (Object[] g : registros) {
-                    if (((Apoyo) g[0]).cuentaId == cuentas.get(pc - 1).cuentaId) error = "Esa cuenta ya está en esta sesión.";
+                String[] e = new String[1];
+                reparto = repartirContrapartidas(form, cuentas, diferenciaContable(a, correcto), e);
+                if (reparto == null) error = e[0];
+                else {
+                    for (Object[] c : reparto) if (((Apoyo) c[0]).cuentaId == a.cuentaId) error = "Una contrapartida no puede ser la misma cuenta.";
+                    for (Object[] g : registros) {
+                        if (((Apoyo) g[0]).cuentaId == a.cuentaId) error = "Esa cuenta ya está en esta sesión.";
+                    }
                 }
             }
             if (error != null) {
                 Toast.makeText(context, error, Toast.LENGTH_LONG).show();
                 return;
             }
-            Apoyo a = cuentas.get(pc - 1), c = cuentas.get(pk - 1);
-            ultimaContrapartida = c.cuentaId;
-            registros.add(new Object[]{a, correcto, diferenciaContable(a, correcto), desc, c});
+            ultimaContrapartida = ((Apoyo) reparto.get(0)[0]).cuentaId;
+            registros.add(new Object[]{a, correcto, diferenciaContable(a, correcto), desc, reparto});
             dialogo[0].dismiss();
-            pantallaSesion(registros);
+            pantallaSesion(registros, new Formulario());
         };
-        raiz.addView(botones(
-                new String[]{"Agregar registro", "Terminar sesión", "Cancelar sesión"},
-                new Runnable[]{
-                        agregar,
-                        () -> confirmarTerminarSesion(registros, dialogo[0]),
-                        () -> confirmarCancelarSesion(registros, dialogo[0])}));
+        List<String> textos = new ArrayList<>();
+        List<Runnable> acciones = new ArrayList<>();
+        textos.add("+ contrapartida");
+        acciones.add(masContra);
+        if (form.contras.size() > 1) {
+            textos.add("− contrapartida");
+            acciones.add(menosContra);
+        }
+        textos.add("Agregar registro");
+        acciones.add(agregar);
+        textos.add("Terminar sesión");
+        acciones.add(() -> confirmarTerminarSesion(registros, dialogo[0]));
+        textos.add("Cancelar sesión");
+        acciones.add(() -> confirmarCancelarSesion(registros, dialogo[0]));
+        raiz.addView(botones(textos.toArray(new String[0]), acciones.toArray(new Runnable[0])));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sesión de ajuste", raiz);
     }
 
@@ -848,8 +1077,17 @@ public class A17_ReporteRentaDialogo {
                     int sesion;
                     List<Object[]> filas = new ArrayList<>();
                     for (Object[] g : registros) {
-                        Apoyo a = (Apoyo) g[0], c = (Apoyo) g[4];
-                        filas.add(new Object[]{a.cuentaId, a.nombre, a.valorReporte, g[1], g[2], g[3], c.cuentaId, c.nombre});
+                        Apoyo a = (Apoyo) g[0];
+                        @SuppressWarnings("unchecked")
+                        List<Object[]> reparto = (List<Object[]>) g[4];
+                        List<Object[]> contras = new ArrayList<>();
+                        for (Object[] c : reparto) {
+                            Apoyo ca = (Apoyo) c[0];
+                            contras.add(new Object[]{ca.cuentaId, ca.nombre, c[1]});
+                        }
+                        Apoyo primera = (Apoyo) reparto.get(0)[0];
+                        filas.add(new Object[]{a.cuentaId, a.nombre, a.valorReporte, g[1], g[2], g[3],
+                                primera.cuentaId, primera.nombre, contras});
                     }
                     SQLiteDatabase db = abrir();
                     try {
@@ -862,6 +1100,7 @@ public class A17_ReporteRentaDialogo {
                         db.close();
                     }
                     pantalla.dismiss();
+                    filtroAjustes = null;
                     if (A5_CacheManager.tieneTrabajoPendienteReal(context, A1_1_AyudanteBD.AREA_CREATE)) {
                         respaldarAjustes();
                         pantallaAjustes();
@@ -877,12 +1116,14 @@ public class A17_ReporteRentaDialogo {
 
     /**
      * Escribe el borrador de la sesión en F1 › Nuevo (caché del área 1, la que F1 restaura): por
-     * cada registro, la partida de la cuenta corregida y la de su contrapartida (signo opuesto),
-     * con la misma descripción y la fecha del primer día del año fiscal siguiente. El número de
-     * documento lo vuelve a tomar F1 al guardar (consecutivo disponible en ese momento).
+     * cada registro, la partida de la cuenta corregida y las de sus contrapartidas (signo opuesto),
+     * con la misma descripción y la fecha del primer día del año fiscal siguiente, también como
+     * "otra fecha" del encabezado (así una partida que se agregue en F1 toma la misma fecha). El
+     * número de documento lo vuelve a tomar F1 al guardar (consecutivo disponible en ese momento).
      */
     private void generarBorrador(int sesion) {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> items = new ArrayList<>();
+        int fecha = 0;
         SQLiteDatabase db = abrir();
         try {
             String documento = A1_1_AyudanteBD.siguienteNumeroDocumento(db);
@@ -890,17 +1131,27 @@ public class A17_ReporteRentaDialogo {
                     .format(new java.util.Date());
             Map<Long, Object[]> cuentas = new HashMap<>();
             for (Object[] c : A1_1_AyudanteBD.cuentasParaAjuste(db)) cuentas.put((Long) c[0], c);
+            Map<String, List<Object[]>> contras = A1_1_AyudanteBD.contrapartidasDelAnio(db, anio);
             int n = 0;
             for (Object[] r : A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio)) {
                 if ((Integer) r[0] != sesion) continue;
-                long dif = (Long) r[7];
-                items.add(itemBorrador(documento, ++n, (Long) r[3], (String) r[4], dif, (String) r[8], ahora,
-                        (Integer) r[11], cuentas));
-                items.add(itemBorrador(documento, ++n, (Long) r[9], (String) r[10], -dif, (String) r[8], ahora,
-                        (Integer) r[11], cuentas));
+                fecha = (Integer) r[11];
+                items.add(itemBorrador(documento, ++n, (Long) r[3], (String) r[4], (Long) r[7], (String) r[8], ahora,
+                        fecha, cuentas));
+                List<Object[]> lista = contras.get(sesion + "-" + r[2]);
+                if (lista == null) continue;
+                for (Object[] k : lista) {
+                    items.add(itemBorrador(documento, ++n, (Long) k[0], (String) k[1], (Long) k[2], (String) r[8], ahora,
+                            fecha, cuentas));
+                }
             }
             if (items.isEmpty()) return;
-            if (!A5_CacheManager.guardarRegistros(context, A1_1_AyudanteBD.AREA_CREATE, items)) {
+            A5_CacheManager.Encabezado enc = A5_CacheManager.restaurarEncabezado(context, A1_1_AyudanteBD.AREA_CREATE);
+            if (enc == null) enc = new A5_CacheManager.Encabezado();
+            enc.campo_0_otraFechaChb = "true";
+            enc.campo_1_otraFechaTv = String.valueOf(fecha);
+            if (!A5_CacheManager.guardarRegistros(context, A1_1_AyudanteBD.AREA_CREATE, items)
+                    || !A5_CacheManager.guardarEncabezado(context, A1_1_AyudanteBD.AREA_CREATE, enc)) {
                 Toast.makeText(context, "No se pudo generar el borrador en F1.", Toast.LENGTH_LONG).show();
                 return;
             }
@@ -913,8 +1164,9 @@ public class A17_ReporteRentaDialogo {
                 .setCustomTitle(tituloCentrado("Borrador generado"))
                 .setView(alerta("El borrador del ajuste (sesión " + sesion + ", " + items.size() + " partidas) está en "
                         + "F1 › Nuevo. Ábralo, revíselo y guárdelo: hasta entonces la contabilidad no refleja el "
-                        + "ajuste y la opción 6 le seguirá avisando.", false))
-                .setPositiveButton("Entendido", null)
+                        + "ajuste y los ajustes le seguirán avisando.", false))
+                .setPositiveButton("Ir a F1 › Nuevo", (d, w) -> irAF1Nuevo())
+                .setNegativeButton("Más tarde", null)
                 .show();
     }
 
@@ -1328,8 +1580,18 @@ public class A17_ReporteRentaDialogo {
                 .setView(marco)
                 .setCancelable(true)
                 .create();
+        abiertos.add(d);
+        d.setOnDismissListener(x -> abiertos.remove(d));
         d.show();
         return d;
+    }
+
+    /** ⭐ (8-nov) Pantallas del recorrido abiertas, para cerrarlas todas al ir a F1. */
+    private final List<AlertDialog> abiertos = new ArrayList<>();
+
+    private void cerrarDialogos() {
+        for (AlertDialog d : new ArrayList<>(abiertos)) d.dismiss();
+        abiertos.clear();
     }
 
     private TextView tituloCentrado(String titulo) {
@@ -1425,6 +1687,7 @@ public class A17_ReporteRentaDialogo {
         SQLiteDatabase db = abrir();
         try {
             List<Object[]> registros = A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio);
+            Map<String, List<Object[]>> contras = A1_1_AyudanteBD.contrapartidasDelAnio(db, anio);
             Integer sesionActual = null;
             for (Object[] r : registros) {
                 if (!((Integer) r[0]).equals(sesionActual)) {
@@ -1433,8 +1696,16 @@ public class A17_ReporteRentaDialogo {
                             ? "documento N° " + r[13] + " del " + fechaLegible((Integer) r[11])
                             : "documento contable sin guardar"), "", "", ""});
                 }
+                StringBuilder cps = new StringBuilder();
+                List<Object[]> lista = contras.get(r[0] + "-" + r[2]);
+                if (lista != null) {
+                    for (Object[] k : lista) {
+                        if (cps.length() > 0) cps.append("; ");
+                        cps.append(k[1]).append(" ").append(firmado((Long) k[2]));
+                    }
+                }
                 s.filas.add(new String[]{"C", r[4] + " · " + (r[8] == null ? "" : r[8]) + " · contrapartida: "
-                        + (r[10] == null ? "" : r[10]), formato.format((Long) r[5]), formato.format((Long) r[6]),
+                        + cps, formato.format((Long) r[5]), formato.format((Long) r[6]),
                         formato.format((Long) r[7])});
             }
         } finally {

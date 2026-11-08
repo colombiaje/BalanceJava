@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 27; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable
+    public static final int version1BalanceSqlite_int_PSF = 28; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -1852,6 +1852,22 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             "valor_reporte", "valor_correcto", "diferencia", "descripcion", "contrapartida_id",
             "contrapartida_nombre", "fecha_documento", "borrador_generado", "documento"};
 
+    /**
+     * ⭐ NUEVO (8-nov, BD v28): contrapartidas de cada registro (pueden ser varias; suman el
+     * opuesto de la diferencia). contrapartida_id/_nombre del registro quedan con la primera.
+     */
+    public static final String TABLE_AJUSTE_RENTA_CONTRAPARTIDA = "ajuste_renta_contrapartida";
+
+    private static final String SQL_CREAR_AJUSTE_RENTA_CONTRAPARTIDA =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_AJUSTE_RENTA_CONTRAPARTIDA + " (" +
+                    "sesion_id INTEGER NOT NULL, " +
+                    "registro INTEGER NOT NULL, " +
+                    "orden INTEGER NOT NULL, " +
+                    "cuenta_id INTEGER, " +
+                    "cuenta_nombre TEXT, " +
+                    "valor INTEGER NOT NULL, " +          // signo contable
+                    "PRIMARY KEY (sesion_id, registro, orden))";
+
     private static final String SQL_CREAR_AJUSTE_RENTA =
             "CREATE TABLE IF NOT EXISTS " + TABLE_AJUSTE_RENTA + " (" +
                     "anio_fiscal_afectado INTEGER NOT NULL, " + // X: el año cerrado que se corrige
@@ -1879,7 +1895,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     /**
      * Guarda una sesión completa (todo o nada). registros: {cuenta_id (Long), cuenta_nombre,
      * valor_reporte (Long), valor_correcto (Long), diferencia (Long), descripción,
-     * contrapartida_id (Long), contrapartida_nombre}. @return el número de la sesión.
+     * contrapartida_id (Long, la primera), contrapartida_nombre, contrapartidas
+     * (List de {cuenta_id (Long), cuenta_nombre, valor contable (Long)})}. @return el número de la sesión.
      */
     public static int guardarSesionAjuste(SQLiteDatabase db, int anio, java.util.List<Object[]> registros) {
         String ahora = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT)
@@ -1906,6 +1923,19 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 cv.put("fecha_documento", fechaDocumento);
                 cv.put("borrador_generado", 0);
                 db.insertOrThrow(TABLE_AJUSTE_RENTA, null, cv);
+                @SuppressWarnings("unchecked")
+                java.util.List<Object[]> contras = (java.util.List<Object[]>) r[8];
+                int orden = 0;
+                for (Object[] k : contras) {
+                    ContentValues ck = new ContentValues();
+                    ck.put("sesion_id", sesion);
+                    ck.put("registro", n);
+                    ck.put("orden", ++orden);
+                    ck.put("cuenta_id", (Long) k[0]);
+                    ck.put("cuenta_nombre", (String) k[1]);
+                    ck.put("valor", (Long) k[2]);
+                    db.insertOrThrow(TABLE_AJUSTE_RENTA_CONTRAPARTIDA, null, ck);
+                }
             }
             db.setTransactionSuccessful();
             return sesion;
@@ -1951,6 +1981,47 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
 
     public static void quitarSesionAjuste(SQLiteDatabase db, int sesion) {
         db.delete(TABLE_AJUSTE_RENTA, "sesion_id = ?", new String[]{String.valueOf(sesion)});
+        db.delete(TABLE_AJUSTE_RENTA_CONTRAPARTIDA, "sesion_id = ?", new String[]{String.valueOf(sesion)});
+    }
+
+    /**
+     * ⭐ (8-nov) Contrapartidas de los registros del año, por "sesion_id-registro":
+     * List de {cuenta_id (Long o null), cuenta_nombre, valor contable (Long)}, en su orden.
+     */
+    public static java.util.Map<String, java.util.List<Object[]>> contrapartidasDelAnio(SQLiteDatabase db, int anio) {
+        java.util.Map<String, java.util.List<Object[]>> m = new java.util.HashMap<>();
+        Cursor c = db.rawQuery("SELECT k.sesion_id, k.registro, k.cuenta_id, k.cuenta_nombre, k.valor FROM " +
+                TABLE_AJUSTE_RENTA_CONTRAPARTIDA + " k JOIN " + TABLE_AJUSTE_RENTA + " a ON a.sesion_id = k.sesion_id " +
+                "AND a.registro = k.registro WHERE a.anio_fiscal_afectado = ? ORDER BY k.sesion_id, k.registro, k.orden",
+                new String[]{String.valueOf(anio)});
+        try {
+            while (c.moveToNext()) {
+                String clave = c.getInt(0) + "-" + c.getInt(1);
+                java.util.List<Object[]> l = m.get(clave);
+                if (l == null) {
+                    l = new java.util.ArrayList<>();
+                    m.put(clave, l);
+                }
+                l.add(new Object[]{c.isNull(2) ? null : c.getLong(2), c.getString(3), c.getLong(4)});
+            }
+        } finally {
+            c.close();
+        }
+        return m;
+    }
+
+    /** ¿Qué sesión tiene su borrador en F1 › Nuevo? (la primera que se encuentre) o null. */
+    public static Integer sesionConBorradorEnF1(SQLiteDatabase db) {
+        Cursor c = db.rawQuery("SELECT DISTINCT sesion_id, fecha_documento, descripcion FROM " + TABLE_AJUSTE_RENTA +
+                " WHERE borrador_generado = 1 AND documento IS NULL ORDER BY sesion_id", null);
+        try {
+            while (c.moveToNext()) {
+                if (borradorDeAjusteEnF1(db, c.getInt(1), c.getString(2))) return c.getInt(0);
+            }
+        } finally {
+            c.close();
+        }
+        return null;
     }
 
     /**
@@ -2069,9 +2140,23 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         return anios;
     }
 
+    /** ⭐ (8-nov) Columna extra del 425: "cuenta_id=valor;cuenta_id=valor" (contrapartidas, en orden). */
+    public static final String COLUMNA_CONTRAPARTIDAS_CSV = "contrapartidas";
+
     public static final String SQL_SELECT_AJUSTES_RENTA_CSV =
-            "SELECT " + String.join(", ", COLUMNAS_AJUSTE_RENTA) + " FROM " + TABLE_AJUSTE_RENTA +
-                    " ORDER BY anio_fiscal_afectado, sesion_id, registro";
+            "SELECT " + String.join(", ", COLUMNAS_AJUSTE_RENTA) + ", (SELECT GROUP_CONCAT(k.cuenta_id || '=' || k.valor, ';') " +
+                    "FROM (SELECT cuenta_id, valor FROM " + TABLE_AJUSTE_RENTA_CONTRAPARTIDA + " k2 WHERE k2.sesion_id = " +
+                    TABLE_AJUSTE_RENTA + ".sesion_id AND k2.registro = " + TABLE_AJUSTE_RENTA + ".registro ORDER BY orden) k) " +
+                    "FROM " + TABLE_AJUSTE_RENTA + " ORDER BY anio_fiscal_afectado, sesion_id, registro";
+
+    private static String nombreDeCuenta(SQLiteDatabase db, String cuentaId) {
+        Cursor c = db.rawQuery("SELECT Cuenta FROM cuentas WHERE cuenta_id = ?", new String[]{cuentaId});
+        try {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            c.close();
+        }
+    }
 
     /** Restaura ajustes desde el CSV 425 (encabezado = COLUMNAS_AJUSTE_RENTA, por nombre). */
     public static int importarAjustesRenta(SQLiteDatabase db, String textoCsv) {
@@ -2099,6 +2184,29 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
             if (cv.get("borrador_generado") == null) cv.put("borrador_generado", 0);
             if (db.insertWithOnConflict(TABLE_AJUSTE_RENTA, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) {
                 filas++;
+                // ⭐ (8-nov) Contrapartidas: de la columna "contrapartidas" o, si no viene, la única.
+                String sesion = campoPlantilla(d, col, "sesion_id"), registro = campoPlantilla(d, col, "registro");
+                db.delete(TABLE_AJUSTE_RENTA_CONTRAPARTIDA, "sesion_id = ? AND registro = ?", new String[]{sesion, registro});
+                String lista = campoPlantilla(d, col, COLUMNA_CONTRAPARTIDAS_CSV);
+                if (lista == null && campoPlantilla(d, col, "contrapartida_id") != null) {
+                    String dif = campoPlantilla(d, col, "diferencia");
+                    lista = campoPlantilla(d, col, "contrapartida_id") + "=" + (dif == null ? "0" : String.valueOf(-Long.parseLong(dif)));
+                }
+                if (lista != null) {
+                    int orden = 0;
+                    for (String par : lista.split(";")) {
+                        String[] kv = par.split("=");
+                        if (kv.length != 2) continue;
+                        ContentValues ck = new ContentValues();
+                        ck.put("sesion_id", sesion);
+                        ck.put("registro", registro);
+                        ck.put("orden", ++orden);
+                        ck.put("cuenta_id", kv[0].trim());
+                        ck.put("cuenta_nombre", nombreDeCuenta(db, kv[0].trim()));
+                        ck.put("valor", kv[1].trim());
+                        db.insertWithOnConflict(TABLE_AJUSTE_RENTA_CONTRAPARTIDA, null, ck, SQLiteDatabase.CONFLICT_REPLACE);
+                    }
+                }
             }
         }
         return filas;
@@ -2377,6 +2485,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         importarPlantillaRenta(db, PLANTILLA_RENTA_COLOMBIA);
         db.execSQL(SQL_CREAR_FOTO_RENTA_ANUAL); // ⭐ NUEVO (3-nov, BD v25, renta R3)
         db.execSQL(SQL_CREAR_AJUSTE_RENTA); // ⭐ NUEVO (7-nov, BD v26, renta R6)
+        db.execSQL(SQL_CREAR_AJUSTE_RENTA_CONTRAPARTIDA); // ⭐ NUEVO (8-nov, BD v28)
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -3280,6 +3389,19 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         if (oldVersion < 27) {
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_AJUSTE_RENTA);
             db.execSQL(SQL_CREAR_AJUSTE_RENTA);
+        }
+
+        // ⭐ NUEVO (8-nov): versión 28 — varias contrapartidas por registro de ajuste (pedido de
+        // Jorge). Tabla hija; la contrapartida única de cada registro existente pasa a ella con el
+        // valor opuesto a la diferencia.
+        if (oldVersion < 28) {
+            db.execSQL(SQL_CREAR_AJUSTE_RENTA_CONTRAPARTIDA);
+            if (oldVersion >= 27) {
+                db.execSQL("INSERT OR IGNORE INTO " + TABLE_AJUSTE_RENTA_CONTRAPARTIDA +
+                        " (sesion_id, registro, orden, cuenta_id, cuenta_nombre, valor) " +
+                        "SELECT sesion_id, registro, 1, contrapartida_id, contrapartida_nombre, -diferencia FROM " +
+                        TABLE_AJUSTE_RENTA + " WHERE contrapartida_id IS NOT NULL");
+            }
         }
     }
 

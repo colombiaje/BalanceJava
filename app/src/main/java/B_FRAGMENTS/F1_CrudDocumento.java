@@ -1531,6 +1531,15 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
         // Restauración de TextViews y AutoCompletes
         otherDateInCreateNew_XTv.setText(enc.campo_1_otraFechaTv);
+        // ⭐ CORRECCIÓN (8-nov): el texto guarda la fecha AAAAMMDD; sin esto, al guardar un borrador
+        // restaurado con "otra fecha" la variable que usa assignDocumentDate() quedaba en null.
+        try {
+            String otraFecha = enc.campo_1_otraFechaTv == null ? "" : enc.campo_1_otraFechaTv.trim();
+            otherDateAssignedInCreateNew_Int = otraFecha.isEmpty() ? null : Integer.valueOf(otraFecha);
+        } catch (NumberFormatException e) {
+            otherDateAssignedInCreateNew_Int = null;
+            otherDateInCreateNew_XTv.setText("");
+        }
         descripcionABuscarEnPlantilla_XAtv.setText(enc.campo_2_descPlantilla);
         dateInUpdate_XTv.setText(enc.campo_3_fechaUpdate);
         consecutivoNuevoDocEnPLantilla_XTv.setText(enc.campo_5_numDocPlantilla);

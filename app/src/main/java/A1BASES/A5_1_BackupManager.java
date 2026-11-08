@@ -148,7 +148,8 @@ public class A5_1_BackupManager {
             nombre.append(A9_2_BackupFile.CSV_AJUSTES_RENTA.getFileType().getExtension());
             File archivo = new File(Environment.getExternalStorageDirectory().getPath() + "/Balance/" + nombre);
             try (OutputStreamWriter salida = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
-                salida.write(String.join(",", A1_1_AyudanteBD.COLUMNAS_AJUSTE_RENTA) + "\n");
+                salida.write(String.join(",", A1_1_AyudanteBD.COLUMNAS_AJUSTE_RENTA) + ","
+                        + A1_1_AyudanteBD.COLUMNA_CONTRAPARTIDAS_CSV + "\n");
                 Cursor c = db.rawQuery(A1_1_AyudanteBD.SQL_SELECT_AJUSTES_RENTA_CSV, null);
                 try {
                     while (c.moveToNext()) {
