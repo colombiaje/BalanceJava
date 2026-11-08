@@ -535,33 +535,34 @@ public class A17_ReporteRentaDialogo {
         if (registros.isEmpty()) {
             raiz.addView(texto("No hay ajustes fiscales del año " + anio + ".", false));
         }
+        // ⭐ (8-nov, Jorge) Cada sesión en una tabla de asientos (partida y contrapartidas por registro).
         int mostradas = 0;
         for (int i = 0; i < registros.size(); i++) {
             Object[] r = registros.get(i);
             int sesion = (Integer) r[0];
-            Object[] primero = r;
-            for (Object[] q : registros) if ((Integer) q[0] == sesion) { primero = q; break; }
+            boolean esPrimero = i == 0 || (Integer) registros.get(i - 1)[0] != sesion;
+            if (!esPrimero) continue;
             boolean pasa = "Todas".equals(filtroAjustes)
-                    || ("Sin terminar".equals(filtroAjustes) && primero[13] == null)
+                    || ("Sin terminar".equals(filtroAjustes) && r[13] == null)
                     || ("Sesión " + sesion).equals(filtroAjustes);
             if (!pasa) continue;
-            boolean esPrimero = i == 0 || (Integer) registros.get(i - 1)[0] != sesion;
-            if (esPrimero) {
-                mostradas++;
-                raiz.addView(texto("Sesión " + sesion + " · " + (r[1] == null ? "" : r[1]), true));
-                raiz.addView(estadoSesion(r));
+            mostradas++;
+            raiz.addView(texto("Sesión " + sesion + " · " + (r[1] == null ? "" : r[1]), true));
+            raiz.addView(estadoSesion(r));
+            List<Asiento> asientos = new ArrayList<>();
+            for (Object[] q : registros) {
+                if ((Integer) q[0] != sesion) continue;
+                Asiento a = new Asiento();
+                a.titulo = q[4] + ": $ " + formato.format((Long) q[5]) + " → $ " + formato.format((Long) q[6]);
+                a.descripcion = q[8] == null ? "" : (String) q[8];
+                a.cuenta = (String) q[4];
+                a.valor = (Long) q[7];
+                List<Object[]> lista = contras.get(sesion + "-" + q[2]);
+                if (lista != null) for (Object[] k : lista) a.contras.add(new Object[]{k[1], k[2]});
+                asientos.add(a);
             }
-            raiz.addView(lineaPartida(r[4] + ": $ " + formato.format((Long) r[5]) + " → $ "
-                    + formato.format((Long) r[6]) + "  (" + firmado((Long) r[7]) + ")  ·  "
-                    + (r[8] == null ? "" : r[8]), COLOR_PARTIDA));
-            List<Object[]> lista = contras.get(sesion + "-" + r[2]);
-            if (lista != null) {
-                for (Object[] k : lista) {
-                    raiz.addView(lineaPartida("   ↳ " + k[1] + "  " + firmado((Long) k[2]), COLOR_CONTRAPARTIDA));
-                }
-            }
-            boolean ultimo = i == registros.size() - 1 || (Integer) registros.get(i + 1)[0] != sesion;
-            if (ultimo) raiz.addView(botonesSesion(r, dialogo));
+            raiz.addView(tablaAsientos(asientos));
+            raiz.addView(botonesSesion(r, dialogo));
         }
         if (!registros.isEmpty() && mostradas == 0) {
             raiz.addView(texto("No hay sesiones sin terminar.", false));
@@ -576,11 +577,104 @@ public class A17_ReporteRentaDialogo {
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " ajustes", raiz);
     }
 
-    private TextView lineaPartida(String t, int color) {
-        TextView v = texto("      " + t, false);
-        v.setTextSize(13);
-        v.setTextColor(color);
-        return v;
+    /** ⭐ (8-nov) Un registro de ajuste para la tabla de asientos: partida + contrapartidas {nombre, valor}. */
+    private static final class Asiento {
+        String titulo, descripcion, cuenta;
+        long valor;
+        final List<Object[]> contras = new ArrayList<>();
+        Runnable quitar;
+    }
+
+    private static final int FONDO_ALTERNO = Color.parseColor("#F1F3F4");
+
+    /**
+     * ⭐ (8-nov, Jorge) Tabla de asientos: Reg. · Ítem · Tipo · Descripción · Cuenta · Débito (+) ·
+     * Crédito (−), con una fila de título por registro (✕ para quitarlo, si aplica), fondo alterno
+     * por registro, partida en azul y contrapartidas en morado; al pie Totales y Neto.
+     */
+    private View tablaAsientos(List<Asiento> asientos) {
+        TableLayout t = new TableLayout(context);
+        t.setPadding(0, 6, 0, 6);
+        TableRow enc = new TableRow(context);
+        for (String c : new String[]{"Reg.", "Ítem", "Tipo", "Descripción", "Cuenta", "Débito (+)", "Crédito (−)", ""}) {
+            enc.addView(celda(c, true, c.startsWith("Débito") || c.startsWith("Crédito")));
+        }
+        enc.setBackgroundColor(Color.parseColor("#DCE8F5"));
+        t.addView(enc);
+        long mas = 0, menos = 0;
+        for (int i = 0; i < asientos.size(); i++) {
+            Asiento a = asientos.get(i);
+            int fondo = i % 2 == 0 ? Color.WHITE : FONDO_ALTERNO;
+            TableRow titulo = new TableRow(context);
+            titulo.addView(celda(String.valueOf(i + 1), true, false));
+            TextView tt = celda(a.titulo, true, false);
+            TableRow.LayoutParams span = new TableRow.LayoutParams();
+            span.span = 6;
+            titulo.addView(tt, span);
+            if (a.quitar != null) {
+                Button x = new Button(context);
+                x.setText("✕");
+                x.setOnClickListener(v -> a.quitar.run());
+                titulo.addView(x);
+            } else {
+                titulo.addView(celda("", false, false));
+            }
+            titulo.setBackgroundColor(fondo);
+            t.addView(titulo);
+            int item = 0;
+            t.addView(filaAsiento("", ++item, "Partida", a.descripcion, a.cuenta, a.valor, COLOR_PARTIDA, fondo));
+            if (a.valor > 0) mas += a.valor; else menos += a.valor;
+            for (int k = 0; k < a.contras.size(); k++) {
+                Object[] c = a.contras.get(k);
+                long v = (Long) c[1];
+                t.addView(filaAsiento("", ++item, "Contrapartida " + (k + 1), a.descripcion, (String) c[0], v,
+                        COLOR_CONTRAPARTIDA, fondo));
+                if (v > 0) mas += v; else menos += v;
+            }
+        }
+        t.addView(filaTotales(mas, menos));
+        t.addView(filaNeto(mas + menos));
+        HorizontalScrollView h = new HorizontalScrollView(context);
+        h.addView(t);
+        return h;
+    }
+
+    private TableRow filaAsiento(String reg, int item, String tipo, String descripcion, String cuenta, long valor,
+                                 int color, int fondo) {
+        TableRow f = new TableRow(context);
+        String[] celdas = {reg, String.valueOf(item), tipo, descripcion, cuenta,
+                valor > 0 ? formato.format(valor) : "", valor < 0 ? formato.format(valor) : "", ""};
+        for (int i = 0; i < celdas.length; i++) {
+            TextView c = celda(celdas[i], false, i == 5 || i == 6);
+            c.setTextColor(color);
+            f.addView(c);
+        }
+        f.setBackgroundColor(fondo);
+        return f;
+    }
+
+    private TableRow filaTotales(long mas, long menos) {
+        TableRow f = new TableRow(context);
+        String[] celdas = {"", "", "", "", "Totales", formato.format(mas), formato.format(menos), ""};
+        for (int i = 0; i < celdas.length; i++) f.addView(celda(celdas[i], true, i == 5 || i == 6));
+        f.setBackgroundColor(Color.parseColor("#DCE8F5"));
+        return f;
+    }
+
+    private TableRow filaNeto(long neto) {
+        TableRow f = new TableRow(context);
+        f.addView(celda("", false, false));
+        f.addView(celda("", false, false));
+        f.addView(celda("", false, false));
+        f.addView(celda("", false, false));
+        f.addView(celda("Neto", true, false));
+        TextView v = celda(neto == 0 ? "0" : "Falta por registrar: " + formato.format(Math.abs(neto)), true, true);
+        v.setTextColor(Color.parseColor(neto == 0 ? "#1B5E20" : "#B71C1C"));
+        TableRow.LayoutParams span = new TableRow.LayoutParams();
+        span.span = 2;
+        f.addView(v, span);
+        f.addView(celda("", false, false));
+        return f;
     }
 
     /** Estado de la sesión (con el primer registro): contabilizada, borrador en F1, perdido o pendiente. */
@@ -771,47 +865,39 @@ public class A17_ReporteRentaDialogo {
     }
 
     /**
-     * Reparte el opuesto de la diferencia entre las contrapartidas del formulario: cada una con
-     * su valor (positivo, en pesos) y la ÚLTIMA con lo que falte. @return {Apoyo, valor contable
-     * (Long)} por contrapartida, o null si no cuadra (mensaje en error[0]).
+     * ⭐ (8-nov, Jorge) Contrapartidas del formulario: cada una con su cuenta y su valor SIN signo
+     * (la app le pone el opuesto al de la partida). Las filas vacías (sin cuenta ni valor) se
+     * ignoran. @return {Apoyo, valor contable (Long)} por contrapartida, o null si una fila está
+     * incompleta (mensaje en error[0]). No exige que cuadre: eso lo dice el neto.
      */
-    private static List<Object[]> repartirContrapartidas(Formulario f, List<Apoyo> cuentas, long dif, String[] error) {
+    private static List<Object[]> contrapartidasDelFormulario(Formulario f, List<Apoyo> cuentas, long dif, String[] error) {
         List<Object[]> salida = new ArrayList<>();
-        long total = Math.abs(dif), usado = 0;
         long signo = dif > 0 ? -1 : 1;
         for (int k = 0; k < f.contras.size(); k++) {
             Object[] c = f.contras.get(k);
             int pos = (Integer) c[0];
+            Long v = leerValor((String) c[1]);
+            if (pos <= 0 && v == null) continue;
             if (pos <= 0) {
                 error[0] = "Elija la cuenta de la contrapartida " + (k + 1) + ".";
                 return null;
             }
-            long valor;
-            if (k == f.contras.size() - 1) {
-                valor = total - usado;
-            } else {
-                Long v = leerValor((String) c[1]);
-                if (v == null || v <= 0) {
-                    error[0] = "Escriba el valor (positivo) de la contrapartida " + (k + 1) + ".";
-                    return null;
-                }
-                valor = v;
-            }
-            if (valor <= 0) {
-                error[0] = "Los valores de las contrapartidas superan el total del ajuste.";
+            if (v == null || v == 0) {
+                error[0] = "Escriba el valor de la contrapartida " + (k + 1) + ".";
                 return null;
             }
-            usado += valor;
-            salida.add(new Object[]{cuentas.get(pos - 1), signo * valor});
+            salida.add(new Object[]{cuentas.get(pos - 1), signo * Math.abs(v)});
         }
         return salida;
     }
 
     /**
-     * ⭐ NUEVO (7-nov, renta R6; 8-nov: modos, varias contrapartidas y colores): una sesión de
-     * ajuste. Los registros se guardan todos juntos al terminar la sesión (nada queda a medias);
-     * cada registro muestra el valor del reporte, el renglón, la naturaleza y la vista previa de
-     * los asientos (partida en azul, contrapartidas en morado), para evitar errores.
+     * ⭐ NUEVO (7-nov, renta R6; 8-nov: tablas, modos, varias contrapartidas y colores, pedidos de
+     * Jorge): una sesión de ajuste. Arriba, la tabla de los registros ya hechos; abajo, el registro
+     * en curso: cuenta, modo, valor y explicación, y su tabla de asientos (partida calculada y
+     * contrapartidas con cuenta y valor sin signo). Mientras quede saldo por registrar aparece sola
+     * una fila nueva; cada fila se puede quitar (✕). Al pie, Totales (+ y −) y Neto: "Agregar
+     * registro" exige neto 0. Los registros se guardan todos juntos al terminar la sesión.
      * registros: {Apoyo cuenta, valor correcto (Long), diferencia contable (Long), descripción,
      * List de {Apoyo, valor contable (Long)} contrapartidas}.
      */
@@ -828,44 +914,48 @@ public class A17_ReporteRentaDialogo {
         nombres.add("(elija la cuenta)");
         for (Apoyo a : cuentas) nombres.add(a.nombre);
         List<String> nombresContra = new ArrayList<>(nombres);
-        nombresContra.set(0, "(elija la contrapartida)");
+        nombresContra.set(0, "(elija la cuenta)");
 
         LinearLayout raiz = contenedor();
         raiz.addView(botonInfo("Sesión de ajuste fiscal",
                 "Agregue uno o varios registros. Cada uno corrige el valor fiscal de una cuenta en el año " + anio
                         + ", de dos formas: \"Corregir saldo\" (escribe el valor correcto, tal como debe verse en el "
                         + "reporte; las deudas en positivo) o \"Registrar valor\" (escribe el valor del ajuste, que se "
-                        + "suma al del reporte: + aumenta lo que se ve, − lo disminuye). La app calcula el signo "
-                        + "contable. Las contrapartidas llevan el signo opuesto y la misma explicación; con varias, "
-                        + "escriba el valor de cada una y la última se completa sola. Al terminar la sesión se "
-                        + "guardan todos los registros, el reporte queda corregido y se genera un solo documento "
-                        + "borrador en F1 › Nuevo con fecha " + fechaLegible(fechaDocumentoAjuste()) + "."));
+                        + "suma al del reporte: + aumenta lo que se ve, − lo disminuye). La app calcula la partida "
+                        + "con su signo contable. En la tabla, cada contrapartida lleva su cuenta y su valor sin "
+                        + "signo (la app le pone el opuesto); mientras quede saldo por registrar aparece una fila "
+                        + "nueva. Débito (+) y Crédito (−) se suman al pie y el Neto debe quedar en 0. Al terminar "
+                        + "la sesión se guardan todos los registros, el reporte queda corregido y se genera un solo "
+                        + "documento borrador en F1 › Nuevo con fecha " + fechaLegible(fechaDocumentoAjuste()) + "."));
 
-        // Registros ya agregados en esta sesión (aún sin guardar).
+        // Registros ya hechos en esta sesión (aún sin guardar), en una sola tabla.
         AlertDialog[] dialogo = new AlertDialog[1];
-        for (int i = 0; i < registros.size(); i++) {
-            Object[] g = registros.get(i);
-            Apoyo a = (Apoyo) g[0];
-            raiz.addView(texto((i + 1) + ". " + a.nombre + ": $ " + formato.format(a.valorReporte) + " → $ "
-                    + formato.format((Long) g[1]) + "  ·  " + g[3], true));
-            raiz.addView(lineaPartida(a.nombre + "  " + firmado((Long) g[2]), COLOR_PARTIDA));
-            @SuppressWarnings("unchecked")
-            List<Object[]> cs = (List<Object[]>) g[4];
-            for (Object[] c : cs) raiz.addView(lineaPartida("   ↳ " + ((Apoyo) c[0]).nombre + "  " + firmado((Long) c[1]), COLOR_CONTRAPARTIDA));
-            final int pos = i;
-            Button quitar = new Button(context);
-            quitar.setText("Quitar el registro " + (i + 1));
-            quitar.setAllCaps(false);
-            quitar.setOnClickListener(v -> {
-                registros.remove(pos);
-                dialogo[0].dismiss();
-                pantallaSesion(registros, form);
-            });
-            raiz.addView(quitar, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        if (!registros.isEmpty()) {
+            raiz.addView(texto("Registros hechos", true));
+            List<Asiento> hechos = new ArrayList<>();
+            for (int i = 0; i < registros.size(); i++) {
+                Object[] g = registros.get(i);
+                Apoyo a = (Apoyo) g[0];
+                Asiento as = new Asiento();
+                as.titulo = a.nombre + ": $ " + formato.format(a.valorReporte) + " → $ " + formato.format((Long) g[1]);
+                as.descripcion = (String) g[3];
+                as.cuenta = a.nombre;
+                as.valor = (Long) g[2];
+                @SuppressWarnings("unchecked")
+                List<Object[]> cs = (List<Object[]>) g[4];
+                for (Object[] c : cs) as.contras.add(new Object[]{((Apoyo) c[0]).nombre, c[1]});
+                final int pos = i;
+                as.quitar = () -> {
+                    registros.remove(pos);
+                    dialogo[0].dismiss();
+                    pantallaSesion(registros, form);
+                };
+                hechos.add(as);
+            }
+            raiz.addView(tablaAsientos(hechos));
         }
 
-        // Formulario del registro nuevo.
+        // Registro en curso.
         raiz.addView(texto("Registro " + (registros.size() + 1), true));
         Spinner cuenta = new Spinner(context);
         cuenta.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, nombres));
@@ -888,31 +978,106 @@ public class A17_ReporteRentaDialogo {
         descripcion.setText(form.descripcion);
         raiz.addView(descripcion);
 
-        // Contrapartidas: cuenta + valor; la última se completa sola.
-        List<Spinner> spContras = new ArrayList<>();
-        List<EditText> valContras = new ArrayList<>();
-        for (int k = 0; k < form.contras.size(); k++) {
-            Object[] c = form.contras.get(k);
-            TextView t = texto("Contrapartida " + (k + 1), false);
-            t.setTextColor(COLOR_CONTRAPARTIDA);
-            raiz.addView(t);
+        // Tabla del registro en curso: Ítem · Tipo · Descripción · Cuenta · Débito (+) · Crédito (−) · ✕
+        TableLayout tabla = new TableLayout(context);
+        TableRow enc = new TableRow(context);
+        for (String c : new String[]{"Ítem", "Tipo", "Descripción", "Cuenta", "Débito (+)", "Crédito (−)", ""}) {
+            enc.addView(celda(c, true, c.startsWith("Débito") || c.startsWith("Crédito")));
+        }
+        enc.setBackgroundColor(Color.parseColor("#DCE8F5"));
+        tabla.addView(enc);
+        TableRow filaPartida = new TableRow(context);
+        TextView[] pc = new TextView[6];
+        for (int i = 0; i < 6; i++) {
+            pc[i] = celda(i == 0 ? "1" : i == 1 ? "Partida" : "", false, i >= 4);
+            pc[i].setTextColor(COLOR_PARTIDA);
+            filaPartida.addView(pc[i]);
+        }
+        filaPartida.addView(celda("", false, false));
+        tabla.addView(filaPartida);
+        TableRow filaTot = new TableRow(context);
+        TextView totMas = celda("", true, true), totMenos = celda("", true, true), neto = celda("", true, true);
+        for (String c : new String[]{"", "", "", "Totales"}) filaTot.addView(celda(c, true, false));
+        filaTot.addView(totMas);
+        filaTot.addView(totMenos);
+        filaTot.addView(celda("", false, false));
+        filaTot.setBackgroundColor(Color.parseColor("#DCE8F5"));
+        TableRow filaNeto = new TableRow(context);
+        for (String c : new String[]{"", "", "", "Neto"}) filaNeto.addView(celda(c, true, false));
+        TableRow.LayoutParams span2 = new TableRow.LayoutParams();
+        span2.span = 2;
+        filaNeto.addView(neto, span2);
+        filaNeto.addView(celda("", false, false));
+        HorizontalScrollView hTabla = new HorizontalScrollView(context);
+        hTabla.addView(tabla);
+        raiz.addView(hTabla);
+
+        // Filas de contrapartida (se agregan y quitan en la tabla, sin redibujar la pantalla).
+        // Cada una: {TableRow, Spinner, EditText débito, EditText crédito, TextView ítem, TextView tipo, TextView desc}.
+        List<Object[]> filas = new ArrayList<>();
+        Runnable[] actualizar = new Runnable[1];
+        boolean[] ocupado = {false};
+        Runnable renumerar = () -> {
+            for (int k = 0; k < filas.size(); k++) {
+                ((TextView) filas.get(k)[4]).setText(String.valueOf(k + 2));
+                ((TextView) filas.get(k)[5]).setText("Contrapartida " + (k + 1));
+            }
+        };
+        java.util.function.BiConsumer<Integer, String> agregarFila = (posCuenta, texto) -> {
+            TableRow tr = new TableRow(context);
+            TextView ci = celda("", false, false), ct = celda("", false, false), cd = celda("", false, false);
+            ci.setTextColor(COLOR_CONTRAPARTIDA);
+            ct.setTextColor(COLOR_CONTRAPARTIDA);
+            cd.setTextColor(COLOR_CONTRAPARTIDA);
             Spinner sp = new Spinner(context);
             sp.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, nombresContra));
-            sp.setSelection((Integer) c[0]);
-            raiz.addView(sp);
-            spContras.add(sp);
-            EditText ev = new EditText(context);
-            ev.setInputType(InputType.TYPE_CLASS_NUMBER);
-            boolean ultima = k == form.contras.size() - 1;
-            ev.setHint(ultima ? "Se completa sola con lo que falte" : "Valor de esta contrapartida");
-            ev.setText(ultima ? "" : (String) c[1]);
-            ev.setEnabled(!ultima);
-            if (form.contras.size() > 1) raiz.addView(ev);
-            valContras.add(ev);
-        }
-        LinearLayout vista = new LinearLayout(context);
-        vista.setOrientation(LinearLayout.VERTICAL);
-        raiz.addView(vista);
+            sp.setSelection(posCuenta);
+            EditText eMas = new EditText(context), eMenos = new EditText(context);
+            for (EditText e : new EditText[]{eMas, eMenos}) {
+                e.setInputType(InputType.TYPE_CLASS_NUMBER);
+                e.setHint("valor");
+                e.setText(texto);
+                e.setTextColor(COLOR_CONTRAPARTIDA);
+            }
+            Button x = new Button(context);
+            x.setText("✕");
+            Object[] fila = {tr, sp, eMas, eMenos, ci, ct, cd};
+            x.setOnClickListener(v -> {
+                tabla.removeView(tr);
+                filas.remove(fila);
+                renumerar.run();
+                actualizar[0].run();
+            });
+            tr.addView(ci);
+            tr.addView(ct);
+            tr.addView(cd);
+            tr.addView(sp);
+            tr.addView(eMas);
+            tr.addView(eMenos);
+            tr.addView(x);
+            tabla.addView(tr, 2 + filas.size()); // después del encabezado y la partida
+            filas.add(fila);
+            sp.setOnItemSelectedListener(alSeleccionar(() -> actualizar[0].run()));
+            TextWatcher w = new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence t, int a, int b, int c) {}
+                @Override public void onTextChanged(CharSequence t, int a, int b, int c) {}
+                @Override public void afterTextChanged(Editable e) {
+                    if (ocupado[0]) return;
+                    // Las dos casillas de la fila llevan el mismo valor (solo una se ve).
+                    ocupado[0] = true;
+                    EditText otra = e == eMas.getText() ? eMenos : eMas;
+                    if (!otra.getText().toString().equals(e.toString())) otra.setText(e.toString());
+                    ocupado[0] = false;
+                    actualizar[0].run();
+                }
+            };
+            eMas.addTextChangedListener(w);
+            eMenos.addTextChangedListener(w);
+            renumerar.run();
+        };
+        for (Object[] c : form.contras) agregarFila.accept((Integer) c[0], (String) c[1]);
+        tabla.addView(filaTot);
+        tabla.addView(filaNeto);
 
         // Copia lo escrito al formulario (para redibujar sin perder nada).
         Runnable guardarForm = () -> {
@@ -920,77 +1085,92 @@ public class A17_ReporteRentaDialogo {
             form.porValor = modo.getSelectedItemPosition() == 1;
             form.valor = valor.getText().toString();
             form.descripcion = descripcion.getText().toString();
-            for (int k = 0; k < form.contras.size(); k++) {
-                form.contras.get(k)[0] = spContras.get(k).getSelectedItemPosition();
-                form.contras.get(k)[1] = valContras.get(k).getText().toString();
+            form.contras.clear();
+            for (Object[] f : filas) {
+                form.contras.add(new Object[]{((Spinner) f[1]).getSelectedItemPosition(),
+                        ((EditText) f[2]).getText().toString()});
             }
         };
-        Runnable actualizar = () -> {
+        actualizar[0] = () -> {
+            if (ocupado[0]) return;
             guardarForm.run();
             valor.setHint(form.porValor ? "Valor del ajuste (+ o −)" : "Valor fiscal correcto");
-            vista.removeAllViews();
-            if (form.cuenta <= 0) {
+            String desc = descripcionSegura(form.descripcion);
+            pc[2].setText(desc);
+            for (Object[] f : filas) ((TextView) f[6]).setText(desc);
+            Apoyo a = form.cuenta > 0 ? cuentas.get(form.cuenta - 1) : null;
+            pc[3].setText(a == null ? "" : a.nombre);
+            if (a == null) {
                 apoyo.setText("Elija la cuenta cuyo valor fiscal va a corregir.");
-                return;
-            }
-            Apoyo a = cuentas.get(form.cuenta - 1);
-            apoyo.setText("En el reporte: $ " + formato.format(a.valorReporte) + "  ·  " + a.renglon + "  ·  "
-                    + (a.naturalezaTipo == null ? "naturaleza sin dato" : a.naturalezaTipo.toLowerCase())
-                    + (A1_1_AyudanteBD.esNaturalezaDePresentacionNegativa(a.naturalezaRenglon)
-                    ? "  ·  (en este renglón el valor se ve en positivo; en la contabilidad va en negativo)" : ""));
-            Long correcto = valorCorrecto(a, form.porValor, leerValor(form.valor));
-            if (correcto == null) {
-                vista.addView(texto("Escriba el valor para ver la diferencia y los asientos.", false));
-                return;
-            }
-            long dif = diferenciaContable(a, correcto);
-            vista.addView(texto("Reporte: $ " + formato.format(a.valorReporte) + " → $ " + formato.format(correcto)
-                    + "  (" + firmado(correcto - a.valorReporte) + ")", false));
-            vista.addView(lineaPartida(a.nombre + "  " + firmado(dif), COLOR_PARTIDA));
-            String[] error = new String[1];
-            List<Object[]> reparto = repartirContrapartidas(form, cuentas, dif, error);
-            if (reparto == null) {
-                vista.addView(alerta(error[0], false));
             } else {
-                for (int k = 0; k < reparto.size(); k++) {
-                    Object[] c = reparto.get(k);
-                    vista.addView(lineaPartida("   ↳ " + ((Apoyo) c[0]).nombre + "  " + firmado((Long) c[1]), COLOR_CONTRAPARTIDA));
-                    if (k == reparto.size() - 1 && form.contras.size() > 1) {
-                        valContras.get(k).setText(formato.format(Math.abs((Long) c[1])));
-                    }
+                apoyo.setText("En el reporte: $ " + formato.format(a.valorReporte) + "  ·  " + a.renglon + "  ·  "
+                        + (a.naturalezaTipo == null ? "naturaleza sin dato" : a.naturalezaTipo.toLowerCase())
+                        + (A1_1_AyudanteBD.esNaturalezaDePresentacionNegativa(a.naturalezaRenglon)
+                        ? "  ·  (en este renglón el valor se ve en positivo; en la contabilidad va en negativo)" : ""));
+            }
+            Long correcto = a == null ? null : valorCorrecto(a, form.porValor, leerValor(form.valor));
+            long dif = correcto == null ? 0 : diferenciaContable(a, correcto);
+            if (a != null && correcto != null) {
+                apoyo.setText(apoyo.getText() + "\nReporte: $ " + formato.format(a.valorReporte) + " → $ "
+                        + formato.format(correcto) + "  (" + firmado(correcto - a.valorReporte) + ")");
+            }
+            pc[4].setText(dif > 0 ? formato.format(dif) : "");
+            pc[5].setText(dif < 0 ? formato.format(dif) : "");
+            // Las contrapartidas van en la columna contraria a la partida.
+            long mas = Math.max(dif, 0), menos = Math.min(dif, 0);
+            long signo = dif > 0 ? -1 : 1;
+            for (Object[] f : filas) {
+                boolean enCredito = dif >= 0;
+                ((EditText) f[2]).setVisibility(enCredito ? View.INVISIBLE : View.VISIBLE);
+                ((EditText) f[3]).setVisibility(enCredito ? View.VISIBLE : View.INVISIBLE);
+                Long v = leerValor(((EditText) f[2]).getText().toString());
+                if (v != null) {
+                    if (signo < 0) menos -= Math.abs(v); else mas += Math.abs(v);
+                }
+            }
+            totMas.setText(formato.format(mas));
+            totMenos.setText(formato.format(menos));
+            long n = mas + menos;
+            neto.setText(dif == 0 ? "" : n == 0 ? "0" : "Falta por registrar: " + formato.format(Math.abs(n)));
+            neto.setTextColor(Color.parseColor(n == 0 ? "#1B5E20" : "#B71C1C"));
+            // Con el neto en 0 sobran las filas vacías del final (queda al menos una).
+            if (dif != 0 && n == 0) {
+                while (filas.size() > 1) {
+                    Object[] u = filas.get(filas.size() - 1);
+                    if (((Spinner) u[1]).getSelectedItemPosition() > 0
+                            || !((EditText) u[2]).getText().toString().trim().isEmpty()) break;
+                    tabla.removeView((TableRow) u[0]);
+                    filas.remove(u);
+                }
+            }
+            // Mientras quede saldo por registrar y la última fila esté completa, aparece una nueva.
+            if (dif != 0 && n != 0) {
+                Object[] ultima = filas.isEmpty() ? null : filas.get(filas.size() - 1);
+                boolean completa = ultima == null || (((Spinner) ultima[1]).getSelectedItemPosition() > 0
+                        && leerValor(((EditText) ultima[2]).getText().toString()) != null);
+                if (completa) {
+                    agregarFila.accept(0, "");
+                    actualizar[0].run();
                 }
             }
         };
-        cuenta.setOnItemSelectedListener(alSeleccionar(actualizar));
-        modo.setOnItemSelectedListener(alSeleccionar(actualizar));
-        for (Spinner sp : spContras) sp.setOnItemSelectedListener(alSeleccionar(actualizar));
+        cuenta.setOnItemSelectedListener(alSeleccionar(actualizar[0]));
+        modo.setOnItemSelectedListener(alSeleccionar(actualizar[0]));
         TextWatcher alEscribir = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence t, int a, int b, int c) {}
             @Override public void onTextChanged(CharSequence t, int a, int b, int c) {}
-            @Override public void afterTextChanged(Editable e) { actualizar.run(); }
+            @Override public void afterTextChanged(Editable e) { actualizar[0].run(); }
         };
         valor.addTextChangedListener(alEscribir);
-        for (int k = 0; k < valContras.size() - 1; k++) valContras.get(k).addTextChangedListener(alEscribir);
-        actualizar.run();
+        descripcion.addTextChangedListener(alEscribir);
+        actualizar[0].run();
 
-        Runnable masContra = () -> {
-            guardarForm.run();
-            form.contras.add(new Object[]{0, ""});
-            dialogo[0].dismiss();
-            pantallaSesion(registros, form);
-        };
-        Runnable menosContra = () -> {
-            guardarForm.run();
-            if (form.contras.size() > 1) form.contras.remove(form.contras.size() - 1);
-            dialogo[0].dismiss();
-            pantallaSesion(registros, form);
-        };
         Runnable agregar = () -> {
             guardarForm.run();
             Long escrito = leerValor(form.valor);
             String desc = descripcionSegura(form.descripcion);
             String error = null;
-            List<Object[]> reparto = null;
+            List<Object[]> contras = null;
             Apoyo a = form.cuenta > 0 ? cuentas.get(form.cuenta - 1) : null;
             Long correcto = a == null ? null : valorCorrecto(a, form.porValor, escrito);
             if (a == null) error = "Elija la cuenta a corregir.";
@@ -998,11 +1178,16 @@ public class A17_ReporteRentaDialogo {
             else if (diferenciaContable(a, correcto) == 0) error = "El ajuste no cambia el valor del reporte.";
             else if (desc.isEmpty()) error = "Escriba la explicación del ajuste.";
             else {
+                long dif = diferenciaContable(a, correcto);
                 String[] e = new String[1];
-                reparto = repartirContrapartidas(form, cuentas, diferenciaContable(a, correcto), e);
-                if (reparto == null) error = e[0];
+                contras = contrapartidasDelFormulario(form, cuentas, dif, e);
+                if (contras == null) error = e[0];
+                else if (contras.isEmpty()) error = "Registre al menos una contrapartida.";
                 else {
-                    for (Object[] c : reparto) if (((Apoyo) c[0]).cuentaId == a.cuentaId) error = "Una contrapartida no puede ser la misma cuenta.";
+                    long suma = dif;
+                    for (Object[] c : contras) suma += (Long) c[1];
+                    if (suma != 0) error = "El neto no está en 0: falta por registrar " + formato.format(Math.abs(suma)) + ".";
+                    for (Object[] c : contras) if (((Apoyo) c[0]).cuentaId == a.cuentaId) error = "Una contrapartida no puede ser la misma cuenta.";
                     for (Object[] g : registros) {
                         if (((Apoyo) g[0]).cuentaId == a.cuentaId) error = "Esa cuenta ya está en esta sesión.";
                     }
@@ -1012,26 +1197,17 @@ public class A17_ReporteRentaDialogo {
                 Toast.makeText(context, error, Toast.LENGTH_LONG).show();
                 return;
             }
-            ultimaContrapartida = ((Apoyo) reparto.get(0)[0]).cuentaId;
-            registros.add(new Object[]{a, correcto, diferenciaContable(a, correcto), desc, reparto});
+            ultimaContrapartida = ((Apoyo) contras.get(0)[0]).cuentaId;
+            registros.add(new Object[]{a, correcto, diferenciaContable(a, correcto), desc, contras});
             dialogo[0].dismiss();
             pantallaSesion(registros, new Formulario());
         };
-        List<String> textos = new ArrayList<>();
-        List<Runnable> acciones = new ArrayList<>();
-        textos.add("+ contrapartida");
-        acciones.add(masContra);
-        if (form.contras.size() > 1) {
-            textos.add("− contrapartida");
-            acciones.add(menosContra);
-        }
-        textos.add("Agregar registro");
-        acciones.add(agregar);
-        textos.add("Terminar sesión");
-        acciones.add(() -> confirmarTerminarSesion(registros, dialogo[0]));
-        textos.add("Cancelar sesión");
-        acciones.add(() -> confirmarCancelarSesion(registros, dialogo[0]));
-        raiz.addView(botones(textos.toArray(new String[0]), acciones.toArray(new Runnable[0])));
+        raiz.addView(botones(
+                new String[]{"Agregar registro", "Terminar sesión", "Cancelar sesión"},
+                new Runnable[]{
+                        agregar,
+                        () -> confirmarTerminarSesion(registros, dialogo[0]),
+                        () -> confirmarCancelarSesion(registros, dialogo[0])}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sesión de ajuste", raiz);
     }
 
@@ -1680,33 +1856,39 @@ public class A17_ReporteRentaDialogo {
         return s;
     }
 
-    /** ⭐ (7-nov, R6) Las sesiones de ajuste fiscal del año: cada cuenta, del valor del reporte al correcto. */
+    /**
+     * ⭐ (7-nov, R6; 8-nov tabla de asientos) Las sesiones de ajuste fiscal del año: por registro, la
+     * partida y sus contrapartidas en Débito (+) / Crédito (−), con totales por sesión.
+     */
     private Seccion seccionAjustes() {
         Seccion s = new Seccion("Ajustes posteriores al cierre (afectan a " + anio + ")",
-                new String[]{"Sesión / cuenta", "Antes", "Correcto", "Dif. contable"});
+                new String[]{"Sesión / registro / asiento", "Débito (+)", "Crédito (−)"});
         SQLiteDatabase db = abrir();
         try {
             List<Object[]> registros = A1_1_AyudanteBD.ajustesRentaDelAnio(db, anio);
             Map<String, List<Object[]>> contras = A1_1_AyudanteBD.contrapartidasDelAnio(db, anio);
-            Integer sesionActual = null;
-            for (Object[] r : registros) {
-                if (!((Integer) r[0]).equals(sesionActual)) {
-                    sesionActual = (Integer) r[0];
+            for (int i = 0; i < registros.size(); i++) {
+                Object[] r = registros.get(i);
+                boolean primero = i == 0 || !registros.get(i - 1)[0].equals(r[0]);
+                if (primero) {
                     s.filas.add(new String[]{"R", "Sesión " + r[0] + " · " + (r[13] != null
                             ? "documento N° " + r[13] + " del " + fechaLegible((Integer) r[11])
-                            : "documento contable sin guardar"), "", "", ""});
+                            : "documento contable sin guardar"), "", ""});
                 }
-                StringBuilder cps = new StringBuilder();
+                s.filas.add(new String[]{"C", "Reg. " + r[2] + " · " + r[4] + ": " + formato.format((Long) r[5]) + " → "
+                        + formato.format((Long) r[6]) + " · " + (r[8] == null ? "" : r[8]), "", ""});
+                long dif = (Long) r[7];
+                s.filas.add(new String[]{"C", "      Partida · " + r[4], dif > 0 ? formato.format(dif) : "",
+                        dif < 0 ? formato.format(dif) : ""});
                 List<Object[]> lista = contras.get(r[0] + "-" + r[2]);
                 if (lista != null) {
-                    for (Object[] k : lista) {
-                        if (cps.length() > 0) cps.append("; ");
-                        cps.append(k[1]).append(" ").append(firmado((Long) k[2]));
+                    int n = 0;
+                    for (Object[] c : lista) {
+                        long v = (Long) c[2];
+                        s.filas.add(new String[]{"C", "      Contrapartida " + (++n) + " · " + c[1],
+                                v > 0 ? formato.format(v) : "", v < 0 ? formato.format(v) : ""});
                     }
                 }
-                s.filas.add(new String[]{"C", r[4] + " · " + (r[8] == null ? "" : r[8]) + " · contrapartida: "
-                        + cps, formato.format((Long) r[5]), formato.format((Long) r[6]),
-                        formato.format((Long) r[7])});
             }
         } finally {
             db.close();
