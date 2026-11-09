@@ -1581,8 +1581,8 @@ public class A17_ReporteRentaDialogo {
                         + "sus ajustes): las cuentas con saldo o movimiento cuyo tipo de soporte no es \"Ninguno\", con "
                         + "la entidad y el soporte que tienen en F2. Toque \"Revisar\" para marcar el soporte como "
                         + "obtenido y anotar el valor del certificado de cada cuenta: la diferencia contra el reporte "
-                        + "se ve al momento, y si no cuadra puede ajustar con el certificado. La nota del año anterior "
-                        + "se propone para la misma entidad."));
+                        + "se ve al momento, y si no cuadra puede ajustar con el certificado. En \"Nota\" anote dónde y a "
+                        + "quién pedir el certificado; la del año anterior se propone para la misma entidad."));
         AlertDialog[] dialogo = new AlertDialog[1];
         int obtenidos = 0, conDiferencia = 0;
         for (GrupoSoporte g : grupos) {
@@ -1645,11 +1645,23 @@ public class A17_ReporteRentaDialogo {
                 TextView cd = celda(cert == null ? "" : firmado(dif), true, true);
                 cd.setTextColor(Color.parseColor(dif == 0 ? "#1B5E20" : "#B71C1C"));
                 fg.addView(cd);
+                // ⭐ (9-nov, Jorge) "Nota" (dónde y a quién pedir el certificado) junto a "Revisar".
+                LinearLayout acciones = new LinearLayout(context);
+                acciones.setOrientation(LinearLayout.HORIZONTAL);
+                Button notaB = botonVerde();
+                notaB.setText(g.nota != null || g.notaAnterior != null ? "Nota ✎" : "Nota");
+                compactar(notaB);
+                notaB.setOnClickListener(v -> editarNotaSoporte(g, dialogo[0]));
                 Button revisar = botonVerde();
                 revisar.setText("Revisar");
                 compactar(revisar);
                 revisar.setOnClickListener(v -> { dialogo[0].dismiss(); pantallaSoporte(g); });
-                fg.addView(revisar);
+                LinearLayout.LayoutParams lpB = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                lpB.setMargins(6, 2, 0, 2);
+                acciones.addView(notaB, lpB);
+                acciones.addView(revisar, lpB);
+                fg.addView(acciones);
                 fg.setBackgroundColor(fondo);
                 t.addView(fg);
                 for (ConceptoSoporte c : g.conceptos) {
@@ -1710,7 +1722,14 @@ public class A17_ReporteRentaDialogo {
         Runnable[] guardar = new Runnable[1];
         for (ConceptoSoporte c : g.conceptos) {
             TableRow f = new TableRow(context);
-            f.addView(celda(c.nombre + "\n" + c.tipoSoporte, false, false));
+            // Nombre y, debajo, el tipo de soporte en letra menor (antes se cortaba la segunda línea).
+            LinearLayout nombreYSoporte = new LinearLayout(context);
+            nombreYSoporte.setOrientation(LinearLayout.VERTICAL);
+            nombreYSoporte.addView(celda(c.nombre, false, false));
+            TextView ts = celda(c.tipoSoporte, false, false);
+            ts.setTextSize(12);
+            nombreYSoporte.addView(ts);
+            f.addView(nombreYSoporte);
             f.addView(celda(formato.format(c.valorReporte), false, true));
             EditText e = campoEntrada("valor", c.certificado == null ? "" : String.valueOf(c.certificado));
             e.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
@@ -1750,14 +1769,6 @@ public class A17_ReporteRentaDialogo {
             t.addView(f);
         }
         raiz.addView(t);
-        String notaInicial = g.nota != null ? g.nota : g.notaAnterior;
-        EditText nota = campoEntrada("Nota (dónde se pide, a quién, observaciones)", notaInicial == null ? "" : notaInicial);
-        raiz.addView(nota);
-        if (g.nota == null && g.notaAnterior != null) {
-            TextView h = texto("La nota viene del año " + (anio - 1) + ".", false);
-            h.setTextSize(12);
-            raiz.addView(h);
-        }
         guardar[0] = () -> {
             Map<Long, Long> valores = new HashMap<>();
             for (int k = 0; k < g.conceptos.size(); k++) {
@@ -1765,8 +1776,7 @@ public class A17_ReporteRentaDialogo {
             }
             SQLiteDatabase db = abrir();
             try {
-                A1_1_AyudanteBD.guardarSoporteRenta(db, anio, g.entidad, obtenido.isChecked(),
-                        descripcionSegura(nota.getText().toString()), valores);
+                A1_1_AyudanteBD.guardarSoporteRenta(db, anio, g.entidad, obtenido.isChecked(), g.nota, valores);
             } finally {
                 db.close();
             }
@@ -1777,6 +1787,38 @@ public class A17_ReporteRentaDialogo {
                         () -> { guardar[0].run(); dialogo[0].dismiss(); pantallaSoportes(); },
                         () -> { dialogo[0].dismiss(); pantallaSoportes(); }}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " soporte", raiz);
+    }
+
+    /**
+     * ⭐ (9-nov, Jorge) Nota de la entidad: dónde y a quién pedir el certificado. Se edita desde el
+     * checklist, mientras se gestiona el soporte; si el año no tiene, se propone la del anterior.
+     */
+    private void editarNotaSoporte(GrupoSoporte g, AlertDialog pantalla) {
+        String inicial = g.nota != null ? g.nota : g.notaAnterior;
+        LinearLayout caja = contenedor();
+        EditText nota = campoEntrada("Dónde se pide, a quién, observaciones", inicial == null ? "" : inicial);
+        caja.addView(nota);
+        if (g.nota == null && g.notaAnterior != null) {
+            TextView h = texto("La nota viene del año " + (anio - 1) + ".", false);
+            h.setTextSize(12);
+            caja.addView(h);
+        }
+        mostrarRegistrado(new AlertDialog.Builder(context)
+                .setCustomTitle(tituloCentrado("Nota · " + g.entidad))
+                .setView(caja)
+                .setPositiveButton("Guardar", (d, w) -> {
+                    SQLiteDatabase db = abrir();
+                    try {
+                        A1_1_AyudanteBD.guardarSoporteRenta(db, anio, g.entidad, g.obtenido,
+                                descripcionSegura(nota.getText().toString()), new HashMap<>());
+                    } finally {
+                        db.close();
+                    }
+                    respaldarSoportes();
+                    pantalla.dismiss();
+                    pantallaSoportes();
+                })
+                .setNegativeButton("Cancelar", null));
     }
 
     /** Regenera el respaldo 426 (checklist de soportes) y lo sube a Drive. */
