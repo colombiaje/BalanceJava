@@ -276,11 +276,10 @@ public class A17_ReporteRentaDialogo {
             fila.addView(celda("$ " + formato.format(r.total), true, true));
             t.addView(fila);
         }
-        new AlertDialog.Builder(context)
+        mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado("Renta fiscal " + nombreAnio() + " resumen"))
                 .setView(t)
-                .setPositiveButton("Cerrar", null)
-                .show();
+                .setPositiveButton("Cerrar", null));
     }
 
     // ── 2. Depuración ───────────────────────────────────────────────────
@@ -455,7 +454,7 @@ public class A17_ReporteRentaDialogo {
         if (enF1 != null) {
             b.setPositiveButton("Ir a F1 › Nuevo", (d, w) -> irAF1Nuevo());
         }
-        b.show();
+        mostrarRegistrado(b);
     }
 
     /**
@@ -770,9 +769,10 @@ public class A17_ReporteRentaDialogo {
                         avisoF1Ocupado();
                         return;
                     }
-                    generarBorrador(sesion);
+                    int partidas = generarBorrador(sesion);
                     dialogo[0].dismiss();
                     pantallaAjustes();
+                    if (partidas > 0) avisoBorradorGenerado(sesion, partidas);
                 });
             }
         }
@@ -797,7 +797,7 @@ public class A17_ReporteRentaDialogo {
                 + "corresponde, para que no quede un registro contable sin su ajuste fiscal."
                 : borradorEnF1(r) ? "Su borrador sigue en F1 › Nuevo: descártelo allí."
                 : "No tiene documento contable guardado.";
-        new AlertDialog.Builder(context)
+        mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado("Quitar la sesión " + sesion))
                 .setMessage("El reporte fiscal vuelve a los valores sin esta sesión. " + contable + "\n\n¿Quitarla?")
                 .setPositiveButton("Quitar", (d, w) -> {
@@ -811,19 +811,17 @@ public class A17_ReporteRentaDialogo {
                     pantalla.dismiss();
                     pantallaAjustes();
                 })
-                .setNegativeButton("Cancelar", null)
-                .show();
+                .setNegativeButton("Cancelar", null));
     }
 
     private void avisoF1Ocupado() {
-        new AlertDialog.Builder(context)
+        mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado("⚠ F1 › Nuevo está ocupado"))
                 .setView(alerta("F1 › Nuevo tiene un documento sin terminar. Termínelo y guárdelo (o descártelo) "
                         + "y vuelva aquí a generar el borrador. El ajuste fiscal ya quedó guardado y la sesión "
                         + "queda pendiente, con aviso cada vez que entre a los ajustes.", true))
                 .setPositiveButton("Ir a F1 › Nuevo", (d, w) -> irAF1Nuevo())
-                .setNegativeButton("Entendido", null)
-                .show();
+                .setNegativeButton("Entendido", null));
     }
 
     /** Fecha del documento contable de ajuste: primer día del año fiscal siguiente (AAAAMMDD). */
@@ -1261,12 +1259,11 @@ public class A17_ReporteRentaDialogo {
             pantallaAjustes();
             return;
         }
-        new AlertDialog.Builder(context)
+        mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado("Cancelar la sesión"))
                 .setMessage("Se descartan " + registros.size() + " registro(s) sin guardar. El reporte no cambia.")
                 .setPositiveButton("Descartar", (d, w) -> { pantalla.dismiss(); pantallaAjustes(); })
-                .setNegativeButton("Seguir en la sesión", null)
-                .show();
+                .setNegativeButton("Seguir en la sesión", null));
     }
 
     private void confirmarTerminarSesion(List<Object[]> registros, AlertDialog pantalla) {
@@ -1275,7 +1272,7 @@ public class A17_ReporteRentaDialogo {
             return;
         }
         boolean f1Ocupado = A5_CacheManager.tieneTrabajoPendienteReal(context, A1_1_AyudanteBD.AREA_CREATE);
-        new AlertDialog.Builder(context)
+        mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado("Terminar la sesión"))
                 .setMessage(registros.size() + " registro(s). El reporte fiscal de " + anio + " queda corregido y se "
                         + "genera un documento borrador en F1 › Nuevo con fecha " + fechaLegible(fechaDocumentoAjuste())
@@ -1315,12 +1312,12 @@ public class A17_ReporteRentaDialogo {
                         pantallaAjustes();
                         avisoF1Ocupado();
                     } else {
-                        generarBorrador(sesion);
+                        int partidas = generarBorrador(sesion);
                         pantallaAjustes();
+                        if (partidas > 0) avisoBorradorGenerado(sesion, partidas);
                     }
                 })
-                .setNegativeButton("Seguir en la sesión", null)
-                .show();
+                .setNegativeButton("Seguir en la sesión", null));
     }
 
     /**
@@ -1330,7 +1327,7 @@ public class A17_ReporteRentaDialogo {
      * "otra fecha" del encabezado (así una partida que se agregue en F1 toma la misma fecha). El
      * número de documento lo vuelve a tomar F1 al guardar (consecutivo disponible en ese momento).
      */
-    private void generarBorrador(int sesion) {
+    private int generarBorrador(int sesion) {
         ArrayList<A3_2_TipoTransaccionesGetsYSets> items = new ArrayList<>();
         int fecha = 0;
         SQLiteDatabase db = abrir();
@@ -1354,7 +1351,7 @@ public class A17_ReporteRentaDialogo {
                             fecha, cuentas));
                 }
             }
-            if (items.isEmpty()) return;
+            if (items.isEmpty()) return 0;
             A5_CacheManager.Encabezado enc = A5_CacheManager.restaurarEncabezado(context, A1_1_AyudanteBD.AREA_CREATE);
             if (enc == null) enc = new A5_CacheManager.Encabezado();
             enc.campo_0_otraFechaChb = "true";
@@ -1362,21 +1359,29 @@ public class A17_ReporteRentaDialogo {
             if (!A5_CacheManager.guardarRegistros(context, A1_1_AyudanteBD.AREA_CREATE, items)
                     || !A5_CacheManager.guardarEncabezado(context, A1_1_AyudanteBD.AREA_CREATE, enc)) {
                 Toast.makeText(context, "No se pudo generar el borrador en F1.", Toast.LENGTH_LONG).show();
-                return;
+                return 0;
             }
             A1_1_AyudanteBD.marcarBorradorAjusteGenerado(db, sesion);
         } finally {
             db.close();
         }
         respaldarAjustes();
-        new AlertDialog.Builder(context)
+        return items.size();
+    }
+
+    /**
+     * ⭐ (8-nov) Aviso de borrador generado. Se muestra DESPUÉS de redibujar la pantalla de Ajustes
+     * (queda encima) y se registra entre las pantallas abiertas, para que "Ir a F1 › Nuevo" lo
+     * cierre: antes quedaba debajo y aparecía luego sobre F1 (reportado por Jorge).
+     */
+    private void avisoBorradorGenerado(int sesion, int partidas) {
+        mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado("Borrador generado"))
-                .setView(alerta("El borrador del ajuste (sesión " + sesion + ", " + items.size() + " partidas) está en "
+                .setView(alerta("El borrador del ajuste (sesión " + sesion + ", " + partidas + " partidas) está en "
                         + "F1 › Nuevo. Ábralo, revíselo y guárdelo: hasta entonces la contabilidad no refleja el "
                         + "ajuste y los ajustes le seguirán avisando.", false))
                 .setPositiveButton("Ir a F1 › Nuevo", (d, w) -> irAF1Nuevo())
-                .setNegativeButton("Más tarde", null)
-                .show();
+                .setNegativeButton("Más tarde", null));
     }
 
     private static A3_2_TipoTransaccionesGetsYSets itemBorrador(String documento, int item, Long cuentaId, String nombre,
@@ -1479,11 +1484,10 @@ public class A17_ReporteRentaDialogo {
         List<FilaComp> renglones = new ArrayList<>();
         for (FilaComp f : filas) if (f.esRenglon) renglones.add(f);
         View tabla = tablaComparativo(renglones, tituloA, tituloB);
-        new AlertDialog.Builder(context)
+        mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado(titulo + " · resumen"))
                 .setView(tabla)
-                .setPositiveButton("Cerrar", null)
-                .show();
+                .setPositiveButton("Cerrar", null));
     }
 
     // ── Cálculo ─────────────────────────────────────────────────────────
@@ -1797,6 +1801,15 @@ public class A17_ReporteRentaDialogo {
 
     /** ⭐ (8-nov) Pantallas del recorrido abiertas, para cerrarlas todas al ir a F1. */
     private final List<AlertDialog> abiertos = new ArrayList<>();
+
+    /** Muestra un aviso y lo registra entre las pantallas abiertas (se cierra al ir a F1). */
+    private AlertDialog mostrarRegistrado(AlertDialog.Builder b) {
+        AlertDialog d = b.create();
+        abiertos.add(d);
+        d.setOnDismissListener(x -> abiertos.remove(d));
+        d.show();
+        return d;
+    }
 
     private void cerrarDialogos() {
         for (AlertDialog d : new ArrayList<>(abiertos)) d.dismiss();
