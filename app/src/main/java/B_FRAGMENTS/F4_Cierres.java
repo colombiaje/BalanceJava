@@ -112,10 +112,10 @@ public class F4_Cierres extends Fragment {
         super.onCreate(savedInstanceState);
     }
 
-    @Override
     /** ⭐ (8-nov) Señal de F1: abrir la opción 6 directo en Ajustes (ver B12_DocumentPersistence). */
     public static final String PREF_ABRIR_AJUSTES_RENTA = "abrirAjustesRentaAlVolver";
 
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View inflarViews_View = inflater.inflate(R.layout.f4_cierres, container, false);
 
