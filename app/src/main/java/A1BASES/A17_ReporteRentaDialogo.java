@@ -361,20 +361,20 @@ public class A17_ReporteRentaDialogo {
                     + " · " + f[6], false);
             motivo.setTextSize(12);
             raiz.addView(motivo);
-            Spinner selector = new Spinner(context);
-            selector.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, etiquetasRenglon));
             int pos = f[5] == null ? posAsignado : idsRenglon.indexOf((Long) f[5]);
-            selector.setSelection(Math.max(0, pos));
+            Spinner selector = spinnerEntrada(etiquetasRenglon, Math.max(0, pos)); // ⭐ (9-nov) fucsia
             raiz.addView(selector);
             selectores.add(selector);
         }
         AlertDialog[] dialogo = new AlertDialog[1];
         Runnable guardar = () -> guardarDecisiones(contrarias, selectores, idsRenglon);
         raiz.addView(botones(
-                new String[]{"Comparativo actual", "Comparativo entre años", "Cancelar"},
+                new String[]{"Comparativo actual", "Comparativo entre años", "Pantalla anterior", "Cancelar"},
                 new Runnable[]{
                         () -> { guardar.run(); dialogo[0].dismiss(); pantallaAnterior = this::pantallaDepuracion; pantallaComparativoActual(); },
                         () -> { guardar.run(); dialogo[0].dismiss(); pantallaAnterior = this::pantallaDepuracion; pantallaComparativoAnios(); },
+                        // ⭐ (9-nov, Jorge) volver al Detalle (sin guardar los cambios de esta pantalla)
+                        () -> { dialogo[0].dismiss(); pantallaDetalle(); },
                         () -> dialogo[0].dismiss()}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " depuración", raiz);
     }
@@ -528,9 +528,7 @@ public class A17_ReporteRentaDialogo {
         for (int k = sesiones.size() - 1; k >= 0; k--) opciones.add("Sesión " + sesiones.get(k));
         if (!opciones.contains(filtroAjustes)) filtroAjustes = "Todas";
         if (!registros.isEmpty()) {
-            Spinner filtro = new Spinner(context);
-            filtro.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, opciones));
-            filtro.setSelection(opciones.indexOf(filtroAjustes));
+            Spinner filtro = spinnerEntrada(opciones, opciones.indexOf(filtroAjustes)); // ⭐ (9-nov) fucsia
             filtro.setOnItemSelectedListener(alSeleccionar(() -> {
                 String elegido = opciones.get(filtro.getSelectedItemPosition());
                 if (elegido.equals(filtroAjustes)) return;
@@ -578,11 +576,13 @@ public class A17_ReporteRentaDialogo {
             raiz.addView(texto("No hay sesiones sin terminar.", false));
         }
         raiz.addView(botones(
-                new String[]{"Nueva sesión de ajuste", "Comparativo actual", "Comparativo entre años", "Cancelar"},
+                new String[]{"Nueva sesión de ajuste", "Comparativo actual", "Comparativo entre años", "Pantalla anterior",
+                        "Cancelar"},
                 new Runnable[]{
                         () -> { dialogo[0].dismiss(); pantallaSesion(new ArrayList<>(), new Formulario()); },
                         () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoActual(); },
                         () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoAnios(); },
+                        () -> { dialogo[0].dismiss(); pantallaDetalle(); }, // ⭐ (9-nov, Jorge)
                         () -> dialogo[0].dismiss()}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " ajustes", raiz);
     }
@@ -725,6 +725,8 @@ public class A17_ReporteRentaDialogo {
             }
         });
         sp.setSelection(seleccion);
+        // ⭐ (9-nov, Jorge) la flecha que despliega la lista, en verde (se toca, como un botón)
+        sp.setBackgroundTintList(android.content.res.ColorStateList.valueOf(VERDE_BOTON));
         return sp;
     }
 
@@ -1232,12 +1234,15 @@ public class A17_ReporteRentaDialogo {
             pantallaSesion(registros, new Formulario()); // formulario limpio, contrapartida incluida
         };
         raiz.addView(botones(
-                new String[]{"Agregar registro", "Terminar sesión", "Terminar e ir a F1 › Nuevo", "Cancelar sesión"},
+                new String[]{"Agregar registro", "Terminar sesión", "Terminar e ir a F1 › Nuevo", "Pantalla anterior",
+                        "Cancelar sesión"},
                 new Runnable[]{
                         agregar,
                         () -> confirmarTerminarSesion(registros, dialogo[0], false),
                         // ⭐ (8-nov, Jorge) a la vista: terminar y registrar de una vez en F1 › Nuevo
                         () -> confirmarTerminarSesion(registros, dialogo[0], true),
+                        // ⭐ (9-nov, Jorge) volver a Ajustes; si hay registros sin guardar, avisa antes
+                        () -> confirmarCancelarSesion(registros, dialogo[0]),
                         () -> confirmarCancelarSesion(registros, dialogo[0])}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sesión de ajuste", raiz);
     }
