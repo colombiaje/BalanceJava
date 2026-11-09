@@ -173,6 +173,40 @@ public class A5_1_BackupManager {
         }
     }
 
+    /**
+     * ⭐ NUEVO (9-nov, BD v29, renta R7): exporta el checklist de soportes de todos los años en
+     * 426_SoportesRenta_<años>.csv. Se restaura con "Importar CSV" de "4. Configuración renta
+     * fiscal" (F2). @return el nombre del archivo, o null si falló.
+     */
+    public static String backupSoportesRentaCSV(Context context) {
+        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) return null;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            StringBuilder nombre = new StringBuilder(A9_2_BackupFile.CSV_SOPORTES_RENTA.getBaseName());
+            for (Integer anio : A1_1_AyudanteBD.aniosConSoportes(db)) nombre.append("_").append(anio);
+            nombre.append(A9_2_BackupFile.CSV_SOPORTES_RENTA.getFileType().getExtension());
+            File archivo = new File(Environment.getExternalStorageDirectory().getPath() + "/Balance/" + nombre);
+            try (OutputStreamWriter salida = new OutputStreamWriter(new FileOutputStream(archivo, false))) {
+                salida.write(A1_1_AyudanteBD.ENCABEZADO_SOPORTES_CSV + "\n");
+                for (String[] f : A1_1_AyudanteBD.filasSoportesCsv(db)) {
+                    StringBuilder linea = new StringBuilder();
+                    for (int i = 0; i < f.length; i++) {
+                        if (i > 0) linea.append(",");
+                        linea.append(f[i] == null ? "" : textoCsv(f[i]));
+                    }
+                    salida.write(linea.append("\n").toString());
+                }
+            }
+            return nombre.toString();
+        } catch (Exception ex) {
+            Log.e("BackupManager", "Error al guardar los soportes de renta: " + ex.getMessage());
+            return null;
+        } finally {
+            db.close();
+        }
+    }
+
     public boolean backupCuentasArchivoCSV(String nombreArchivo, A22_QueryManager a22QueryManager) {
 
         if (a22QueryManager == null) {

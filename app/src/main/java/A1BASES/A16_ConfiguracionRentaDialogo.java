@@ -184,7 +184,8 @@ public class A16_ConfiguracionRentaDialogo {
                 // o ⭐ (7-nov, R6) respaldo de ajustes a años cerrados ("anio_fiscal_afectado,...").
                 if (primera != null && (primera.trim().toLowerCase().startsWith("pais,")
                         || primera.trim().toLowerCase().startsWith("anio_fiscal,")
-                        || primera.trim().toLowerCase().startsWith("anio_fiscal_afectado,"))) plantillas.add(f);
+                        || primera.trim().toLowerCase().startsWith("anio_fiscal_afectado,")
+                        || primera.trim().toLowerCase().startsWith("anio_soporte,"))) plantillas.add(f); // ⭐ R7
             }
         }
         if (plantillas.isEmpty()) {
@@ -193,7 +194,7 @@ public class A16_ConfiguracionRentaDialogo {
                     .setMessage("No hay plantillas ni fotos en la carpeta Balance.\n\nUna plantilla es un CSV cuya " +
                             "primera fila es:\n" + String.join(",", A1_1_AyudanteBD.COLUMNAS_PLANTILLA_RENTA) +
                             "\n\nEl respaldo de fotos anuales es el archivo 423_FotoRentaCierre (sin_depurar o depurada)" +
-                            " y el de ajustes a años cerrados, 425_AjustesRentaCierre.")
+                            " y el de ajustes a años cerrados, 425_AjustesRentaCierre; el del checklist de soportes, 426_SoportesRenta.")
                     .setPositiveButton("OK", null)
                     .show();
             return;
@@ -209,6 +210,17 @@ public class A16_ConfiguracionRentaDialogo {
 
     private void confirmarImportacion(Context context, File archivo, Runnable alCambiar) {
         String primera = primeraLinea(archivo);
+        if (primera != null && primera.trim().toLowerCase().startsWith("anio_soporte,")) {
+            // ⭐ (9-nov, R7) respaldo 426 del checklist de soportes
+            new AlertDialog.Builder(context)
+                    .setTitle("Restaurar " + archivo.getName())
+                    .setMessage("Se restaurará el checklist de soportes del archivo. Lo que ya exista para la misma "
+                            + "entidad o cuenta y año se reemplaza. ¿Continuar?")
+                    .setPositiveButton("Restaurar", (d, w) -> restaurarSoportes(context, archivo))
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+            return;
+        }
         if (primera != null && primera.trim().toLowerCase().startsWith("anio_fiscal_afectado,")) {
             new AlertDialog.Builder(context)
                     .setTitle("Restaurar " + archivo.getName())
@@ -283,6 +295,28 @@ public class A16_ConfiguracionRentaDialogo {
             Toast.makeText(context, "Fotos restauradas: " + filas + " filas", Toast.LENGTH_LONG).show();
         } catch (Exception e) {
             Log.e(TAG, "No se pudieron restaurar las fotos: " + e.getMessage(), e);
+            Toast.makeText(context, "Error al restaurar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        } finally {
+            db.close();
+        }
+    }
+
+    /** ⭐ NUEVO (9-nov, renta R7): restaura el respaldo 426 del checklist de soportes. */
+    private void restaurarSoportes(Context context, File archivo) {
+        SQLiteDatabase db = abrir(context);
+        try {
+            String texto = leerTexto(archivo);
+            db.beginTransaction();
+            int filas;
+            try {
+                filas = A1_1_AyudanteBD.importarSoportesRenta(db, texto);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            Toast.makeText(context, "Soportes restaurados: " + filas + " filas", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudieron restaurar los soportes: " + e.getMessage(), e);
             Toast.makeText(context, "Error al restaurar: " + e.getMessage(), Toast.LENGTH_LONG).show();
         } finally {
             db.close();

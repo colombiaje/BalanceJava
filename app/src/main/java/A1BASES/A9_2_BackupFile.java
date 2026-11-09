@@ -32,6 +32,8 @@ public enum A9_2_BackupFile {
     CSV_FOTO_RENTA_ANUAL("423_FotoRentaCierre", A9_1_FileType.CSV),
     // ⭐ NUEVO (7-nov, renta R6): ajustes a años cerrados; el nombre lleva los años afectados.
     CSV_AJUSTES_RENTA("425_AjustesRentaCierre", A9_1_FileType.CSV),
+    // ⭐ NUEVO (9-nov, renta R7): checklist de soportes; el nombre lleva los años.
+    CSV_SOPORTES_RENTA("426_SoportesRenta", A9_1_FileType.CSV),
     // (4-nov) El reporte de renta (424) ya no usa un nombre fijo: A17_ReporteRentaDialogo lo arma
     // con el año y la vista, ej. "424_Renta_2026_cierre_depurada".
     //"422 Backup saldos de todas las cuentas.csv"

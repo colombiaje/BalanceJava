@@ -256,6 +256,9 @@ public class A17_ReporteRentaDialogo {
             // ⭐ (7-nov, R6) Ajustes a este año cerrado, registrados después del cierre.
             textos.add(ajustes ? "Revisar ajustes" : "Ajustes posteriores al cierre");
             acciones.add(() -> { dialogo[0].dismiss(); entrarAjustes(); });
+            // ⭐ (9-nov, R7) Checklist de soportes (certificados) del año.
+            textos.add("Checklist de soportes");
+            acciones.add(() -> { dialogo[0].dismiss(); pantallaSoportes(); });
         }
         textos.add("Ver resumen");
         acciones.add(() -> verResumen(datos));
@@ -849,6 +852,8 @@ public class A17_ReporteRentaDialogo {
         boolean porValor = false;
         String valor = "", descripcion = "";
         final List<Object[]> contras = new ArrayList<>();
+        /** ⭐ (9-nov, R7) Cuenta a corregir ya elegida (atajo "Ajustar con el certificado"). */
+        Long cuentaIdInicial = null;
     }
 
     private List<Apoyo> apoyoCuentas() {
@@ -959,6 +964,10 @@ public class A17_ReporteRentaDialogo {
      */
     private void pantallaSesion(List<Object[]> registros, Formulario form) {
         List<Apoyo> cuentas = apoyoCuentas();
+        if (form.cuentaIdInicial != null) {
+            for (int k = 0; k < cuentas.size(); k++) if (cuentas.get(k).cuentaId == form.cuentaIdInicial) form.cuenta = k + 1;
+            form.cuentaIdInicial = null;
+        }
         if (form.contras.isEmpty()) form.contras.add(new Object[]{0, ""});
         List<String> nombres = new ArrayList<>();
         nombres.add("(elija la cuenta)");
@@ -1454,6 +1463,346 @@ public class A17_ReporteRentaDialogo {
         v.setPadding(20, 16, 20, 16);
         if (grande) v.setTextSize(16);
         return v;
+    }
+
+    // ── 2d. Checklist de soportes (R7) ──────────────────────────────────
+
+    /** Una cuenta del checklist: valor en el reporte y valor del certificado (si ya se anotó). */
+    private static final class ConceptoSoporte {
+        long cuentaId, valorReporte;
+        String nombre, tipoSoporte;
+        Long certificado;
+    }
+
+    /** Una entidad del checklist con sus cuentas (conceptos), su estado y su nota. */
+    private static final class GrupoSoporte {
+        String entidad, fecha, nota, notaAnterior;
+        boolean obtenido, propia; // propia: entidad sin nombre (una sola cuenta)
+        final List<ConceptoSoporte> conceptos = new ArrayList<>();
+
+        long totalReporte() {
+            long t = 0;
+            for (ConceptoSoporte c : conceptos) t += c.valorReporte;
+            return t;
+        }
+
+        Long totalCertificado() {
+            Long t = null;
+            for (ConceptoSoporte c : conceptos) if (c.certificado != null) t = (t == null ? 0 : t) + c.certificado;
+            return t;
+        }
+
+        /** Diferencia certificado − reporte, solo en las cuentas con certificado anotado. */
+        long diferencia() {
+            long d = 0;
+            for (ConceptoSoporte c : conceptos) if (c.certificado != null) d += c.certificado - c.valorReporte;
+            return d;
+        }
+    }
+
+    /**
+     * ⭐ NUEVO (9-nov, renta R7, diseño acordado con Jorge): grupos por entidad, armados del reporte
+     * actual (depurado y con sus ajustes): cuentas con saldo o movimiento cuyo tipo de soporte no es
+     * "Ninguno", con la entidad y el soporte actuales de cada cuenta (F2), lo ya anotado del año y
+     * la nota del año anterior para la misma entidad.
+     */
+    private List<GrupoSoporte> gruposSoporte() {
+        Datos actual = calcularActual(true);
+        Map<Long, Long> valores = new HashMap<>();
+        Map<Long, String> nombres = new HashMap<>();
+        for (Renglon r : actual.renglones.values()) {
+            for (Cuenta c : r.cuentas.values()) {
+                valores.put(c.id, cero(valores.get(c.id)) + c.valor);
+                nombres.put(c.id, c.nombre);
+            }
+        }
+        Map<String, GrupoSoporte> grupos = new java.util.TreeMap<>();
+        SQLiteDatabase db = abrir();
+        try {
+            Map<Long, String[]> datosCuenta = A1_1_AyudanteBD.entidadYSoporteDeCuentas(db);
+            Map<Long, Long> movimientos = A1_1_AyudanteBD.movimientosFotoRenta(db, anio);
+            Map<String, Object[]> soportes = A1_1_AyudanteBD.soportesDelAnio(db, anio);
+            Map<String, Object[]> anteriores = A1_1_AyudanteBD.soportesDelAnio(db, anio - 1);
+            Map<Long, Long> certificados = A1_1_AyudanteBD.certificadosDelAnio(db, anio);
+            for (Map.Entry<Long, Long> e : valores.entrySet()) {
+                long id = e.getKey();
+                String[] dc = datosCuenta.get(id);
+                if (dc == null || !A1_1_AyudanteBD.pideSoporte(dc[1])) continue;
+                if (e.getValue() == 0 && cero(movimientos.get(id)) == 0) continue; // cerrada en cero y sin movimiento
+                boolean sinEntidad = dc[0] == null || dc[0].trim().isEmpty();
+                String entidad = sinEntidad ? "(sin entidad) " + nombres.get(id) : dc[0].trim();
+                String clave = entidad.toLowerCase(java.util.Locale.ROOT);
+                GrupoSoporte g = grupos.get(clave);
+                if (g == null) {
+                    g = new GrupoSoporte();
+                    g.entidad = entidad;
+                    g.propia = sinEntidad;
+                    Object[] sp = soportes.get(clave);
+                    if (sp != null) {
+                        g.obtenido = (Boolean) sp[1];
+                        g.fecha = (String) sp[2];
+                        g.nota = (String) sp[3];
+                    }
+                    Object[] ant = anteriores.get(clave);
+                    if (ant != null) g.notaAnterior = (String) ant[3];
+                    grupos.put(clave, g);
+                }
+                ConceptoSoporte c = new ConceptoSoporte();
+                c.cuentaId = id;
+                c.nombre = nombres.get(id);
+                c.tipoSoporte = dc[1].trim();
+                c.valorReporte = e.getValue();
+                c.certificado = certificados.get(id);
+                g.conceptos.add(c);
+            }
+        } finally {
+            db.close();
+        }
+        for (GrupoSoporte g : grupos.values()) {
+            Collections.sort(g.conceptos, (a, b) -> a.nombre.compareToIgnoreCase(b.nombre));
+        }
+        return new ArrayList<>(grupos.values());
+    }
+
+    /** Filtro del checklist: "Pendientes", "Obtenidos", "Con diferencia" o "Todos" (null = automático). */
+    private String filtroSoportes = null;
+
+    /**
+     * ⭐ NUEVO (9-nov, renta R7): checklist de soportes del año, agrupado por entidad. Avance,
+     * filtro y una tabla a lo ancho: por entidad, su estado y totales (con "Revisar" a la
+     * derecha); debajo, sus cuentas con el valor del reporte, el del certificado y la diferencia.
+     */
+    private void pantallaSoportes() {
+        List<GrupoSoporte> grupos = gruposSoporte();
+        LinearLayout raiz = contenedor();
+        raiz.addView(botonInfo("Checklist de soportes",
+                "Los certificados que necesita para la declaración de " + anio + ", agrupados por entidad (un "
+                        + "certificado bancario suele cubrir varias cuentas). Salen del reporte actual (depurado y con "
+                        + "sus ajustes): las cuentas con saldo o movimiento cuyo tipo de soporte no es \"Ninguno\", con "
+                        + "la entidad y el soporte que tienen en F2. Toque \"Revisar\" para marcar el soporte como "
+                        + "obtenido y anotar el valor del certificado de cada cuenta: la diferencia contra el reporte "
+                        + "se ve al momento, y si no cuadra puede ajustar con el certificado. La nota del año anterior "
+                        + "se propone para la misma entidad."));
+        AlertDialog[] dialogo = new AlertDialog[1];
+        int obtenidos = 0, conDiferencia = 0;
+        for (GrupoSoporte g : grupos) {
+            if (g.obtenido) obtenidos++;
+            if (g.diferencia() != 0) conDiferencia++;
+        }
+        if (grupos.isEmpty()) {
+            raiz.addView(texto("Ninguna cuenta del año pide soporte. Revise en F2 la entidad y el tipo de soporte "
+                    + "de las cuentas de bancos, inversiones, deudas y bienes.", false));
+        } else {
+            TextView avance = texto(obtenidos + " de " + grupos.size() + " soportes obtenidos"
+                    + (conDiferencia > 0 ? "  ·  " + conDiferencia + " con diferencia" : ""), true);
+            raiz.addView(avance);
+            if (filtroSoportes == null) filtroSoportes = obtenidos < grupos.size() ? "Pendientes" : "Todos";
+            List<String> opciones = new ArrayList<>();
+            opciones.add("Pendientes");
+            opciones.add("Obtenidos");
+            opciones.add("Con diferencia");
+            opciones.add("Todos");
+            Spinner filtro = spinnerEntrada(opciones, Math.max(0, opciones.indexOf(filtroSoportes)));
+            filtro.setOnItemSelectedListener(alSeleccionar(() -> {
+                String elegido = opciones.get(filtro.getSelectedItemPosition());
+                if (elegido.equals(filtroSoportes)) return;
+                filtroSoportes = elegido;
+                dialogo[0].dismiss();
+                pantallaSoportes();
+            }));
+            raiz.addView(texto("Ver:", false));
+            raiz.addView(filtro);
+
+            TableLayout t = new TableLayout(context);
+            t.setColumnShrinkable(0, true);
+            t.setColumnShrinkable(1, true);
+            t.setColumnStretchable(0, true);
+            t.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            TableRow enc = new TableRow(context);
+            for (String c : new String[]{"Entidad / cuenta", "Soporte", "Reporte", "Certificado", "Dif.", ""}) {
+                enc.addView(celda(c, true, c.equals("Reporte") || c.equals("Certificado") || c.equals("Dif.")));
+            }
+            enc.setBackgroundColor(FONDO_ENCABEZADO);
+            t.addView(enc);
+            int n = 0;
+            for (GrupoSoporte g : grupos) {
+                boolean pasa = "Todos".equals(filtroSoportes)
+                        || ("Pendientes".equals(filtroSoportes) && !g.obtenido)
+                        || ("Obtenidos".equals(filtroSoportes) && g.obtenido)
+                        || ("Con diferencia".equals(filtroSoportes) && g.diferencia() != 0);
+                if (!pasa) continue;
+                int fondo = n++ % 2 == 0 ? Color.WHITE : FONDO_ALTERNO;
+                Long cert = g.totalCertificado();
+                long dif = g.diferencia();
+                TableRow fg = new TableRow(context);
+                TextView nombre = celda((g.obtenido ? "✓ " : "○ ") + g.entidad, true, false);
+                nombre.setTextColor(Color.parseColor(g.obtenido ? "#1B5E20" : "#B71C1C"));
+                fg.addView(nombre);
+                fg.addView(celda(g.obtenido ? "obtenido " + (g.fecha == null ? "" : g.fecha) : "pendiente", false, false));
+                fg.addView(celda(formato.format(g.totalReporte()), true, true));
+                fg.addView(celda(cert == null ? "" : formato.format(cert), true, true));
+                TextView cd = celda(cert == null ? "" : firmado(dif), true, true);
+                cd.setTextColor(Color.parseColor(dif == 0 ? "#1B5E20" : "#B71C1C"));
+                fg.addView(cd);
+                Button revisar = botonVerde();
+                revisar.setText("Revisar");
+                compactar(revisar);
+                revisar.setOnClickListener(v -> { dialogo[0].dismiss(); pantallaSoporte(g); });
+                fg.addView(revisar);
+                fg.setBackgroundColor(fondo);
+                t.addView(fg);
+                for (ConceptoSoporte c : g.conceptos) {
+                    TableRow fc = new TableRow(context);
+                    fc.addView(celda("      " + c.nombre, false, false));
+                    fc.addView(celda(c.tipoSoporte, false, false));
+                    fc.addView(celda(formato.format(c.valorReporte), false, true));
+                    fc.addView(celda(c.certificado == null ? "" : formato.format(c.certificado), false, true));
+                    long d = c.certificado == null ? 0 : c.certificado - c.valorReporte;
+                    TextView cdc = celda(c.certificado == null ? "" : firmado(d), false, true);
+                    cdc.setTextColor(Color.parseColor(d == 0 ? "#1B5E20" : "#B71C1C"));
+                    fc.addView(cdc);
+                    fc.addView(celda("", false, false));
+                    fc.setBackgroundColor(fondo);
+                    t.addView(fc);
+                }
+            }
+            if (n == 0) raiz.addView(texto("No hay soportes en este filtro.", false));
+            else raiz.addView(t);
+        }
+        raiz.addView(botones(new String[]{"Pantalla anterior"},
+                new Runnable[]{() -> { dialogo[0].dismiss(); pantallaDetalle(); }}));
+        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " soportes", raiz);
+    }
+
+    /**
+     * ⭐ NUEVO (9-nov, renta R7): revisar el soporte de una entidad. "Obtenido", el valor del
+     * certificado de cada cuenta (fucsia; la diferencia contra el reporte se ve al escribir) y la
+     * nota. Si una cuenta no cuadra, "Ajustar" guarda lo escrito y abre una sesión de ajuste fiscal
+     * con esa cuenta y el valor del certificado como valor correcto (atajo a R6).
+     */
+    private void pantallaSoporte(GrupoSoporte g) {
+        LinearLayout raiz = contenedor();
+        raiz.addView(botonInfo("Soporte de " + g.entidad,
+                "Marque \"Certificado obtenido\" cuando lo tenga y anote el valor que trae para cada cuenta, tal "
+                        + "como se ve en el reporte (las deudas en positivo). Deje vacío el de una cuenta que el "
+                        + "certificado no traiga. Si el valor no cuadra, \"Ajustar\" abre una sesión de ajuste fiscal "
+                        + "con esa cuenta y el valor del certificado ya puestos."));
+        AlertDialog[] dialogo = new AlertDialog[1];
+        android.widget.CheckBox obtenido = new android.widget.CheckBox(context);
+        obtenido.setText("Certificado obtenido" + (g.fecha != null && g.obtenido ? " (" + g.fecha + ")" : ""));
+        obtenido.setTextColor(COLOR_ENTRADA);
+        obtenido.setChecked(g.obtenido);
+        raiz.addView(obtenido);
+
+        TableLayout t = new TableLayout(context);
+        t.setColumnShrinkable(0, true);
+        t.setColumnStretchable(0, true);
+        t.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        TableRow enc = new TableRow(context);
+        for (String c : new String[]{"Cuenta", "Reporte", "Certificado", "Dif.", ""}) {
+            enc.addView(celda(c, true, !c.equals("Cuenta") && !c.isEmpty()));
+        }
+        enc.setBackgroundColor(FONDO_ENCABEZADO);
+        t.addView(enc);
+        List<EditText> campos = new ArrayList<>();
+        Runnable[] guardar = new Runnable[1];
+        for (ConceptoSoporte c : g.conceptos) {
+            TableRow f = new TableRow(context);
+            f.addView(celda(c.nombre + "\n" + c.tipoSoporte, false, false));
+            f.addView(celda(formato.format(c.valorReporte), false, true));
+            EditText e = campoEntrada("valor", c.certificado == null ? "" : String.valueOf(c.certificado));
+            e.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
+            e.setGravity(Gravity.END);
+            f.addView(e);
+            TextView dif = celda("", false, true);
+            f.addView(dif);
+            Button ajustar = botonVerde();
+            ajustar.setText("Ajustar");
+            compactar(ajustar);
+            f.addView(ajustar);
+            Runnable recalcular = () -> {
+                Long v = leerValor(e.getText().toString());
+                long d = v == null ? 0 : v - c.valorReporte;
+                dif.setText(v == null ? "" : firmado(d));
+                dif.setTextColor(Color.parseColor(d == 0 ? "#1B5E20" : "#B71C1C"));
+                ajustar.setVisibility(v != null && d != 0 ? View.VISIBLE : View.INVISIBLE);
+            };
+            e.addTextChangedListener(new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence x, int a, int b, int k) {}
+                @Override public void onTextChanged(CharSequence x, int a, int b, int k) {}
+                @Override public void afterTextChanged(Editable x) { recalcular.run(); }
+            });
+            recalcular.run();
+            ajustar.setOnClickListener(v -> {
+                Long valor = leerValor(e.getText().toString());
+                if (valor == null) return;
+                guardar[0].run();
+                dialogo[0].dismiss();
+                Formulario form = new Formulario();
+                form.cuentaIdInicial = c.cuentaId;
+                form.valor = String.valueOf(valor);
+                form.descripcion = "Según certificado " + (g.propia ? c.nombre : g.entidad);
+                pantallaSesion(new ArrayList<>(), form);
+            });
+            campos.add(e);
+            t.addView(f);
+        }
+        raiz.addView(t);
+        String notaInicial = g.nota != null ? g.nota : g.notaAnterior;
+        EditText nota = campoEntrada("Nota (dónde se pide, a quién, observaciones)", notaInicial == null ? "" : notaInicial);
+        raiz.addView(nota);
+        if (g.nota == null && g.notaAnterior != null) {
+            TextView h = texto("La nota viene del año " + (anio - 1) + ".", false);
+            h.setTextSize(12);
+            raiz.addView(h);
+        }
+        guardar[0] = () -> {
+            Map<Long, Long> valores = new HashMap<>();
+            for (int k = 0; k < g.conceptos.size(); k++) {
+                valores.put(g.conceptos.get(k).cuentaId, leerValor(campos.get(k).getText().toString()));
+            }
+            SQLiteDatabase db = abrir();
+            try {
+                A1_1_AyudanteBD.guardarSoporteRenta(db, anio, g.entidad, obtenido.isChecked(),
+                        descripcionSegura(nota.getText().toString()), valores);
+            } finally {
+                db.close();
+            }
+            respaldarSoportes();
+        };
+        raiz.addView(botones(new String[]{"Guardar", "Pantalla anterior"},
+                new Runnable[]{
+                        () -> { guardar[0].run(); dialogo[0].dismiss(); pantallaSoportes(); },
+                        () -> { dialogo[0].dismiss(); pantallaSoportes(); }}));
+        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " soporte", raiz);
+    }
+
+    /** Regenera el respaldo 426 (checklist de soportes) y lo sube a Drive. */
+    private void respaldarSoportes() {
+        String nombre = A5_1_BackupManager.backupSoportesRentaCSV(context);
+        if (nombre != null && folderIdDrive != null) {
+            A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(context, nombre, folderIdDrive);
+        }
+    }
+
+    /** ⭐ (9-nov, R7) Sección del PDF: el checklist por entidad, con sus cuentas. */
+    private Seccion seccionSoportes() {
+        Seccion s = new Seccion("Checklist de soportes " + anio,
+                new String[]{"Entidad / cuenta", "Reporte", "Certificado", "Dif."});
+        for (GrupoSoporte g : gruposSoporte()) {
+            Long cert = g.totalCertificado();
+            s.filas.add(new String[]{"R", g.entidad + (g.obtenido ? " · obtenido " + (g.fecha == null ? "" : g.fecha) : " · pendiente"),
+                    formato.format(g.totalReporte()), cert == null ? "" : formato.format(cert),
+                    cert == null ? "" : firmado(g.diferencia())});
+            for (ConceptoSoporte c : g.conceptos) {
+                s.filas.add(new String[]{"C", c.nombre + " · " + c.tipoSoporte, formato.format(c.valorReporte),
+                        c.certificado == null ? "" : formato.format(c.certificado),
+                        c.certificado == null ? "" : firmado(c.certificado - c.valorReporte)});
+            }
+        }
+        return s;
     }
 
     // ── 3. Comparativos ─────────────────────────────────────────────────
@@ -2019,6 +2368,7 @@ public class A17_ReporteRentaDialogo {
         secciones.add(seccionDetalle(depurada ? (ajustes ? "Detalle depurado y ajustado" : "Detalle depurado")
                 : "Detalle sin depurar", depurada ? dep : sinDepurar));
         if (ajustes) secciones.add(seccionAjustes());
+        if (conFoto && !gruposSoporte().isEmpty()) secciones.add(seccionSoportes()); // ⭐ R7
         exportar(base, titulo, secciones, sinDepurar, dep, calcularAnterior());
     }
 
@@ -2034,6 +2384,7 @@ public class A17_ReporteRentaDialogo {
         List<Seccion> secciones = new ArrayList<>();
         secciones.add(seccionDetalle(ajustes ? "Detalle depurado y ajustado" : "Detalle depurado", depurada));
         if (ajustes) secciones.add(seccionAjustes());
+        if (conFoto && !gruposSoporte().isEmpty()) secciones.add(seccionSoportes()); // ⭐ R7
         secciones.add(seccionComparativo("Comparativo actual: sin depurar y " + estado,
                 comparar(sinDepurar, depurada), "Sin dep.", ajustes ? "Dep. y aj." : "Depurada"));
         secciones.add(seccionComparativo("Comparativo entre años: " + (anio - 1) + " y " + anio

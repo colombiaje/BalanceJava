@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 28; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro
+    public static final int version1BalanceSqlite_int_PSF = 29; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7)
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -1215,7 +1215,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ya estén guardados en tipos de cuenta o cuentas).
     public static final String[] TIPOS_SOPORTE_BASE = {
             "Certificado bancario", "Certificado de la entidad", "Certificado de saldo de la entidad",
-            "Certificado de deuda de la entidad", "Documento de la deuda", "Ninguno"};
+            "Certificado de deuda de la entidad", "Documento de la deuda",
+            "Recibo de impuesto (predial, vehículo)", "Ninguno"}; // ⭐ (9-nov, R7) recibo de impuesto
 
     /** Opciones del selector de soporte: las base + las ya usadas, sin repetir, en orden. */
     public static java.util.List<String> opcionesTipoSoporte(SQLiteDatabase db) {
@@ -2221,6 +2222,215 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         return filas;
     }
 
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (9-nov, BD v29) — RENTA FASE R7: CHECKLIST DE SOPORTES (diseño acordado con Jorge).
+    //  Agrupado por ENTIDAD (un certificado bancario suele cubrir varias cuentas): por entidad se
+    //  guarda si el soporte se obtuvo, la fecha y una nota; por cuenta (concepto), el valor del
+    //  certificado (signo de presentación, como se ve en el reporte). La lista misma NO se guarda:
+    //  sale del reporte del año (cuentas con saldo o movimiento cuyo tipo de soporte no es
+    //  "Ninguno") con la entidad y el tipo de soporte actuales de cada cuenta; así una cuenta nueva
+    //  entra sola y una cerrada en cero y sin movimiento sale sola. La nota se hereda del año
+    //  anterior para la misma entidad.
+    // ─────────────────────────────────────────────
+    public static final String TABLE_SOPORTE_RENTA = "soporte_renta";
+    public static final String TABLE_SOPORTE_RENTA_CONCEPTO = "soporte_renta_concepto";
+
+    private static final String SQL_CREAR_SOPORTE_RENTA =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_SOPORTE_RENTA + " (" +
+                    "anio_fiscal INTEGER NOT NULL, " +
+                    "entidad TEXT NOT NULL, " +
+                    "obtenido INTEGER NOT NULL DEFAULT 0, " +
+                    "fecha TEXT, " +
+                    "nota TEXT, " +
+                    "PRIMARY KEY (anio_fiscal, entidad))";
+
+    private static final String SQL_CREAR_SOPORTE_RENTA_CONCEPTO =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_SOPORTE_RENTA_CONCEPTO + " (" +
+                    "anio_fiscal INTEGER NOT NULL, " +
+                    "cuenta_id INTEGER NOT NULL, " +
+                    "entidad TEXT, " +
+                    "valor_certificado INTEGER NOT NULL, " +
+                    "PRIMARY KEY (anio_fiscal, cuenta_id))";
+
+    /** ¿El tipo de soporte pide un documento? (no vacío ni "Ninguno"). */
+    public static boolean pideSoporte(String tipoSoporte) {
+        return tipoSoporte != null && !tipoSoporte.trim().isEmpty() && !"Ninguno".equalsIgnoreCase(tipoSoporte.trim());
+    }
+
+    /** Entidad y tipo de soporte actuales de todas las cuentas: cuenta_id → {entidad, tipo_soporte}. */
+    public static java.util.Map<Long, String[]> entidadYSoporteDeCuentas(SQLiteDatabase db) {
+        java.util.Map<Long, String[]> m = new java.util.HashMap<>();
+        Cursor c = db.rawQuery("SELECT cuenta_id, entidad, tipo_soporte FROM cuentas", null);
+        try {
+            while (c.moveToNext()) m.put(c.getLong(0), new String[]{c.getString(1), c.getString(2)});
+        } finally {
+            c.close();
+        }
+        return m;
+    }
+
+    /** Movimientos de cada cuenta en la foto del año: cuenta_id → movimientos. */
+    public static java.util.Map<Long, Long> movimientosFotoRenta(SQLiteDatabase db, int anio) {
+        java.util.Map<Long, Long> m = new java.util.HashMap<>();
+        Cursor c = db.rawQuery("SELECT cuenta_id, movimientos FROM " + TABLE_FOTO_RENTA_ANUAL + " WHERE anio_fiscal = ?",
+                new String[]{String.valueOf(anio)});
+        try {
+            while (c.moveToNext()) m.put(c.getLong(0), c.isNull(1) ? 0L : c.getLong(1));
+        } finally {
+            c.close();
+        }
+        return m;
+    }
+
+    /** Soportes del año por entidad (clave en minúsculas): {entidad, obtenido (Boolean), fecha, nota}. */
+    public static java.util.Map<String, Object[]> soportesDelAnio(SQLiteDatabase db, int anio) {
+        java.util.Map<String, Object[]> m = new java.util.HashMap<>();
+        Cursor c = db.rawQuery("SELECT entidad, obtenido, fecha, nota FROM " + TABLE_SOPORTE_RENTA + " WHERE anio_fiscal = ?",
+                new String[]{String.valueOf(anio)});
+        try {
+            while (c.moveToNext()) {
+                m.put(c.getString(0).toLowerCase(java.util.Locale.ROOT),
+                        new Object[]{c.getString(0), c.getInt(1) == 1, c.getString(2), c.getString(3)});
+            }
+        } finally {
+            c.close();
+        }
+        return m;
+    }
+
+    /** Valores de certificado del año por cuenta: cuenta_id → valor (presentación). */
+    public static java.util.Map<Long, Long> certificadosDelAnio(SQLiteDatabase db, int anio) {
+        java.util.Map<Long, Long> m = new java.util.HashMap<>();
+        Cursor c = db.rawQuery("SELECT cuenta_id, valor_certificado FROM " + TABLE_SOPORTE_RENTA_CONCEPTO +
+                " WHERE anio_fiscal = ?", new String[]{String.valueOf(anio)});
+        try {
+            while (c.moveToNext()) m.put(c.getLong(0), c.getLong(1));
+        } finally {
+            c.close();
+        }
+        return m;
+    }
+
+    /**
+     * Guarda el soporte de una entidad (todo o nada): obtenido, nota y los valores de certificado
+     * de sus cuentas (cuenta_id → valor, o null para borrarlo). La fecha se pone al marcarlo
+     * obtenido y se conserva mientras siga obtenido.
+     */
+    public static void guardarSoporteRenta(SQLiteDatabase db, int anio, String entidad, boolean obtenido, String nota,
+                                           java.util.Map<Long, Long> valores) {
+        String fecha = null;
+        Cursor c = db.rawQuery("SELECT fecha, obtenido FROM " + TABLE_SOPORTE_RENTA + " WHERE anio_fiscal = ? AND entidad = ?",
+                new String[]{String.valueOf(anio), entidad});
+        try {
+            if (c.moveToFirst() && c.getInt(1) == 1) fecha = c.getString(0);
+        } finally {
+            c.close();
+        }
+        if (obtenido && fecha == null) {
+            fecha = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).format(new java.util.Date());
+        }
+        db.beginTransaction();
+        try {
+            ContentValues cv = new ContentValues();
+            cv.put("anio_fiscal", anio);
+            cv.put("entidad", entidad);
+            cv.put("obtenido", obtenido ? 1 : 0);
+            if (obtenido) cv.put("fecha", fecha); else cv.putNull("fecha");
+            cv.put("nota", nota);
+            db.insertWithOnConflict(TABLE_SOPORTE_RENTA, null, cv, SQLiteDatabase.CONFLICT_REPLACE);
+            for (java.util.Map.Entry<Long, Long> e : valores.entrySet()) {
+                db.delete(TABLE_SOPORTE_RENTA_CONCEPTO, "anio_fiscal = ? AND cuenta_id = ?",
+                        new String[]{String.valueOf(anio), String.valueOf(e.getKey())});
+                if (e.getValue() == null) continue;
+                ContentValues ck = new ContentValues();
+                ck.put("anio_fiscal", anio);
+                ck.put("cuenta_id", e.getKey());
+                ck.put("entidad", entidad);
+                ck.put("valor_certificado", e.getValue());
+                db.insertOrThrow(TABLE_SOPORTE_RENTA_CONCEPTO, null, ck);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    /** Encabezado del respaldo 426 (empieza distinto del 423 para que la importación los distinga). */
+    public static final String ENCABEZADO_SOPORTES_CSV = "anio_soporte,entidad,cuenta_id,valor_certificado,obtenido,fecha,nota";
+
+    /** Filas del respaldo 426: primero las entidades (sin cuenta), luego los valores por cuenta. */
+    public static java.util.List<String[]> filasSoportesCsv(SQLiteDatabase db) {
+        java.util.List<String[]> filas = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT anio_fiscal, entidad, obtenido, fecha, nota FROM " + TABLE_SOPORTE_RENTA +
+                " ORDER BY anio_fiscal, entidad", null);
+        try {
+            while (c.moveToNext()) {
+                filas.add(new String[]{c.getString(0), c.getString(1), "", "", c.getString(2), c.getString(3), c.getString(4)});
+            }
+        } finally {
+            c.close();
+        }
+        c = db.rawQuery("SELECT anio_fiscal, entidad, cuenta_id, valor_certificado FROM " + TABLE_SOPORTE_RENTA_CONCEPTO +
+                " ORDER BY anio_fiscal, entidad, cuenta_id", null);
+        try {
+            while (c.moveToNext()) {
+                filas.add(new String[]{c.getString(0), c.getString(1), c.getString(2), c.getString(3), "", "", ""});
+            }
+        } finally {
+            c.close();
+        }
+        return filas;
+    }
+
+    /** Años con soportes registrados, en orden. */
+    public static java.util.List<Integer> aniosConSoportes(SQLiteDatabase db) {
+        java.util.List<Integer> anios = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT anio_fiscal FROM " + TABLE_SOPORTE_RENTA + " UNION SELECT anio_fiscal FROM " +
+                TABLE_SOPORTE_RENTA_CONCEPTO + " ORDER BY 1", null);
+        try {
+            while (c.moveToNext()) anios.add(c.getInt(0));
+        } finally {
+            c.close();
+        }
+        return anios;
+    }
+
+    /** Restaura el respaldo 426 (encabezado ENCABEZADO_SOPORTES_CSV, por nombre de columna). */
+    public static int importarSoportesRenta(SQLiteDatabase db, String textoCsv) {
+        String[] lineas = textoCsv.replace("\r", "").split("\n");
+        if (lineas.length < 2) return 0;
+        String[] encabezado = lineas[0].split(",", -1);
+        java.util.Map<String, Integer> col = new java.util.HashMap<>();
+        for (int i = 0; i < encabezado.length; i++) {
+            col.put(encabezado[i].trim().toLowerCase(java.util.Locale.ROOT), i);
+        }
+        int filas = 0;
+        for (int n = 1; n < lineas.length; n++) {
+            if (lineas[n].trim().isEmpty()) continue;
+            String[] d = lineas[n].split(",", -1);
+            String anio = campoPlantilla(d, col, "anio_soporte"), entidad = campoPlantilla(d, col, "entidad");
+            if (enteroPlantilla(anio) == null || entidad == null) continue;
+            String cuenta = campoPlantilla(d, col, "cuenta_id");
+            ContentValues cv = new ContentValues();
+            cv.put("anio_fiscal", anio);
+            cv.put("entidad", entidad);
+            if (cuenta == null) {
+                String obtenido = campoPlantilla(d, col, "obtenido");
+                cv.put("obtenido", obtenido == null ? "0" : obtenido);
+                cv.put("fecha", campoPlantilla(d, col, "fecha"));
+                cv.put("nota", campoPlantilla(d, col, "nota"));
+                if (db.insertWithOnConflict(TABLE_SOPORTE_RENTA, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) filas++;
+            } else {
+                String valor = campoPlantilla(d, col, "valor_certificado");
+                if (enteroPlantilla(cuenta) == null || valor == null) continue;
+                cv.put("cuenta_id", cuenta);
+                cv.put("valor_certificado", valor);
+                if (db.insertWithOnConflict(TABLE_SOPORTE_RENTA_CONCEPTO, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) filas++;
+            }
+        }
+        return filas;
+    }
+
     /** Busca un renglón vigente por su código (al restaurar cuentas desde CSV). */
     public static Long buscarRenglonRentaVigentePorCodigo(SQLiteDatabase db, String codigo) {
         if (codigo == null || codigo.trim().isEmpty()) return null;
@@ -2495,6 +2705,8 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_FOTO_RENTA_ANUAL); // ⭐ NUEVO (3-nov, BD v25, renta R3)
         db.execSQL(SQL_CREAR_AJUSTE_RENTA); // ⭐ NUEVO (7-nov, BD v26, renta R6)
         db.execSQL(SQL_CREAR_AJUSTE_RENTA_CONTRAPARTIDA); // ⭐ NUEVO (8-nov, BD v28)
+        db.execSQL(SQL_CREAR_SOPORTE_RENTA); // ⭐ NUEVO (9-nov, BD v29, renta R7)
+        db.execSQL(SQL_CREAR_SOPORTE_RENTA_CONCEPTO);
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -3403,6 +3615,12 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // ⭐ NUEVO (8-nov): versión 28 — varias contrapartidas por registro de ajuste (pedido de
         // Jorge). Tabla hija; la contrapartida única de cada registro existente pasa a ella con el
         // valor opuesto a la diferencia.
+        // ⭐ NUEVO (9-nov): versión 29 — renta fase R7: checklist de soportes (tablas vacías).
+        if (oldVersion < 29) {
+            db.execSQL(SQL_CREAR_SOPORTE_RENTA);
+            db.execSQL(SQL_CREAR_SOPORTE_RENTA_CONCEPTO);
+        }
+
         if (oldVersion < 28) {
             db.execSQL(SQL_CREAR_AJUSTE_RENTA_CONTRAPARTIDA);
             if (oldVersion >= 27) {
