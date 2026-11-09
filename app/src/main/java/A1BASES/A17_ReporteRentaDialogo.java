@@ -1770,11 +1770,10 @@ public class A17_ReporteRentaDialogo {
         compactar(i);
         i.setText("i");
         i.setAllCaps(false);
-        i.setOnClickListener(v -> new AlertDialog.Builder(context)
+        i.setOnClickListener(v -> mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado(titulo))
                 .setMessage(explicacion)
-                .setPositiveButton("Entendido", null)
-                .show());
+                .setPositiveButton("Entendido", null)));
         fila.addView(i, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
         return fila;
@@ -1787,23 +1786,39 @@ public class A17_ReporteRentaDialogo {
      * pierden al final ni las tapa el teclado).
      */
     private View botones(String[] textos, Runnable[] acciones) {
-        // ⭐ (9-nov, Jorge) Cada botón del ancho de su texto y compacto; pasan al renglón siguiente
-        // cuando no caben (ChipGroup de Material hace ese acomodo).
-        com.google.android.material.chip.ChipGroup grupo = new com.google.android.material.chip.ChipGroup(context);
-        grupo.setTag("opciones");
-        grupo.setPadding(0, 12, 0, 8);
-        grupo.setChipSpacingHorizontal(12);
-        grupo.setChipSpacingVertical(8);
+        // ⭐ (9-nov, Jorge) Todas en una sola línea (hasta 5; si hay más, en dos líneas parejas),
+        // repartidas a lo ancho del diálogo, que ahora ocupa casi toda la pantalla. Un texto largo
+        // pasa a dos renglones dentro de su botón.
+        LinearLayout col = new LinearLayout(context);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setTag("opciones");
+        col.setPadding(0, 12, 0, 8);
+        int porFila = textos.length <= 5 ? textos.length : (textos.length + 1) / 2;
+        LinearLayout fila = null;
         for (int k = 0; k < textos.length; k++) {
+            if (k % porFila == 0) {
+                fila = new LinearLayout(context);
+                fila.setOrientation(LinearLayout.HORIZONTAL);
+                col.addView(fila);
+            }
             Button b = botonVerde();
             b.setText(textos[k]);
             compactar(b);
             Runnable accion = acciones[k];
             b.setOnClickListener(v -> accion.run());
-            grupo.addView(b);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            lp.setMargins(6, 4, 6, 4);
+            fila.addView(b, lp);
         }
-        return grupo;
+        // La última fila, si quedó incompleta, se rellena para que sus botones no se estiren.
+        if (fila != null) {
+            for (int k = fila.getChildCount(); k < porFila; k++) {
+                fila.addView(new View(context), new LinearLayout.LayoutParams(0, 0, 1f));
+            }
+        }
+        return col;
     }
+
 
     /** Botón compacto: alto y relleno reducidos, ancho según el texto. */
     private static void compactar(Button b) {
@@ -1812,7 +1827,7 @@ public class A17_ReporteRentaDialogo {
         b.setMinWidth(0);
         b.setMinimumWidth(0);
         b.setTextSize(14);
-        b.setPadding(28, 10, 28, 10);
+        b.setPadding(16, 12, 16, 12);
     }
 
 
@@ -1893,6 +1908,7 @@ public class A17_ReporteRentaDialogo {
         abiertos.add(d);
         d.setOnDismissListener(x -> abiertos.remove(d));
         d.show();
+        ensanchar(d);
         return d;
     }
 
@@ -1905,7 +1921,15 @@ public class A17_ReporteRentaDialogo {
         abiertos.add(d);
         d.setOnDismissListener(x -> abiertos.remove(d));
         d.show();
+        ensanchar(d);
         return d;
+    }
+
+    /** ⭐ (9-nov, Jorge) Las ventanas de la opción 6 ocupan el 96 % del ancho de la pantalla. */
+    private void ensanchar(AlertDialog d) {
+        if (d.getWindow() == null) return;
+        int ancho = (int) (context.getResources().getDisplayMetrics().widthPixels * 0.96f);
+        d.getWindow().setLayout(ancho, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private void cerrarDialogos() {
