@@ -668,6 +668,7 @@ public class F4_Cierres extends Fragment {
         primerErrorInsercion = null;
         reubicadasItemRepetido = 0;
         ejemplosReubicadas.setLength(0);
+        detalleFallidas.setLength(0);
         columnasCsv = null; // ⭐ (1-nov) el encabezado de ESTE archivo define las columnas
         try (FileReader fileReader = new FileReader(rutaFinal);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
@@ -745,7 +746,7 @@ public class F4_Cierres extends Fragment {
                     + "Líneas leídas: " + lineasImportadas + "\n"
                     + "Insertadas correctamente: " + insertadasOk + "\n"
                     + "Encabezados (no cuentan): " + encabezados + "\n"
-                    + "Fallidas al insertar: " + fallidasDuplicado + "\n"
+                    + "Fallidas al insertar: " + fallidasDuplicado + detalleFallidas + "\n"
                     + "Con Documento+Item repetido, insertadas con ítem nuevo: " + reubicadasItemRepetido
                     + ejemplosReubicadas + "\n"
                     + "Otros errores: " + otrosErrores + "\n\n"
@@ -777,6 +778,8 @@ public class F4_Cierres extends Fragment {
     /** ⭐ (9-nov) Filas con Documento+Item repetido que entraron con un ítem nuevo. */
     private int reubicadasItemRepetido = 0;
     private final StringBuilder ejemplosReubicadas = new StringBuilder();
+    /** ⭐ (9-nov) Detalle de las filas que no se pudieron insertar. */
+    private final StringBuilder detalleFallidas = new StringBuilder();
 
     // ⭐ NUEVO (1-nov, paso 4 / cierre, con Jorge): formato nuevo del CSV de transacciones, sin
     // las columnas retiradas de la tabla (c3, c4, c10, c11, c12, c13). Para aceptar CSV viejos y
@@ -965,6 +968,15 @@ public class F4_Cierres extends Fragment {
                 }
             }
             if (idInsertado == -1L) {
+                // ⭐ NUEVO (9-nov, Jorge): detalle de cada fila que no entró, para el diagnóstico.
+                if (detalleFallidas.length() < 600) {
+                    detalleFallidas.append("\n• Doc ").append(csvDocumento).append(" ítem ").append(csvItemDoc)
+                            .append(" · ").append(csvNombreCta != null ? csvNombreCta.trim() : "(sin nombre)")
+                            .append(" · valor ").append(csvValor)
+                            .append(" · cuenta_id ").append(valores.containsKey("cuenta_id")
+                                    ? valores.getAsLong("cuenta_id") : "(ninguno)")
+                            .append(" · fecha ").append(csvFechaIni);
+                }
                 Log.e(TAG, "db.insert() devolvió -1 para Documento=" + csvDocumento + " Item=" + csvItemDoc
                         + " (posible choque con la restricción UNIQUE de Documento+Item)");
             }
