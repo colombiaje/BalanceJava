@@ -666,6 +666,8 @@ public class F4_Cierres extends Fragment {
         int encabezados = 0;
         int otrosErrores = 0;
         primerErrorInsercion = null;
+        reubicadasItemRepetido = 0;
+        ejemplosReubicadas.setLength(0);
         columnasCsv = null; // ⭐ (1-nov) el encabezado de ESTE archivo define las columnas
         try (FileReader fileReader = new FileReader(rutaFinal);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
@@ -744,6 +746,8 @@ public class F4_Cierres extends Fragment {
                     + "Insertadas correctamente: " + insertadasOk + "\n"
                     + "Encabezados (no cuentan): " + encabezados + "\n"
                     + "Fallidas al insertar: " + fallidasDuplicado + "\n"
+                    + "Con Documento+Item repetido, insertadas con ítem nuevo: " + reubicadasItemRepetido
+                    + ejemplosReubicadas + "\n"
                     + "Otros errores: " + otrosErrores + "\n\n"
                     + "Transacciones sin cuenta asociada antes de reemparejar: " + sinCuentaIdAntes + "\n"
                     + "Sin cuenta después de reemparejar por nombre: " + huerfanasDespues + "\n\n"
@@ -770,6 +774,9 @@ public class F4_Cierres extends Fragment {
     private static final long RESULTADO_ERROR = -3L;
     // ⭐ NUEVO — diagnóstico (30-oct): primer mensaje de error de SQLite al insertar.
     private String primerErrorInsercion = null;
+    /** ⭐ (9-nov) Filas con Documento+Item repetido que entraron con un ítem nuevo. */
+    private int reubicadasItemRepetido = 0;
+    private final StringBuilder ejemplosReubicadas = new StringBuilder();
 
     // ⭐ NUEVO (1-nov, paso 4 / cierre, con Jorge): formato nuevo del CSV de transacciones, sin
     // las columnas retiradas de la tabla (c3, c4, c10, c11, c12, c13). Para aceptar CSV viejos y
@@ -931,8 +938,30 @@ public class F4_Cierres extends Fragment {
                 idInsertado = db.insertOrThrow("transacciones", null, valores);
             } catch (android.database.SQLException sqle) {
                 idInsertado = -1L;
-                if (primerErrorInsercion == null) {
-                    primerErrorInsercion = sqle.getMessage();
+                // ⭐ NUEVO (9-nov, Jorge): bases antiguas (v2) permitían repetir Documento+Item
+                // (p. ej. los saldos "0/0" de cierres parciales viejos y los documentos 1124 y
+                // 2648). Esas filas SÍ suman en los saldos del teléfono, así que no se pierden:
+                // se insertan con el siguiente ítem libre de su documento y se cuentan aparte.
+                String msg = sqle.getMessage() == null ? "" : sqle.getMessage();
+                if (msg.contains("UNIQUE") && !valores.containsKey("transaccion_id")) {
+                    try {
+                        long siguiente = DatabaseUtils.longForQuery(db,
+                                "SELECT COALESCE(MAX(CAST(c2_ItemDoc AS INTEGER)), 0) + 1 FROM transacciones " +
+                                        "WHERE c1_Documento = ?", new String[]{csvDocumento});
+                        valores.put("c2_ItemDoc", String.valueOf(siguiente));
+                        idInsertado = db.insertOrThrow("transacciones", null, valores);
+                        reubicadasItemRepetido++;
+                        if (ejemplosReubicadas.length() < 300) {
+                            ejemplosReubicadas.append("\n• Doc ").append(csvDocumento).append(" ítem ")
+                                    .append(csvItemDoc).append(" → ").append(siguiente);
+                        }
+                    } catch (android.database.SQLException sqle2) {
+                        idInsertado = -1L;
+                        msg = sqle2.getMessage() == null ? msg : sqle2.getMessage();
+                    }
+                }
+                if (idInsertado == -1L && primerErrorInsercion == null) {
+                    primerErrorInsercion = msg;
                 }
             }
             if (idInsertado == -1L) {
