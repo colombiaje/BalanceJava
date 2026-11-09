@@ -1063,6 +1063,7 @@ public class A17_ReporteRentaDialogo {
         // Cada una: {TableRow, Spinner, EditText valor, TextView ítem, TextView tipo}.
         List<Object[]> filas = new ArrayList<>();
         Runnable[] actualizar = new Runnable[1];
+        boolean[] cuadraba = {false};
         Runnable renumerar = () -> {
             for (int k = 0; k < filas.size(); k++) {
                 ((TextView) filas.get(k)[3]).setText(String.valueOf(k + 2));
@@ -1154,6 +1155,19 @@ public class A17_ReporteRentaDialogo {
             long n = mas + menos;
             neto.setText(dif == 0 ? "" : n == 0 ? "0" : "Falta por registrar: " + formato.format(Math.abs(n)));
             neto.setTextColor(Color.parseColor(n == 0 ? "#1B5E20" : "#B71C1C"));
+            // ⭐ (8-nov, Jorge) Al cuadrar (neto 0) se cierra el teclado y se baja a "Agregar
+            // registro", que el teclado tapaba.
+            boolean cuadra = dif != 0 && n == 0;
+            if (cuadra && !cuadraba[0]) {
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                        context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(raiz.getWindowToken(), 0);
+                if (raiz.getParent() instanceof ScrollView) {
+                    ScrollView sv = (ScrollView) raiz.getParent();
+                    sv.postDelayed(() -> sv.fullScroll(View.FOCUS_DOWN), 250);
+                }
+            }
+            cuadraba[0] = cuadra;
             // Con el neto en 0 sobran las filas vacías del final (queda al menos una).
             if (dif != 0 && n == 0) {
                 while (filas.size() > 1) {
@@ -1279,45 +1293,57 @@ public class A17_ReporteRentaDialogo {
                         + ", para revisarlo y guardarlo."
                         + (f1Ocupado ? "\n\n⚠ F1 › Nuevo está ocupado: la sesión quedará pendiente de borrador hasta "
                         + "que lo libere." : "") + "\n\n¿Terminar?")
-                .setPositiveButton("Terminar", (d, w) -> {
-                    int sesion;
-                    List<Object[]> filas = new ArrayList<>();
-                    for (Object[] g : registros) {
-                        Apoyo a = (Apoyo) g[0];
-                        @SuppressWarnings("unchecked")
-                        List<Object[]> reparto = (List<Object[]>) g[4];
-                        List<Object[]> contras = new ArrayList<>();
-                        for (Object[] c : reparto) {
-                            Apoyo ca = (Apoyo) c[0];
-                            contras.add(new Object[]{ca.cuentaId, ca.nombre, c[1]});
-                        }
-                        Apoyo primera = (Apoyo) reparto.get(0)[0];
-                        filas.add(new Object[]{a.cuentaId, a.nombre, a.valorReporte, g[1], g[2], g[3],
-                                primera.cuentaId, primera.nombre, contras});
-                    }
-                    SQLiteDatabase db = abrir();
-                    try {
-                        sesion = A1_1_AyudanteBD.guardarSesionAjuste(db, anio, filas);
-                    } catch (Exception e) {
-                        Log.e(TAG, "No se pudo guardar la sesión de ajuste: " + e.getMessage(), e);
-                        Toast.makeText(context, "Error al guardar la sesión: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        return;
-                    } finally {
-                        db.close();
-                    }
-                    pantalla.dismiss();
-                    filtroAjustes = null;
-                    if (A5_CacheManager.tieneTrabajoPendienteReal(context, A1_1_AyudanteBD.AREA_CREATE)) {
-                        respaldarAjustes();
-                        pantallaAjustes();
-                        avisoF1Ocupado();
-                    } else {
-                        int partidas = generarBorrador(sesion);
-                        pantallaAjustes();
-                        if (partidas > 0) avisoBorradorGenerado(sesion, partidas);
-                    }
-                })
+                .setPositiveButton("Terminar", (d, w) -> terminarSesion(registros, pantalla, false))
+                .setNeutralButton(f1Ocupado ? null : "Terminar e ir a F1 › Nuevo",
+                        f1Ocupado ? null : (d, w) -> terminarSesion(registros, pantalla, true))
                 .setNegativeButton("Seguir en la sesión", null));
+    }
+
+    /**
+     * Guarda la sesión, genera su borrador en F1 › Nuevo (si está libre) y, con irAF1, va de una
+     * vez a F1 › Nuevo a revisarlo y guardarlo (pedido de Jorge, 8-nov).
+     */
+    private void terminarSesion(List<Object[]> registros, AlertDialog pantalla, boolean irAF1) {
+        int sesion;
+        List<Object[]> filas = new ArrayList<>();
+        for (Object[] g : registros) {
+            Apoyo a = (Apoyo) g[0];
+            @SuppressWarnings("unchecked")
+            List<Object[]> reparto = (List<Object[]>) g[4];
+            List<Object[]> contras = new ArrayList<>();
+            for (Object[] c : reparto) {
+                Apoyo ca = (Apoyo) c[0];
+                contras.add(new Object[]{ca.cuentaId, ca.nombre, c[1]});
+            }
+            Apoyo primera = (Apoyo) reparto.get(0)[0];
+            filas.add(new Object[]{a.cuentaId, a.nombre, a.valorReporte, g[1], g[2], g[3],
+                    primera.cuentaId, primera.nombre, contras});
+        }
+        SQLiteDatabase db = abrir();
+        try {
+            sesion = A1_1_AyudanteBD.guardarSesionAjuste(db, anio, filas);
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo guardar la sesión de ajuste: " + e.getMessage(), e);
+            Toast.makeText(context, "Error al guardar la sesión: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        } finally {
+            db.close();
+        }
+        pantalla.dismiss();
+        filtroAjustes = null;
+        if (A5_CacheManager.tieneTrabajoPendienteReal(context, A1_1_AyudanteBD.AREA_CREATE)) {
+            respaldarAjustes();
+            pantallaAjustes();
+            avisoF1Ocupado();
+        } else {
+            int partidas = generarBorrador(sesion);
+            if (partidas > 0 && irAF1) {
+                irAF1Nuevo(); // ⭐ (8-nov, Jorge) registrar de una vez en F1
+                return;
+            }
+            pantallaAjustes();
+            if (partidas > 0) avisoBorradorGenerado(sesion, partidas);
+        }
     }
 
     /**
@@ -1793,6 +1819,11 @@ public class A17_ReporteRentaDialogo {
                 .setView(marco)
                 .setCancelable(true)
                 .create();
+        // ⭐ (8-nov, Jorge) Con el teclado abierto la pantalla se encoge en vez de quedar tapada:
+        // así se puede desplazar hasta las opciones del final.
+        if (d.getWindow() != null) {
+            d.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        }
         abiertos.add(d);
         d.setOnDismissListener(x -> abiertos.remove(d));
         d.show();
