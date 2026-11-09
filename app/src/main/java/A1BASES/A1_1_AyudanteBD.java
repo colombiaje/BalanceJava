@@ -2047,6 +2047,16 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * F1, anota su número. @return cuántas sesiones quedaron contabilizadas en esta revisión.
      */
     public static int actualizarDocumentosDeAjuste(SQLiteDatabase db) {
+        return contabilizarDocumentosDeAjuste(db).size();
+    }
+
+    /**
+     * ⭐ (8-nov) Igual que actualizarDocumentosDeAjuste, pero devuelve las sesiones que quedaron
+     * contabilizadas en esta revisión: {sesion_id (Integer), documento (String)}. Lo usa F1 justo
+     * después de guardar, para ofrecer volver a los ajustes de Cierres.
+     */
+    public static java.util.List<Object[]> contabilizarDocumentosDeAjuste(SQLiteDatabase db) {
+        java.util.List<Object[]> hechas = new java.util.ArrayList<>();
         java.util.List<Object[]> pendientes = new java.util.ArrayList<>();
         Cursor c = db.rawQuery("SELECT sesion_id, fecha_documento, cuenta_id, diferencia, descripcion FROM " +
                 TABLE_AJUSTE_RENTA + " WHERE borrador_generado = 1 AND documento IS NULL AND registro = " +
@@ -2060,14 +2070,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         } finally {
             c.close();
         }
-        int n = 0;
         for (Object[] p : pendientes) {
             String doc = buscarDocumentoDeAjuste(db, (Integer) p[1], (Long) p[2], (Long) p[3], (String) p[4]);
             if (doc == null) continue;
             db.execSQL("UPDATE " + TABLE_AJUSTE_RENTA + " SET documento = ? WHERE sesion_id = ?", new Object[]{doc, p[0]});
-            n++;
+            hechas.add(new Object[]{p[0], doc});
         }
-        return n;
+        return hechas;
     }
 
     /** ¿El borrador de la sesión está en F1 › Nuevo (caché del área 1, por fecha y descripción)? */

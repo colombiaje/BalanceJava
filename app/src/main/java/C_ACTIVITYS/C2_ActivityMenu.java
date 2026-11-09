@@ -265,6 +265,21 @@ public class C2_ActivityMenu extends AppCompatActivity {
             }
         }
     }
+    /**
+     * ⭐ NUEVO (8-nov, renta R6, pedido de Jorge): navega a un fragment del menú limpiando el
+     * backstack, como cambiarElFragmentPredeterminado() (p. ej. de F1 a Cierres al guardar el
+     * documento de un ajuste fiscal).
+     */
+    public void irAFragment(int destino) {
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.contenedor_fragments_f0_Xf);
+        if (navHostFragment != null) {
+            NavController navController = navHostFragment.getNavController();
+            navController.popBackStack();
+            navController.navigate(destino);
+        }
+    }
+
     public void cambiarElFragmentPredeterminado() {
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.contenedor_fragments_f0_Xf);

@@ -230,7 +230,45 @@ public class B12_DocumentPersistence {
         f1.numerarDocumentoConsecutivo();
         f1.numeroConsecutivoDocEnEdicion_XTv.setText(f1.documentoRecibido_Resultado_String);
         f1.metodosVarios_Class.fechasYHoras();
+        if ("create_XRb".equals(nombreDelRadioButton)) ofrecerVolverAAjustesFiscales();
         return true;
+    }
+
+    /**
+     * ⭐ NUEVO (8-nov, renta R6, pedido de Jorge): si el documento recién guardado en Nuevo
+     * completa una sesión de ajuste fiscal (misma búsqueda que la marca ✓ contabilizada en
+     * Cierres: fecha, cuenta, valor y descripción), pregunta si quiere volver a Cierres › Renta
+     * fiscal › Ajustes. Con cualquier otro documento no hace nada. Un error aquí nunca afecta el
+     * guardado (ya terminó).
+     */
+    private void ofrecerVolverAAjustesFiscales() {
+        List<Object[]> hechas;
+        try {
+            SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
+            try {
+                hechas = A1BASES.A1_1_AyudanteBD.contabilizarDocumentosDeAjuste(db);
+            } finally {
+                db.close();
+            }
+        } catch (Exception e) {
+            Log.e("B12", "No se pudo revisar si el documento es un ajuste fiscal: " + e.getMessage(), e);
+            return;
+        }
+        if (hechas.isEmpty() || f1.getActivity() == null) return;
+        Object[] h = hechas.get(0);
+        new AlertDialog.Builder(f1.getActivity())
+                .setTitle("Ajuste fiscal contabilizado")
+                .setMessage("Documento N° " + h[1] + " guardado: completa la sesión " + h[0]
+                        + " de ajuste fiscal.\n\n¿Volver a Cierres › Renta fiscal › Ajustes?")
+                .setPositiveButton("Volver a ajustes", (d, w) -> {
+                    f1.requireActivity().getSharedPreferences("MyAppPreferences", android.content.Context.MODE_PRIVATE)
+                            .edit().putBoolean(B_FRAGMENTS.F4_Cierres.PREF_ABRIR_AJUSTES_RENTA, true).apply();
+                    if (f1.getActivity() instanceof C_ACTIVITYS.C2_ActivityMenu) {
+                        ((C_ACTIVITYS.C2_ActivityMenu) f1.getActivity()).irAFragment(com.jj.appbalancev31.R.id.navf5);
+                    }
+                })
+                .setNegativeButton("Quedarme en F1", null)
+                .show();
     }
 
     // ═══════════════════════════════════════════════════════════════

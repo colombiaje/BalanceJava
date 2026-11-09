@@ -146,7 +146,20 @@ public class A17_ReporteRentaDialogo {
     private String filtroAjustes = null;
 
     public void mostrar(Context context, String folderIdDrive) {
-        if (context == null) return;
+        if (preparar(context, folderIdDrive)) pantallaDetalle();
+    }
+
+    /**
+     * ⭐ NUEVO (8-nov, renta R6, pedido de Jorge): abre la opción 6 directo en los ajustes (al
+     * volver de F1 después de guardar el documento de un ajuste fiscal).
+     */
+    public void mostrarEnAjustes(Context context, String folderIdDrive) {
+        if (!preparar(context, folderIdDrive)) return;
+        if (conFoto) entrarAjustes(); else pantallaDetalle();
+    }
+
+    private boolean preparar(Context context, String folderIdDrive) {
+        if (context == null) return false;
         this.context = context;
         this.folderIdDrive = folderIdDrive;
         SQLiteDatabase db = abrir();
@@ -172,7 +185,7 @@ public class A17_ReporteRentaDialogo {
         } finally {
             db.close();
         }
-        pantallaDetalle();
+        return true;
     }
 
     private String nombreAnio() {

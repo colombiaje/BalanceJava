@@ -113,6 +113,9 @@ public class F4_Cierres extends Fragment {
     }
 
     @Override
+    /** ⭐ (8-nov) Señal de F1: abrir la opción 6 directo en Ajustes (ver B12_DocumentPersistence). */
+    public static final String PREF_ABRIR_AJUSTES_RENTA = "abrirAjustesRentaAlVolver";
+
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View inflarViews_View = inflater.inflate(R.layout.f4_cierres, container, false);
 
@@ -132,6 +135,16 @@ public class F4_Cierres extends Fragment {
 
         if (calculadoraLibre_XBt != null) {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());
+        }
+
+        // ⭐ NUEVO (8-nov, renta R6, pedido de Jorge): al volver de F1 después de guardar el
+        // documento de un ajuste fiscal, se abre directo la pantalla de Ajustes de la opción 6.
+        android.content.SharedPreferences prefs =
+                requireActivity().getSharedPreferences("MyAppPreferences", android.content.Context.MODE_PRIVATE);
+        if (prefs.getBoolean(PREF_ABRIR_AJUSTES_RENTA, false)) {
+            prefs.edit().putBoolean(PREF_ABRIR_AJUSTES_RENTA, false).apply();
+            inflarViews_View.post(() ->
+                    new A1BASES.A17_ReporteRentaDialogo().mostrarEnAjustes(getActivity(), FOLDER_ID_DRIVE));
         }
 
         return inflarViews_View;
