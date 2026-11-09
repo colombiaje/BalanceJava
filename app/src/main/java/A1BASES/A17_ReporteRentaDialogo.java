@@ -1236,10 +1236,12 @@ public class A17_ReporteRentaDialogo {
             pantallaSesion(registros, new Formulario()); // formulario limpio, contrapartida incluida
         };
         raiz.addView(botones(
-                new String[]{"Agregar registro", "Terminar sesión", "Cancelar sesión"},
+                new String[]{"Agregar registro", "Terminar sesión", "Terminar e ir a F1 › Nuevo", "Cancelar sesión"},
                 new Runnable[]{
                         agregar,
-                        () -> confirmarTerminarSesion(registros, dialogo[0]),
+                        () -> confirmarTerminarSesion(registros, dialogo[0], false),
+                        // ⭐ (8-nov, Jorge) a la vista: terminar y registrar de una vez en F1 › Nuevo
+                        () -> confirmarTerminarSesion(registros, dialogo[0], true),
                         () -> confirmarCancelarSesion(registros, dialogo[0])}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sesión de ajuste", raiz);
     }
@@ -1280,7 +1282,7 @@ public class A17_ReporteRentaDialogo {
                 .setNegativeButton("Seguir en la sesión", null));
     }
 
-    private void confirmarTerminarSesion(List<Object[]> registros, AlertDialog pantalla) {
+    private void confirmarTerminarSesion(List<Object[]> registros, AlertDialog pantalla, boolean irAF1) {
         if (registros.isEmpty()) {
             Toast.makeText(context, "Agregue al menos un registro.", Toast.LENGTH_LONG).show();
             return;
@@ -1293,9 +1295,8 @@ public class A17_ReporteRentaDialogo {
                         + ", para revisarlo y guardarlo."
                         + (f1Ocupado ? "\n\n⚠ F1 › Nuevo está ocupado: la sesión quedará pendiente de borrador hasta "
                         + "que lo libere." : "") + "\n\n¿Terminar?")
-                .setPositiveButton("Terminar", (d, w) -> terminarSesion(registros, pantalla, false))
-                .setNeutralButton(f1Ocupado ? null : "Terminar e ir a F1 › Nuevo",
-                        f1Ocupado ? null : (d, w) -> terminarSesion(registros, pantalla, true))
+                .setPositiveButton(irAF1 && !f1Ocupado ? "Terminar e ir a F1 › Nuevo" : "Terminar",
+                        (d, w) -> terminarSesion(registros, pantalla, irAF1))
                 .setNegativeButton("Seguir en la sesión", null));
     }
 
