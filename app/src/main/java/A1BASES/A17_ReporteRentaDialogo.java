@@ -347,12 +347,9 @@ public class A17_ReporteRentaDialogo {
 
         LinearLayout raiz = contenedor();
         raiz.addView(botonInfo("Depurar saldos contrarios",
-                "Cuentas que terminaron el año con saldo contrario a su tipo de cuenta (ej.: un banco "
-                        + "sobregirado). Para cada una viene un destino sugerido: la decisión del año anterior, "
-                        + "o el renglón de la naturaleza contraria (activo negativo → Deudas). Puede elegir otro. "
-                        + "Con ajustes posteriores al cierre, cuenta el saldo corregido (foto + ajustes). "
-                        + "Los saldos no cambian; solo el renglón donde se declaran. Al pasar a un comparativo, "
-                        + "las decisiones se guardan" + (conFoto ? " en la foto." : " para este recorrido (el año aún no tiene cierre).")));
+                "Cuentas con saldo contrario a su tipo (ej.: un banco sobregirado). Cada una trae un renglón "
+                        + "sugerido (la decisión del año anterior o el de naturaleza contraria); puede cambiarlo. "
+                        + "Solo cambia el renglón donde se declara, no el saldo. Se guarda al pasar a un comparativo."));
         List<Spinner> selectores = new ArrayList<>();
         if (contrarias.isEmpty()) {
             raiz.addView(texto("Ninguna cuenta terminó el año con saldo contrario.", false));
@@ -420,7 +417,10 @@ public class A17_ReporteRentaDialogo {
 
     // ── 2b. Ajustes posteriores al cierre (R6) ──────────────────────────
 
-    private static final int COLOR_PARTIDA = Color.parseColor("#0D47A1");        // azul
+    /** ⭐ (9-nov, Jorge) Azul rey para los textos (en vez de negro) y verde para los botones, como en F1. */
+    private static final int AZUL_REY = Color.parseColor("#1F3FA6");
+    private static final int VERDE_BOTON = Color.parseColor("#4CAF50");
+    private static final int COLOR_PARTIDA = AZUL_REY;                            // azul
     private static final int COLOR_CONTRAPARTIDA = Color.parseColor("#6A1B9A");  // morado
 
     /**
@@ -635,7 +635,7 @@ public class A17_ReporteRentaDialogo {
             span.span = 4;
             titulo.addView(tt, span);
             if (a.quitar != null) {
-                Button x = new Button(context);
+                Button x = botonVerde();
                 x.setText("✕");
                 x.setOnClickListener(v -> a.quitar.run());
                 titulo.addView(x);
@@ -665,8 +665,8 @@ public class A17_ReporteRentaDialogo {
                 t.addView(d);
             }
         }
-        t.addView(filaTotal("Total (+)", formato.format(mas), Color.BLACK, true));
-        t.addView(filaTotal("Total (−)", formato.format(menos), Color.BLACK, true));
+        t.addView(filaTotal("Total (+)", formato.format(mas), AZUL_REY, true));
+        t.addView(filaTotal("Total (−)", formato.format(menos), AZUL_REY, true));
         long neto = mas + menos;
         t.addView(filaTotal("Neto", neto == 0 ? "0" : "Falta por registrar: " + formato.format(Math.abs(neto)),
                 Color.parseColor(neto == 0 ? "#1B5E20" : "#B71C1C"), false));
@@ -1079,7 +1079,7 @@ public class A17_ReporteRentaDialogo {
             EditText ev = campoEntrada("valor", texto);
             ev.setInputType(InputType.TYPE_CLASS_NUMBER);
             ev.setGravity(Gravity.END);
-            Button x = new Button(context);
+            Button x = botonVerde();
             x.setText("✕");
             Object[] fila = {tr, sp, ev, ci, ct};
             x.setOnClickListener(v -> {
@@ -1155,17 +1155,13 @@ public class A17_ReporteRentaDialogo {
             long n = mas + menos;
             neto.setText(dif == 0 ? "" : n == 0 ? "0" : "Falta por registrar: " + formato.format(Math.abs(n)));
             neto.setTextColor(Color.parseColor(n == 0 ? "#1B5E20" : "#B71C1C"));
-            // ⭐ (8-nov, Jorge) Al cuadrar (neto 0) se cierra el teclado y se baja a "Agregar
-            // registro", que el teclado tapaba.
+            // ⭐ (8-nov, Jorge) Al cuadrar (neto 0) se cierra el teclado; "Agregar registro" está
+            // arriba, fijo (9-nov).
             boolean cuadra = dif != 0 && n == 0;
             if (cuadra && !cuadraba[0]) {
                 android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
                         context.getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (imm != null) imm.hideSoftInputFromWindow(raiz.getWindowToken(), 0);
-                if (raiz.getParent() instanceof ScrollView) {
-                    ScrollView sv = (ScrollView) raiz.getParent();
-                    sv.postDelayed(() -> sv.fullScroll(View.FOCUS_DOWN), 250);
-                }
             }
             cuadraba[0] = cuadra;
             // Con el neto en 0 sobran las filas vacías del final (queda al menos una).
@@ -1761,10 +1757,17 @@ public class A17_ReporteRentaDialogo {
     }
 
     /** Botón "i" a la derecha: muestra la explicación de la pantalla solo si se pide. */
+    /**
+     * Botón "i" con la explicación de la pantalla. ⭐ (9-nov, Jorge) Lleva la marca "info": dialogo()
+     * lo pasa a la fila del título (a la derecha), para no gastar un renglón.
+     */
     private View botonInfo(String titulo, String explicacion) {
         LinearLayout fila = new LinearLayout(context);
         fila.setGravity(Gravity.END);
-        Button i = new Button(context);
+        fila.setTag("info");
+        Button i = botonVerde();
+        i.setMinWidth(0);
+        i.setMinimumWidth(0);
         i.setText("i");
         i.setAllCaps(false);
         i.setOnClickListener(v -> new AlertDialog.Builder(context)
@@ -1778,9 +1781,15 @@ public class A17_ReporteRentaDialogo {
     }
 
     /** Opciones al final de la pantalla, de a dos por fila. */
+    /**
+     * Opciones de la pantalla, de a dos por fila. ⭐ (9-nov, Jorge) Llevan la marca "opciones":
+     * si son lo último de la pantalla, dialogo() las sube arriba, fijas bajo el título (no se
+     * pierden al final ni las tapa el teclado).
+     */
     private View botones(String[] textos, Runnable[] acciones) {
         LinearLayout col = new LinearLayout(context);
         col.setOrientation(LinearLayout.VERTICAL);
+        col.setTag("opciones");
         col.setPadding(0, 16, 0, 8);
         LinearLayout fila = null;
         for (int k = 0; k < textos.length; k++) {
@@ -1789,7 +1798,7 @@ public class A17_ReporteRentaDialogo {
                 fila.setOrientation(LinearLayout.HORIZONTAL);
                 col.addView(fila);
             }
-            Button b = new Button(context);
+            Button b = botonVerde();
             b.setText(textos[k]);
             b.setAllCaps(false);
             Runnable accion = acciones[k];
@@ -1804,19 +1813,49 @@ public class A17_ReporteRentaDialogo {
      * avisa que las opciones para continuar están al final y lleva hasta ellas con un toque.
      */
     private AlertDialog dialogo(String titulo, View contenido) {
+        // ⭐ (9-nov, Jorge) Arriba y fijos: el título con su "i" a la derecha y las opciones de la
+        // pantalla; abajo, con desplazamiento, el contenido. Ya no va "Las opciones… al final".
+        View info = null, opciones = null;
+        if (contenido instanceof LinearLayout) {
+            LinearLayout c = (LinearLayout) contenido;
+            for (int k = 0; k < c.getChildCount(); k++) {
+                if ("info".equals(c.getChildAt(k).getTag())) {
+                    info = c.getChildAt(k);
+                    break;
+                }
+            }
+            if (info != null) c.removeView(info);
+            View ultimo = c.getChildCount() == 0 ? null : c.getChildAt(c.getChildCount() - 1);
+            if (ultimo != null && "opciones".equals(ultimo.getTag())) {
+                opciones = ultimo;
+                c.removeView(ultimo);
+                opciones.setPadding(24, 0, 24, 8);
+            }
+        }
         ScrollView scroll = new ScrollView(context);
         scroll.addView(contenido);
-        Button irAOpciones = new Button(context);
-        irAOpciones.setText("▼  Las opciones para continuar están al final  ▼");
-        irAOpciones.setAllCaps(false);
-        irAOpciones.setOnClickListener(v -> scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN)));
         LinearLayout marco = new LinearLayout(context);
         marco.setOrientation(LinearLayout.VERTICAL);
-        marco.addView(irAOpciones, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
+        if (opciones != null) {
+            marco.addView(opciones, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            View linea = new View(context);
+            linea.setBackgroundColor(VERDE_BOTON);
+            marco.addView(linea, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 4));
+        }
         marco.addView(scroll);
+        LinearLayout cabecera = new LinearLayout(context);
+        cabecera.setOrientation(LinearLayout.HORIZONTAL);
+        cabecera.setGravity(Gravity.CENTER_VERTICAL);
+        cabecera.addView(tituloCentrado(titulo), new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (info != null) {
+            info.setPadding(0, 16, 16, 0);
+            cabecera.addView(info, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
         AlertDialog d = new AlertDialog.Builder(context)
-                .setCustomTitle(tituloCentrado(titulo))
+                .setCustomTitle(cabecera)
                 .setView(marco)
                 .setCancelable(true)
                 .create();
@@ -1854,15 +1893,24 @@ public class A17_ReporteRentaDialogo {
         t.setGravity(Gravity.CENTER);
         t.setTextSize(19);
         t.setTypeface(null, Typeface.BOLD);
-        t.setTextColor(Color.BLACK);
+        t.setTextColor(AZUL_REY);
         t.setPadding(24, 28, 24, 12);
         return t;
+    }
+
+    /** Botón verde con letra blanca, como los de F1 (⭐ 9-nov, Jorge). */
+    private Button botonVerde() {
+        Button b = new Button(context);
+        b.setAllCaps(false);
+        b.setTextColor(Color.WHITE);
+        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(VERDE_BOTON));
+        return b;
     }
 
     private TextView texto(String t, boolean negrita) {
         TextView v = new TextView(context);
         v.setText(t);
-        v.setTextColor(Color.BLACK);
+        v.setTextColor(AZUL_REY);
         v.setPadding(0, 10, 0, 2);
         if (negrita) v.setTypeface(null, Typeface.BOLD);
         return v;
@@ -1872,7 +1920,7 @@ public class A17_ReporteRentaDialogo {
         TextView t = new TextView(context);
         t.setText(texto);
         t.setPadding(10, 6, 16, 6);
-        t.setTextColor(Color.BLACK);
+        t.setTextColor(AZUL_REY);
         if (negrita) t.setTypeface(null, Typeface.BOLD);
         if (derecha) t.setGravity(Gravity.END);
         return t;
