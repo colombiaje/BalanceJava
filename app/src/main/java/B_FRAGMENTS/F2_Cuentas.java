@@ -3413,7 +3413,12 @@ public class F2_Cuentas extends DialogFragment {
             // (en vez de dejar que AUTOINCREMENT asigne uno nuevo) para que las transacciones
             // restauradas después, que traen su propio cuenta_id, sigan apuntando a la cuenta
             // correcta.
-            if (datos.length >= 8) {
+            // ⭐ CAMBIO (9-nov, Jorge): cada columna se revisa por separado. String.split(",")
+            // descarta los campos vacíos del final, así que una línea "…,98,," (sin código ni
+            // Cerrable) llegaba con 6 posiciones y el "datos.length >= 8" ignoraba su cuenta_id:
+            // AUTOINCREMENT le daba otro número y sus transacciones quedaban en otra cuenta
+            // (13T → Pad: "Banco ARQ EURc" 97→96 y "Banco Pibank Cdt" 98→97).
+            if (datos.length >= 6) {
                 if (datos[5] != null && !datos[5].trim().isEmpty()) {
                     try {
                         valores.put("cuenta_id", Long.parseLong(datos[5].trim()));
@@ -3421,9 +3426,13 @@ public class F2_Cuentas extends DialogFragment {
                         Log.e(TAG, "cuenta_id inválido en CSV, se omite: " + datos[5]);
                     }
                 }
+            }
+            if (datos.length >= 7) {
                 if (datos[6] != null && !datos[6].trim().isEmpty()) {
                     valores.put("codigo_cuenta", datos[6]);
                 }
+            }
+            if (datos.length >= 8) {
                 if (datos[7] != null && !datos[7].trim().isEmpty()) {
                     // ⭐ CAMBIO (31-oct, BD v18): el CSV trae "Cerrable"; se guarda 0/1.
                     valores.put("Cerrable", A1_1_AyudanteBD.textoAMarca01(datos[7], "Cerrable"));
