@@ -2354,6 +2354,7 @@ public class F2_Cuentas extends DialogFragment {
             // ⭐ NUEVO (31-oct): se reinicia la marca de formato antiguo para esta restauración
             // (ver insertarCuenta() y repararReferenciasCuentaIdTrasRestaurarCuentas()).
             restauracionConBackupFormatoAntiguo = false;
+            gruposFormatoAntiguo.clear(); // ⭐ (9-nov)
             // ⭐ NUEVO (1-nov): los artículos de inventario impiden borrar sus cuentas (FK
             // RESTRICT, cuenta_id NOT NULL) — se respalda su vínculo por nombre y se borra con
             // las FK apagadas solo en esta conexión; se reapuntan al terminar (ver
@@ -2388,10 +2389,32 @@ public class F2_Cuentas extends DialogFragment {
             // ⭐ NUEVO (31-oct): si la restauración vino de un CSV en formato ANTIGUO (sin la
             // columna tipo_cuenta_nombre), sus tipo_cuenta_id son del catálogo provisional
             // (1..9) y hoy significan otra cosa — se reclasifican por nombre de cuenta.
+            String avisoClasificacion = null;
             if (restauracionConBackupFormatoAntiguo) {
                 int sinTipo = A1_1_AyudanteBD.reclasificarCuentasDesdeCatalogoProvisional(sqliteDatabase_Abstracta);
                 Log.w(TAG, "Restauración (" + origenRestauracion + ") desde backup en formato " +
                         "antiguo: cuentas reclasificadas al catálogo definitivo; sin tipo: " + sinTipo);
+                // ⭐ NUEVO (9-nov, Jorge): las que no están en la tabla por nombre se clasifican
+                // por su Grupo1/Grupo2 del CSV; se avisa cuáles, para revisarlas en F2.
+                java.util.List<String> porGrupos = new java.util.ArrayList<>();
+                java.util.List<String> sinTipoNombres = new java.util.ArrayList<>();
+                A1_1_AyudanteBD.clasificarPorGruposAntiguos(sqliteDatabase_Abstracta, gruposFormatoAntiguo,
+                        porGrupos, sinTipoNombres);
+                if (!porGrupos.isEmpty() || !sinTipoNombres.isEmpty()) {
+                    StringBuilder m = new StringBuilder();
+                    if (!porGrupos.isEmpty()) {
+                        m.append(porGrupos.size()).append(" cuenta(s) no estaban en la tabla de tipos por nombre y se ")
+                                .append("clasificaron por su Grupo1/Grupo2 del backup (revise el tipo en F2):\n• ")
+                                .append(String.join("\n• ", porGrupos));
+                    }
+                    if (!sinTipoNombres.isEmpty()) {
+                        if (m.length() > 0) m.append("\n\n");
+                        m.append(sinTipoNombres.size()).append(" cuenta(s) quedaron SIN tipo (asígnelo en F2):\n• ")
+                                .append(String.join("\n• ", sinTipoNombres));
+                    }
+                    avisoClasificacion = m.toString();
+                }
+                gruposFormatoAntiguo.clear();
                 restauracionConBackupFormatoAntiguo = false;
             }
             int sinClasificar = ayudanteBD_Class.repararTipoCuentaDeCuentasSinClasificar(sqliteDatabase_Abstracta);
@@ -2433,6 +2456,13 @@ public class F2_Cuentas extends DialogFragment {
 
             // 3) Reemparejar transacciones.cuenta_id por nombre (ya existía en el fix anterior).
             sqliteDatabase_Abstracta.close();
+            if (avisoClasificacion != null && getActivity() != null) {
+                new AlertDialog.Builder(getActivity())
+                        .setTitle("Tipos de cuenta tras restaurar")
+                        .setMessage(avisoClasificacion)
+                        .setPositiveButton("Entendido", null)
+                        .show();
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error al reparar clasificación tras restaurar cuentas: " + e.getMessage(), e);
         }
@@ -3327,6 +3357,8 @@ public class F2_Cuentas extends DialogFragment {
     // ⭐ NUEVO (31-oct): true si alguna fila restaurada vino sin la columna 13
     // (tipo_cuenta_nombre) — o sea, un backup anterior al catálogo definitivo.
     private boolean restauracionConBackupFormatoAntiguo = false;
+    /** ⭐ (9-nov) Grupo1/Grupo2 por nombre de cuenta, leídos de un CSV de formato antiguo. */
+    private final java.util.Map<String, String[]> gruposFormatoAntiguo = new java.util.HashMap<>();
 
     // ⭐ CAMBIO — diagnóstico (30-oct): devuelve long en vez de void (id insertado, -1 si
     // SQLite rechazó la fila, -2 si se omitió). Los llamadores que lo ignoran no cambian.
@@ -3456,6 +3488,11 @@ public class F2_Cuentas extends DialogFragment {
                 }
             } else {
                 restauracionConBackupFormatoAntiguo = true;
+                // ⭐ NUEVO (9-nov, Jorge): se guardan Grupo1/Grupo2 del CSV antiguo (columnas 3 y
+                // 4) para clasificar, al terminar, las cuentas que no estén en la tabla por nombre.
+                if (datos[2] != null && datos[3] != null) {
+                    gruposFormatoAntiguo.put(datos[1].trim(), new String[]{datos[2].trim(), datos[3].trim()});
+                }
             }
 
             // ⭐ NUEVO (3-nov, BD v24, renta R1): columnas 14-16 (renglón de renta por código,

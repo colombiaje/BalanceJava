@@ -865,6 +865,56 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         }
     }
 
+    /**
+     * ⭐ NUEVO (9-nov, Jorge): tipo definitivo genérico a partir del Grupo1/Grupo2 de un backup de
+     * formato antiguo, para cuentas que no están en ASIGNACION_CUENTA_A_TIPO. Conservador: Activo
+     * conciliable → Efectivo y bancos; otro Activo → Cuentas por cobrar; Pasivo → Cuentas por pagar
+     * personales; demás clases → su tipo genérico. @return el id, o null si no se reconoce.
+     */
+    public static Long tipoDefinitivoPorGrupos(String grupo1, String grupo2) {
+        if (grupo1 == null) return null;
+        String g1 = grupo1.trim().toLowerCase(java.util.Locale.ROOT);
+        String g2 = grupo2 == null ? "" : grupo2.trim().toLowerCase(java.util.Locale.ROOT);
+        boolean conciliable = g2.contains("conciliable") && !g2.contains("no conciliable");
+        if (g1.equals("activo")) return conciliable ? 1L : 4L;
+        if (g1.equals("pasivo")) return 10L;
+        if (g1.startsWith("cuentas de orden") || g1.startsWith("cuenta de orden")) {
+            return g1.endsWith("cr") ? 14L : 13L;
+        }
+        if (g1.equals("patrimonio")) return 15L;
+        if (g1.equals("ingresos")) return 17L;
+        if (g1.equals("gastos")) return 18L;
+        if (g1.equals("costo de ventas")) return 19L;
+        if (g1.startsWith("costos de produc")) return 20L;
+        return null;
+    }
+
+    /**
+     * Clasifica por Grupo1/Grupo2 (backup antiguo) las cuentas que quedaron sin tipo. Llena
+     * porGrupos con las que se clasificaron así y sinTipo con las que siguen sin tipo.
+     */
+    public static void clasificarPorGruposAntiguos(SQLiteDatabase db, java.util.Map<String, String[]> grupos,
+                                                   java.util.List<String> porGrupos, java.util.List<String> sinTipo) {
+        java.util.List<Object[]> pendientes = new java.util.ArrayList<>();
+        Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta FROM cuentas WHERE tipo_cuenta_id IS NULL", null);
+        try {
+            while (c.moveToNext()) pendientes.add(new Object[]{c.getLong(0), c.getString(1)});
+        } finally {
+            c.close();
+        }
+        for (Object[] p : pendientes) {
+            String nombre = p[1] == null ? "" : ((String) p[1]).trim();
+            String[] g = grupos.get(nombre);
+            Long tipo = g == null ? null : tipoDefinitivoPorGrupos(g[0], g[1]);
+            if (tipo != null) {
+                db.execSQL("UPDATE cuentas SET tipo_cuenta_id = ? WHERE cuenta_id = ?", new Object[]{tipo, p[0]});
+                porGrupos.add(nombre);
+            } else {
+                sinTipo.add(nombre);
+            }
+        }
+    }
+
     private static Long tipoDefinitivoPorNombreDeCuenta(String nombreCuenta) {
         if (nombreCuenta == null) return null;
         String nombre = nombreCuenta.trim();

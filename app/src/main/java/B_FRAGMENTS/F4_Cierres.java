@@ -670,10 +670,18 @@ public class F4_Cierres extends Fragment {
         try (FileReader fileReader = new FileReader(rutaFinal);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
 
+            // ⭐ CAMBIO (9-nov, Jorge): UNA conexión y UNA transacción para todo el archivo. Antes
+            // se abría y cerraba la base por cada fila (con ~7.700 filas tardaba minutos y parecía
+            // colgada). Las filas que fallan se siguen omitiendo una a una, como antes.
+            A1_1_AyudanteBD ayudanteImp = new A1_1_AyudanteBD(getActivity(),
+                    balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+            SQLiteDatabase dbImp = ayudanteImp.getWritableDatabase();
+            dbImp.beginTransaction();
+            try {
             String linea;
             while ((linea = bufferedReader.readLine()) != null) {
                 String[] datos = linea.split(",");
-                long resultado = insertarTransaccion(datos);
+                long resultado = insertarTransaccion(dbImp, datos);
                 lineasImportadas++;
                 if (resultado == RESULTADO_ENCABEZADO) {
                     encabezados++;
@@ -686,6 +694,11 @@ public class F4_Cierres extends Fragment {
                 } else {
                     insertadasOk++;
                 }
+            }
+            dbImp.setTransactionSuccessful();
+            } finally {
+                dbImp.endTransaction();
+                dbImp.close();
             }
 
             // ⭐ NUEVO — fix Informe (31-oct): las líneas del CSV que no traen cuenta_id (p.ej.
@@ -784,7 +797,7 @@ public class F4_Cierres extends Fragment {
      * o uno de los códigos RESULTADO_* de arriba para los casos especiales. Este valor de
      * retorno es nuevo (antes el método era void); no cambia qué se inserta ni cómo.
      */
-    private long insertarTransaccion(String[] datos) {
+    private long insertarTransaccion(SQLiteDatabase db, String[] datos) {
         if (datos == null || datos.length == 0) {
             Log.e(TAG, "Datos insuficientes para insertar transacción");
             return RESULTADO_ERROR;
@@ -831,14 +844,7 @@ public class F4_Cierres extends Fragment {
         }
 
         try {
-            A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
-                    getActivity(),
-                    balanceSqlite_String_PSF,
-                    null,
-                    version1BalanceSqlite_int_PSF
-            );
-            SQLiteDatabase db = ayudanteBD.getWritableDatabase();
-
+            // ⭐ CAMBIO (9-nov): la conexión la abre y cierra quien llama (una sola por archivo).
             ContentValues valores = new ContentValues();
             valores.put("c1_Documento", csvDocumento);
             valores.put("c2_ItemDoc", csvItemDoc);
@@ -929,7 +935,6 @@ public class F4_Cierres extends Fragment {
                     primerErrorInsercion = sqle.getMessage();
                 }
             }
-            db.close();
             if (idInsertado == -1L) {
                 Log.e(TAG, "db.insert() devolvió -1 para Documento=" + csvDocumento + " Item=" + csvItemDoc
                         + " (posible choque con la restricción UNIQUE de Documento+Item)");
