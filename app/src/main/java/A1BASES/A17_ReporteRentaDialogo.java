@@ -261,8 +261,6 @@ public class A17_ReporteRentaDialogo {
         acciones.add(() -> verResumen(datos));
         textos.add("Exportar y salir");
         acciones.add(() -> { exportarDetalle(depurada); dialogo[0].dismiss(); });
-        textos.add("Cancelar");
-        acciones.add(() -> dialogo[0].dismiss());
         raiz.addView(botones(textos.toArray(new String[0]), acciones.toArray(new Runnable[0])));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " " + (depurada ? estadoDepurada(ajustes) : "sin depurar"), raiz);
     }
@@ -369,13 +367,12 @@ public class A17_ReporteRentaDialogo {
         AlertDialog[] dialogo = new AlertDialog[1];
         Runnable guardar = () -> guardarDecisiones(contrarias, selectores, idsRenglon);
         raiz.addView(botones(
-                new String[]{"Comparativo actual", "Comparativo entre años", "Pantalla anterior", "Cancelar"},
+                new String[]{"Comparativo actual", "Comparativo entre años", "Pantalla anterior"},
                 new Runnable[]{
                         () -> { guardar.run(); dialogo[0].dismiss(); pantallaAnterior = this::pantallaDepuracion; pantallaComparativoActual(); },
                         () -> { guardar.run(); dialogo[0].dismiss(); pantallaAnterior = this::pantallaDepuracion; pantallaComparativoAnios(); },
                         // ⭐ (9-nov, Jorge) volver al Detalle (sin guardar los cambios de esta pantalla)
-                        () -> { dialogo[0].dismiss(); pantallaDetalle(); },
-                        () -> dialogo[0].dismiss()}));
+                        () -> { dialogo[0].dismiss(); pantallaDetalle(); }}));
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " depuración", raiz);
     }
 
@@ -576,14 +573,12 @@ public class A17_ReporteRentaDialogo {
             raiz.addView(texto("No hay sesiones sin terminar.", false));
         }
         raiz.addView(botones(
-                new String[]{"Nueva sesión de ajuste", "Comparativo actual", "Comparativo entre años", "Pantalla anterior",
-                        "Cancelar"},
+                new String[]{"Nueva sesión de ajuste", "Comparativo actual", "Comparativo entre años", "Pantalla anterior"},
                 new Runnable[]{
                         () -> { dialogo[0].dismiss(); pantallaSesion(new ArrayList<>(), new Formulario()); },
                         () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoActual(); },
                         () -> { dialogo[0].dismiss(); pantallaAnterior = this::pantallaAjustes; pantallaComparativoAnios(); },
-                        () -> { dialogo[0].dismiss(); pantallaDetalle(); }, // ⭐ (9-nov, Jorge)
-                        () -> dialogo[0].dismiss()}));
+                        () -> { dialogo[0].dismiss(); pantallaDetalle(); }})); // ⭐ (9-nov, Jorge)
         dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " ajustes", raiz);
     }
 
@@ -1244,7 +1239,9 @@ public class A17_ReporteRentaDialogo {
                         // ⭐ (9-nov, Jorge) volver a Ajustes; si hay registros sin guardar, avisa antes
                         () -> confirmarCancelarSesion(registros, dialogo[0]),
                         () -> confirmarCancelarSesion(registros, dialogo[0])}));
-        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sesión de ajuste", raiz);
+        // La ✕ de la sesión no sale de la opción 6: vuelve a Ajustes, avisando si hay registros sin guardar.
+        dialogo[0] = dialogo("Renta fiscal " + nombreAnio() + " sesión de ajuste", raiz,
+                () -> confirmarCancelarSesion(registros, dialogo[0]));
     }
 
     /** Fila del pie de la tabla del registro en curso (Ítem · Tipo · Cuenta · Valor · ✕). */
@@ -1492,18 +1489,17 @@ public class A17_ReporteRentaDialogo {
 
     private void accionesFinales(LinearLayout raiz, String titulo, List<FilaComp> filas, String tituloA, String tituloB) {
         AlertDialog[] dialogo = new AlertDialog[1];
-        // ⭐ (4-nov, Jorge) "Exportar" no cierra (para seguir); "Salir" cierra.
+        // ⭐ (4-nov, Jorge) "Exportar" no cierra (para seguir); la ✕ del título cierra (9-nov).
         Runnable anterior = pantallaAnterior != null ? pantallaAnterior : this::pantallaDepuracion;
         raiz.addView(botones(
                 new String[]{"Exportar", "Ver resumen", "Volver a depurar", "Pantalla anterior",
-                        "Volver al inicio", "Salir"},
+                        "Volver al inicio"},
                 new Runnable[]{
                         this::exportarFinal,
                         () -> verResumenComparativo(titulo, filas, tituloA, tituloB),
                         () -> { dialogo[0].dismiss(); pantallaDepuracion(); },
                         () -> { dialogo[0].dismiss(); anterior.run(); },
-                        () -> { dialogo[0].dismiss(); pantallaDetalle(); },
-                        () -> dialogo[0].dismiss()}));
+                        () -> { dialogo[0].dismiss(); pantallaDetalle(); }}));
         dialogo[0] = dialogo(titulo, raiz);
     }
 
@@ -1771,8 +1767,7 @@ public class A17_ReporteRentaDialogo {
         fila.setGravity(Gravity.END);
         fila.setTag("info");
         Button i = botonVerde();
-        i.setMinWidth(0);
-        i.setMinimumWidth(0);
+        compactar(i);
         i.setText("i");
         i.setAllCaps(false);
         i.setOnClickListener(v -> new AlertDialog.Builder(context)
@@ -1787,37 +1782,53 @@ public class A17_ReporteRentaDialogo {
 
     /** Opciones al final de la pantalla, de a dos por fila. */
     /**
-     * Opciones de la pantalla, de a dos por fila. ⭐ (9-nov, Jorge) Llevan la marca "opciones":
+     * Opciones de la pantalla. ⭐ (9-nov, Jorge) Llevan la marca "opciones":
      * si son lo último de la pantalla, dialogo() las sube arriba, fijas bajo el título (no se
      * pierden al final ni las tapa el teclado).
      */
     private View botones(String[] textos, Runnable[] acciones) {
-        LinearLayout col = new LinearLayout(context);
-        col.setOrientation(LinearLayout.VERTICAL);
-        col.setTag("opciones");
-        col.setPadding(0, 16, 0, 8);
-        LinearLayout fila = null;
+        // ⭐ (9-nov, Jorge) Cada botón del ancho de su texto y compacto; pasan al renglón siguiente
+        // cuando no caben (ChipGroup de Material hace ese acomodo).
+        com.google.android.material.chip.ChipGroup grupo = new com.google.android.material.chip.ChipGroup(context);
+        grupo.setTag("opciones");
+        grupo.setPadding(0, 12, 0, 8);
+        grupo.setChipSpacingHorizontal(12);
+        grupo.setChipSpacingVertical(8);
         for (int k = 0; k < textos.length; k++) {
-            if (k % 2 == 0) {
-                fila = new LinearLayout(context);
-                fila.setOrientation(LinearLayout.HORIZONTAL);
-                col.addView(fila);
-            }
             Button b = botonVerde();
             b.setText(textos[k]);
-            b.setAllCaps(false);
+            compactar(b);
             Runnable accion = acciones[k];
             b.setOnClickListener(v -> accion.run());
-            fila.addView(b, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            grupo.addView(b);
         }
-        return col;
+        return grupo;
     }
+
+    /** Botón compacto: alto y relleno reducidos, ancho según el texto. */
+    private static void compactar(Button b) {
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setTextSize(14);
+        b.setPadding(28, 10, 28, 10);
+    }
+
 
     /**
      * ⭐ (4-nov, Jorge) Título centrado y, fija arriba (fuera del desplazamiento), una barra que
      * avisa que las opciones para continuar están al final y lleva hasta ellas con un toque.
      */
     private AlertDialog dialogo(String titulo, View contenido) {
+        return dialogo(titulo, contenido, null);
+    }
+
+    /**
+     * Pantalla del recorrido. ⭐ (9-nov, Jorge) La ✕ arriba a la derecha cierra la ventana (reemplaza
+     * los botones Cancelar/Salir); con alCerrar hace otra cosa (p. ej. en la sesión de ajuste).
+     */
+    private AlertDialog dialogo(String titulo, View contenido, Runnable alCerrar) {
         // ⭐ (9-nov, Jorge) Arriba y fijos: el título con su "i" a la derecha y las opciones de la
         // pantalla; abajo, con desplazamiento, el contenido. Ya no va "Las opciones… al final".
         View info = null, opciones = null;
@@ -1855,10 +1866,17 @@ public class A17_ReporteRentaDialogo {
         cabecera.addView(tituloCentrado(titulo), new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         if (info != null) {
-            info.setPadding(0, 16, 16, 0);
+            info.setPadding(0, 16, 8, 0);
             cabecera.addView(info, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT));
         }
+        Button cerrar = botonVerde();
+        cerrar.setText("✕");
+        compactar(cerrar);
+        LinearLayout.LayoutParams lpCerrar = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpCerrar.setMargins(0, 16, 16, 0);
+        cabecera.addView(cerrar, lpCerrar);
         AlertDialog d = new AlertDialog.Builder(context)
                 .setCustomTitle(cabecera)
                 .setView(marco)
@@ -1869,6 +1887,9 @@ public class A17_ReporteRentaDialogo {
         if (d.getWindow() != null) {
             d.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         }
+        cerrar.setOnClickListener(v -> {
+            if (alCerrar != null) alCerrar.run(); else d.dismiss();
+        });
         abiertos.add(d);
         d.setOnDismissListener(x -> abiertos.remove(d));
         d.show();
