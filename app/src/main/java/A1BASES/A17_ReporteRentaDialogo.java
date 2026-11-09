@@ -502,13 +502,12 @@ public class A17_ReporteRentaDialogo {
                         + "cuenta con saldo contrario (⚠), se depura en \"Revisar depuración\"."));
         AlertDialog[] dialogo = new AlertDialog[1];
         if (f1Ocupado && sesionEnF1 != null) {
-            raiz.addView(alerta("⚠ El borrador de la sesión " + sesionEnF1 + " está en F1 › Nuevo: ábralo, revíselo y "
-                    + "guárdelo.", true));
-            raiz.addView(botones(new String[]{"Ir a F1 › Nuevo"}, new Runnable[]{this::irAF1Nuevo}));
+            raiz.addView(filaConBotones(alerta("⚠ El borrador de la sesión " + sesionEnF1 + " está en F1 › Nuevo: "
+                    + "ábralo, revíselo y guárdelo.", true), new String[]{"Ir a F1 › Nuevo"}, new Runnable[]{this::irAF1Nuevo}));
         } else if (f1Ocupado) {
-            raiz.addView(alerta("⚠ F1 › Nuevo tiene un documento sin terminar. Es muy recomendable terminarlo y "
-                    + "guardarlo (o descartarlo) para poder continuar: el borrador del ajuste necesita ese espacio.", true));
-            raiz.addView(botones(new String[]{"Ir a F1 › Nuevo"}, new Runnable[]{this::irAF1Nuevo}));
+            raiz.addView(filaConBotones(alerta("⚠ F1 › Nuevo tiene un documento sin terminar. Es muy recomendable "
+                    + "terminarlo y guardarlo (o descartarlo) para poder continuar: el borrador del ajuste necesita ese "
+                    + "espacio.", true), new String[]{"Ir a F1 › Nuevo"}, new Runnable[]{this::irAF1Nuevo}));
         }
 
         // Filtro: por defecto "Sin terminar" si hay alguna, si no "Todas".
@@ -552,7 +551,8 @@ public class A17_ReporteRentaDialogo {
                     || ("Sesión " + sesion).equals(filtroAjustes);
             if (!pasa) continue;
             mostradas++;
-            raiz.addView(texto("Sesión " + sesion + " · " + (r[1] == null ? "" : r[1]), true));
+            // ⭐ (9-nov, Jorge) Las opciones de la sesión van a la derecha de su título.
+            raiz.addView(botonesSesion(texto("Sesión " + sesion + " · " + (r[1] == null ? "" : r[1]), true), r, dialogo));
             raiz.addView(estadoSesion(r));
             List<Asiento> asientos = new ArrayList<>();
             for (Object[] q : registros) {
@@ -567,7 +567,6 @@ public class A17_ReporteRentaDialogo {
                 asientos.add(a);
             }
             raiz.addView(tablaAsientos(asientos));
-            raiz.addView(botonesSesion(r, dialogo));
         }
         if (!registros.isEmpty() && mostradas == 0) {
             raiz.addView(texto("No hay sesiones sin terminar.", false));
@@ -750,7 +749,7 @@ public class A17_ReporteRentaDialogo {
                 + "regenérelo.", false);
     }
 
-    private View botonesSesion(Object[] r, AlertDialog[] dialogo) {
+    private View botonesSesion(View titulo, Object[] r, AlertDialog[] dialogo) {
         int sesion = (Integer) r[0];
         List<String> textos = new ArrayList<>();
         List<Runnable> acciones = new ArrayList<>();
@@ -775,7 +774,7 @@ public class A17_ReporteRentaDialogo {
         }
         textos.add("Quitar sesión " + sesion);
         acciones.add(() -> confirmarQuitarSesion(r, dialogo[0]));
-        return botones(textos.toArray(new String[0]), acciones.toArray(new Runnable[0]));
+        return filaConBotones(titulo, textos.toArray(new String[0]), acciones.toArray(new Runnable[0]));
     }
 
     private boolean borradorEnF1(Object[] r) {
@@ -1768,6 +1767,7 @@ public class A17_ReporteRentaDialogo {
         fila.setTag("info");
         Button i = botonVerde();
         compactar(i);
+        i.setPadding(0, 0, 0, 0);
         i.setText("i");
         i.setAllCaps(false);
         i.setOnClickListener(v -> mostrarRegistrado(new AlertDialog.Builder(context)
@@ -1819,6 +1819,29 @@ public class A17_ReporteRentaDialogo {
         return col;
     }
 
+
+    /**
+     * ⭐ (9-nov, Jorge) Un texto (o aviso) a la izquierda y sus botones compactos a la derecha, en
+     * la misma fila: en vez de botones que van de ancho a ancho en una fila aparte.
+     */
+    private View filaConBotones(View izquierda, String[] textos, Runnable[] acciones) {
+        LinearLayout fila = new LinearLayout(context);
+        fila.setOrientation(LinearLayout.HORIZONTAL);
+        fila.setGravity(Gravity.CENTER_VERTICAL);
+        fila.addView(izquierda, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        for (int k = 0; k < textos.length; k++) {
+            Button b = botonVerde();
+            b.setText(textos[k]);
+            compactar(b);
+            Runnable accion = acciones[k];
+            b.setOnClickListener(v -> accion.run());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(10, 4, 0, 4);
+            fila.addView(b, lp);
+        }
+        return fila;
+    }
 
     /** Botón compacto: alto y relleno reducidos, ancho según el texto. */
     private static void compactar(Button b) {
@@ -1880,17 +1903,23 @@ public class A17_ReporteRentaDialogo {
         cabecera.setGravity(Gravity.CENTER_VERTICAL);
         cabecera.addView(tituloCentrado(titulo), new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        if (info != null) {
-            info.setPadding(0, 16, 8, 0);
-            cabecera.addView(info, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        // ⭐ (9-nov, Jorge) "i" y ✕ del mismo tamaño y alineados entre sí (mismos márgenes, centrados).
+        int lado = (int) (44 * context.getResources().getDisplayMetrics().density);
+        if (info instanceof LinearLayout && ((LinearLayout) info).getChildCount() > 0) {
+            View botonI = ((LinearLayout) info).getChildAt(0);
+            ((LinearLayout) info).removeView(botonI);
+            LinearLayout.LayoutParams lpI = new LinearLayout.LayoutParams(lado, lado);
+            lpI.setMargins(0, 12, 10, 0);
+            lpI.gravity = Gravity.CENTER_VERTICAL;
+            cabecera.addView(botonI, lpI);
         }
         Button cerrar = botonVerde();
         cerrar.setText("✕");
         compactar(cerrar);
-        LinearLayout.LayoutParams lpCerrar = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lpCerrar.setMargins(0, 16, 16, 0);
+        cerrar.setPadding(0, 0, 0, 0);
+        LinearLayout.LayoutParams lpCerrar = new LinearLayout.LayoutParams(lado, lado);
+        lpCerrar.setMargins(0, 12, 16, 0);
+        lpCerrar.gravity = Gravity.CENTER_VERTICAL;
         cabecera.addView(cerrar, lpCerrar);
         AlertDialog d = new AlertDialog.Builder(context)
                 .setCustomTitle(cabecera)
