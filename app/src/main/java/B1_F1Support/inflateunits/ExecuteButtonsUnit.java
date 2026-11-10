@@ -60,6 +60,60 @@ public class ExecuteButtonsUnit {
                     return;
                 }
 
+                // ⭐ NUEVO (10-nov, Jorge): control de registros repetidos antes de guardar. En
+                // el doc. 1124 una plantilla quedó con sus registros duplicados; la regla UNIQUE
+                // (Documento, Item) no lo ve porque cada copia lleva otro ítem. Si hay registros
+                // con la misma cuenta, valor y descripción se avisa y el usuario decide.
+                String repetidos = describirRegistrosRepetidos();
+                if (repetidos != null) {
+                    new AlertDialog.Builder(f1.requireContext())
+                            .setTitle("Registros repetidos")
+                            .setMessage("El documento tiene registros con la misma cuenta, valor "
+                                    + "y descripción:\n" + repetidos
+                                    + "\n\n¿Guardar igual?")
+                            .setPositiveButton("Guardar igual", (d, w) -> guardarDocumento(selectedId))
+                            .setNegativeButton("Revisar", null)
+                            .show();
+                    return;
+                }
+
+                guardarDocumento(selectedId);
+
+            } catch (Exception e) {
+                Log.e("ExecuteButtonsUnit", "Error saving document", e);
+                Toast.makeText(f1.getActivity(),
+                        "Error al guardar: " + e.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    /**
+     * ⭐ NUEVO (10-nov): lista de los registros que se repiten en el documento en pantalla (misma
+     * cuenta, valor y descripción), o null si no hay ninguno.
+     */
+    private String describirRegistrosRepetidos() {
+        if (f1.listaDocumento_ArrayLTT == null || f1.listaDocumento_ArrayLTT.size() < 2) return null;
+        java.util.LinkedHashMap<String, Integer> veces = new java.util.LinkedHashMap<>();
+        for (A1BASES.A3_2_TipoTransaccionesGetsYSets p : f1.listaDocumento_ArrayLTT) {
+            String clave = String.valueOf(p.tipoTget_3CuentaMetodoEnA5()).trim()
+                    + " · " + p.tipoTget_5ValorMetodoEnA5()
+                    + " · " + String.valueOf(p.tipoTget_6DescripcionMetodoEnA5()).trim();
+            Integer n = veces.get(clave);
+            veces.put(clave, n == null ? 1 : n + 1);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, Integer> e : veces.entrySet()) {
+            if (e.getValue() > 1) {
+                sb.append("\n• ").append(e.getKey()).append("  (").append(e.getValue()).append(" veces)");
+            }
+        }
+        return sb.length() == 0 ? null : sb.toString();
+    }
+
+    /** Guardado del documento según el área (antes iba dentro del listener de Guardar). */
+    private void guardarDocumento(int selectedId) {
+        try {
                 // ⭐ CAMBIO — v12 tanda 3 (segundo fix, 29-sep): guardadoExitoso rastrea si el
                 // documento realmente se guardó, para no llamar a
                 // f1.realizarOperacionesPostSeleccion() cuando el guardado fue bloqueado (esa
@@ -114,7 +168,6 @@ public class ExecuteButtonsUnit {
                         "Error al guardar: " + e.getMessage(),
                         Toast.LENGTH_LONG).show();
             }
-        });
     }
 
     // Muestra snackbar de error anclado al botón guardar
