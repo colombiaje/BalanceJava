@@ -23,8 +23,12 @@
         android:name="android.permission.READ_LOGS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- ⭐ CAMBIO (10-nov, Jorge): allowBackup="false". Con "true", Android guardaba la base y
+         las preferencias en la copia de Google y las devolvía solas al reinstalar (13T: aparecieron
+         transacciones viejas sin importar nada). La app ya tiene sus propios respaldos CSV; una
+         instalación debe arrancar vacía y los datos entrar solo por F2 y F4. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_1_app_mas"
         android:label="@string/app_name"
         android:requestLegacyExternalStorage="true"
