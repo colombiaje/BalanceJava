@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Descargar el código
-        uses: actions/checkout@v4
+        actions/setup-java@v5
         with:
           ref: ${{ github.event.inputs.rama }}
 
