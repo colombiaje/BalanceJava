@@ -1983,11 +1983,14 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 getActivity(),
                 android.R.layout.simple_list_item_multiple_choice,
                 listaCuentasRevisionParaAdapterSpinner_ArrayListString);
-        conectarListaCuentasRevisionConSpinner_arrayAdapterString.notifyDataSetChanged();
-
-        listaCuentasDeRevision_XSp.setSelection(0);
+        // ⭐ CAMBIO (10-nov, Nivel 6): primero el adaptador nuevo y después la selección. Antes
+        // setSelection(0) iba primero y actuaba sobre el adaptador ANTERIOR (otra lista de
+        // cuentas); la posición 0 de la lista nueva solo quedaba por el valor por defecto de
+        // setAdapter. Se quita además el notifyDataSetChanged() de un adaptador recién creado,
+        // que no hacía nada.
         listaCuentasDeRevision_XSp.setAdapter(
                 conectarListaCuentasRevisionConSpinner_arrayAdapterString);
+        listaCuentasDeRevision_XSp.setSelection(0);
     }
 
     //metodos de instalacion de la aplicacion
