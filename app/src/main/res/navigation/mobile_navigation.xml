@@ -31,10 +31,4 @@
         android:label="@string/menuf5"
         tools:layout="@layout/f4_cierres" />
 
-    <fragment
-        android:id="@+id/navf99"
-        android:name="B_FRAGMENTS.G1_Prueba"
-        android:label="@string/menuf99"
-        tools:layout="@layout/g1_prueba" />
-
 </navigation>

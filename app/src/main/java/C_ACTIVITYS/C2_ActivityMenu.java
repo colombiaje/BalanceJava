@@ -60,7 +60,7 @@ public class C2_ActivityMenu extends AppCompatActivity {
         NavigationView navigationView = findViewById(R.id.nav_view);
         mAppBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.navf1,
-                R.id.navf2, R.id.navf3, R.id.navf5, R.id.navf99)
+                R.id.navf2, R.id.navf3, R.id.navf5)
                 .setDrawerLayout(drawer)
                 .build();
         NavController navController = Navigation.findNavController(this, R.id.contenedor_fragments_f0_Xf);

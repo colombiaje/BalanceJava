@@ -127,7 +127,6 @@ public class F2_Cuentas extends DialogFragment {
     Button salidaEsteFragment_XBt;
     //1 Ver secciones 2 y 3
 
-    G1_Prueba prueba;
 
     CheckBox seeNewXChB;
     CheckBox seeModifyXChB;
