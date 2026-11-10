@@ -74,7 +74,7 @@ public class B11_DocumentCalculator {
                 if (esConciliable && "+".equals(signo)) s.mCP += valor;
                 if (esConciliable && "-".equals(signo)) s.mCN += valor;
 
-                // ⭐ DIAG — v12 tanda 4 (2º fix, 30-sep): log defensivo, solo si un ítem trae un
+                // ⭐ v12 tanda 4 (2º fix, 30-sep): log defensivo, solo si un ítem trae un
                 // signo que no es ni "+" ni "-" (nunca debería pasar — losDemasRegistrosAListaDocumento
                 // valida el signo antes de construir cualquier ítem) — este ítem no suma ni como
                 // positivo ni como negativo, así que el documento se ve cuadrado en pantalla pero
@@ -84,7 +84,7 @@ public class B11_DocumentCalculator {
                 // vivo al confirmar), significa que la causa real es otra y hace falta seguir
                 // el rastro con este dato.
                 if (!"+".equals(signo) && !"-".equals(signo)) {
-                    Log.w(TAG, "DIAG sumarItems: item con signo no reconocido — cuenta=" + cuenta +
+                    Log.w(TAG, "sumarItems: item con signo no reconocido — cuenta=" + cuenta +
                             " signo='" + signo + "' valor=" + valor +
                             " itemDoc=" + item.tipoT_2DocumentItems_String);
                 }

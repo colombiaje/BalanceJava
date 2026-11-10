@@ -78,7 +78,6 @@ import androidx.gridlayout.widget.GridLayout;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.google.android.material.snackbar.Snackbar;
-import com.google.android.material.textfield.TextInputLayout;
 import com.jj.appbalancev31.R;
 
 import java.io.BufferedReader;
@@ -185,7 +184,6 @@ public class F2_Cuentas extends DialogFragment {
 
     //Button modificarCuenta_XBt;
 
-    TextInputLayout alertaAlEscribirEnModificar_XTiL;
     ArrayAdapter cuentasPorNombre_ArrayAdapterString;
 
     // ⭐ NUEVO — tanda 2 v10: reemplaza los dos arrays de arriba (uno por Grupo1, otro por
@@ -693,7 +691,6 @@ public class F2_Cuentas extends DialogFragment {
                 }
 
                 if (account_XAct.length()>0) {
-                    alertaAlEscribirEnModificar_XTiL(String.valueOf(s));
                     selectNameAccount(s);
                     //mensajeSimilaresParaNuevas();
                 }
@@ -738,7 +735,6 @@ public class F2_Cuentas extends DialogFragment {
                 }
 
                 if (emulateAttributesAccount_XAct.length()>0) {
-                    alertaAlEscribirEnModificar_XTiL(String.valueOf(s));
                     selectNameAccount(s);
                     //mensajeSimilaresParaNuevas();
                 }
@@ -753,7 +749,6 @@ public class F2_Cuentas extends DialogFragment {
         //3 Modificar cuentas
 
         //modificarCuenta_XBt=(Button)inflarViews_View.findViewById(R.id.modificarCuenta_XBt);
-        alertaAlEscribirEnModificar_XTiL = (TextInputLayout) inflarViews_View.findViewById(R.id.alertaAlEscribirEnModificar_XTiL);
 
         //instancias
         ayudante_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,  version1BalanceSqlite_int_PSF);
@@ -2814,16 +2809,6 @@ public class F2_Cuentas extends DialogFragment {
     }
 
 //Generic Methods
-
-    private boolean alertaAlEscribirEnModificar_XTiL (String nombre) {
-        Pattern patron = Pattern.compile("^[1-9 /]+$");
-        if (patron.matcher(nombre).matches() || nombre.length() > 1|| nombre.length() > 21) {
-            alertaAlEscribirEnModificar_XTiL.setError(" Continua ");
-            return false;
-        } else {
-            alertaAlEscribirEnModificar_XTiL.setError(null);
-        }    return true;
-    }
 
     public static void showCustomSnackbar(View view, String message, int durationMillis,
                                           int backgroundColor, int textColor,
