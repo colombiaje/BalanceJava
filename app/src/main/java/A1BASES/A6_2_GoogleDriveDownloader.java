@@ -170,8 +170,18 @@ public class A6_2_GoogleDriveDownloader {
                 return archivosList;
 
             } catch (IOException e) {
-                Log.e(TAG, "Error al listar archivos: " + e.getMessage(), e);
-                errorMsg = "Error al listar archivos: " + e.getMessage();
+                // ⭐ CAMBIO (10-nov, Jorge): las excepciones de autenticación de Google llegan sin
+                // mensaje y el aviso decía "Error al listar archivos: null". Ahora se muestra el
+                // tipo de error cuando no hay mensaje, y uno claro si falta autorizar la cuenta.
+                String detalle = e.getMessage();
+                if (e instanceof com.google.api.client.googleapis.extensions.android.gms.auth
+                        .UserRecoverableAuthIOException) {
+                    detalle = "falta autorizar el acceso a Google Drive con la cuenta de Google";
+                } else if (detalle == null || detalle.trim().isEmpty()) {
+                    detalle = e.getClass().getSimpleName();
+                }
+                Log.e(TAG, "Error al listar archivos: " + detalle, e);
+                errorMsg = "Error al listar archivos: " + detalle;
                 return null;
             }
         }
