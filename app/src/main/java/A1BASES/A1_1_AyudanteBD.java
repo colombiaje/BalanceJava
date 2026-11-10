@@ -3365,7 +3365,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // directamente a 15 NO pasa por aquí para esta tabla: el bloque "if (oldVersion < 14)"
         // de arriba ya la crea de cero con SQL_CREAR_TRANSACCIONES_INVENTARIO, que ya incluye
         // costo_total — así que no hay nada que backfillear ahí (la tabla nace vacía).
-        if (oldVersion < 15) {
+        // ⭐ CAMBIO (10-nov, Jorge): la condición era "oldVersion < 15", así que una base anterior a
+        // la 14 (p. ej. la v2 del 13T, devuelta por la copia automática de Android al reinstalar)
+        // también entraba aquí y el ALTER fallaba con "duplicate column name: costo_total": la
+        // app se cerraba al abrir. Solo una base que ya estaba en v14 necesita este paso.
+        if (oldVersion == 14) {
             db.execSQL("ALTER TABLE transacciones_inventario ADD COLUMN costo_total INTEGER NOT NULL DEFAULT 0");
             db.execSQL("UPDATE transacciones_inventario SET costo_total = unidades * precio_unitario");
         }
