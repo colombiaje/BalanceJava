@@ -692,20 +692,33 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         tvTitulo.setPadding(0, 0, 0, 24);
         layout.addView(tvTitulo);
 
-        // El resto igual que antes
-        agregarFila(layout, "c1 Documento",   item.tipoT_1NumberDocument_String);
-        agregarFila(layout, "c2 Item",        item.tipoT_2DocumentItems_String);
-        agregarFila(layout, "c3 Cuenta",      item.tipoT_3Accout_String);
-        agregarFila(layout, "c4 Signo",       item.tipoT_4Sign_String);
-        agregarFila(layout, "c5 Valor",       String.valueOf(item.tipoT_5Value_Integer));
-        agregarFila(layout, "c6 Descripcion", item.tipoT_6Description_String);
-        agregarFila(layout, "c7 FechaHora",   item.tipoT_7TimeOfProcess_String);
-        agregarFila(layout, "c8 FechaDoc",    String.valueOf(item.tipoT_8DateOfDocument_Integer));
-        agregarFila(layout, "c9 FechaMod",    item.tipoT_9DateUpdateDocument_String);
-        agregarFila(layout, "c10 Grupo1",     item.tipoT_10BalanceItems_String);
-        agregarFila(layout, "c11 Grupo2",     item.tipoT_11BalanceItemsClassification_String);
-        agregarFila(layout, "c12 Flag",       item.tipoT_12AccountWhitFlag_String);
-        agregarFila(layout, "c13 Disponible", item.tipoT_13ColumnaDisponible_String);
+        // ⭐ CAMBIO (10-nov, Jorge): campos del modelo actual. Se quitan los que ya no existen en
+        // la BD (c4 Signo: el signo va en el valor desde v21; c10/c11 Grupo1/Grupo2 desde v13;
+        // c13 desde v19) y se agregan los que sí: cuenta_id, tipo de cuenta, inventario y el id
+        // de la transacción (vacío si el registro aún no se ha guardado).
+        String tipoCuenta = item.tipoT_17TipoCuentaNombre_String;
+        if ((tipoCuenta == null || tipoCuenta.trim().isEmpty()) && item.tipoT_16TipoCuentaId_Long != null) {
+            tipoCuenta = "id " + item.tipoT_16TipoCuentaId_Long;
+        }
+        agregarFila(layout, "Documento",      item.tipoT_1NumberDocument_String);
+        agregarFila(layout, "Ítem",           item.tipoT_2DocumentItems_String);
+        agregarFila(layout, "Cuenta",         item.tipoT_3Accout_String);
+        agregarFila(layout, "cuenta_id",      item.tipoT_14CuentaId_Long != null
+                ? String.valueOf(item.tipoT_14CuentaId_Long) : null);
+        agregarFila(layout, "Tipo de cuenta", tipoCuenta);
+        agregarFila(layout, "Valor",          item.tipoT_5Value_Integer != null
+                ? String.valueOf(item.tipoT_5Value_Integer) : null);
+        agregarFila(layout, "Descripción",    item.tipoT_6Description_String);
+        agregarFila(layout, "Fecha y hora",   item.tipoT_7TimeOfProcess_String);
+        agregarFila(layout, "Fecha del doc.", item.tipoT_8DateOfDocument_Integer != null
+                ? String.valueOf(item.tipoT_8DateOfDocument_Integer) : null);
+        agregarFila(layout, "Fecha de modif.", item.tipoT_9DateUpdateDocument_String);
+        agregarFila(layout, "Cerrable",       "Cerrable".equals(item.tipoT_12AccountWhitFlag_String) ? "Sí" : "No");
+        if (item.tipoT_18ConInventario_Boolean != null) {
+            agregarFila(layout, "Con inventario", item.tipoT_18ConInventario_Boolean ? "Sí" : "No");
+        }
+        agregarFila(layout, "transaccion_id", item.tipoT_15TransaccionId_Long != null
+                ? String.valueOf(item.tipoT_15TransaccionId_Long) : "(sin guardar)");
 
         // ─────────────────────────────────────────────────────────────────
         // "Modificar este registro" — antes (hasta el commit anterior) este
