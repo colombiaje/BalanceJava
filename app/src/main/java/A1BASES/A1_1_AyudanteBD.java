@@ -1404,13 +1404,20 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // Saldo al fin del año fiscal (?1 = fin) y movimientos del año (?2 inicio, ?3 fin) por cuenta:
     // {cuenta_id, Cuenta, tipo_cuenta_id, naturaleza del tipo, renglon_renta_id, saldo, movimientos}.
     // Lo usan la foto (R3) y el año provisional del reporte (R4).
+    // ⭐ CAMBIO (10-nov, Jorge): en una cuenta cuyo renglón es de naturaleza Ingreso o Gasto el
+    // valor a declarar es lo del año (movimientos entre ?2 y ?3), no el saldo acumulado desde el
+    // inicio; en las demás (Activo, Pasivo…) sigue siendo el saldo al fin del año (?1). Mismos
+    // tres parámetros y en el mismo orden que antes (fin, inicio, fin).
     private static final String SQL_SALDOS_RENTA_POR_CUENTA =
             "SELECT cu.cuenta_id, cu.Cuenta, cu.tipo_cuenta_id, tc.naturaleza_normal, cu.renglon_renta_id, " +
-                    "COALESCE(SUM(CASE WHEN COALESCE(t.c8_FechaInicial, 0) <= ? THEN t.c5_Valor END), 0), " +
-                    "COALESCE(SUM(CASE WHEN t.c8_FechaInicial BETWEEN ? AND ? " +
+                    "COALESCE(SUM(CASE WHEN rr.naturaleza IN ('Ingreso', 'Gasto') " +
+                    "THEN (CASE WHEN t.c8_FechaInicial BETWEEN ?2 AND ?3 THEN t.c5_Valor END) " +
+                    "ELSE (CASE WHEN COALESCE(t.c8_FechaInicial, 0) <= ?1 THEN t.c5_Valor END) END), 0), " +
+                    "COALESCE(SUM(CASE WHEN t.c8_FechaInicial BETWEEN ?2 AND ?3 " +
                     "AND CAST(t.c1_Documento AS INTEGER) <> 0 THEN 1 END), 0) " +
                     "FROM cuentas cu " +
                     "LEFT JOIN " + TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id " +
+                    "LEFT JOIN " + TABLE_RENGLON_RENTA + " rr ON rr.renglon_id = cu.renglon_renta_id " +
                     "LEFT JOIN transacciones t ON t.cuenta_id = cu.cuenta_id " +
                     "GROUP BY cu.cuenta_id";
 

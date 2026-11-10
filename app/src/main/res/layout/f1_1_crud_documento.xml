@@ -887,6 +887,10 @@
             >
 
             <!--subarea 1 conciliacion -->
+            <!-- ⭐ REORDEN UX (10-nov, Jorge): "A conciliar" vuelve a ser la primera sección
+                 (fila 0), con sus cuatro vistas debajo; descripción y cuenta pasan a la fila 1 y
+                 valor y signo siguen en la 2. La conciliación se usa al comenzar, solo cuando
+                 aplica. -->
             <!-- ⭐ REORDEN UX — v16 fix (1-oct, a pedido de Jorge): esta sección pasa de
                  app:layout_row="0" a "1" — ahora se visualiza DESPUÉS de
                  seccion2HaceRegistroItemLista_XGl (descripción+cuenta, ver más abajo, que pasa
@@ -900,7 +904,7 @@
                 app:rowCount="11"
                 app:columnCount="2"
                 app:useDefaultMargins="true"
-                app:layout_row="1"
+                app:layout_row="0"
                 app:layout_column="0"
                 app:layout_gravity="center_horizontal"
                 android:background="@drawable/bg_white_square"
@@ -938,6 +942,82 @@
                     app:layout_gravity="center"
                     app:layout_row="0" />
 
+                <!-- ⭐ REORDEN UX (10-nov, Jorge): Saldo, Físico, diferencia e Item pasan aquí desde
+                     seccion1HaceRegistrosItemsLista_XGl, debajo de "A conciliar", porque son de la
+                     conciliación; así la fila de valor y signo queda continua. -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    app:layout_row="1"
+                    app:layout_column="0"
+                    app:layout_columnSpan="2"
+                    app:layout_gravity="center_horizontal"
+                    >
+                    <TextView
+                        android:id="@+id/saldoCuentaAconciliar_XTv"
+                        android:layout_marginEnd="4dp"
+                        android:layout_width="60dp"
+                        android:layout_height="35dp"
+                        android:background="#425DF6"
+                        android:gravity="center"
+                        android:hint="$"
+                        android:textAlignment="center"
+                        android:textColor="#FCFCFD"
+                        android:textColorHint="@android:color/white"
+                        android:textSize="15dp"
+                        tools:ignore="RtlCompat"
+
+                        />
+
+                    <EditText
+                        android:id="@+id/inputPhysicalVsAccounting_XEt"
+                        android:layout_marginEnd="4dp"
+                        android:layout_width="50dp"
+                        android:layout_height="35dp"
+                        android:background="#F4D7F5"
+                        android:gravity="center"
+                        android:hint="Fisico"
+                        android:inputType="number"
+                        android:textAlignment="center"
+                        android:textColor="#425DF6"
+                        android:textColorHint="#425DF6"
+                        android:textSize="15dp"
+                        tools:ignore="RtlCompat"
+                        />
+
+
+                    <TextView
+                        android:id="@+id/diferenciaAConciliar_XTv"
+                        android:layout_marginEnd="4dp"
+                        android:layout_width="56dp"
+                        android:layout_height="35dp"
+                        android:background="#425DF6"
+                        android:hint="$"
+                        android:textAlignment="center"
+                        android:textColor="#FCFCFD"
+                        android:textColorHint="@android:color/white"
+                        android:textSize="15dp"
+                        tools:ignore="RtlCompat"
+                        android:gravity="center"
+
+                        />
+
+                    <TextView
+                        android:id="@+id/consecutivoItemRegistro_XTv"
+                        android:layout_marginEnd="4dp"
+                        android:layout_width="56dp"
+                        android:layout_height="35dp"
+                        android:background="#425DF6"
+                        android:textColor="#FCFCFD"
+                        android:textSize="15dp"
+                        android:textAlignment="center"
+                        tools:ignore="RtlCompat"
+                        android:gravity="center"
+
+                        />
+                </LinearLayout>
             </androidx.gridlayout.widget.GridLayout>
             <!--subarea 1 conciliacion fin -->
 
@@ -963,77 +1043,6 @@
                 app:useDefaultMargins="true"
                 android:layout_marginTop="2dp"
                 >
-
-                <TextView
-                    android:id="@+id/saldoCuentaAconciliar_XTv"
-                    android:layout_width="60dp"
-                    android:layout_height="35dp"
-                    android:background="#425DF6"
-                    android:gravity="center"
-                    android:hint="$"
-                    android:textAlignment="center"
-                    android:textColor="#FCFCFD"
-                    android:textColorHint="@android:color/white"
-                    android:textSize="15dp"
-                    app:layout_column="0"
-                    app:layout_gravity="center_vertical"
-                    app:layout_row="1"
-                    tools:ignore="RtlCompat"
-
-                    />
-
-                <EditText
-                    android:id="@+id/inputPhysicalVsAccounting_XEt"
-                    android:layout_width="50dp"
-                    android:layout_height="35dp"
-                    android:background="#F4D7F5"
-                    android:gravity="center"
-                    android:hint="Fisico"
-                    android:inputType="number"
-                    android:textAlignment="center"
-                    android:textColor="#425DF6"
-                    android:textColorHint="#425DF6"
-                    android:textSize="15dp"
-                    app:layout_row="1"
-                    app:layout_column="1"
-                    app:layout_gravity="center_vertical"
-                    tools:ignore="RtlCompat"
-                    />
-
-
-                <TextView
-                    android:id="@+id/diferenciaAConciliar_XTv"
-                    android:layout_width="56dp"
-                    android:layout_height="35dp"
-                    android:background="#425DF6"
-                    android:hint="$"
-                    android:textAlignment="center"
-                    android:textColor="#FCFCFD"
-                    android:textColorHint="@android:color/white"
-                    android:textSize="15dp"
-                    app:layout_row="1"
-                    app:layout_column="2"
-                    tools:ignore="RtlCompat"
-                    android:gravity="center"
-                    app:layout_gravity="center_vertical"
-
-                    />
-
-                <TextView
-                    android:id="@+id/consecutivoItemRegistro_XTv"
-                    android:layout_width="56dp"
-                    android:layout_height="35dp"
-                    android:background="#425DF6"
-                    android:textColor="#FCFCFD"
-                    android:textSize="15dp"
-                    android:textAlignment="center"
-                    app:layout_column="3"
-                    app:layout_row="1"
-                    tools:ignore="RtlCompat"
-                    android:gravity="center"
-                    app:layout_gravity="center_vertical"
-
-                    />
 
                 <Button
                     android:id="@+id/pegarValor_XChB"
@@ -1121,7 +1130,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#FDFDFC"
-                app:layout_row="0"
+                app:layout_row="1"
                 app:layout_column="0"
                 app:layout_gravity="center"
                 app:rowCount="11"
