@@ -1589,6 +1589,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             $sAc = Integer.parseInt(String.valueOf(sumaTransaccionesCuenta));
 
             // === NUEVO: Ajustar saldo si estamos en modo edición ===
+            asegurarAjusteDeSaldosEnEdicion(); // ⭐ (10-nov)
             Integer saldoInicialAjustado = $sAc;
 
             if (documentoCargadoParaEdicion) {
@@ -2171,6 +2172,21 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         documentoEnEdicion_ID = doc;
         movimientosOriginalesDocumento_HashMap =
                 calculator.calcularMovimientosOriginales(originales);
+    }
+
+    /**
+     * ⭐ NUEVO (10-nov, Jorge): en Área 3 (updateDelete) el Saldo 1 de listaCuentasDeRevision_XSp
+     * debe ser el saldo de la BD MENOS lo que ya aporta el documento en edición, para que Saldo 2
+     * quede igual al saldo real. Ese ajuste dependía de que cada camino de entrada (consecutivo,
+     * botón verde, F3_2_VerItemTransaccion) hubiera dejado listo documentoCargadoParaEdicion y
+     * movimientosOriginalesDocumento_HashMap; al llegar desde F3_2 no siempre quedaba y Saldo 1
+     * salía sin restar el documento (Bolsillo 83 − 45 = 38 en vez de 83). Ahora se recalcula
+     * desde la BD justo antes de mostrar los saldos, igual para las tres formas de editar.
+     */
+    public void asegurarAjusteDeSaldosEnEdicion() {
+        if (currentRadioButtonId == R.id.updateDelete_XRb) {
+            recalcularAjusteDeSaldosDesdeBD();
+        }
     }
 
     public void resetearSpinnerCuentasRevision() {

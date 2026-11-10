@@ -68,6 +68,7 @@ public class ControlAccountsUnit {
                         // resta los movimientos originales para no contarlos dos veces
                         f1.$sAc = Integer.parseInt(String.valueOf(f1.sumaTransaccionesCuenta));
                         Integer adjustedInitialBalance = f1.$sAc;
+                        f1.asegurarAjusteDeSaldosEnEdicion(); // ⭐ (10-nov) mismo criterio en las 3 formas de editar
 
                         if (f1.documentoCargadoParaEdicion
                                 && f1.movimientosOriginalesDocumento_HashMap.containsKey(selected)) {
