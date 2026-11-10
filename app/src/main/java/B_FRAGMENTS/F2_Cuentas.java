@@ -3502,6 +3502,15 @@ public class F2_Cuentas extends DialogFragment {
                 if (datos[2] != null && datos[3] != null) {
                     gruposFormatoAntiguo.put(datos[1].trim(), new String[]{datos[2].trim(), datos[3].trim()});
                 }
+                // ⭐ NUEVO (10-nov, Jorge): el CSV antiguo no trae la columna "conciliable" y la
+                // cuenta quedaba en 0, así que en F1 la lista "A conciliar" salía vacía. Se deriva
+                // de su Grupo2, con la misma regla de la migración v12: "Exigible Conciliable" y
+                // "No exigible Conciliable" → 1; "... No conciliable" → 0.
+                if (!valores.containsKey("conciliable") && datos.length > 3 && datos[3] != null) {
+                    String g2 = datos[3].trim().toLowerCase(java.util.Locale.ROOT);
+                    valores.put("conciliable",
+                            g2.contains("conciliable") && !g2.contains("no conciliable") ? 1 : 0);
+                }
             }
 
             // ⭐ NUEVO (3-nov, BD v24, renta R1): columnas 14-16 (renglón de renta por código,
