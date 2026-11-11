@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 29; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7)
+    public static final int version1BalanceSqlite_int_PSF = 30; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -534,12 +534,9 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "clasificacion_id INTEGER NOT NULL REFERENCES " + TABLE_CLASIFICACION_CONTABLE + "(clasificacion_id), " +
                     "nombre TEXT NOT NULL UNIQUE, " +
                     "naturaleza_normal TEXT NOT NULL, " +
-                    // ⭐ Columnas del modelo final (hoja "Modelo — Columnas") que esta versión ya
-                    // declara para no tener que recrear la tabla más adelante, pero que todavía no
-                    // se llenan con un valor real — eso pertenece al catálogo definitivo de
-                    // tipo_cuenta que Jorge construya, no al placeholder mecánico de esta versión.
-                    "estado_financiero TEXT, " +
-                    "signo_presentacion TEXT, " +
+                    // ⭐ RETIRADO (11-nov, BD v30): estado_financiero y signo_presentacion (modelo
+                    // final, hoja 111). Nunca se llenaron ni se leyeron: el estado financiero y el
+                    // signo con que se presenta un saldo salen de la clase contable del tipo.
                     // ⭐ NUEVO (31-oct, BD v17): nivel de liquidez del tipo de cuenta, definido por
                     // Jorge: "Inmediata", "Requiere trámite", "Depende de terceros",
                     // "No disponible a corto plazo" o "No aplica". Es efectivo todo lo "Inmediata"
@@ -2701,6 +2698,22 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         }
     }
 
+    // ⭐ NUEVO (11-nov, BD v30): índice único sobre el nombre de la cuenta (brecha 5 del repaso
+    // final del modelo). F2 ya impide crear o renombrar una cuenta con un nombre repetido; el
+    // índice lo garantiza también para los CSV de restauración (una fila repetida queda entre
+    // las fallidas, con su motivo). Igual que el de documento+ítem, es "best effort": si el
+    // dispositivo ya tiene nombres repetidos, NO tumba la migración — se registra y se continúa.
+    private void crearIndiceUnicoNombreCuenta(SQLiteDatabase db) {
+        try {
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_cuentas_nombre ON cuentas(Cuenta)");
+        } catch (Exception e) {
+            android.util.Log.w("A1_1_AyudanteBD",
+                    "No se pudo crear el índice único del nombre de cuenta — hay nombres " +
+                            "repetidos en este dispositivo. Se continúa sin él. Detalle: " +
+                            e.getMessage());
+        }
+    }
+
     // ⭐ NUEVO v8: índices simples de lectura frecuente sobre "transacciones" — no imponen
     // ninguna restricción, solo aceleran consultas que ya existen hoy (por cuenta, por documento,
     // por fecha). Se comparte entre onCreate y la migración v8 por la misma razón que arriba.
@@ -2725,6 +2738,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // ⭐ v3: "cuentas" se crea primero porque "transacciones" ahora la referencia
         // (cuenta_id REFERENCES cuentas.cuenta_id) — orden lógico padre→hijo.
         db.execSQL(crearCuentas_String);
+        crearIndiceUnicoNombreCuenta(db); // ⭐ NUEVO (11-nov, BD v30)
         db.execSQL(crearTransacciones_String);
         // ⭐ NUEVO v8 — Fase 5: índices sobre "transacciones" desde el inicio en instalaciones
         // frescas (mismos helpers que usa la migración v8 — ver más abajo).
@@ -3690,6 +3704,41 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         "SELECT sesion_id, registro, 1, contrapartida_id, contrapartida_nombre, -diferencia FROM " +
                         TABLE_AJUSTE_RENTA + " WHERE contrapartida_id IS NOT NULL");
             }
+        }
+
+        // ⭐ NUEVO (11-nov): versión 30 — repaso final del modelo (brechas 4 y 5).
+        // a) tipo_cuenta pierde estado_financiero y signo_presentacion (vacías y sin uso). SQLite
+        //    (minSdk 27) no tiene DROP COLUMN, así que se recrea la tabla preservando
+        //    tipo_cuenta_id EXACTO — mismo procedimiento que la v18 con "cuentas". Las FK están
+        //    apagadas durante onUpgrade (se activan en onOpen); cuentas y transacciones siguen
+        //    referenciando "tipo_cuenta" por nombre. Si por algo estuvieran activas, se omite el
+        //    paso (las columnas quedan, sin efecto) en vez de arriesgar datos.
+        // b) índice único sobre cuentas.Cuenta.
+        if (oldVersion < 30) {
+            boolean fkActivas = false;
+            Cursor fk = db.rawQuery("PRAGMA foreign_keys", null);
+            try {
+                fkActivas = fk.moveToFirst() && fk.getInt(0) == 1;
+            } finally {
+                fk.close();
+            }
+            if (fkActivas) {
+                android.util.Log.w("A1_1_AyudanteBD", "Migración v30: FK activas, " +
+                        "tipo_cuenta conserva sus columnas vacías");
+            } else if (tieneColumna(db, TABLE_TIPO_CUENTA, "estado_financiero")
+                    || tieneColumna(db, TABLE_TIPO_CUENTA, "signo_presentacion")) {
+                db.execSQL(SQL_CREAR_TIPO_CUENTA.replace(
+                        "CREATE TABLE IF NOT EXISTS " + TABLE_TIPO_CUENTA + " (",
+                        "CREATE TABLE tipo_cuenta_temp_v30 ("));
+                db.execSQL("INSERT INTO tipo_cuenta_temp_v30 (" +
+                        "tipo_cuenta_id, clasificacion_id, nombre, naturaleza_normal, liquidez, " +
+                        "soporte_sugerido) " +
+                        "SELECT tipo_cuenta_id, clasificacion_id, nombre, naturaleza_normal, liquidez, " +
+                        "soporte_sugerido FROM " + TABLE_TIPO_CUENTA);
+                db.execSQL("DROP TABLE " + TABLE_TIPO_CUENTA);
+                db.execSQL("ALTER TABLE tipo_cuenta_temp_v30 RENAME TO " + TABLE_TIPO_CUENTA);
+            }
+            crearIndiceUnicoNombreCuenta(db);
         }
     }
 
