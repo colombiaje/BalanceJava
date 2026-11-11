@@ -790,7 +790,7 @@
                 android:visibility="gone"
                 android:layout_marginEnd="2dp"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="30dp"
                 android:background="#A1CA26"
                 android:text="Fecha"
                 android:textAlignment="center"
@@ -805,7 +805,7 @@
                 android:gravity="center"
                 android:minWidth="0dp"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="30dp"
                 android:background="#FA94B7"
                 android:textAlignment="center"
                 android:textColor="#425DF6"
@@ -817,6 +817,8 @@
 
             <Button
                 android:id="@+id/guardarCambiosALaBD"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:paddingHorizontal="10dp"
@@ -824,7 +826,7 @@
                 android:textSize="13sp"
                 android:layout_marginHorizontal="2dp"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="30dp"
                 android:text="Guardar"
                 app:layout_column="0"
                 app:layout_columnWeight="1"
@@ -834,6 +836,8 @@
 
             <Button
                 android:id="@+id/cleanSinCambiosInBD_XBt"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:paddingHorizontal="10dp"
@@ -841,7 +845,7 @@
                 android:textSize="13sp"
                 android:layout_marginHorizontal="2dp"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="30dp"
                 android:text="Limpiar"
                 app:layout_column="1"
                 app:layout_columnSpan="1"
@@ -852,6 +856,8 @@
 
             <Button
                 android:id="@+id/salidaEsteFragment_XBt"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:paddingHorizontal="10dp"
@@ -859,7 +865,7 @@
                 android:textSize="13sp"
                 android:layout_marginHorizontal="2dp"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="30dp"
                 android:text="Salir"
                 app:layout_column="2"
                 app:layout_columnSpan="1"
@@ -869,8 +875,10 @@
             <!-- ⭐ CANAL D — Botón verde intercambiador slot 3 ↔ slot 4 (11-nov: junto a Salir) -->
             <Button
                 android:id="@+id/botonVerde_CanalD_XBt"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="30dp"
                 android:backgroundTint="#4CAF50"
                 android:text="⇄ En espera"
                 android:textColor="#FFFFFF"

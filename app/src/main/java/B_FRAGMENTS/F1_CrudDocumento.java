@@ -2393,6 +2393,16 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         if (dateInTemplate_XTv != null) {
             dateInTemplate_XTv.setVisibility(enPlantilla ? View.VISIBLE : View.GONE);
         }
+        // ⭐ (11-nov, Jorge): en Plantilla la lista de registros es un poco más baja (180 dp en
+        // vez de 230 dp) para que se vea la lista de cuentas a revisar, que queda debajo.
+        if (listaDocumento_XLv != null) {
+            ViewGroup.LayoutParams lp = listaDocumento_XLv.getLayoutParams();
+            if (lp != null) {
+                lp.height = Math.round((enPlantilla ? 180 : 230)
+                        * getResources().getDisplayMetrics().density);
+                listaDocumento_XLv.setLayoutParams(lp);
+            }
+        }
     }
 
     // 3
