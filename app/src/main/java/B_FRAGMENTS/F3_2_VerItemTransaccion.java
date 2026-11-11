@@ -177,12 +177,6 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
         super.onDestroy();
     }
 
-    @Override
-    public void onCancel(@NonNull DialogInterface dialog) {
-        // Cerrada por el usuario con "atrás": F1 ya no debe reabrirla.
-        F1_CrudDocumento.consultaAbiertaEnSesion = null;
-        super.onCancel(dialog);
-    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -196,6 +190,16 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     public Dialog onCreateDialog(Bundle savedInstanceState) {
 
         Dialog dialogo_Dialog = new Dialog(getActivity(),android.R.style.Theme_Translucent_NoTitleBar);
+        // ⭐ (11-nov, Jorge): solo "atrás" cuenta como cerrar a propósito. Tocar fuera de la
+        // ventana (por ejemplo el menú lateral) también la cancela, pero en ese caso F1 debe
+        // reabrirla al volver; por eso ya no se limpia la marca en onCancel.
+        dialogo_Dialog.setOnKeyListener((dlg, keyCode, event) -> {
+            if (keyCode == android.view.KeyEvent.KEYCODE_BACK
+                    && event.getAction() == android.view.KeyEvent.ACTION_UP) {
+                F1_CrudDocumento.consultaAbiertaEnSesion = null;
+            }
+            return false;
+        });
         final View inflarViews_View = getActivity().getLayoutInflater().inflate(R.layout.f3_2_and_f3_4_ver_item_transacciones, null);
 
         final Drawable d_Drawable = new ColorDrawable(Color.BLACK);

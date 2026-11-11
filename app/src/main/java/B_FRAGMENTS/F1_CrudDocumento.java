@@ -1488,6 +1488,19 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     // En cualquier método de F1_CrudDocumento donde quieras cerrar F3_2_VerItemTransaccion
+    private boolean hayConsultaVisible() {
+        if (getActivity() == null) return false;
+        for (Fragment f : getActivity().getSupportFragmentManager().getFragments()) {
+            if (f instanceof F3_2_VerItemTransaccion && f.isVisible()) return true;
+            if (f != null && f.isAdded()) {
+                for (Fragment h : f.getChildFragmentManager().getFragments()) {
+                    if (h instanceof F3_2_VerItemTransaccion && h.isVisible()) return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public void cerrarVerItemTransaccion() {
         consultaAbiertaEnSesion = null; // ⭐ (11-nov) cerrada a propósito: no reabrir
         if (getActivity() != null) {
@@ -2709,13 +2722,17 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     private void reabrirConsultaSiQuedoAbierta() {
         final String cuenta = consultaAbiertaEnSesion;
-        if (TextUtils.isEmpty(cuenta) || F3_2_VerItemTransaccion.instanciaViva) return;
+        Log.d("ReabrirConsulta", "onResume F1: cuenta=" + cuenta + " visible=" + hayConsultaVisible());
+        if (TextUtils.isEmpty(cuenta)) return;
         Bundle args = getArguments();
         if (args != null && args.containsKey("keyDocumentNumber")) return; // viene a editar un doc.
         View v = getView();
         if (v == null) return;
         v.postDelayed(() -> {
-            if (!isAdded() || F3_2_VerItemTransaccion.instanciaViva
+            // ⭐ CAMBIO (11-nov): se mira si hay una consulta VISIBLE, no si existe. Al irse por
+            // el menú, la consulta puede quedar guardada en la pila sin verse, y antes eso
+            // bastaba para no reabrirla.
+            if (!isAdded() || hayConsultaVisible()
                     || buscarCuentaParaTransaccionest_XAT == null) return;
             buscarCuentaParaTransaccionest_XAT.setText(cuenta);
             buscarCuentaParaTransaccionest_XAT.dismissDropDown();
