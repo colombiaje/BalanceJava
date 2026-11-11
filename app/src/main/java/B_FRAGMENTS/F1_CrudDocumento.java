@@ -262,6 +262,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public String copiarCuentaSpinnerAnterior_String;
     /** ⭐ (11-nov) Lo que se borró con el ↻ de cada campo del registro, por id del campo. */
     public final java.util.Map<Integer, String> borradoPorCampo = new java.util.HashMap<>();
+    /** ⭐ (11-nov) Texto que el ciclo del ↻ dejó en cada campo (para saber si el usuario escribió encima). */
+    public final java.util.Map<Integer, String> textoCicloPorCampo = new java.util.HashMap<>();
     public String ultimoDocumentoEnLaTabla;
     public String[] cuentaDemasRegistros_ArrayS;
     public String[] signosAlRegistrar_ArrayString;

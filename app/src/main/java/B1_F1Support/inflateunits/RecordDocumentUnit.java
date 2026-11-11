@@ -452,10 +452,9 @@ public class RecordDocumentUnit {
     // y un solo interruptor entre los tres campos (borrar en Descripción y pegar en Valor ponía
     // la descripción en el valor), y la flecha roja "anterior" pegaba siempre vacío porque esa
     // memoria nunca se llenaba.
-    //   Toque corto, campo con texto → lo deja en blanco y guarda lo que había.
-    //   Toque corto, campo vacío     → recupera lo que se borró; si no hay nada borrado, pone lo
-    //                                   del registro anterior.
-    //   Toque largo                  → pone siempre lo del registro anterior.
+    //   Toque corto → rota: lleno → vacío → lo borrado → registro anterior → vacío → …
+    //                 (variante circular, 11-nov; antes: borrar / recuperar).
+    //   Toque largo → atajo: pone siempre lo del registro anterior.
     // El "registro anterior" se guarda en B12_DocumentPersistence.agregarItemAListaYRefrescarUI().
     private void setupPasteButtons() {
         configurarBotonMemoria(f1.pegarValor_XChB, f1.valor_XEt,
@@ -471,21 +470,33 @@ public class RecordDocumentUnit {
     private void configurarBotonMemoria(android.widget.Button boton, TextView campo,
                                         Fuente anterior, boolean esCuenta) {
         if (boton == null || campo == null) return;
+        // ⭐ VARIANTE CIRCULAR (11-nov, Jorge): el toque corto rota por los estados
+        //   lleno (lo que escribió el usuario) → vacío → lo borrado → registro anterior → vacío → …
+        // Si el usuario escribe a mano en medio del ciclo, lo escrito pasa a ser el nuevo "lleno".
+        // Los pasos que no aplican (no hay nada borrado, o es igual al registro anterior) se saltan.
         boton.setOnClickListener(v -> {
+            int id = campo.getId();
             String actual = campo.getText().toString();
-            if (!TextUtils.isEmpty(actual)) {
-                f1.borradoPorCampo.put(campo.getId(), actual);           // b. dejar en blanco
-                campo.setText("");
-            } else {
-                String borrado = f1.borradoPorCampo.remove(campo.getId());
-                if (!TextUtils.isEmpty(borrado)) {
-                    poner(campo, borrado, esCuenta);                    // c. recuperar lo borrado
-                } else if (!TextUtils.isEmpty(anterior.valor())) {
-                    poner(campo, anterior.valor(), esCuenta);           // a. registro anterior
-                    avisar("Registro anterior");
-                } else {
-                    avisar("No hay nada que recuperar");
-                }
+            String esperado = f1.textoCicloPorCampo.get(id);
+            boolean enCiclo = esperado != null && esperado.equals(actual);
+            String borrado = f1.borradoPorCampo.get(id);
+            String previo = anterior.valor();
+
+            if (!enCiclo && !TextUtils.isEmpty(actual)) {
+                f1.borradoPorCampo.put(id, actual);                       // lleno → vacío
+                ponerCiclo(campo, "", esCuenta, "Vacío");
+                return;
+            }
+            boolean hayBorrado = !TextUtils.isEmpty(borrado);
+            boolean hayPrevio = !TextUtils.isEmpty(previo) && !previo.equals(borrado);
+            if (TextUtils.isEmpty(actual)) {                               // vacío → borrado / anterior
+                if (hayBorrado) ponerCiclo(campo, borrado, esCuenta, "Lo borrado");
+                else if (hayPrevio) ponerCiclo(campo, previo, esCuenta, "Registro anterior");
+                else avisar("No hay nada que recuperar");
+            } else if (hayBorrado && actual.equals(borrado) && hayPrevio) { // borrado → anterior
+                ponerCiclo(campo, previo, esCuenta, "Registro anterior");
+            } else {                                                       // anterior → vacío
+                ponerCiclo(campo, "", esCuenta, "Vacío");
             }
         });
         boton.setOnLongClickListener(v -> {
@@ -497,11 +508,17 @@ public class RecordDocumentUnit {
                 if (!TextUtils.isEmpty(actual) && !actual.equals(previo)) {
                     f1.borradoPorCampo.put(campo.getId(), actual);
                 }
-                poner(campo, previo, esCuenta);                          // a. registro anterior
-                avisar("Registro anterior");
+                ponerCiclo(campo, previo, esCuenta, "Registro anterior"); // atajo al registro anterior
             }
             return true;
         });
+    }
+
+    private void ponerCiclo(TextView campo, String texto, boolean esCuenta, String aviso) {
+        f1.textoCicloPorCampo.put(campo.getId(), texto);
+        if (TextUtils.isEmpty(texto)) campo.setText("");
+        else poner(campo, texto, esCuenta);
+        avisar(aviso);
     }
 
     private void poner(TextView campo, String texto, boolean esCuenta) {

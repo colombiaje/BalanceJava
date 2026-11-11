@@ -781,6 +781,7 @@ public class B12_DocumentPersistence {
         // Lo borrado pertenecía al registro que se acaba de agregar: en el siguiente, el toque
         // corto en un campo vacío debe traer el registro anterior, no lo de aquel.
         f1.borradoPorCampo.clear();
+        f1.textoCicloPorCampo.clear();
 
         try {
             f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
