@@ -447,56 +447,76 @@ public class RecordDocumentUnit {
         });
     }
 
-    // Botones copiar/pegar para valor, descripción y cuenta
+    // ⭐ REDISEÑO (11-nov, Jorge): un solo botón ↻ por campo (Valor, Descripción, Cuenta), cada
+    // uno con su propia memoria. Antes había dos botones por campo: ↻ compartía UNA sola memoria
+    // y un solo interruptor entre los tres campos (borrar en Descripción y pegar en Valor ponía
+    // la descripción en el valor), y la flecha roja "anterior" pegaba siempre vacío porque esa
+    // memoria nunca se llenaba.
+    //   Toque corto, campo con texto → lo deja en blanco y guarda lo que había.
+    //   Toque corto, campo vacío     → recupera lo que se borró; si no hay nada borrado, pone lo
+    //                                   del registro anterior.
+    //   Toque largo                  → pone siempre lo del registro anterior.
+    // El "registro anterior" se guarda en B12_DocumentPersistence.agregarItemAListaYRefrescarUI().
     private void setupPasteButtons() {
-        f1.pegarValor_XChB.setOnClickListener(v ->
-                handleCopyPaste(f1.valor_XEt, f1.pegarValor_XChB));
-        f1.pegarValorAnterior_XChB.setOnClickListener(v ->
-                f1.valor_XEt.setText(f1.copiarValorAnterior_String));
-        f1.pegarDescripcion_XChB.setOnClickListener(v ->
-                handleCopyPaste(f1.descripcion_XAtv, f1.pegarDescripcion_XChB));
-        f1.pegarDescripcionAnterior_XChB.setOnClickListener(v ->
-                f1.descripcion_XAtv.setText(f1.copiarDesripcionAnterior_String));
-        // ⭐ FIX — v16 (ver el comentario de clase en seleccionarCuentaDesdeTexto()): ambos
-        // botones de "pegar cuenta" ahora también disparan la resolución de cuenta_XSp — antes
-        // solo ponían el texto en cuenta_XAtv, sin nunca seleccionar la cuenta en el spinner, así
-        // que el registro (y la detección de inventario) nunca se disparaba al reusar una cuenta
-        // con estos botones.
-        f1.pegarCuentaSpinner_XChB.setOnClickListener(v -> {
-            boolean eraModoCopiar = f1.isCopyMode;
-            handleCopyPaste(f1.cuenta_XAtv, f1.pegarCuentaSpinner_XChB);
-            // Solo cuando la acción fue "pegar" (no "copiar", que deja el campo vacío) hay un
-            // texto nuevo que resolver.
-            if (!eraModoCopiar) {
-                seleccionarCuentaDesdeTexto();
+        configurarBotonMemoria(f1.pegarValor_XChB, f1.valor_XEt,
+                () -> f1.copiarValorAnterior_String, false);
+        configurarBotonMemoria(f1.pegarDescripcion_XChB, f1.descripcion_XAtv,
+                () -> f1.copiarDesripcionAnterior_String, false);
+        configurarBotonMemoria(f1.pegarCuentaSpinner_XChB, f1.cuenta_XAtv,
+                () -> f1.copiarCuentaSpinnerAnterior_String, true);
+    }
+
+    private interface Fuente { String valor(); }
+
+    private void configurarBotonMemoria(android.widget.Button boton, TextView campo,
+                                        Fuente anterior, boolean esCuenta) {
+        if (boton == null || campo == null) return;
+        boton.setOnClickListener(v -> {
+            String actual = campo.getText().toString();
+            if (!TextUtils.isEmpty(actual)) {
+                f1.borradoPorCampo.put(campo.getId(), actual);           // b. dejar en blanco
+                campo.setText("");
+            } else {
+                String borrado = f1.borradoPorCampo.remove(campo.getId());
+                if (!TextUtils.isEmpty(borrado)) {
+                    poner(campo, borrado, esCuenta);                    // c. recuperar lo borrado
+                } else if (!TextUtils.isEmpty(anterior.valor())) {
+                    poner(campo, anterior.valor(), esCuenta);           // a. registro anterior
+                    avisar("Registro anterior");
+                } else {
+                    avisar("No hay nada que recuperar");
+                }
             }
         });
-        f1.pegarCuetaAnterior_XChB.setOnClickListener(v -> {
-            f1.cuenta_XAtv.setText(f1.copiarCuentaSpinnerAnterior_String);
-            if (!TextUtils.isEmpty(f1.copiarCuentaSpinnerAnterior_String)) {
-                seleccionarCuentaDesdeTexto();
+        boton.setOnLongClickListener(v -> {
+            String previo = anterior.valor();
+            if (TextUtils.isEmpty(previo)) {
+                avisar("Aún no hay registro anterior");
+            } else {
+                String actual = campo.getText().toString();
+                if (!TextUtils.isEmpty(actual) && !actual.equals(previo)) {
+                    f1.borradoPorCampo.put(campo.getId(), actual);
+                }
+                poner(campo, previo, esCuenta);                          // a. registro anterior
+                avisar("Registro anterior");
             }
+            return true;
         });
     }
 
-    // Lógica compartida copiar/pegar usada por los 3 pares de botones
-    private void handleCopyPaste(TextView field, android.widget.Button button) {
-        if (f1.isCopyMode) {
-            String currentText = field.getText().toString();
-            if (!TextUtils.isEmpty(currentText)) {
-                f1.copiedText = currentText;
-                field.setText("");
-                button.setCompoundDrawablesWithIntrinsicBounds(
-                        R.drawable.ic_clean_paste, 0, 0, 0);
-                f1.isCopyMode = false;
-            }
-        } else {
-            if (!TextUtils.isEmpty(f1.copiedText)) {
-                field.setText(f1.copiedText);
-                button.setCompoundDrawablesWithIntrinsicBounds(
-                        R.drawable.ic_clean_paste, 0, 0, 0);
-                f1.isCopyMode = true;
-            }
+    private void poner(TextView campo, String texto, boolean esCuenta) {
+        campo.setText(texto);
+        if (campo instanceof android.widget.EditText) {
+            ((android.widget.EditText) campo).setSelection(texto.length());
+        }
+        // Igual que antes: al pegar una cuenta también se selecciona en cuenta_XSp, para que el
+        // registro (y la detección de inventario) se disparen.
+        if (esCuenta) seleccionarCuentaDesdeTexto();
+    }
+
+    private void avisar(String texto) {
+        if (f1.getActivity() != null) {
+            android.widget.Toast.makeText(f1.getActivity(), texto, android.widget.Toast.LENGTH_SHORT).show();
         }
     }
 

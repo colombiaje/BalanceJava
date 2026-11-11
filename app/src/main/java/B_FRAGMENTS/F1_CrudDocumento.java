@@ -260,6 +260,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public String copiarSigno_String;
     public String copiarDesripcionAnterior_String;
     public String copiarCuentaSpinnerAnterior_String;
+    /** ⭐ (11-nov) Lo que se borró con el ↻ de cada campo del registro, por id del campo. */
+    public final java.util.Map<Integer, String> borradoPorCampo = new java.util.HashMap<>();
     public String ultimoDocumentoEnLaTabla;
     public String[] cuentaDemasRegistros_ArrayS;
     public String[] signosAlRegistrar_ArrayString;
@@ -935,7 +937,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         animarBotonModificar();
         cuenta_XAtv.setVisibility(View.VISIBLE);
         cuenta_XAtv.setText(""); // Limpiar
-        pegarCuetaAnterior_XChB.setVisibility(View.VISIBLE);
+        // (11-nov) pegarCuetaAnterior_XChB queda oculto: el ↻ de cuenta hace también "anterior".
         pegarCuentaSpinner_XChB.setVisibility(View.VISIBLE);
     }
 

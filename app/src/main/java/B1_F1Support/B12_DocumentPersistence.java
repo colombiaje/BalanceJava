@@ -771,6 +771,17 @@ public class B12_DocumentPersistence {
     private void agregarItemAListaYRefrescarUI(A3_2_TipoTransaccionesGetsYSets nuevoItem) {
         f1.listaDocumento_ArrayLTT.add(nuevoItem);
 
+        // ⭐ NUEVO (11-nov, Jorge): memoria del "registro anterior" para el toque largo de los
+        // botones ↻ de Descripción, Cuenta y Valor (RecordDocumentUnit). Antes estas variables
+        // existían pero nunca se llenaban, y la flecha roja "anterior" pegaba siempre vacío.
+        f1.copiarDesripcionAnterior_String = nuevoItem.tipoTget_6DescripcionMetodoEnA5();
+        f1.copiarCuentaSpinnerAnterior_String = nuevoItem.tipoTget_3CuentaMetodoEnA5();
+        Integer valorAnterior = nuevoItem.tipoTget_5ValorMetodoEnA5();
+        f1.copiarValorAnterior_String = valorAnterior == null ? "" : String.valueOf(Math.abs(valorAnterior));
+        // Lo borrado pertenecía al registro que se acaba de agregar: en el siguiente, el toque
+        // corto en un campo vacío debe traer el registro anterior, no lo de aquel.
+        f1.borradoPorCampo.clear();
+
         try {
             f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
                     new D_F1_AdaptadorCrudDocumento(

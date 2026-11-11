@@ -1134,7 +1134,7 @@
                     app:layout_column="6"
                     android:gravity="center"
                     app:layout_gravity="center_vertical"
-                    android:visibility="visible"
+                    android:visibility="gone"
                     />
 
                 <!-- ⭐ REORDEN UX — v16: signo_XSp se traslada aquí (antes vivía en
@@ -1250,7 +1250,7 @@
                     app:layout_column="2"
                     android:gravity="center"
                     app:layout_gravity="center_vertical"
-                    android:visibility="visible"
+                    android:visibility="gone"
                     />
 
                 <Button
