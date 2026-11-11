@@ -629,70 +629,9 @@
             app:rowCount="5"
             app:useDefaultMargins="true">
 
-            <TextView
-                android:id="@+id/etiquetaEditarDocumento"
-                android:layout_width="130dp"
-                android:layout_height="25dp"
-                android:layout_marginRight="2dp"
-                android:background="#FDFDF9"
-                android:text="Editar Doc. #: "
-                android:textAlignment="center"
-                android:textColor="#425DF6"
-                android:textSize="18dp"
-                app:layout_gravity="center_vertical"
-                app:layout_row="0"
 
-                />
 
-            <AutoCompleteTextView
-                android:id="@+id/documentoABuscarParaEditar_XATv"
-                android:layout_width="75dp"
-                android:layout_height="wrap_content"
-                android:layout_marginRight="2dp"
-                android:background="#FDFDF9"
-                android:completionThreshold="1"
-                android:dropDownWidth="100dp"
-                android:dropDownHeight="250dp"
-                android:dropDownSelector="@color/design_default_color_primary"
-                android:hint="Escriba"
-                android:inputType="number"
-                android:maxLength="28"
-                android:popupBackground="#92E0D8"
-                android:singleLine="true"
-                android:textAlignment="center"
-                android:textColor="#E122F6"
-                android:textColorHint="#425DF6"
-                android:textSize="20dp"
-                app:layout_column="1"
-                app:layout_gravity="center"
-                app:layout_row="0" />
 
-            <CheckBox
-                android:id="@+id/limpiarDocumentoModificar_XChB"
-                android:layout_width="40dp"
-                android:layout_height="25dp"
-                android:background="@drawable/ic_clean_paste"
-                android:button="@null"
-                android:textAlignment="center"
-                android:textColor="#FCFFFC"
-                android:textSize="25dp"
-                android:textStyle="bold"
-                app:layout_column="2"
-                app:layout_gravity="center"
-                app:layout_row="0" />
-
-            <Button
-                android:id="@+id/eliminaDocumento_XBt"
-                android:layout_width="30dp"
-                android:layout_height="23dp"
-                android:background="@drawable/ic_delete"
-                android:text=""
-                android:textSize="15sp"
-                android:visibility="visible"
-                app:layout_column="3"
-                app:layout_row="0"
-
-                />
 
             <TextView
 
@@ -733,6 +672,72 @@
 
 
 
+            <!-- ⭐ (11-nov, Jorge): fila 0 centrada en un LinearLayout propio, como la fila 1. -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                app:layout_row="0"
+                app:layout_column="0"
+                app:layout_columnSpan="5"
+                app:layout_gravity="center_horizontal"
+                >
+                <TextView
+                    android:id="@+id/etiquetaEditarDocumento"
+                    android:layout_marginEnd="4dp"
+                    android:layout_width="130dp"
+                    android:layout_height="25dp"
+                    android:layout_marginRight="2dp"
+                    android:background="#FDFDF9"
+                    android:text="Editar Doc. #: "
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="18dp"
+
+                    />
+                <AutoCompleteTextView
+                    android:id="@+id/documentoABuscarParaEditar_XATv"
+                    android:layout_marginEnd="4dp"
+                    android:layout_width="75dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="2dp"
+                    android:background="#FDFDF9"
+                    android:completionThreshold="1"
+                    android:dropDownWidth="100dp"
+                    android:dropDownHeight="250dp"
+                    android:dropDownSelector="@color/design_default_color_primary"
+                    android:hint="Escriba"
+                    android:inputType="number"
+                    android:maxLength="28"
+                    android:popupBackground="#92E0D8"
+                    android:singleLine="true"
+                    android:textAlignment="center"
+                    android:textColor="#E122F6"
+                    android:textColorHint="#425DF6"
+                    android:textSize="20dp" />
+                <CheckBox
+                    android:id="@+id/limpiarDocumentoModificar_XChB"
+                    android:layout_marginEnd="4dp"
+                    android:layout_width="40dp"
+                    android:layout_height="25dp"
+                    android:background="@drawable/ic_clean_paste"
+                    android:button="@null"
+                    android:textAlignment="center"
+                    android:textColor="#FCFFFC"
+                    android:textSize="25dp"
+                    android:textStyle="bold" />
+                <Button
+                    android:id="@+id/eliminaDocumento_XBt"
+                    android:layout_width="30dp"
+                    android:layout_height="23dp"
+                    android:background="@drawable/ic_delete"
+                    android:text=""
+                    android:textSize="15sp"
+                    android:visibility="visible"
+
+                    />
+            </LinearLayout>
             <!-- ⭐ COMPACTO (11-nov, Jorge): fecha, nueva fecha, Modificar y "Últ. D." en una sola
                  fila; las etiquetas "Fecha incial"/"Nueva" quedan gone (en Java son alias de
                  changeOfDateInUpdate_XTv, nunca se mostraban). El botón "En espera" pasa a la
@@ -760,8 +765,9 @@
                     />
                 <TextView
                     android:id="@+id/changeOfDateInUpdate_XTv"
+                    android:gravity="center"
                     android:layout_width="80dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="25dp"
                     android:background="#FDFDF9"
                     android:textAlignment="center"
                     android:textColor="#425DF6"
@@ -773,7 +779,7 @@
                 <CheckBox
                     android:id="@+id/assignedOtherDateInUpdate_XChB"
                     android:layout_width="wrap_content"
-                    android:layout_height="27dp"
+                    android:layout_height="25dp"
                     android:background="#A1CA26"
                     android:text="Modificar"
                     android:textAlignment="center"
@@ -784,8 +790,9 @@
                     />
                 <TextView
                     android:id="@+id/EtiquetaDocumentoConsecutivo_XTv"
+                    android:gravity="center"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="25dp"
                     android:background="#FDFDF9"
                     android:text="Últ. D."
                     android:textAlignment="center"
@@ -795,8 +802,9 @@
                     />
                 <TextView
                     android:id="@+id/numeroConsecutivoDocEnEdicion_XTv"
+                    android:gravity="center"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="25dp"
                     android:background="#A1CA26"
                     android:textAlignment="center"
                     android:textColor="#425DF6"
@@ -922,7 +930,7 @@
                  conciliar". -->
             <androidx.gridlayout.widget.GridLayout
                 android:id="@+id/areaConciliacion_XGl"
-                android:layout_width="400dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 app:rowCount="11"
                 app:columnCount="2"
@@ -956,7 +964,7 @@
                     android:layout_marginHorizontal="3dp"
                     android:layout_marginVertical="2dp"
                     android:id="@+id/cuentaConciliacion_XSp"
-                    android:layout_width="270dp"
+                    android:layout_width="250dp"
                     android:layout_height="32dp"
                     android:background="@drawable/bg_pink_square"
                     android:dropDownWidth="350dp"
@@ -1588,7 +1596,7 @@
             <ListView
                 android:id="@+id/listaDocumento_XLv"
                 android:layout_width="wrap_content"
-                android:layout_height="150dp"
+                android:layout_height="230dp"
                 android:layout_marginTop="2dp"
                 android:background="#9FF1E9"
                 android:clipToPadding="false"
