@@ -614,10 +614,6 @@
         <!--area 3 adicionar con plantilla fin -->
 
         <!--area 4 update & delete inicio -->
-        <!-- ⭐ COMPACTO (10-nov, Jorge): de 4 filas a 2 + el botón de espera. Fila 0: Editar # |
-             doc | limpiar | eliminar | "Últ."; fila 1: fecha | nueva fecha | Modificar | número
-             del último doc. Las etiquetas "Fecha incial"/"Nueva" quedan gone: en Java son alias
-             de changeOfDateInUpdate_XTv (UpdateDeleteUnit), así que nunca se mostraban. -->
 
         <androidx.gridlayout.widget.GridLayout
             android:id="@+id/areaUpdateAndDelete_XGl"
@@ -630,16 +626,16 @@
             app:layout_column="0"
             app:layout_gravity="center_horizontal"
             app:layout_row="3"
-            app:rowCount="3"
+            app:rowCount="5"
             app:useDefaultMargins="true">
 
             <TextView
                 android:id="@+id/etiquetaEditarDocumento"
-                android:layout_width="wrap_content"
+                android:layout_width="130dp"
                 android:layout_height="25dp"
                 android:layout_marginRight="2dp"
                 android:background="#FDFDF9"
-                android:text="Editar #"
+                android:text="Editar Doc. #: "
                 android:textAlignment="center"
                 android:textColor="#425DF6"
                 android:textSize="18dp"
@@ -713,19 +709,19 @@
                 app:layout_column="0"
                 app:layout_gravity="center_horizontal"
                 app:layout_row="1"
-                android:visibility="gone"
+                android:visibility="invisible"
 
                 />
 
             <TextView
                 android:id="@+id/dateInUpdate_XTv"
-                android:layout_width="85dp"
+                android:layout_width="70dp"
                 android:layout_height="25dp"
                 android:background="#FDFDF9"
                 android:textAlignment="center"
                 android:textColor="#425DF6"
                 android:textSize="15dp"
-                app:layout_column="0"
+                app:layout_column="1"
                 app:layout_gravity="center"
                 app:layout_row="1"
                 android:visibility="invisible"
@@ -734,10 +730,10 @@
             <CheckBox
 
                 android:id="@+id/assignedOtherDateInUpdate_XChB"
-                android:layout_width="wrap_content"
+                android:layout_width="150dp"
                 android:layout_height="27dp"
                 android:background="#A1CA26"
-                android:text="Modificar"
+                android:text="Modificar fecha"
                 android:textAlignment="center"
                 android:textColor="@android:color/black"
                 android:textColorHint="#F9F9FB"
@@ -760,13 +756,12 @@
                 app:layout_column="0"
                 app:layout_gravity="center"
                 app:layout_row="2"
-                android:visibility="gone"
+                android:visibility="invisible"
                 />
 
             <TextView
                 android:id="@+id/changeOfDateInUpdate_XTv"
-                android:hint="nueva fecha"
-                android:layout_width="85dp"
+                android:layout_width="70dp"
                 android:layout_height="wrap_content"
                 android:background="#FDFDF9"
                 android:textAlignment="center"
@@ -774,7 +769,7 @@
                 android:textSize="15dp"
                 app:layout_column="1"
                 app:layout_gravity="center_horizontal"
-                app:layout_row="1"
+                app:layout_row="2"
                 android:visibility="invisible"
                 />
 
@@ -783,13 +778,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#FDFDF9"
-                android:text="Últ."
+                android:text="Ultimo D."
                 android:textAlignment="center"
                 android:textColor="#425DF6"
-                android:textSize="16dp"
-                app:layout_row="0"
-                app:layout_column="4"
-                app:layout_gravity="center_vertical"
+                android:textSize="20dp"
+                app:layout_row="2"
+                app:layout_column="2"
+                app:layout_gravity="left"
                 />
 
             <TextView
@@ -799,21 +794,18 @@
                 android:background="#A1CA26"
                 android:textAlignment="center"
                 android:textColor="#425DF6"
-                android:textSize="16dp"
-                app:layout_column="4"
-                app:layout_gravity="center"
-                app:layout_row="1" />
+                android:textSize="20dp"
+                app:layout_column="3"
+                app:layout_gravity="left"
+                app:layout_row="2" />
 
             <!-- ⭐ CANAL D — Botón verde intercambiador slot 3 ↔ slot 4 -->
             <!-- Solo visible cuando slot 4 tiene datos. -->
             <!-- NO tocar desde Canal A, B ni C. -->
             <Button
                 android:id="@+id/botonVerde_CanalD_XBt"
-                android:paddingBottom="0dp"
-                android:paddingTop="0dp"
-                android:minHeight="0dp"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="wrap_content"
                 android:backgroundTint="#4CAF50"
                 android:text="⇄ En espera"
                 android:textColor="#FFFFFF"
@@ -822,7 +814,7 @@
                 app:layout_column="0"
                 app:layout_columnSpan="5"
                 app:layout_gravity="fill_horizontal"
-                app:layout_row="2" />
+                app:layout_row="3" />
 
             />
 
