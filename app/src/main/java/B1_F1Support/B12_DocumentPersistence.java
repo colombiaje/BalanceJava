@@ -782,6 +782,7 @@ public class B12_DocumentPersistence {
         // corto en un campo vacío debe traer el registro anterior, no lo de aquel.
         f1.borradoPorCampo.clear();
         f1.textoCicloPorCampo.clear();
+        f1.guardarMemoriaRegistro();
 
         try {
             f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =

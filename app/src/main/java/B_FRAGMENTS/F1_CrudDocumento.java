@@ -264,6 +264,55 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public final java.util.Map<Integer, String> borradoPorCampo = new java.util.HashMap<>();
     /** ⭐ (11-nov) Texto que el ciclo del ↻ dejó en cada campo (para saber si el usuario escribió encima). */
     public final java.util.Map<Integer, String> textoCicloPorCampo = new java.util.HashMap<>();
+
+    // ⭐ NUEVO (11-nov, Jorge): la memoria del ↻ (registro anterior, lo borrado y el paso del
+    // ciclo de cada campo) se guarda en las preferencias, para que siga disponible al volver a
+    // la app (botón de inicio, rotación, la app cerrada por el sistema) y el usuario pueda seguir
+    // con el registro a medio llenar que recupera la caché.
+    private static final String PREF_MEMORIA = "MemoriaRegistroF1";
+
+    private String nombreCampoMemoria(int id) {
+        if (id == R.id.valor_XEt) return "valor";
+        if (id == R.id.descripcion_XAtv) return "descripcion";
+        if (id == R.id.cuenta_XAtv) return "cuenta";
+        return null;
+    }
+
+    public void guardarMemoriaRegistro() {
+        if (getContext() == null) return;
+        android.content.SharedPreferences.Editor ed = getContext()
+                .getSharedPreferences(PREF_MEMORIA, android.content.Context.MODE_PRIVATE).edit();
+        ed.clear();
+        ed.putString("anterior_valor", copiarValorAnterior_String);
+        ed.putString("anterior_descripcion", copiarDesripcionAnterior_String);
+        ed.putString("anterior_cuenta", copiarCuentaSpinnerAnterior_String);
+        for (java.util.Map.Entry<Integer, String> e : borradoPorCampo.entrySet()) {
+            String n = nombreCampoMemoria(e.getKey());
+            if (n != null) ed.putString("borrado_" + n, e.getValue());
+        }
+        for (java.util.Map.Entry<Integer, String> e : textoCicloPorCampo.entrySet()) {
+            String n = nombreCampoMemoria(e.getKey());
+            if (n != null) ed.putString("ciclo_" + n, e.getValue());
+        }
+        ed.apply();
+    }
+
+    public void cargarMemoriaRegistro() {
+        if (getContext() == null) return;
+        android.content.SharedPreferences sp = getContext()
+                .getSharedPreferences(PREF_MEMORIA, android.content.Context.MODE_PRIVATE);
+        copiarValorAnterior_String = sp.getString("anterior_valor", copiarValorAnterior_String);
+        copiarDesripcionAnterior_String = sp.getString("anterior_descripcion", copiarDesripcionAnterior_String);
+        copiarCuentaSpinnerAnterior_String = sp.getString("anterior_cuenta", copiarCuentaSpinnerAnterior_String);
+        int[] ids = {R.id.valor_XEt, R.id.descripcion_XAtv, R.id.cuenta_XAtv};
+        for (int id : ids) {
+            String n = nombreCampoMemoria(id);
+            String b = sp.getString("borrado_" + n, null);
+            String c = sp.getString("ciclo_" + n, null);
+            if (b != null) borradoPorCampo.put(id, b);
+            if (c != null) textoCicloPorCampo.put(id, c);
+        }
+    }
     public String ultimoDocumentoEnLaTabla;
     public String[] cuentaDemasRegistros_ArrayS;
     public String[] signosAlRegistrar_ArrayString;

@@ -263,8 +263,10 @@ public class RecordDocumentUnit {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (count > 0) {
                     f1.descripcion_XAtv.setBackgroundColor(Color.parseColor("#1de9b6"));
-                    f1.copiarValorAnterior_String = f1.valor_XEt.getText().toString();
-                    f1.copiarSigno_String = f1.signo_XSp.getSelectedItem().toString();
+                    // ⭐ (11-nov, Jorge): ya no se captura aquí copiarValorAnterior_String ni
+                    // copiarSigno_String. Al escribir la descripción del registro NUEVO el valor
+                    // todavía está vacío, así que se borraba el valor del registro anterior y el
+                    // ↻ de Valor no lo recordaba. Ahora lo guarda B12 al agregar cada registro.
                     f1.seeGridLAyoutAccount();
                 } else {
                     f1.descripcion_XAtv.setBackgroundColor(Color.parseColor("#F4D7F5"));
@@ -288,8 +290,8 @@ public class RecordDocumentUnit {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (count > 0) {
                     f1.cuenta_XAtv.setBackgroundColor(Color.parseColor("#1de9b6"));
-                    f1.copiarDesripcionAnterior_String =
-                            f1.descripcion_XAtv.getText().toString();
+                    // ⭐ (11-nov): ya no se captura aquí copiarDesripcionAnterior_String (lo guarda
+                    // B12 al agregar el registro); aquí pisaba el anterior con el del registro nuevo.
                 } else {
                     f1.cuenta_XAtv.setBackgroundColor(Color.parseColor("#F4D7F5"));
                 }
@@ -377,9 +379,9 @@ public class RecordDocumentUnit {
                         // setupSignoSpinner(), que es ahora el disparador real del registro
                         // (ver el comentario de clase ahí). copiarDesripcionAnterior_String
                         // sí sigue teniendo sentido aquí: descripción ya se digitó antes.
-                        f1.copiarDesripcionAnterior_String =
-                                f1.descripcion_XAtv.getText().toString();
-                        f1.copiarCuentaSpinnerAnterior_String = selected;
+                        // ⭐ (11-nov, Jorge): ya no se capturan aquí la descripción ni la cuenta
+                        // "anteriores": eran las del registro NUEVO y el ↻ de Cuenta perdía la del
+                        // registro anterior. Las guarda B12 al agregar cada registro.
                         f1.losDemasRegistrosAListaDocumento();
                         f1.digitarFisicoVsSaldoConciliacion();
                         f1.ocultarTeclado();
@@ -431,7 +433,6 @@ public class RecordDocumentUnit {
                     // este el punto donde valor y signo ya están realmente digitados (ver el
                     // comentario ahí). Se captura ANTES de confirmar el registro, porque
                     // confirmarRegistroAlElegirSigno() termina limpiando estos campos.
-                    f1.copiarValorAnterior_String = f1.valor_XEt.getText().toString();
                     f1.copiarSigno_String = selected;
                     f1.confirmarRegistroAlElegirSigno();
                     f1.digitarFisicoVsSaldoConciliacion();
@@ -457,6 +458,7 @@ public class RecordDocumentUnit {
     //   Toque largo → atajo: pone siempre lo del registro anterior.
     // El "registro anterior" se guarda en B12_DocumentPersistence.agregarItemAListaYRefrescarUI().
     private void setupPasteButtons() {
+        f1.cargarMemoriaRegistro();
         configurarBotonMemoria(f1.pegarValor_XChB, f1.valor_XEt,
                 () -> f1.copiarValorAnterior_String, false);
         configurarBotonMemoria(f1.pegarDescripcion_XChB, f1.descripcion_XAtv,
@@ -518,6 +520,7 @@ public class RecordDocumentUnit {
         f1.textoCicloPorCampo.put(campo.getId(), texto);
         if (TextUtils.isEmpty(texto)) campo.setText("");
         else poner(campo, texto, esCuenta);
+        f1.guardarMemoriaRegistro();
         avisar(aviso);
     }
 
