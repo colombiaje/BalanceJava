@@ -167,8 +167,26 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     Button historialInventarioDesdeInforme_XBt;
     Long cuentaIdParaHistorialInventario;
 
+    // ⭐ NUEVO (11-nov, Jorge): marca de que hay una consulta viva (para que F1 sepa si debe
+    // reabrirla al volver de otro fragment; ver F1_CrudDocumento.consultaAbiertaEnSesion).
+    public static boolean instanciaViva = false;
+
+    @Override
+    public void onDestroy() {
+        instanciaViva = false;
+        super.onDestroy();
+    }
+
+    @Override
+    public void onCancel(@NonNull DialogInterface dialog) {
+        // Cerrada por el usuario con "atrás": F1 ya no debe reabrirla.
+        F1_CrudDocumento.consultaAbiertaEnSesion = null;
+        super.onCancel(dialog);
+    }
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
+        instanciaViva = true;
         super.onCreate(savedInstanceState);
         setCancelable(true); // Establecer como no modal, sale del dialogo a un click fuera del dialogo
         //getDialog().setCanceledOnTouchOutside(true);
@@ -383,6 +401,8 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             // por eso F1_CrudDocumento no necesita ningún cambio.
             NavController navController = Navigation.findNavController(
                     requireActivity(), R.id.contenedor_fragments_f0_Xf);
+            // ⭐ (11-nov) el usuario eligió un documento: la consulta termina aquí.
+            F1_CrudDocumento.consultaAbiertaEnSesion = null;
             navController.navigate(R.id.navf1, bundle);
         } catch (Exception e) {
             Toast.makeText(getActivity(), "No se puede ver la vista", Toast.LENGTH_SHORT).show();
@@ -864,6 +884,8 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
         salida_XBt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // ⭐ (11-nov) cerrada por el usuario con ✕: F1 ya no debe reabrirla.
+                F1_CrudDocumento.consultaAbiertaEnSesion = null;
                 dismiss();
             }
         });

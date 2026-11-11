@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -1488,6 +1489,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     // En cualquier método de F1_CrudDocumento donde quieras cerrar F3_2_VerItemTransaccion
     public void cerrarVerItemTransaccion() {
+        consultaAbiertaEnSesion = null; // ⭐ (11-nov) cerrada a propósito: no reabrir
         if (getActivity() != null) {
             getActivity().getSupportFragmentManager().popBackStack();
         }
@@ -2696,6 +2698,29 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // Intentionally empty (aparte del badge) — restoration logic runs in onStart()
         actualizarBadgeAuditoria();
         actualizarBadgeCache();
+        reabrirConsultaSiQuedoAbierta();
+    }
+
+    // ⭐ NUEVO (11-nov, Jorge): si el usuario tenía abierta la consulta de una cuenta (F3_2) y se
+    // fue a otro fragment del menú, al volver a F1 se reabre. Con el botón de inicio la consulta
+    // no se destruye (instanciaViva) y no hace falta. Si la app se cierra, esta marca (static) se
+    // pierde y la consulta no se reabre, que es lo natural.
+    public static String consultaAbiertaEnSesion = null;
+
+    private void reabrirConsultaSiQuedoAbierta() {
+        final String cuenta = consultaAbiertaEnSesion;
+        if (TextUtils.isEmpty(cuenta) || F3_2_VerItemTransaccion.instanciaViva) return;
+        Bundle args = getArguments();
+        if (args != null && args.containsKey("keyDocumentNumber")) return; // viene a editar un doc.
+        View v = getView();
+        if (v == null) return;
+        v.postDelayed(() -> {
+            if (!isAdded() || F3_2_VerItemTransaccion.instanciaViva
+                    || buscarCuentaParaTransaccionest_XAT == null) return;
+            buscarCuentaParaTransaccionest_XAT.setText(cuenta);
+            buscarCuentaParaTransaccionest_XAT.dismissDropDown();
+            verTransaccionesPorCuentaConAutocompeteText();
+        }, 300);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2806,6 +2831,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
             String accountToQuery = buscarCuentaParaTransaccionest_XAT
                     .getText().toString();
+            consultaAbiertaEnSesion = accountToQuery; // ⭐ (11-nov) para reabrirla al volver
 
             Fragment fragment = new F3_2_VerItemTransaccion();
             Bundle bundle = new Bundle();
