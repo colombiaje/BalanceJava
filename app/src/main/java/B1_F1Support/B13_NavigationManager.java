@@ -404,19 +404,16 @@ public class B13_NavigationManager {
         boolean hayEnSlot4 = A5_CacheManager.existeCache(
                 f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
 
-        if (hayEnSlot4) {
+        // ⭐ CAMBIO (11-nov, Jorge): el botón pasó a la fila de Guardar / Limpiar / Salir, que es
+        // común a las tres áreas; antes vivía dentro del área Edición y se ocultaba con ella.
+        // Ahora solo se muestra en Edición. La altura la fija el XML (36 dp), ya no se fuerza
+        // aquí a 120 px, y el texto es más corto para que quepa en esa fila.
+        boolean enEdicion = f1.currentRadioButtonId == R.id.updateDelete_XRb;
 
-            // 1. Obtenemos los LayoutParams actuales del botón
-            ViewGroup.LayoutParams params = f1.botonVerde_XBt.getLayoutParams();
-
-            // 2. Modificamos la altura (en píxeles)
-            params.height = 120; // Cambia 180 por el valor que necesites
-
-            // 3. Le aplicamos los parámetros modificados de vuelta al botón
-            f1.botonVerde_XBt.setLayoutParams(params);
+        if (hayEnSlot4 && enEdicion) {
 
             String docEspera = obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
-            f1.botonVerde_XBt.setText("⇄ En espera: #" + docEspera);
+            f1.botonVerde_XBt.setText("⇄ Espera #" + docEspera);
             f1.botonVerde_XBt.setVisibility(View.VISIBLE);
 
             if (!f1.snackbarVerdeYaMostrado) {

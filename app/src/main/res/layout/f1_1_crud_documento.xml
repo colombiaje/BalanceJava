@@ -709,40 +709,11 @@
                 app:layout_column="0"
                 app:layout_gravity="center_horizontal"
                 app:layout_row="1"
-                android:visibility="invisible"
+                android:visibility="gone"
 
                 />
 
-            <TextView
-                android:id="@+id/dateInUpdate_XTv"
-                android:layout_width="70dp"
-                android:layout_height="25dp"
-                android:background="#FDFDF9"
-                android:textAlignment="center"
-                android:textColor="#425DF6"
-                android:textSize="15dp"
-                app:layout_column="1"
-                app:layout_gravity="center"
-                app:layout_row="1"
-                android:visibility="invisible"
-                />
 
-            <CheckBox
-
-                android:id="@+id/assignedOtherDateInUpdate_XChB"
-                android:layout_width="150dp"
-                android:layout_height="27dp"
-                android:background="#A1CA26"
-                android:text="Modificar fecha"
-                android:textAlignment="center"
-                android:textColor="@android:color/black"
-                android:textColorHint="#F9F9FB"
-                android:textSize="19dp"
-                app:layout_column="2"
-                app:layout_gravity="center_vertical"
-                app:layout_row="1"
-                app:layout_columnSpan="2"
-                />
 
             <TextView
                 android:id="@+id/EtiquetaFechaNueva_XTv"
@@ -756,65 +727,84 @@
                 app:layout_column="0"
                 app:layout_gravity="center"
                 app:layout_row="2"
-                android:visibility="invisible"
+                android:visibility="gone"
                 />
 
-            <TextView
-                android:id="@+id/changeOfDateInUpdate_XTv"
-                android:layout_width="70dp"
+
+
+
+            <!-- ⭐ COMPACTO (11-nov, Jorge): fecha, nueva fecha, Modificar y "Últ. D." en una sola
+                 fila; las etiquetas "Fecha incial"/"Nueva" quedan gone (en Java son alias de
+                 changeOfDateInUpdate_XTv, nunca se mostraban). El botón "En espera" pasa a la
+                 fila de Guardar / Limpiar / Salir. -->
+            <LinearLayout
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="#FDFDF9"
-                android:textAlignment="center"
-                android:textColor="#425DF6"
-                android:textSize="15dp"
-                app:layout_column="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                app:layout_row="1"
+                app:layout_column="0"
+                app:layout_columnSpan="5"
                 app:layout_gravity="center_horizontal"
-                app:layout_row="2"
-                android:visibility="invisible"
-                />
-
-            <TextView
-                android:id="@+id/EtiquetaDocumentoConsecutivo_XTv"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="#FDFDF9"
-                android:text="Ultimo D."
-                android:textAlignment="center"
-                android:textColor="#425DF6"
-                android:textSize="20dp"
-                app:layout_row="2"
-                app:layout_column="2"
-                app:layout_gravity="left"
-                />
-
-            <TextView
-                android:id="@+id/numeroConsecutivoDocEnEdicion_XTv"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="#A1CA26"
-                android:textAlignment="center"
-                android:textColor="#425DF6"
-                android:textSize="20dp"
-                app:layout_column="3"
-                app:layout_gravity="left"
-                app:layout_row="2" />
-
+                >
+                <TextView
+                    android:id="@+id/dateInUpdate_XTv"
+                    android:layout_width="80dp"
+                    android:layout_height="25dp"
+                    android:background="#FDFDF9"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    android:visibility="invisible"
+                    android:layout_marginEnd="3dp"
+                    />
+                <TextView
+                    android:id="@+id/changeOfDateInUpdate_XTv"
+                    android:layout_width="80dp"
+                    android:layout_height="wrap_content"
+                    android:background="#FDFDF9"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    android:visibility="invisible"
+                    android:hint="nueva"
+                    android:layout_marginEnd="3dp"
+                    />
+                <CheckBox
+                    android:id="@+id/assignedOtherDateInUpdate_XChB"
+                    android:layout_width="wrap_content"
+                    android:layout_height="27dp"
+                    android:background="#A1CA26"
+                    android:text="Modificar"
+                    android:textAlignment="center"
+                    android:textColor="@android:color/black"
+                    android:textColorHint="#F9F9FB"
+                    android:textSize="16dp"
+                    android:layout_marginEnd="3dp"
+                    />
+                <TextView
+                    android:id="@+id/EtiquetaDocumentoConsecutivo_XTv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="#FDFDF9"
+                    android:text="Últ. D."
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp"
+                    android:layout_marginEnd="2dp"
+                    />
+                <TextView
+                    android:id="@+id/numeroConsecutivoDocEnEdicion_XTv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="#A1CA26"
+                    android:textAlignment="center"
+                    android:textColor="#425DF6"
+                    android:textSize="15dp" />
+            </LinearLayout>
             <!-- ⭐ CANAL D — Botón verde intercambiador slot 3 ↔ slot 4 -->
             <!-- Solo visible cuando slot 4 tiene datos. -->
             <!-- NO tocar desde Canal A, B ni C. -->
-            <Button
-                android:id="@+id/botonVerde_CanalD_XBt"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:backgroundTint="#4CAF50"
-                android:text="⇄ En espera"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:visibility="gone"
-                app:layout_column="0"
-                app:layout_columnSpan="5"
-                app:layout_gravity="fill_horizontal"
-                app:layout_row="3" />
 
             />
 
@@ -825,7 +815,7 @@
         <LinearLayout
             android:id="@+id/areaButtons_XLL"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="36dp"
             android:orientation="horizontal"
             app:layout_row="4"
             app:layout_column="0"
@@ -835,8 +825,14 @@
 
             <Button
                 android:id="@+id/guardarCambiosALaBD"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="0dp"
+                android:textSize="13sp"
+                android:layout_marginHorizontal="2dp"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="36dp"
                 android:text="Guardar"
                 app:layout_column="0"
                 app:layout_columnWeight="1"
@@ -846,8 +842,14 @@
 
             <Button
                 android:id="@+id/cleanSinCambiosInBD_XBt"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="0dp"
+                android:textSize="13sp"
+                android:layout_marginHorizontal="2dp"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="36dp"
                 android:text="Limpiar"
                 app:layout_column="1"
                 app:layout_columnSpan="1"
@@ -858,14 +860,35 @@
 
             <Button
                 android:id="@+id/salidaEsteFragment_XBt"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="0dp"
+                android:textSize="13sp"
+                android:layout_marginHorizontal="2dp"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="36dp"
                 android:text="Salir"
                 app:layout_column="2"
                 app:layout_columnSpan="1"
                 app:layout_columnWeight="1"
                 app:layout_gravity="center_horizontal"
                 app:layout_row="4" />
+            <!-- ⭐ CANAL D — Botón verde intercambiador slot 3 ↔ slot 4 (11-nov: junto a Salir) -->
+            <Button
+                android:id="@+id/botonVerde_CanalD_XBt"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:backgroundTint="#4CAF50"
+                android:text="⇄ En espera"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="0dp"
+                android:layout_marginStart="4dp"
+                android:visibility="gone" />
 
         </LinearLayout>
 
@@ -903,7 +926,7 @@
                 android:layout_height="wrap_content"
                 app:rowCount="11"
                 app:columnCount="2"
-                app:useDefaultMargins="true"
+                app:useDefaultMargins="false"
                 app:layout_row="0"
                 app:layout_column="0"
                 app:layout_gravity="center_horizontal"
@@ -913,13 +936,14 @@
                 >
 
                 <TextView
+                    android:layout_marginVertical="2dp"
                     android:layout_width="100dp"
-                    android:layout_height="40dp"
+                    android:layout_height="32dp"
                     android:background="@drawable/bg_white_square"
                     android:text="A conciliar:"
                     android:textAlignment="center"
                     android:textColor="#425DF6"
-                    android:textSize="18dp"
+                    android:textSize="16dp"
                     android:layout_marginRight="2dp"
                     app:layout_row="0"
                     app:layout_column="0"
@@ -929,9 +953,11 @@
                     />
 
                 <Spinner
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/cuentaConciliacion_XSp"
                     android:layout_width="270dp"
-                    android:layout_height="40dp"
+                    android:layout_height="32dp"
                     android:background="@drawable/bg_pink_square"
                     android:dropDownWidth="350dp"
                     android:dropDownHeight="300dp"
@@ -946,6 +972,8 @@
                      seccion1HaceRegistrosItemsLista_XGl, debajo de "A conciliar", porque son de la
                      conciliación; así la fila de valor y signo queda continua. -->
                 <LinearLayout
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -959,14 +987,14 @@
                         android:id="@+id/saldoCuentaAconciliar_XTv"
                         android:layout_marginEnd="4dp"
                         android:layout_width="60dp"
-                        android:layout_height="35dp"
+                        android:layout_height="32dp"
                         android:background="#425DF6"
                         android:gravity="center"
                         android:hint="$"
                         android:textAlignment="center"
                         android:textColor="#FCFCFD"
                         android:textColorHint="@android:color/white"
-                        android:textSize="15dp"
+                        android:textSize="14dp"
                         tools:ignore="RtlCompat"
 
                         />
@@ -975,7 +1003,7 @@
                         android:id="@+id/inputPhysicalVsAccounting_XEt"
                         android:layout_marginEnd="4dp"
                         android:layout_width="50dp"
-                        android:layout_height="35dp"
+                        android:layout_height="32dp"
                         android:background="#F4D7F5"
                         android:gravity="center"
                         android:hint="Fisico"
@@ -983,7 +1011,7 @@
                         android:textAlignment="center"
                         android:textColor="#425DF6"
                         android:textColorHint="#425DF6"
-                        android:textSize="15dp"
+                        android:textSize="14dp"
                         tools:ignore="RtlCompat"
                         />
 
@@ -992,13 +1020,13 @@
                         android:id="@+id/diferenciaAConciliar_XTv"
                         android:layout_marginEnd="4dp"
                         android:layout_width="56dp"
-                        android:layout_height="35dp"
+                        android:layout_height="32dp"
                         android:background="#425DF6"
                         android:hint="$"
                         android:textAlignment="center"
                         android:textColor="#FCFCFD"
                         android:textColorHint="@android:color/white"
-                        android:textSize="15dp"
+                        android:textSize="14dp"
                         tools:ignore="RtlCompat"
                         android:gravity="center"
 
@@ -1008,10 +1036,10 @@
                         android:id="@+id/consecutivoItemRegistro_XTv"
                         android:layout_marginEnd="4dp"
                         android:layout_width="56dp"
-                        android:layout_height="35dp"
+                        android:layout_height="32dp"
                         android:background="#425DF6"
                         android:textColor="#FCFCFD"
-                        android:textSize="15dp"
+                        android:textSize="14dp"
                         android:textAlignment="center"
                         tools:ignore="RtlCompat"
                         android:gravity="center"
@@ -1040,14 +1068,16 @@
                 app:layout_gravity="center_horizontal"
                 app:layout_row="2"
                 app:layout_column="0"
-                app:useDefaultMargins="true"
+                app:useDefaultMargins="false"
                 android:layout_marginTop="2dp"
                 >
 
                 <Button
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/pegarValor_XChB"
                     android:layout_width="35dp"
-                    android:layout_height="35dp"
+                    android:layout_height="27dp"
                     android:background="@drawable/ic_clean_paste"
                     android:padding="0dp"
                     app:layout_row="1"
@@ -1058,6 +1088,8 @@
                     />
 
                 <EditText
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/valor_XEt"
                     android:layout_width="66dp"
                     android:layout_height="27dp"
@@ -1078,6 +1110,8 @@
                     />
 
                 <Button
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/pegarValorAnterior_XChB"
                     android:layout_width="35dp"
                     android:layout_height="27dp"
@@ -1095,6 +1129,7 @@
                      en el nuevo orden de digitación, a la derecha de "valor" en la misma fila —
                      no agrega una fila nueva, así que el espacio vertical total no cambia. -->
                 <Spinner
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/signo_XSp"
                     android:layout_width="60dp"
                     android:layout_height="27dp"
@@ -1135,13 +1170,15 @@
                 app:layout_gravity="center"
                 app:rowCount="11"
                 app:columnCount="4"
-                app:useDefaultMargins="true"
+                app:useDefaultMargins="false"
                 android:layout_marginLeft="2dp"
                 android:layout_marginTop="2dp"
                 android:layout_marginRight="2dp"
                 >
 
                 <AutoCompleteTextView
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/descripcion_XAtv"
                     android:layout_width="260dp"
                     android:layout_height="27dp"
@@ -1168,6 +1205,7 @@
 
                 <!-- ✅ Tooltip flotante CON ELEVACIÓN -->
                 <androidx.cardview.widget.CardView
+                    android:layout_marginHorizontal="3dp"
                     android:id="@+id/cardTooltipValidacion_XCv"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -1188,6 +1226,8 @@
                 </androidx.cardview.widget.CardView>
 
                 <Button
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/pegarDescripcionAnterior_XChB"
                     android:layout_width="35dp"
                     android:layout_height="27dp"
@@ -1201,6 +1241,8 @@
                     />
 
                 <Button
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/pegarDescripcion_XChB"
                     android:layout_width="35dp"
                     android:layout_height="27dp"
@@ -1211,6 +1253,8 @@
                     />
 
                 <androidx.gridlayout.widget.GridLayout
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/cuenta_XGL"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -1218,7 +1262,7 @@
                     app:layout_column="0"
                     app:layout_gravity="center"
                     app:layout_columnSpan="4"
-                    app:useDefaultMargins="true"
+                    app:useDefaultMargins="false"
                     app:rowCount="2"
                     app:columnCount="4"
                     android:visibility="visible"
@@ -1226,6 +1270,8 @@
                     >
 
                     <AutoCompleteTextView
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
 
                         android:id="@+id/cuenta_XAtv"
                         android:layout_width="245dp"
@@ -1247,9 +1293,11 @@
                         app:layout_row="1" />
 
                     <Button
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                         android:id="@+id/pegarCuetaAnterior_XChB"
                         android:layout_width="35dp"
-                        android:layout_height="35dp"
+                        android:layout_height="27dp"
                         android:background="@drawable/ic_clean_paste"
                         android:padding="0dp"
                         app:layout_row="1"
@@ -1260,6 +1308,8 @@
                         />
 
                     <Button
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                         android:id="@+id/pegarCuentaSpinner_XChB"
                         android:layout_width="35dp"
                         android:layout_height="27dp"
@@ -1271,6 +1321,8 @@
                         />
 
                     <Spinner
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                         android:id="@+id/cuenta_XSp"
                         android:layout_width="60dp"
                         android:layout_height="27dp"
@@ -1300,19 +1352,20 @@
                 app:layout_row="3"
                 app:layout_column="0"
                 app:rowCount="11"
-                app:useDefaultMargins="true"
+                app:useDefaultMargins="false"
                 android:layout_marginEnd="10dp"
                 app:layout_gravity="center_horizontal"
                 >
 
                 <CheckBox
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/seeAccountsXChB"
                     android:layout_width="wrap_content"
-                    android:layout_height="35dp"
+                    android:layout_height="32dp"
                     android:background="#A1CA26"
                     android:text="Cuentas"
                     android:textColor="#425DF6"
-                    android:textSize="15dp"
+                    android:textSize="14dp"
                     android:textAlignment="center"
                     android:layout_marginRight="2dp"
                     app:layout_row="1"
@@ -1323,7 +1376,7 @@
                 <Button
                     android:id="@+id/modificarRegistro_XBt"
                     android:layout_width="30dp"
-                    android:layout_height="35dp"
+                    android:layout_height="32dp"
                     android:background="@drawable/ic_check"
                     app:layout_row="1"
                     app:layout_column="1"
@@ -1331,9 +1384,11 @@
                     />-->
 
                 <Button
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/limpiarCamposRegistro_XBt"
                     android:layout_width="30dp"
-                    android:layout_height="35dp"
+                    android:layout_height="32dp"
                     android:background="@drawable/ic_clean"
                     android:textSize="13dp"
                     app:layout_row="1"
@@ -1343,13 +1398,15 @@
                     />
 
                 <TextView
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/sumaPositivos_XTv"
                     android:layout_width="55dp"
-                    android:layout_height="35dp"
+                    android:layout_height="32dp"
                     android:background="#425DF6"
                     android:text="$"
                     android:textColor="#FCFCFD"
-                    android:textSize="15dp"
+                    android:textSize="14dp"
                     app:layout_row="1"
                     app:layout_column="3"
                     android:gravity="center"
@@ -1358,14 +1415,16 @@
                     />
 
                 <TextView
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/sumaNegativos_XTv"
                     android:layout_width="55dp"
-                    android:layout_height="35dp"
+                    android:layout_height="32dp"
                     android:background="#425DF6"
                     android:text="$"
                     android:textAlignment="center"
                     android:textColor="#FCFCFD"
-                    android:textSize="15dp"
+                    android:textSize="14dp"
                     app:layout_row="1"
                     app:layout_column="4"
                     android:gravity="center"
@@ -1374,15 +1433,17 @@
                     />
 
                 <TextView
+                    android:layout_marginHorizontal="3dp"
+                    android:layout_marginVertical="2dp"
                     android:id="@+id/controlACeroTotales_XTv"
                     android:layout_width="44dp"
-                    android:layout_height="35dp"
+                    android:layout_height="32dp"
                     android:background="#425DF6"
                     android:gravity="center"
                     android:text="$"
                     android:textAlignment="center"
                     android:textColor="#FAFAFD"
-                    android:textSize="15dp"
+                    android:textSize="14dp"
                     app:layout_column="5"
                     app:layout_row="1"
                     app:layout_gravity="center_vertical"

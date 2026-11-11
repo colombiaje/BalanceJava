@@ -2376,6 +2376,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // 2
     public void mostrarAreaCorrespondiente(int radioButtonId) {
         uiState.mostrarAreaCorrespondiente(radioButtonId);
+        // ⭐ (11-nov) el botón "En espera" está en la fila común de botones: se muestra u oculta
+        // según el área que queda visible (solo en Edición).
+        if (navManager != null) navManager.actualizarVisibilidadBotonVerde();
     }
 
     // 3
