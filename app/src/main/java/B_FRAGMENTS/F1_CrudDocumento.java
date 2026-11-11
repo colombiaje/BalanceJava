@@ -2379,6 +2379,20 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // ⭐ (11-nov) el botón "En espera" está en la fila común de botones: se muestra u oculta
         // según el área que queda visible (solo en Edición).
         if (navManager != null) navManager.actualizarVisibilidadBotonVerde();
+        // ⭐ (11-nov, Jorge): "Fecha" de la plantilla vive ahora en la fila común de botones;
+        // fuera de Plantilla se oculta del todo. Dentro de Plantilla, B14 la sigue mostrando u
+        // ocultando (VISIBLE / INVISIBLE) como antes; aquí solo se le devuelve su lugar.
+        boolean enPlantilla = radioButtonId == R.id.template_XRb;
+        if (assignedDateInTemplate_XChB != null) {
+            if (!enPlantilla) {
+                assignedDateInTemplate_XChB.setVisibility(View.GONE);
+            } else if (assignedDateInTemplate_XChB.getVisibility() == View.GONE) {
+                assignedDateInTemplate_XChB.setVisibility(View.INVISIBLE);
+            }
+        }
+        if (dateInTemplate_XTv != null) {
+            dateInTemplate_XTv.setVisibility(enPlantilla ? View.VISIBLE : View.GONE);
+        }
     }
 
     // 3

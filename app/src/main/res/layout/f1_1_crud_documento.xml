@@ -561,54 +561,6 @@
                 android:layout_marginTop="2dp"
                 />
 
-            <androidx.gridlayout.widget.GridLayout
-                android:background="#FA94B7"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                app:rowCount="3"
-                app:columnCount="4"
-                app:layout_row="3"
-                app:layout_column="0"
-                android:visibility="visible"
-                app:layout_gravity="center_horizontal"
-                android:layout_marginEnd="5dp"
-                app:layout_columnSpan="2"
-                >
-
-                <CheckBox
-                    android:id="@+id/assignedDateInTemplate_XChB"
-                    android:layout_width="125dp"
-                    android:layout_height="25dp"
-                    android:background="#A1CA26"
-                    android:text="Fecha"
-                    android:textAlignment="center"
-                    android:textColor="#425DF6"
-                    android:textSize="17dp"
-                    app:layout_row="0"
-                    app:layout_column="0"
-                    app:layout_gravity="center_vertical"
-                    android:layout_marginTop="2dp"
-                    />
-
-                <TextView
-                    android:id="@+id/dateInTemplate_XTv"
-                    android:layout_width="90dp"
-                    android:layout_height="25dp"
-                    android:background="#FA94B7"
-                    android:textAlignment="center"
-                    android:textColor="#425DF6"
-                    android:textSize="15dp"
-                    app:layout_column="1"
-                    app:layout_gravity="center"
-                    app:layout_row="0"
-                    android:textStyle="bold"
-                    android:layout_marginTop="2dp"
-                    />
-
-
-            </androidx.gridlayout.widget.GridLayout>
-
 
         </androidx.gridlayout.widget.GridLayout>
         <!--area 3 adicionar con plantilla fin -->
@@ -825,11 +777,43 @@
             android:layout_width="wrap_content"
             android:layout_height="36dp"
             android:orientation="horizontal"
+            android:gravity="center_vertical"
             app:layout_row="4"
             app:layout_column="0"
             android:visibility="visible"
             app:layout_gravity="center_horizontal"
             >
+            <!-- ⭐ (11-nov, Jorge): "Fecha" de la plantilla en la misma fila que Guardar / Limpiar /
+                 Salir; solo se ve en el área Plantilla (F1.mostrarAreaCorrespondiente). -->
+            <CheckBox
+                android:id="@+id/assignedDateInTemplate_XChB"
+                android:visibility="gone"
+                android:layout_marginEnd="2dp"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="#A1CA26"
+                android:text="Fecha"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="15dp"
+                android:layout_marginTop="0dp"
+                />
+            <TextView
+                android:id="@+id/dateInTemplate_XTv"
+                android:visibility="gone"
+                android:layout_marginEnd="4dp"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="#FA94B7"
+                android:textAlignment="center"
+                android:textColor="#425DF6"
+                android:textSize="15dp"
+                android:textStyle="bold"
+                android:layout_marginTop="0dp"
+                />
+
 
             <Button
                 android:id="@+id/guardarCambiosALaBD"
@@ -1282,9 +1266,10 @@
                     android:layout_marginVertical="2dp"
 
                         android:id="@+id/cuenta_XAtv"
+                        android:layout_marginTop="3dp"
                         android:layout_width="245dp"
                         android:layout_height="27dp"
-                        android:background="#F4D7F5"
+                        android:background="#DDE6FB"
                         android:completionThreshold="1"
                         android:dropDownWidth="350dp"
                         android:dropDownHeight="300dp"
