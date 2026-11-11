@@ -107,33 +107,29 @@ public class CreateTemplateUnit {
         });
     }
 
-    // Botón copiar/pegar descripción de plantilla
+    // ⭐ REDISEÑO (11-nov, Jorge): el ↻ de la descripción de plantilla usa el ciclo de
+    // A18_CicloCampo (lleno → vacío → lo borrado → anterior), con memoria propia guardada en
+    // preferencias. Antes compartía isCopyMode / copiedText con el buscador de cuenta y con el
+    // número del documento en Edición, y al pegar no cargaba la plantilla.
+    //   Con texto → carga la plantilla igual que al elegirla de la lista.
+    //   Vacío     → limpia la lista, como antes.
     private void setupCopyPasteButton() {
-        f1.copyPasteDescriptionTemplate_XChb.setOnClickListener(v -> {
-            if (f1.isCopyMode) {
-                String currentText = f1.descripcionABuscarEnPlantilla_XAtv.getText().toString();
-                if (!TextUtils.isEmpty(currentText)) {
-                    f1.copiedText = currentText;
-                    f1.descripcionABuscarEnPlantilla_XAtv.setText("");
-                    f1.copyPasteDescriptionTemplate_XChb
-                            .setCompoundDrawablesWithIntrinsicBounds(
-                                    R.drawable.ic_clean_paste, 0, 0, 0);
-                    f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
-                            new D_F1_AdaptadorCrudDocumento(
-                                    f1.getActivity(), f1.listaDocumento_ArrayLTT, null);
-                    f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT.clear();
-                    f1.isCopyMode = false;
-                }
-            } else {
-                if (!TextUtils.isEmpty(f1.copiedText)) {
-                    f1.descripcionABuscarEnPlantilla_XAtv.setText(f1.copiedText);
-                    f1.copyPasteDescriptionTemplate_XChb
-                            .setCompoundDrawablesWithIntrinsicBounds(
-                                    R.drawable.ic_clean_paste, 0, 0, 0);
-                    f1.isCopyMode = true;
-                }
-            }
-        });
+        if (f1.getContext() == null) return;
+        final A1BASES.A18_CicloCampo ciclo = new A1BASES.A18_CicloCampo(f1.getContext(),
+                "f1_plantilla", f1.descripcionABuscarEnPlantilla_XAtv, texto -> {
+                    f1.descripcionABuscarEnPlantilla_XAtv.dismissDropDown();
+                    if (TextUtils.isEmpty(texto)) {
+                        f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
+                                new D_F1_AdaptadorCrudDocumento(
+                                        f1.getActivity(), f1.listaDocumento_ArrayLTT, null);
+                        f1.conexionListDocumentForGeneralWithListView_Adaptador1_TipoT.clear();
+                    } else if (f1.descripcionABuscarEnPlantilla_XAtv.getOnItemClickListener() != null) {
+                        f1.descripcionABuscarEnPlantilla_XAtv.getOnItemClickListener()
+                                .onItemClick(null, null, 0, 0);
+                    }
+                });
+        f1.copyPasteDescriptionTemplate_XChb.setOnClickListener(v -> ciclo.tocar());
+        f1.copyPasteDescriptionTemplate_XChb.setOnLongClickListener(v -> ciclo.tocarLargo());
     }
 
     // Checkbox "asignar fecha" → oculta conciliación, muestra calendario

@@ -128,29 +128,25 @@ public class UpdateDeleteUnit {
         });
     }
 
-    // Botón copiar/pegar número de documento
+    // ⭐ REDISEÑO (11-nov, Jorge): el ↻ del número de documento usa el ciclo de A18_CicloCampo
+    // (lleno → vacío → lo borrado → anterior), con memoria propia guardada en preferencias.
+    // Antes compartía isCopyMode / copiedText con el buscador de cuenta y con la descripción de
+    // Plantilla, y al pegar no cargaba el documento.
+    //   Con número → carga el documento igual que al elegirlo de la lista.
+    //   Vacío      → el TextWatcher del campo limpia el área, como al borrar a mano.
     private void setupCopyPasteButton() {
-        f1.limpiarDocumentoModificar_XChB.setOnClickListener(v -> {
-            if (f1.isCopyMode) {
-                String currentText = f1.documentoABuscarParaEditar_XATv.getText().toString();
-                if (!TextUtils.isEmpty(currentText)) {
-                    f1.copiedText = currentText;
-                    f1.documentoABuscarParaEditar_XATv.setText("");
-                    f1.limpiarDocumentoModificar_XChB
-                            .setCompoundDrawablesWithIntrinsicBounds(
-                                    R.drawable.ic_clean_paste, 0, 0, 0);
-                    f1.isCopyMode = false;
-                }
-            } else {
-                if (!TextUtils.isEmpty(f1.copiedText)) {
-                    f1.documentoABuscarParaEditar_XATv.setText(f1.copiedText);
-                    f1.limpiarDocumentoModificar_XChB
-                            .setCompoundDrawablesWithIntrinsicBounds(
-                                    R.drawable.ic_clean_paste, 0, 0, 0);
-                    f1.isCopyMode = true;
-                }
-            }
-        });
+        if (f1.getContext() == null) return;
+        final A1BASES.A18_CicloCampo ciclo = new A1BASES.A18_CicloCampo(f1.getContext(),
+                "f1_documentoEdicion", f1.documentoABuscarParaEditar_XATv, texto -> {
+                    f1.documentoABuscarParaEditar_XATv.dismissDropDown();
+                    if (!TextUtils.isEmpty(texto)
+                            && f1.documentoABuscarParaEditar_XATv.getOnItemClickListener() != null) {
+                        f1.documentoABuscarParaEditar_XATv.getOnItemClickListener()
+                                .onItemClick(null, null, 0, 0);
+                    }
+                });
+        f1.limpiarDocumentoModificar_XChB.setOnClickListener(v -> ciclo.tocar());
+        f1.limpiarDocumentoModificar_XChB.setOnLongClickListener(v -> ciclo.tocarLargo());
     }
 
     // Botón eliminar documento — pide confirmación antes de borrar
