@@ -125,7 +125,14 @@ public class CrudOptionsUnit {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (before > 0) f1.cerrarVerItemTransaccion();
+                if (before > 0) {
+                    // ⭐ (11-nov) solo si el USUARIO vacía el campo con F1 en pantalla se da la
+                    // consulta por cerrada; si se vacía al reconstruir la pantalla no.
+                    if (f1.isResumed() && s.length() == 0) {
+                        B_FRAGMENTS.F1_CrudDocumento.consultaAbiertaEnSesion = null;
+                    }
+                    f1.cerrarVerItemTransaccion();
+                }
             }
 
             @Override public void afterTextChanged(Editable e) {}
@@ -154,6 +161,7 @@ public class CrudOptionsUnit {
                 f1.buscarCuentaParaTransaccionest_XAT, texto -> {
                     f1.buscarCuentaParaTransaccionest_XAT.dismissDropDown();
                     if (TextUtils.isEmpty(texto)) {
+                        B_FRAGMENTS.F1_CrudDocumento.consultaAbiertaEnSesion = null;
                         f1.cerrarVerItemTransaccion();
                     } else if (f1.accountAllAz_List != null && f1.accountAllAz_List.contains(texto)) {
                         f1.verTransaccionesPorCuentaConAutocompeteText();

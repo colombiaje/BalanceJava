@@ -1502,7 +1502,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     public void cerrarVerItemTransaccion() {
-        consultaAbiertaEnSesion = null; // ⭐ (11-nov) cerrada a propósito: no reabrir
+        // ⭐ (11-nov) ya NO se borra aquí consultaAbiertaEnSesion: este método también corre al
+        // salir por el menú lateral (el campo de búsqueda se vacía al reconstruir la pantalla y su
+        // TextWatcher llama aquí), y eso impedía reabrir la consulta al volver. La marca se borra
+        // solo en acciones del usuario: ✕, atrás, elegir un documento, o vaciar el campo a mano o
+        // con el ↻ mientras F1 está en pantalla (CrudOptionsUnit).
         if (getActivity() != null) {
             getActivity().getSupportFragmentManager().popBackStack();
         }
