@@ -193,32 +193,14 @@ public class F3_1_VerInformePrincipal extends Fragment {
 
         cleanPasteQueryAccount_XChB = (Button) inflarViews_View.findViewById(R.id.cleanPasteQueryAccount_XChB);
 
-        cleanPasteQueryAccount_XChB.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (isCopyMode) {
-                    // Copiar solo si hay texto
-                    String currentText = buscar_XTv.getText().toString();
-                    if (!TextUtils.isEmpty(currentText)) {
-                        copiedText = currentText;
-                        buscar_XTv.setText("");
-                        cleanPasteQueryAccount_XChB.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_clean_paste,0,0,0);
-                        isCopyMode = false;
-
-                        //SharedViewModel viewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class);
-                        // viewModel.triggerClear();
-                    }
-                } else {
-                    // Pegar si hay texto copiado
-                    if (!TextUtils.isEmpty(copiedText)) {
-                        buscar_XTv.setText(copiedText);
-                        cleanPasteQueryAccount_XChB.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_clean_paste,0,0,0);
-                        isCopyMode = true;
-                        //Falta colocar los datos de la consulta
-                    }
-                }
-            }
-        });
+        // ⭐ REDISEÑO (11-nov, Jorge): el ↻ de "Texto a buscar" usa el mismo ciclo que F1
+        // (A18_CicloCampo): lleno → vacío → lo borrado → consulta anterior, con memoria propia
+        // guardada en preferencias. El filtro del informe lo aplica el TextWatcher de buscar_XTv
+        // al poner o quitar el texto, así que no hace falta lanzar nada más aquí.
+        final A1BASES.A18_CicloCampo cicloBuscar = new A1BASES.A18_CicloCampo(
+                requireContext(), "f3_1_buscar", buscar_XTv, null);
+        cleanPasteQueryAccount_XChB.setOnClickListener(v -> cicloBuscar.tocar());
+        cleanPasteQueryAccount_XChB.setOnLongClickListener(v -> cicloBuscar.tocarLargo());
 
         if (calculadoraLibre_XBt != null) {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());

@@ -131,31 +131,35 @@ public class CrudOptionsUnit {
             @Override public void afterTextChanged(Editable e) {}
         });
 
-        f1.buscarCuentaParaTransaccionest_XAT.setOnItemClickListener(
-                (parent, view, i, l) -> f1.verTransaccionesPorCuentaConAutocompeteText());
+        f1.buscarCuentaParaTransaccionest_XAT.setOnItemClickListener((parent, view, i, l) -> {
+            // ⭐ (11-nov) se registra como consulta para el ↻ (consulta anterior)
+            if (cicloBuscar != null) {
+                cicloBuscar.registrarConsulta(f1.buscarCuentaParaTransaccionest_XAT.getText().toString());
+            }
+            f1.verTransaccionesPorCuentaConAutocompeteText();
+        });
     }
 
-    // Botón copiar/pegar para el campo de búsqueda de cuenta
+    // ⭐ REDISEÑO (11-nov, Jorge): el ↻ de "Escribir cuenta" usa el ciclo de A18_CicloCampo
+    // (lleno → vacío → lo borrado → consulta anterior), con memoria propia guardada en
+    // preferencias. Antes compartía isCopyMode / copiedText con la descripción de Plantilla y el
+    // número del documento en Edición, y al pegar no lanzaba la consulta.
+    //   Texto que es una cuenta válida → abre la consulta de esa cuenta (F3_2).
+    //   Campo vacío                    → cierra la consulta.
+    private A1BASES.A18_CicloCampo cicloBuscar;
+
     private void setupCopyPasteAccountButton() {
-        f1.cleanPasteQueryAccount_XChB.setOnClickListener(v -> {
-            String currentText = f1.buscarCuentaParaTransaccionest_XAT.getText().toString();
-            if (f1.isCopyMode) {
-                if (!TextUtils.isEmpty(currentText)) {
-                    f1.copiedText = currentText;
-                    f1.buscarCuentaParaTransaccionest_XAT.setText("");
-                    f1.cleanPasteQueryAccount_XChB.setCompoundDrawablesWithIntrinsicBounds(
-                            R.drawable.ic_clean_paste, 0, 0, 0);
-                    f1.cerrarVerItemTransaccion();
-                    f1.isCopyMode = false;
-                }
-            } else {
-                if (!TextUtils.isEmpty(f1.copiedText)) {
-                    f1.buscarCuentaParaTransaccionest_XAT.setText(f1.copiedText);
-                    f1.cleanPasteQueryAccount_XChB.setCompoundDrawablesWithIntrinsicBounds(
-                            R.drawable.ic_clean_paste, 0, 0, 0);
-                    f1.isCopyMode = true;
-                }
-            }
-        });
+        if (f1.getContext() == null) return;
+        cicloBuscar = new A1BASES.A18_CicloCampo(f1.getContext(), "f1_buscarCuenta",
+                f1.buscarCuentaParaTransaccionest_XAT, texto -> {
+                    f1.buscarCuentaParaTransaccionest_XAT.dismissDropDown();
+                    if (TextUtils.isEmpty(texto)) {
+                        f1.cerrarVerItemTransaccion();
+                    } else if (f1.accountAllAz_List != null && f1.accountAllAz_List.contains(texto)) {
+                        f1.verTransaccionesPorCuentaConAutocompeteText();
+                    }
+                });
+        f1.cleanPasteQueryAccount_XChB.setOnClickListener(v -> cicloBuscar.tocar());
+        f1.cleanPasteQueryAccount_XChB.setOnLongClickListener(v -> cicloBuscar.tocarLargo());
     }
 }
