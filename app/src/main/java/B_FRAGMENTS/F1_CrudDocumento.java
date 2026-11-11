@@ -1488,14 +1488,15 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     // En cualquier método de F1_CrudDocumento donde quieras cerrar F3_2_VerItemTransaccion
-    private boolean hayConsultaVisible() {
+    /** Si hay una consulta F3_2 viva, la pone por encima de F1 y devuelve true. */
+    private boolean traerConsultaAlFrente() {
         if (getActivity() == null) return false;
         for (Fragment f : getActivity().getSupportFragmentManager().getFragments()) {
-            if (f instanceof F3_2_VerItemTransaccion && f.isVisible()) return true;
-            if (f != null && f.isAdded()) {
-                for (Fragment h : f.getChildFragmentManager().getFragments()) {
-                    if (h instanceof F3_2_VerItemTransaccion && h.isVisible()) return true;
-                }
+            if (f instanceof F3_2_VerItemTransaccion && f.isAdded() && f.getView() != null) {
+                View vista = f.getView();
+                vista.bringToFront();
+                if (vista.getParent() instanceof View) ((View) vista.getParent()).invalidate();
+                return true;
             }
         }
         return false;
@@ -2726,18 +2727,18 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     private void reabrirConsultaSiQuedoAbierta() {
         final String cuenta = consultaAbiertaEnSesion;
-        Log.d("ReabrirConsulta", "onResume F1: cuenta=" + cuenta + " visible=" + hayConsultaVisible());
         if (TextUtils.isEmpty(cuenta)) return;
         Bundle args = getArguments();
         if (args != null && args.containsKey("keyDocumentNumber")) return; // viene a editar un doc.
         View v = getView();
         if (v == null) return;
         v.postDelayed(() -> {
-            // ⭐ CAMBIO (11-nov): se mira si hay una consulta VISIBLE, no si existe. Al irse por
-            // el menú, la consulta puede quedar guardada en la pila sin verse, y antes eso
-            // bastaba para no reabrirla.
-            if (!isAdded() || hayConsultaVisible()
-                    || buscarCuentaParaTransaccionest_XAT == null) return;
+            // ⭐ CAMBIO (11-nov, Logcat de Jorge: "visible=true" al volver y sin verse): la
+            // consulta NO se pierde al irse por el menú. F3_2 se agrega al mismo contenedor que el
+            // NavHost; al volver, la vista nueva de F1 se dibuja ENCIMA de la consulta, que sigue
+            // viva debajo. Basta con traerla al frente. Solo si no existe se abre de nuevo.
+            if (!isAdded() || buscarCuentaParaTransaccionest_XAT == null) return;
+            if (traerConsultaAlFrente()) return;
             buscarCuentaParaTransaccionest_XAT.setText(cuenta);
             buscarCuentaParaTransaccionest_XAT.dismissDropDown();
             verTransaccionesPorCuentaConAutocompeteText();
