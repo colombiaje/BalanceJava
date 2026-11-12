@@ -43,7 +43,8 @@ public class A14_ListaArticulosDialogo {
 
         TableLayout tabla = new TableLayout(context);
         tabla.setPadding(12, 12, 12, 12);
-        tabla.addView(fila(context, new String[]{"Artículo", "Unidad", "Saldo unid.", "Saldo COP"},
+        tabla.addView(fila(context, new String[]{"Artículo", "Unidad", "Saldo unid.",
+                        "Saldo " + A1_1_AyudanteBD.monedaConfigurada(db)}, // ⭐ (12-nov) antes "Saldo COP" fijo
                 true, false));
 
         try {

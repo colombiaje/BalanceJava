@@ -253,7 +253,9 @@ public class F3_1_VerInformePrincipal extends Fragment {
             java.util.LinkedHashMap<String, Long> totales =
                     A1BASES.A1_1_AyudanteBD.sumarSaldosPorLiquidez(db);
             java.text.DecimalFormat formato = new java.text.DecimalFormat("#,##0");
-            StringBuilder texto = new StringBuilder("Liquidez — ");
+            // ⭐ (12-nov): la moneda configurada (F2 › 4) junto al título del resumen.
+            StringBuilder texto = new StringBuilder("Liquidez en "
+                    + A1BASES.A1_1_AyudanteBD.monedaConfigurada(db) + " — ");
             boolean primero = true;
             for (java.util.Map.Entry<String, Long> e : totales.entrySet()) {
                 if (!primero) texto.append("  ·  ");

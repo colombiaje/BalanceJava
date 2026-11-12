@@ -104,10 +104,21 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
         sharedPreferences = getActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
+    // ⭐ NUEVO (12-nov, opción B de la brecha 2 del repaso del modelo): el título muestra la
+    // moneda configurada en F2 › 4, para que se sepa en qué moneda están los valores.
+    private void ponerMonedaEnTitulo(View raiz) {
+        android.widget.TextView titulo = raiz.findViewById(R.id.tituloIndicadores_XTv);
+        if (titulo != null && getActivity() != null) {
+            titulo.setText("INDICADORES FINANCIEROS · "
+                    + A1BASES.A1_1_AyudanteBD.monedaConfigurada(getActivity()));
+        }
+    }
+
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialogo_Dialog = new Dialog(getActivity(), android.R.style.Theme_Translucent_NoTitleBar);
         final View inflarViews_View = getActivity().getLayoutInflater().inflate(R.layout.f5_1_indicadores, null);
+        ponerMonedaEnTitulo(inflarViews_View); // ⭐ (12-nov)
 
         final Drawable d_Drawable = new ColorDrawable(Color.BLACK);
         d_Drawable.setAlpha(200);
@@ -127,6 +138,7 @@ public class F5_1_Indicadores extends DialogFragment implements DialogInterface.
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View inflarViews_View = inflater.inflate(R.layout.f5_1_indicadores, container, false);
+        ponerMonedaEnTitulo(inflarViews_View); // ⭐ (12-nov)
 
         calculadora_Fragment = new F6_Calculadora();
         calculadoraLibre_XBt = inflarViews_View.findViewById(R.id.calculadoraLibre_XBt);

@@ -1078,6 +1078,38 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         }
     }
 
+    /**
+     * ⭐ NUEVO (12-nov, opción B de la brecha 2 del repaso del modelo): moneda configurada en
+     * F2 › 4 (por defecto "COP"). Solo para mostrarla junto a los valores; la app sigue
+     * guardando enteros sin decimales (la internacionalización es un proyecto aparte).
+     */
+    public static String monedaConfigurada(SQLiteDatabase db) {
+        Cursor c = db.rawQuery("SELECT moneda FROM " + TABLE_CONFIGURACION_APP +
+                " WHERE config_id = 1", null);
+        try {
+            String m = c.moveToFirst() ? c.getString(0) : null;
+            return m == null || m.trim().isEmpty() ? "COP" : m.trim();
+        } finally {
+            c.close();
+        }
+    }
+
+    /** Igual que monedaConfigurada(db), abriendo y cerrando la base; "COP" si algo falla. */
+    public static String monedaConfigurada(android.content.Context context) {
+        try {
+            A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF,
+                    null, version1BalanceSqlite_int_PSF);
+            SQLiteDatabase db = ayudante.getReadableDatabase();
+            try {
+                return monedaConfigurada(db);
+            } finally {
+                db.close();
+            }
+        } catch (Exception e) {
+            return "COP";
+        }
+    }
+
     /** País configurado (por defecto "CO"). */
     public static String paisConfigurado(SQLiteDatabase db) {
         Cursor c = db.rawQuery("SELECT pais FROM " + TABLE_CONFIGURACION_APP +

@@ -84,7 +84,8 @@ public class A15_DesgloseLiquidezDialogo {
         scrollVertical.addView(scrollHorizontal);
 
         new AlertDialog.Builder(context)
-                .setTitle("Composición por liquidez")
+                .setTitle("Composición por liquidez (valores en "
+                        + A1_1_AyudanteBD.monedaConfigurada(context) + ")") // ⭐ (12-nov)
                 .setView(scrollVertical)
                 .setPositiveButton("Cerrar", null)
                 .show();

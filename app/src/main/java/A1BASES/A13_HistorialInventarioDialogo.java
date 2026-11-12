@@ -117,7 +117,8 @@ public class A13_HistorialInventarioDialogo {
         fila.setBackgroundColor(Color.parseColor("#AF87F6"));
         String[] titulos = {
                 "Fecha", "Documento", "Artículo", "Unidades",
-                "Saldo unid.", "Costo movto.", "Precio inf.", "Saldo COP"
+                "Saldo unid.", "Costo movto.", "Precio inf.",
+                "Saldo " + A1_1_AyudanteBD.monedaConfigurada(context) // ⭐ (12-nov) antes "Saldo COP" fijo
         };
         for (String titulo : titulos) {
             TextView tv = new TextView(context);
