@@ -406,16 +406,58 @@
             app:layout_row="8" />
 
 
-        <Spinner
-            android:id="@+id/grupo1CuentaNueva_XSp"
+        <!-- ⭐ CAMBIO (12-nov, brecha 3 del repaso del modelo): el spinner queda dentro de un
+             bloque de 260 dp con el botón "i" (guía de tipos) y, debajo, una línea de ayuda del
+             tipo elegido (ámbar si es un tipo avanzado). Mismo id del spinner. -->
+        <LinearLayout
             android:layout_width="260dp"
-            android:layout_height="40dp"
-            android:background="#F4D7F5"
-            android:scrollbarSize="18dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
             app:layout_column="2"
-            app:layout_row="8"
+            app:layout_row="8">
 
-            />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal">
+
+                <Spinner
+                    android:id="@+id/grupo1CuentaNueva_XSp"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:background="#F4D7F5"
+                    android:scrollbarSize="18dp" />
+
+                <Button
+                    android:id="@+id/ayudaTipoCuenta_XBt"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginStart="3dp"
+                    android:backgroundTint="#2E7D32"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:padding="0dp"
+                    android:text="i"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:contentDescription="Qué significa cada tipo de cuenta" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/ayudaTipoCuenta_XTv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:textColor="#555555"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <!-- ⭐ RETIRADO — tanda 2 v10: el spinner de Grupo 2 (fila 9) queda oculto — el spinner
              único de tipo_cuenta de arriba lo reemplaza. Se dejan declarados (visibility="gone",

@@ -96,6 +96,7 @@ import java.util.regex.Pattern;
 import A1BASES.A12_InventarioHelper;
 import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A1_2_OperacionesBD;
+import A1BASES.A19_AyudaTipoCuenta;
 import A1BASES.A3_1_TipoCuentasGetsYSets;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A5_1_BackupManager;
@@ -137,6 +138,9 @@ public class F2_Cuentas extends DialogFragment {
     TextView item_XTv;
     AutoCompleteTextView account_XAct;
     Spinner grupo1CuentaNueva_XSp,grupo2CuentaNueva_XSp;
+    // ⭐ NUEVO (12-nov, brecha 3): línea de ayuda del tipo elegido y botón "i" con la guía.
+    TextView ayudaTipoCuenta_XTv;
+    Button ayudaTipoCuenta_XBt;
     // ⭐ NUEVO — Fase 4 (parte B): checkbox de Cerrable en Nueva Cuenta / Modificar cuenta.
     CheckBox cerrableCuentaNueva_XChB;
     // ⭐ NUEVO — v11 tanda 3 (parte A): checkbox de Conciliable, mismo patrón que Cerrable.
@@ -526,6 +530,8 @@ public class F2_Cuentas extends DialogFragment {
         clickSave_XBt=(Button)inflarViews_View.findViewById(R.id.clickSave_XBt);
         clickUpdate_XBt=(Button)inflarViews_View.findViewById(R.id.clickUpdate_XBt);
         grupo1CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo1CuentaNueva_XSp);
+        ayudaTipoCuenta_XTv = inflarViews_View.findViewById(R.id.ayudaTipoCuenta_XTv); // ⭐ 12-nov
+        ayudaTipoCuenta_XBt = inflarViews_View.findViewById(R.id.ayudaTipoCuenta_XBt); // ⭐ 12-nov
         grupo2CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo2CuentaNueva_XSp);
         cerrableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.cerrableCuentaNueva_XChB);
         conciliableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conciliableCuentaNueva_XChB);
@@ -610,7 +616,16 @@ public class F2_Cuentas extends DialogFragment {
         // no se usa para nada — se deja declarado/casteado por si algo más lo necesitara, pero
         // ninguna lectura/escritura de cuentas pasa más por él.
         cargarCatalogoTipoCuenta(ayudante_Class.getReadableDatabase());
-        grupo1CuentaNueva_XSp.setAdapter(new ArrayAdapter<String>(getActivity(),android.R.layout.simple_list_item_multiple_choice, nombreTipoCuentaCuentas_ArrayString));
+        // ⭐ CAMBIO (12-nov, brecha 3): mismo layout y mismos textos, pero los tipos avanzados
+        // en ámbar (A19_AyudaTipoCuenta).
+        grupo1CuentaNueva_XSp.setAdapter(A19_AyudaTipoCuenta.adaptador(getActivity(),
+                nombreTipoCuentaCuentas_ArrayString, tipoCuentaIds_ArrayLong));
+        A19_AyudaTipoCuenta.ponerAyuda(ayudaTipoCuenta_XTv, null);
+        if (ayudaTipoCuenta_XBt != null) {
+            ayudaTipoCuenta_XBt.setOnClickListener(v -> A19_AyudaTipoCuenta.mostrarGuia(
+                    getActivity(), nombreTipoCuentaCuentas_ArrayString, tipoCuentaIds_ArrayLong,
+                    obtenerTipoCuentaIdSeleccionado(grupo1CuentaNueva_XSp.getSelectedItemPosition())));
+        }
         // ⭐ NUEVO (31-oct): al cambiar el Tipo se actualiza la Liquidez mostrada (solo lectura).
         // No hace nada más: no guarda ni cambia ningún otro campo.
         grupo1CuentaNueva_XSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -618,10 +633,13 @@ public class F2_Cuentas extends DialogFragment {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 mostrarLiquidezDelTipo(obtenerTipoCuentaIdSeleccionado(position));
                 proponerRentaParaTipo(obtenerTipoCuentaIdSeleccionado(position)); // ⭐ renta R2
+                A19_AyudaTipoCuenta.ponerAyuda(ayudaTipoCuenta_XTv,
+                        obtenerTipoCuentaIdSeleccionado(position)); // ⭐ 12-nov, brecha 3
             }
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
                 mostrarLiquidezDelTipo(null);
+                A19_AyudaTipoCuenta.ponerAyuda(ayudaTipoCuenta_XTv, null); // ⭐ 12-nov
             }
         });
 
