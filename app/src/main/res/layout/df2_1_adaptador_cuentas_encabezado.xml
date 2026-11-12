@@ -42,11 +42,13 @@
                 android:paddingEnd="10dp"
                 android:maxLines="1"/>
 
+            <!-- ⭐ CAMBIO (12-nov): "Grupo 1" → "Tipo" (la columna muestra el tipo de cuenta desde la
+                 v11) y se queda con el ancho de la antigua columna "Grupo 2", que estaba vacía. -->
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="0.6"
-                android:text="Grupo 1"
+                android:layout_weight="1.1"
+                android:text="Tipo"
                 android:textColor="#1B3BEB"
                 android:textSize="12sp"
                 android:textStyle="bold"
@@ -58,6 +60,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="0.5"
+                android:visibility="gone"
                 android:text="Grupo 2"
                 android:textColor="#1B3BEB"
                 android:textSize="12sp"
