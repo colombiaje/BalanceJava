@@ -777,7 +777,7 @@ public class F4_Cierres extends Fragment {
      * cuentas y transacciones no trae la renta (respaldos 423 fotos, 425 ajustes, 426 soportes).
      * Sin la foto anual, F4 › 6 oculta Ajustes y Checklist, y parece que se hubiera perdido lo
      * construido. Si después de restaurar la base no tiene ninguna foto de renta, se avisa cómo
-     * traerla. Solo informa (estándar de información, A20): no importa nada por su cuenta.
+     * traerla; ⭐ (12-nov, opción B) con un botón que la restaura (A24_RestauradorRenta).
      */
     private void avisarSiFaltaRestaurarRenta() {
         if (getActivity() == null) return;
@@ -794,18 +794,19 @@ public class F4_Cierres extends Fragment {
             db.close();
         }
         if (!sinFotos) return;
+        // ⭐ CAMBIO (12-nov, opción B): además del camino manual, un botón restaura la renta sola
+        // (Drive y, si falla, la carpeta Balance del equipo — A24_RestauradorRenta).
         new AlertDialog.Builder(getActivity())
                 .setTitle("Falta restaurar la renta")
                 .setView(A1BASES.A20_Informacion.vista(getActivity(),
                         "Las cuentas y las transacciones ya quedaron. Si llevas la renta en la app, "
-                                + "falta traer sus respaldos:\n\n"
-                                + "F2 › 4 › Importar CSV (plantilla o fotos), en este orden:\n"
-                                + "1. 423_FotoRentaCierre\n"
-                                + "2. 425_AjustesRentaCierre\n"
-                                + "3. 426_SoportesRenta\n\n"
-                                + "Si solo están en Drive, descárgalos antes a la carpeta Balance. "
+                                + "falta traer sus respaldos (fotos 423, ajustes 425 y soportes 426).\n\n"
+                                + "\"Restaurar renta\" toma los más recientes de Drive y, si no hay "
+                                + "conexión, los de la carpeta Balance del equipo.\n\n"
                                 + "Si nunca hiciste un cierre con foto, no necesitas hacer nada."))
-                .setPositiveButton("Entendido", null)
+                .setPositiveButton("Restaurar renta", (d, w) -> new A1BASES.A24_RestauradorRenta(
+                        getActivity(), FOLDER_ID_DRIVE, null).restaurar())
+                .setNegativeButton("Ahora no", null)
                 .show();
     }
 
