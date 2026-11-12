@@ -755,10 +755,13 @@ public class F4_Cierres extends Fragment {
                     // ⭐ NUEVO — diagnóstico (30-oct): mensaje real de SQLite del primer fallo.
                     + "Primer error SQLite: "
                     + (primerErrorInsercion != null ? primerErrorInsercion : "ninguno");
+            final boolean huboTransacciones = insertadasOk > 0;
             new AlertDialog.Builder(getActivity())
                     .setTitle("Diagnóstico de importación")
                     .setMessage(resumen)
                     .setPositiveButton("OK", null)
+                    // ⭐ (12-nov) al cerrar el diagnóstico, aviso si falta restaurar la renta.
+                    .setOnDismissListener(d -> { if (huboTransacciones) avisarSiFaltaRestaurarRenta(); })
                     .show();
 
         } catch (Exception e) {
@@ -767,6 +770,43 @@ public class F4_Cierres extends Fragment {
                     "Error al importar: " + e.getMessage(),
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * ⭐ NUEVO (12-nov, pendiente del checklist, opción A elegida por Jorge): la restauración de
+     * cuentas y transacciones no trae la renta (respaldos 423 fotos, 425 ajustes, 426 soportes).
+     * Sin la foto anual, F4 › 6 oculta Ajustes y Checklist, y parece que se hubiera perdido lo
+     * construido. Si después de restaurar la base no tiene ninguna foto de renta, se avisa cómo
+     * traerla. Solo informa (estándar de información, A20): no importa nada por su cuenta.
+     */
+    private void avisarSiFaltaRestaurarRenta() {
+        if (getActivity() == null) return;
+        boolean sinFotos;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
+                A1_1_AyudanteBD.version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            sinFotos = A1_1_AyudanteBD.aniosConFotoRenta(db).isEmpty();
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo revisar las fotos de renta: " + e.getMessage());
+            return;
+        } finally {
+            db.close();
+        }
+        if (!sinFotos) return;
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Falta restaurar la renta")
+                .setView(A1BASES.A20_Informacion.vista(getActivity(),
+                        "Las cuentas y las transacciones ya quedaron. Si llevas la renta en la app, "
+                                + "falta traer sus respaldos:\n\n"
+                                + "F2 › 4 › Importar CSV (plantilla o fotos), en este orden:\n"
+                                + "1. 423_FotoRentaCierre\n"
+                                + "2. 425_AjustesRentaCierre\n"
+                                + "3. 426_SoportesRenta\n\n"
+                                + "Si solo están en Drive, descárgalos antes a la carpeta Balance. "
+                                + "Si nunca hiciste un cierre con foto, no necesitas hacer nada."))
+                .setPositiveButton("Entendido", null)
+                .show();
     }
 
     // ⭐ NUEVO — códigos de resultado de insertarTransaccion(), solo para el diagnóstico de
