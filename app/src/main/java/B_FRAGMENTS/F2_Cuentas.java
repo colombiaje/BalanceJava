@@ -617,7 +617,7 @@ public class F2_Cuentas extends DialogFragment {
         // ninguna lectura/escritura de cuentas pasa más por él.
         cargarCatalogoTipoCuenta(ayudante_Class.getReadableDatabase());
         // ⭐ CAMBIO (12-nov, brecha 3): mismo layout y mismos textos, pero los tipos avanzados
-        // en ámbar (A19_AyudaTipoCuenta).
+        // en morado (A19_AyudaTipoCuenta).
         grupo1CuentaNueva_XSp.setAdapter(A19_AyudaTipoCuenta.adaptador(getActivity(),
                 nombreTipoCuentaCuentas_ArrayString, tipoCuentaIds_ArrayLong));
         A19_AyudaTipoCuenta.ponerAyuda(ayudaTipoCuenta_XTv, null);

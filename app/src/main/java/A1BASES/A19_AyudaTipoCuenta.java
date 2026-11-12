@@ -23,8 +23,8 @@ import androidx.appcompat.app.AlertDialog;
  * ⭐ NUEVO (12-nov, repaso final del modelo, brecha 3 — opción A + ideas b y c de Jorge):
  * ayuda en lenguaje común para cada tipo de cuenta, pensada para quien no sabe contabilidad.
  *
- *   - ayuda(id): una línea que F2 muestra debajo del spinner de Tipo cuenta.
- *   - esAvanzado(id): tipos que requieren conocimiento técnico; se resaltan en color (ámbar)
+ *   - CORTA: frase breve que F2 muestra debajo del spinner (pareto 90/10); AYUDA: texto completo.
+ *   - esAvanzado(id): tipos que requieren conocimiento técnico; se resaltan en morado
  *     en la lista del spinner y en la línea de ayuda.
  *   - mostrarGuia(...): el botón "i" abre la guía de todos los tipos, con el elegido marcado.
  *
@@ -34,47 +34,78 @@ import androidx.appcompat.app.AlertDialog;
  */
 public final class A19_AyudaTipoCuenta {
 
-    /** Ámbar oscuro: llama la atención sin parecer un error. */
-    public static final int COLOR_AVANZADO = Color.parseColor("#B26A00");
+    // ⭐ CAMBIO (12-nov, Jorge): estándar de información de la app (res/values/colors.xml:
+    // info_fondo, info_texto, info_avanzado) — dos colores sobre azul claro, sin negro. El ámbar
+    // de la primera versión no se leía sobre el fondo rosado de F2.
+    public static final int COLOR_FONDO = Color.parseColor("#DCE8F5");
+    public static final int COLOR_TEXTO = Color.parseColor("#1F3FA6");
+    public static final int COLOR_AVANZADO = Color.parseColor("#6A1B9A");
 
     private static final Map<Long, String> AYUDA = new HashMap<>();
+    // ⭐ NUEVO (12-nov, Jorge, "pareto 90/10"): frase corta para la línea de F2; el texto
+    // completo de AYUDA queda para la guía del botón "i".
+    private static final Map<Long, String> CORTA = new HashMap<>();
     private static final Set<Long> AVANZADOS = new HashSet<>();
 
     static {
-        poner(1, "Dinero en caja, cuentas de ahorro y corrientes, y billeteras digitales. Disponible de inmediato.");
-        poner(2, "CDT y otras inversiones de corto plazo que puedes redimir en menos de un año.");
-        poner(3, "Participaciones en fondos de inversión o fiduciarias. Retirar el dinero requiere un trámite.");
-        poner(4, "Dinero que otras personas o entidades te deben: préstamos que hiciste, anticipos, arriendos por cobrar.");
-        poner(5, "Dinero en dólares, euros u otra divisa, en efectivo o en cuentas. Se registra ya convertido a tu moneda.");
-        poner(6, "Dinero que te deben en otra divisa. Se registra ya convertido a tu moneda.");
-        poner(7, "Inversiones fuera del país que no piensas retirar durante el próximo año.");
-        poner(8, "Lo que debes en tus tarjetas de crédito.");
-        poner(9, "Gastos del hogar ya causados y todavía sin pagar: servicios, administración, cuotas.");
-        poner(10, "Dinero que le debes a personas o a terceros que no son entidades financieras.");
-        poner(11, "Deudas en otra divisa (tarjetas o personas). Se registran ya convertidas a tu moneda.");
-        poner(12, "Créditos que se pagan en más de un año: hipotecario, vehículo, libranza.");
-        avanzado(13, "Control de bienes o derechos que no son parte de tu patrimonio (por ejemplo, algo que administras de otra persona). No suma en tu balance; va siempre con una cuenta de orden acreedora.");
-        avanzado(14, "Contrapartida de la cuenta de orden deudora: registra el mismo control por el otro lado. No suma en tu balance.");
-        avanzado(15, "Tu patrimonio al empezar a llevar la app: lo que tenías menos lo que debías. Normalmente solo lo usa el saldo inicial.");
-        avanzado(16, "Donde el cierre anual acumula los ingresos menos los gastos de años anteriores. Normalmente lo maneja el cierre, no tú.");
-        poner(17, "Entradas que aumentan tu patrimonio: salario, honorarios, pensión, arriendos, intereses.");
-        poner(18, "Salidas que disminuyen tu patrimonio: mercado, servicios, transporte, salud, impuestos.");
-        avanzado(19, "Solo si vendes productos: lo que te costó la mercancía que vendiste. Para uso personal no se necesita.");
-        avanzado(20, "Solo si fabricas algo para vender: materiales, mano de obra y gastos de producción.");
-        poner(21, "Divisas que tienes en tu poder pero debes entregar a otra persona. Se registran ya convertidas a tu moneda.");
-        avanzado(22, "Corrector: resta a tus cuentas por cobrar la parte que crees que no te van a pagar. Su saldo va en negativo dentro del activo.");
-        avanzado(23, "Corrector: resta al valor de bienes como vehículos o equipos su desgaste acumulado. Su saldo va en negativo dentro del activo.");
+        poner(1, "Dinero disponible ya: caja, cuentas, billeteras.",
+                "Dinero en caja, cuentas de ahorro y corrientes, y billeteras digitales. Disponible de inmediato.");
+        poner(2, "CDT e inversiones a menos de un año.",
+                "CDT y otras inversiones de corto plazo que puedes redimir en menos de un año.");
+        poner(3, "Fondos de inversión y fiduciarias.",
+                "Participaciones en fondos de inversión o fiduciarias. Retirar el dinero requiere un trámite.");
+        poner(4, "Dinero que te deben.",
+                "Dinero que otras personas o entidades te deben: préstamos que hiciste, anticipos, arriendos por cobrar.");
+        poner(5, "Dinero en otra divisa, ya convertido.",
+                "Dinero en dólares, euros u otra divisa, en efectivo o en cuentas. Se registra ya convertido a tu moneda.");
+        poner(6, "Te deben en otra divisa, ya convertido.",
+                "Dinero que te deben en otra divisa. Se registra ya convertido a tu moneda.");
+        poner(7, "Inversiones en el exterior a más de un año.",
+                "Inversiones fuera del país que no piensas retirar durante el próximo año.");
+        poner(8, "Lo que debes en tarjetas.",
+                "Lo que debes en tus tarjetas de crédito.");
+        poner(9, "Gastos del hogar pendientes de pago.",
+                "Gastos del hogar ya causados y todavía sin pagar: servicios, administración, cuotas.");
+        poner(10, "Lo que debes a personas.",
+                "Dinero que le debes a personas o a terceros que no son entidades financieras.");
+        poner(11, "Deudas en otra divisa, ya convertidas.",
+                "Deudas en otra divisa (tarjetas o personas). Se registran ya convertidas a tu moneda.");
+        poner(12, "Créditos a más de un año.",
+                "Créditos que se pagan en más de un año: hipotecario, vehículo, libranza.");
+        avanzado(13, "Control de bienes ajenos; no suma.",
+                "Control de bienes o derechos que no son parte de tu patrimonio (por ejemplo, algo que administras de otra persona). No suma en tu balance; va siempre con una cuenta de orden acreedora.");
+        avanzado(14, "Contrapartida de la orden deudora; no suma.",
+                "Contrapartida de la cuenta de orden deudora: registra el mismo control por el otro lado. No suma en tu balance.");
+        avanzado(15, "Patrimonio inicial; solo para el saldo inicial.",
+                "Tu patrimonio al empezar a llevar la app: lo que tenías menos lo que debías. Normalmente solo lo usa el saldo inicial.");
+        avanzado(16, "Lo acumula el cierre anual.",
+                "Donde el cierre anual acumula los ingresos menos los gastos de años anteriores. Normalmente lo maneja el cierre, no tú.");
+        poner(17, "Lo que entra: salario, pensión, arriendos.",
+                "Entradas que aumentan tu patrimonio: salario, honorarios, pensión, arriendos, intereses.");
+        poner(18, "Lo que sale: mercado, servicios, salud.",
+                "Salidas que disminuyen tu patrimonio: mercado, servicios, transporte, salud, impuestos.");
+        avanzado(19, "Solo si vendes productos.",
+                "Solo si vendes productos: lo que te costó la mercancía que vendiste. Para uso personal no se necesita.");
+        avanzado(20, "Solo si fabricas para vender.",
+                "Solo si fabricas algo para vender: materiales, mano de obra y gastos de producción.");
+        poner(21, "Divisas que debes entregar a otro.",
+                "Divisas que tienes en tu poder pero debes entregar a otra persona. Se registran ya convertidas a tu moneda.");
+        avanzado(22, "Resta lo que no te van a pagar.",
+                "Corrector: resta a tus cuentas por cobrar la parte que crees que no te van a pagar. Su saldo va en negativo dentro del activo.");
+        avanzado(23, "Resta el desgaste de los bienes.",
+                "Corrector: resta al valor de bienes como vehículos o equipos su desgaste acumulado. Su saldo va en negativo dentro del activo.");
     }
 
     private A19_AyudaTipoCuenta() {
     }
 
-    private static void poner(long id, String texto) {
+    private static void poner(long id, String corta, String texto) {
+        CORTA.put(id, corta);
         AYUDA.put(id, texto);
     }
 
-    private static void avanzado(long id, String texto) {
-        AYUDA.put(id, texto);
+    private static void avanzado(long id, String corta, String texto) {
+        poner(id, corta, texto);
         AVANZADOS.add(id);
     }
 
@@ -89,25 +120,26 @@ public final class A19_AyudaTipoCuenta {
         return t != null ? t : "";
     }
 
-    /** Escribe la ayuda del tipo en la línea de F2 (ámbar y con aviso si es avanzado). */
+    /** Escribe la frase corta del tipo en la línea de F2, con el estándar de información. */
     public static void ponerAyuda(TextView linea, Long tipoCuentaId) {
         if (linea == null) return;
-        String texto = ayuda(tipoCuentaId);
-        if (texto.isEmpty()) {
-            linea.setText("Elige un tipo; toca \"i\" para ver qué significa cada uno.");
-            linea.setTextColor(Color.parseColor("#555555"));
+        linea.setBackgroundColor(COLOR_FONDO);
+        String corta = tipoCuentaId != null ? CORTA.get(tipoCuentaId) : null;
+        if (corta == null) {
+            linea.setText("Toca \"i\" para ver cada tipo.");
+            linea.setTextColor(COLOR_TEXTO);
         } else if (esAvanzado(tipoCuentaId)) {
-            linea.setText("◆ Tipo avanzado (requiere conocimiento contable). " + texto);
+            linea.setText("◆ Avanzado · " + corta);
             linea.setTextColor(COLOR_AVANZADO);
         } else {
-            linea.setText(texto);
-            linea.setTextColor(Color.parseColor("#555555"));
+            linea.setText(corta);
+            linea.setTextColor(COLOR_TEXTO);
         }
     }
 
     /**
      * Adaptador del spinner de Tipo cuenta: igual al anterior (mismo layout y mismos textos, que
-     * el resto de F2 sigue leyendo con getSelectedItem()), pero los tipos avanzados en ámbar.
+     * el resto de F2 sigue leyendo con getSelectedItem()), pero los tipos avanzados en morado.
      */
     public static ArrayAdapter<String> adaptador(Context context, String[] nombres, long[] ids) {
         return new ArrayAdapter<String>(context,
@@ -125,6 +157,8 @@ public final class A19_AyudaTipoCuenta {
             private View colorear(View v, int position) {
                 if (v instanceof TextView) {
                     Long id = position > 0 && position < ids.length ? ids[position] : null;
+                    // Los demás, con el color de dato de siempre (la lista es un dato, no
+                    // información); la vista se recicla, por eso se fija en ambos casos.
                     ((TextView) v).setTextColor(esAvanzado(id) ? COLOR_AVANZADO : Color.BLACK);
                 }
                 return v;
@@ -155,9 +189,20 @@ public final class A19_AyudaTipoCuenta {
             if (!texto.isEmpty()) sb.append("\n").append(texto);
             sb.append("\n");
         }
+        // ⭐ (12-nov) estándar de información: fondo azul claro, texto azul rey, avanzados en morado.
+        TextView texto = new TextView(context);
+        texto.setText(sb);
+        texto.setTextColor(COLOR_TEXTO); // los avanzados conservan su morado (span propio)
+        texto.setTextSize(15);
+        texto.setBackgroundColor(COLOR_FONDO);
+        int pad = (int) (16 * context.getResources().getDisplayMetrics().density);
+        texto.setPadding(pad, pad / 2, pad, pad);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(context);
+        scroll.setBackgroundColor(COLOR_FONDO);
+        scroll.addView(texto);
         new AlertDialog.Builder(context)
                 .setTitle("Tipos de cuenta")
-                .setMessage(sb)
+                .setView(scroll)
                 .setPositiveButton("Entendido", null)
                 .show();
     }

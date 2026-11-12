@@ -408,7 +408,7 @@
 
         <!-- ⭐ CAMBIO (12-nov, brecha 3 del repaso del modelo): el spinner queda dentro de un
              bloque de 260 dp con el botón "i" (guía de tipos) y, debajo, una línea de ayuda del
-             tipo elegido (ámbar si es un tipo avanzado). Mismo id del spinner. -->
+             tipo elegido (morado si es un tipo avanzado; estándar de información, colors.xml). Mismo id del spinner. -->
         <LinearLayout
             android:layout_width="260dp"
             android:layout_height="wrap_content"
@@ -453,10 +453,14 @@
                 android:id="@+id/ayudaTipoCuenta_XTv"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:background="@color/info_fondo"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
-                android:textColor="#555555"
-                android:textSize="13sp" />
+                android:textColor="@color/info_texto"
+                android:textSize="14sp" />
         </LinearLayout>
 
         <!-- ⭐ RETIRADO — tanda 2 v10: el spinner de Grupo 2 (fila 9) queda oculto — el spinner

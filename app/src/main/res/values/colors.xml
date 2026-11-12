@@ -7,4 +7,11 @@
     <color name="color_row_even">#f0f0f0</color> <!-- Gris claro -->
     <color name="color_row_odd">#ffffff</color> <!-- Blanco -->
 
+    <!-- ⭐ NUEVO (12-nov, Jorge): estándar de la interfaz de información para toda la app —
+         dos colores sobre fondo azul claro, sin negro. Los mismos de renta (A17): azul rey para
+         la explicación normal, morado para lo avanzado o que pide atención. El botón "i" es verde. -->
+    <color name="info_fondo">#DCE8F5</color>
+    <color name="info_texto">#1F3FA6</color>
+    <color name="info_avanzado">#6A1B9A</color>
+
 </resources>
