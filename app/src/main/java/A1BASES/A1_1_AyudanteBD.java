@@ -1084,10 +1084,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
      * guardando enteros sin decimales (la internacionalización es un proyecto aparte).
      */
     public static String monedaConfigurada(SQLiteDatabase db) {
-        Cursor c = db.rawQuery("SELECT moneda FROM " + TABLE_CONFIGURACION_APP +
+        Cursor c = db.rawQuery("SELECT moneda, pais FROM " + TABLE_CONFIGURACION_APP +
                 " WHERE config_id = 1", null);
         try {
             String m = c.moveToFirst() ? c.getString(0) : null;
+            // ⭐ (12-nov, Jorge) si el país tiene moneda obligatoria, manda esa (A20_Informacion).
+            String obligatoria = c.getCount() > 0 ? A20_Informacion.monedaDePais(c.getString(1)) : null;
+            if (obligatoria != null) return obligatoria;
             return m == null || m.trim().isEmpty() ? "COP" : m.trim();
         } finally {
             c.close();

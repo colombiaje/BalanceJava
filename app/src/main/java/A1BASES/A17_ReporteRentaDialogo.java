@@ -2161,9 +2161,11 @@ public class A17_ReporteRentaDialogo {
         i.setPadding(0, 0, 0, 0);
         i.setText("i");
         i.setAllCaps(false);
+        // ⭐ CAMBIO (12-nov, Jorge): la explicación con el estándar de información de la app
+        // (A20_Informacion: fondo azul claro, texto azul rey).
         i.setOnClickListener(v -> mostrarRegistrado(new AlertDialog.Builder(context)
                 .setCustomTitle(tituloCentrado(titulo))
-                .setMessage(explicacion)
+                .setView(A20_Informacion.vista(context, explicacion))
                 .setPositiveButton("Entendido", null)));
         fila.addView(i, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));

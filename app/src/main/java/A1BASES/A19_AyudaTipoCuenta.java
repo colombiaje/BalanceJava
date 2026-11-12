@@ -37,9 +37,9 @@ public final class A19_AyudaTipoCuenta {
     // ⭐ CAMBIO (12-nov, Jorge): estándar de información de la app (res/values/colors.xml:
     // info_fondo, info_texto, info_avanzado) — dos colores sobre azul claro, sin negro. El ámbar
     // de la primera versión no se leía sobre el fondo rosado de F2.
-    public static final int COLOR_FONDO = Color.parseColor("#DCE8F5");
-    public static final int COLOR_TEXTO = Color.parseColor("#1F3FA6");
-    public static final int COLOR_AVANZADO = Color.parseColor("#6A1B9A");
+    public static final int COLOR_FONDO = A20_Informacion.COLOR_FONDO;
+    public static final int COLOR_TEXTO = A20_Informacion.COLOR_TEXTO;
+    public static final int COLOR_AVANZADO = A20_Informacion.COLOR_AVANZADO;
 
     private static final Map<Long, String> AYUDA = new HashMap<>();
     // ⭐ NUEVO (12-nov, Jorge, "pareto 90/10"): frase corta para la línea de F2; el texto
@@ -190,19 +190,10 @@ public final class A19_AyudaTipoCuenta {
             sb.append("\n");
         }
         // ⭐ (12-nov) estándar de información: fondo azul claro, texto azul rey, avanzados en morado.
-        TextView texto = new TextView(context);
-        texto.setText(sb);
-        texto.setTextColor(COLOR_TEXTO); // los avanzados conservan su morado (span propio)
-        texto.setTextSize(15);
-        texto.setBackgroundColor(COLOR_FONDO);
-        int pad = (int) (16 * context.getResources().getDisplayMetrics().density);
-        texto.setPadding(pad, pad / 2, pad, pad);
-        android.widget.ScrollView scroll = new android.widget.ScrollView(context);
-        scroll.setBackgroundColor(COLOR_FONDO);
-        scroll.addView(texto);
+        // Los avanzados conservan su morado (span propio sobre el azul rey de A20).
         new AlertDialog.Builder(context)
                 .setTitle("Tipos de cuenta")
-                .setView(scroll)
+                .setView(A20_Informacion.vista(context, sb))
                 .setPositiveButton("Entendido", null)
                 .show();
     }

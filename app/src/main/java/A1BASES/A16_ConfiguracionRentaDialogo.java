@@ -81,6 +81,34 @@ public class A16_ConfiguracionRentaDialogo {
         raiz.addView(titulo(context, "Moneda (ej. COP)"));
         EditText moneda_XEt = campo(context, moneda, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
         raiz.addView(moneda_XEt);
+        // ⭐ NUEVO (12-nov, Jorge): país y moneda deben corresponder. Si el país está en la tabla
+        // de A20_Informacion, la moneda se pone sola y no se puede cambiar; si no está, se
+        // escribe a mano. Línea con el estándar de información.
+        TextView monedaNota_XTv = new TextView(context);
+        monedaNota_XTv.setTextSize(13);
+        monedaNota_XTv.setTextColor(A20_Informacion.COLOR_TEXTO);
+        monedaNota_XTv.setBackgroundColor(A20_Informacion.COLOR_FONDO);
+        monedaNota_XTv.setPadding(12, 4, 12, 4);
+        raiz.addView(monedaNota_XTv);
+        Runnable ajustarMoneda = () -> {
+            String obligatoria = A20_Informacion.monedaDePais(pais_XEt.getText().toString());
+            if (obligatoria != null) {
+                if (!obligatoria.equals(moneda_XEt.getText().toString().trim())) {
+                    moneda_XEt.setText(obligatoria);
+                }
+                moneda_XEt.setEnabled(false);
+                monedaNota_XTv.setText("La moneda de este país es " + obligatoria + ".");
+            } else {
+                moneda_XEt.setEnabled(true);
+                monedaNota_XTv.setText("País fuera de la tabla: escribe su moneda (código de 3 letras).");
+            }
+        };
+        ajustarMoneda.run();
+        pais_XEt.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) { ajustarMoneda.run(); }
+        });
 
         raiz.addView(titulo(context, "Inicio del año fiscal (mes y día)"));
         LinearLayout filaInicio = new LinearLayout(context);
@@ -139,6 +167,9 @@ public class A16_ConfiguracionRentaDialogo {
             Toast.makeText(context, "Falta el país o la moneda; no se guardó", Toast.LENGTH_LONG).show();
             return;
         }
+        // ⭐ NUEVO (12-nov, Jorge): nunca se guarda un país con una moneda que no es la suya.
+        String obligatoria = A20_Informacion.monedaDePais(pais);
+        if (obligatoria != null) moneda = obligatoria;
         if (dia < 1 || dia > DIAS_MES[mes - 1]) {
             Toast.makeText(context, "Día de inicio no válido para " + MESES[mes - 1] + "; no se guardó",
                     Toast.LENGTH_LONG).show();
