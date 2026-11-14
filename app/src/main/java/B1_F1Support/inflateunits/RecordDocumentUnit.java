@@ -280,8 +280,15 @@ public class RecordDocumentUnit {
 
     // Campo cuenta autocomplete — sincroniza con spinner
     private void setupCuentaAtvField() {
-        f1.cuenta_XAtv.setOnFocusChangeListener(
-                (v, hasFocus) -> { if (!hasFocus) f1.ocultarTeclado(); });
+        // ⭐ (14-nov, Jorge): el spinner de cuentas se ocultó. El autocomplete sigue sugiriendo
+        // mientras se escribe (lo principal) y, además, con el campo vacío, al tocarlo despliega
+        // la lista COMPLETA de cuentas, para quien no recuerda el nombre o no conoce el plan de
+        // cuentas (la ayuda está en el hint: "Cuenta ▾ toca: lista").
+        f1.cuenta_XAtv.setOnFocusChangeListener((v, hasFocus) -> {
+            if (!hasFocus) f1.ocultarTeclado();
+            else mostrarListaCompletaDeCuentasSiVacio();
+        });
+        f1.cuenta_XAtv.setOnClickListener(v -> mostrarListaCompletaDeCuentasSiVacio());
 
         f1.cuenta_XAtv.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
@@ -330,7 +337,19 @@ public class RecordDocumentUnit {
     // defensivo de confirmarRegistroAlElegirSigno() ("maneja inventario — completa el
     // diálogo..."). Se extrae aquí para que CUALQUIER forma de fijar cuenta_XAtv (clic en la
     // lista, o cualquiera de los botones de pegar) dispare la misma resolución.
+    /** Con el campo de cuenta vacío, despliega todas las cuentas (sin filtrar). */
+    private void mostrarListaCompletaDeCuentasSiVacio() {
+        if (!f1.cuenta_XAtv.getText().toString().trim().isEmpty()) return;
+        android.widget.ListAdapter adaptador = f1.cuenta_XAtv.getAdapter();
+        if (!(adaptador instanceof android.widget.Filterable)) return;
+        ((android.widget.Filterable) adaptador).getFilter().filter(null, cuantas -> {
+            if (cuantas > 0 && f1.cuenta_XAtv.isShown()) f1.cuenta_XAtv.showDropDown();
+        });
+    }
+
     private void seleccionarCuentaDesdeTexto() {
+        // ⭐ (14-nov): elegida por el usuario → al registrarla se abre la lista del signo.
+        f1.abrirSignoTrasCuenta = true;
         if (f1.descripcion_XAtv.getText().toString().isEmpty()) {
             f1.cuenta_XSp.setSelection(0);
             Toast.makeText(f1.getActivity(), "Falta la descripcion", Toast.LENGTH_SHORT).show();
@@ -385,8 +404,21 @@ public class RecordDocumentUnit {
                         f1.losDemasRegistrosAListaDocumento();
                         f1.digitarFisicoVsSaldoConciliacion();
                         f1.ocultarTeclado();
+                        // ⭐ (14-nov, Jorge): pasar al signo, solo si la cuenta la eligió el
+                        // usuario (no en restauraciones) y no maneja inventario (su diálogo
+                        // ya fija el signo).
+                        boolean conInventario = f1.atributosCuenta_ArrayS != null
+                                && f1.atributosCuenta_ArrayS.length > 8
+                                && "1".equals(f1.atributosCuenta_ArrayS[8]);
+                        if (f1.abrirSignoTrasCuenta && !conInventario
+                                && f1.signo_XSp.getSelectedItemPosition() <= 0) {
+                            f1.signo_XSp.postDelayed(() -> {
+                                if (f1.signo_XSp.isShown()) f1.signo_XSp.performClick();
+                            }, 250);
+                        }
                     }
                 }
+                f1.abrirSignoTrasCuenta = false;
                 f1.digitarFisicoVsSaldoConciliacion();
                 f1.sumarItemListaDocumento();
                 f1.actualizarSumasListado();

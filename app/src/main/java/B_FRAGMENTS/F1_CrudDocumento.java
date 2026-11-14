@@ -145,6 +145,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // Controls modes, dialogs and copy/paste behavior
     // =========================================================
     public boolean enModoModificacion            = false;
+    // ⭐ (14-nov): true solo cuando el usuario eligió la cuenta (autocomplete o ↻); así el
+    // signo se abre solo en ese caso y no al restaurar la caché.
+    public boolean abrirSignoTrasCuenta          = false;
     private boolean ascending_Boolean             = true;
     public boolean isCopyMode                    = true;
     private String  cuentaOriginalEnModificacion  = "";

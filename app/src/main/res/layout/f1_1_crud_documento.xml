@@ -1152,6 +1152,8 @@
                 <!-- ⭐ REORDEN UX (14-nov, Jorge): el registro manual queda en dos filas. Fila 1:
                      valor con su ↻ a la izquierda de la descripción con su ↻. Fila 2: cuenta, su ↻,
                      el spinner de cuentas y al final el signo (descripción 240 dp y cuenta 230 dp,
+                     ⭐ 14-nov: el spinner de cuentas queda oculto — sigue siendo el motor interno
+                     del registro — y la cuenta (290 dp) despliega la lista completa al tocarla,
                      alineadas aunque pasen el ancho de "A conciliar"). Valor y signo salen de
                      seccion1HaceRegistrosItemsLista_XGl, que queda oculta. -->
                 <EditText
@@ -1287,14 +1289,14 @@
                     android:layout_marginVertical="3dp"
 
                         android:id="@+id/cuenta_XAtv"
-                                                android:layout_width="225dp"
+                                                android:layout_width="290dp"
                         android:layout_height="27dp"
                         android:background="#DDE6FB"
                         android:completionThreshold="1"
                         android:dropDownWidth="350dp"
                         android:dropDownHeight="300dp"
                         android:dropDownSelector="@color/design_default_color_primary"
-                        android:hint="Cuenta"
+                        android:hint="Cuenta ▾ toca: lista"
                         android:maxLength="40"
                         android:popupBackground="#F886AD"
                         android:singleLine="true"
@@ -1343,7 +1345,7 @@
                         android:inputType="number"
                         android:textColor="#425DF6"
                         android:textSize="25dp"
-                        android:visibility="visible"
+                        android:visibility="gone"
                         app:layout_row="1"
                         app:layout_column="3"
                         app:layout_gravity="center_vertical"
