@@ -981,7 +981,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         cuenta_XAtv.setText(cuentaOriginalEnModificacion);
         cuenta_XAtv.dismissDropDown();
         pegarCuetaAnterior_XChB.setVisibility(View.GONE);
-        pegarCuentaSpinner_XChB.setVisibility(View.GONE);
+        // ⭐ (14-nov) INVISIBLE en vez de GONE: conserva su espacio y la fila queda alineada.
+        pegarCuentaSpinner_XChB.setVisibility(View.INVISIBLE);
 
         // ✅ MOSTRAR Y ANIMAR EL FAB
         animarBotonModificar();
