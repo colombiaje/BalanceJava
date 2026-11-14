@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ⭐ NUEVO (14-nov, Jorge): marco del bloque de registro mientras se modifica un ítem (naranja). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="14dp" />
+    <stroke android:width="3dp" android:color="#FF5722" />
+    <solid android:color="#FFF1E8" />
+</shape>

@@ -137,6 +137,13 @@ public class D_F1_AdaptadorCrudDocumento extends ArrayAdapter<A3_2_TipoTransacci
             vTlistItem_11.setVisibility(View.GONE);
         }
 
+        // ⭐ (14-nov, Jorge): resalta en naranja claro el ítem que se está modificando.
+        String enModificacion = B_FRAGMENTS.F1_CrudDocumento.consecutivoRegistroAModificar_StringStatic;
+        if (enModificacion != null && !enModificacion.isEmpty()
+                && enModificacion.equals(registroTD.tipoTget_2ItemDocMetodoEnA5())) {
+            inflarViews_View.setBackgroundColor(android.graphics.Color.parseColor("#FFD7C4"));
+        }
+
         return inflarViews_View;
     }
 }

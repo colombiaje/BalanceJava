@@ -623,11 +623,14 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         });
 
         // Esperar a que el layout esté completamente dibujado
-        fabModificar.post(new Runnable() {
-            @Override
-            public void run() {
-                posicionarFABRelativoABoton();//ojo
-            }
+        // ⭐ (14-nov): el FAB ya no se usa (ver actualizarUIModificacion); botones de la fila nueva.
+        fabModificar.setVisibility(View.GONE);
+        View guardarItem = inflarViews_View.findViewById(R.id.guardarItem_XBt);
+        View cancelarItem = inflarViews_View.findViewById(R.id.cancelarItem_XBt);
+        if (guardarItem != null) guardarItem.setOnClickListener(v -> guardarModificacion());
+        if (cancelarItem != null) cancelarItem.setOnClickListener(v -> {
+            cancelarModoModificacionSiActivo();
+            ocultarTeclado();
         });
 
         seeButtons_XB.setOnClickListener(new View.OnClickListener()
@@ -1038,13 +1041,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         actualizarTotales();
         actualizarListView();
 
-        fabModificar.post(() -> {
-            if (enModoModificacion && fabModificar.getVisibility() != View.VISIBLE) {
-                fabModificar.setVisibility(View.VISIBLE);
-                fabModificar.show();
-                animarBotonModificar();
-            }
-        });
+        actualizarUIModificacion(); // ⭐ (14-nov) en lugar del botón flotante
     }
 
     private void setupCampoConCalculadora(final EditText campo) {
@@ -1866,6 +1863,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     //methods clear
     public void clearViewValuesAreaRecords() {
+        cancelarModoModificacionSiActivo(); // ⭐ (14-nov) la escobita también cancela la modificación
         valor_XEt.setText("");
         descripcion_XAtv.setText("");
         signo_XSp.setSelection(0);
@@ -1874,6 +1872,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     public void clearViewsValuesForInitializeCRUD() {
+        cancelarModoModificacionSiActivo(); // ⭐ (14-nov) limpiar/guardar/cambiar área cierran el modo
         // Create new area
         estadoChBOtraFechaInicialEnAdicionar_String = null;
         assignedOtherDateInCreateNew_XChB.setChecked(false);
@@ -2110,78 +2109,51 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     //metodos especiales
 
-    // ===== ANIMACIÓN MEJORADA =====
+    // ⭐ REDISEÑO (14-nov, Jorge): el botón flotante "GUARDAR CAMBIOS" se reemplaza por una
+    // señal más sencilla y una fila con "💾 Guardar ítem" y "✕", visible solo durante la
+    // modificación. El nombre animarBotonModificar() se conserva porque lo llaman varios puntos.
     public void animarBotonModificar() {
+        actualizarUIModificacion();
+    }
 
-        if (enModoModificacion) {
-
-            // ✅ DETENER ANIMACIONES PREVIAS
-            if (fabPulseAnimator != null && fabPulseAnimator.isRunning()) {
-                fabPulseAnimator.cancel();
-            }
-            if (fabColorAnimator != null && fabColorAnimator.isRunning()) {
-                fabColorAnimator.cancel();
-            }
-
-            // Resetear estado visual
-            fabModificar.setTranslationY(0f);
-            fabModificar.setScaleX(1f);
-            fabModificar.setScaleY(1f);
-
-            // ✅ FORZAR VISIBILIDAD ANTES DE MOSTRAR
-            fabModificar.clearAnimation();
-            fabModificar.setVisibility(View.VISIBLE);
-            fabModificar.setAlpha(1f); // Asegurar opacidad completa
-            fabModificar.show();
-
-            // Animación de pulso vertical
-            fabPulseAnimator = ObjectAnimator.ofFloat(fabModificar, "translationY", 0f, -15f, 0f);
-            fabPulseAnimator.setDuration(1000);
-            fabPulseAnimator.setRepeatCount(ObjectAnimator.INFINITE);
-            fabPulseAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
-            fabPulseAnimator.start();
-
-            // Animación de color
-            fabColorAnimator = ObjectAnimator.ofObject(
-                    fabModificar,
-                    "backgroundTint",
-                    new ArgbEvaluator(),
-                    Color.parseColor("#FF5722"),
-                    Color.parseColor("#FF9800"),
-
-
-                    Color.parseColor("#FF5722")
-            );
-            fabColorAnimator.setDuration(1500);
-            fabColorAnimator.setRepeatMode(ObjectAnimator.REVERSE);
-            fabColorAnimator.setRepeatCount(ObjectAnimator.INFINITE);
-            fabColorAnimator.start();
-
-        } else {
-            // ✅ SOLO OCULTAR SI REALMENTE NO ESTAMOS EN MODO MODIFICACIÓN
-
-            // Detener animaciones
-            if (fabPulseAnimator != null) {
-                fabPulseAnimator.cancel();
-            }
-            if (fabColorAnimator != null) {
-                fabColorAnimator.cancel();
-            }
-
-            // Ocultar FAB
-            fabModificar.hide();
-            fabModificar.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    fabModificar.setVisibility(View.GONE);
-                }
-            }, 200); // Esperar a que termine la animación hide()
-
-            // Resetear transformaciones
-            fabModificar.setTranslationY(0f);
-            fabModificar.setScaleX(1f);
-            fabModificar.setScaleY(1f);
+    /** Muestra u oculta la señal de "modificando ítem" según enModoModificacion. */
+    public void actualizarUIModificacion() {
+        if (fabModificar != null) fabModificar.setVisibility(View.GONE); // ya no se usa
+        View raiz = getView();
+        if (raiz == null) return;
+        View fila = raiz.findViewById(R.id.filaModificacion_XLL);
+        View bloque = raiz.findViewById(R.id.areaConciliacionYRegistro_XGl);
+        if (fila != null) fila.setVisibility(enModoModificacion ? View.VISIBLE : View.GONE);
+        if (bloque != null) {
+            bloque.setBackgroundResource(enModoModificacion
+                    ? R.drawable.bg_registro_marco_modificacion : R.drawable.bg_registro_marco);
         }
+        if (consecutivoItemRegistro_XTv != null) {
+            if (enModoModificacion) {
+                String item = consecutivoRegistroAModificar_StringStatic == null
+                        ? "" : consecutivoRegistroAModificar_StringStatic;
+                consecutivoItemRegistro_XTv.setText("Modif.\n" + item + "/" + listaDocumento_ArrayLTT.size());
+                consecutivoItemRegistro_XTv.setBackgroundColor(Color.parseColor("#FF5722"));
+            } else {
+                consecutivoItemRegistro_XTv.setBackgroundColor(Color.parseColor("#425DF6"));
+            }
+        }
+        if (listaDocumento_XLv != null && listaDocumento_XLv.getAdapter() instanceof android.widget.BaseAdapter) {
+            ((android.widget.BaseAdapter) listaDocumento_XLv.getAdapter()).notifyDataSetChanged(); // resalta la fila
+        }
+    }
+
+    /** Cierra el modo modificación sin guardar (✕, escobita, limpiar, cambiar de documento o área). */
+    public void cancelarModoModificacionSiActivo() {
+        if (!enModoModificacion) return;
+        valor_XEt.setText("");
+        descripcion_XAtv.setText("");
+        signo_XSp.setSelection(0);
+        cuenta_XSp.setSelection(0);
+        consecutivoItemRegistro_XTv.setText("0/0");
+        consecutivoRegistroAModificar_StringStatic = "";
+        finalizarModoModificacion();
+        actualizarListView();
     }
 
     public void pedirPermisoAlDispositivo() {
@@ -2866,6 +2838,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     //limpiarListaYAdaptador() — método nuevo auxiliar que centraliza la limpieza:
     public void limpiarListaYAdaptador() {
+        cancelarModoModificacionSiActivo(); // ⭐ (14-nov) cargar/restaurar otro documento cierra el modo
         if (listaDocumento_ArrayLTT != null) {
             listaDocumento_ArrayLTT.clear();
         }

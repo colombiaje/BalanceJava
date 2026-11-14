@@ -179,14 +179,8 @@ public class SeeDocumentUnit {
     }
 
     // Garantiza que el FAB sea visible al entrar en modo modificación
+    // ⭐ (14-nov): ya no hay botón flotante; se muestra la fila "💾 Guardar ítem / ✕".
     private void ensureFabVisible() {
-        f1.fabModificar.post(() -> {
-            if (f1.enModoModificacion
-                    && f1.fabModificar.getVisibility() != View.VISIBLE) {
-                f1.fabModificar.setVisibility(View.VISIBLE);
-                f1.fabModificar.show();
-                f1.animarBotonModificar();
-            }
-        });
+        f1.actualizarUIModificacion();
     }
 }

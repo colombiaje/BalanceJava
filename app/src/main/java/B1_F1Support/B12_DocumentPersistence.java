@@ -546,13 +546,7 @@ public class B12_DocumentPersistence {
             f1.controlACeroTotales_XTv.setText("" + f1.$netoT);
 
             if (f1.enModoModificacion) {
-                f1.fabModificar.post(() -> {
-                    if (f1.enModoModificacion
-                            && f1.fabModificar.getVisibility() != View.VISIBLE) {
-                        f1.fabModificar.setVisibility(View.VISIBLE);
-                        f1.fabModificar.show();
-                    }
-                });
+                f1.actualizarUIModificacion(); // ⭐ (14-nov) en lugar del botón flotante
             }
 
         } catch (Exception e) {
