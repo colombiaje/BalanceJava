@@ -63,47 +63,48 @@ public class UpdateDeleteUnit {
         setupConsecutivoClick();
     }
 
-    // ⭐ NUEVO (13-nov, Jorge): botón 📅 → lista de documentos por fecha (A25_ListaDocumentosDialogo).
+    // ⭐ NUEVO (13-nov, Jorge): botón 📅 → ventana de documentos (A25_ListaDocumentosDialogo).
+    // ⭐ (14-nov, Jorge): el botón pasó a la barra de opciones (junto a las áreas y la calculadora)
+    // y la ventana es el ÚNICO camino para elegir el documento de Edición: el número de F1 ya no
+    // se escribe; al tocarlo también abre la ventana.
     private void setupListaDocumentosPorFecha(View view) {
         View boton = view.findViewById(R.id.listaDocumentosPorFecha_XBt);
         if (boton != null) {
             boton.setOnClickListener(v -> new A1BASES.A25_ListaDocumentosDialogo(f1).mostrar());
         }
+        f1.documentoABuscarParaEditar_XATv.setFocusable(false);
+        f1.documentoABuscarParaEditar_XATv.setFocusableInTouchMode(false);
+        f1.documentoABuscarParaEditar_XATv.setCursorVisible(false);
+        f1.documentoABuscarParaEditar_XATv.setOnClickListener(
+                v -> new A1BASES.A25_ListaDocumentosDialogo(f1).mostrar());
     }
 
     // Selección de documento en el autocomplete
     private void setupDocumentSearchItemClick() {
         f1.documentoABuscarParaEditar_XATv.setOnItemClickListener(
                 (adapterView, view, i, l) -> {
-                    // ⭐ (13-nov, Jorge): si el documento que estaba abierto tiene cambios sin
-                    // guardar, F1 pregunta antes (Espera / Descartar / Cancelar).
-                    String nuevo = f1.documentoABuscarParaEditar_XATv.getText().toString().trim();
-                    f1.confirmarCambioDeDocumento(nuevo, () -> {
-                        // NOTE: llamado dos veces — comportamiento original preservado
-                        f1.colocarDocConsultadoEnListaItemDoc();
-                        f1.colocarDocConsultadoEnListaItemDoc();
-                        f1.sumarItemListaDocumento();
-                        f1.actualizarSumasListado();
-                        f1.controlACeroTotales_XTv.setText("" + f1.$netoT);
-                        f1.pasarItemListaTodoResumidoAItemListaRevision();
-                        // ⭐ (13-nov): sin saldos del documento anterior en "cuentas a revisar";
-                        // al elegir la cuenta se recalculan con el ajuste del 10-nov.
-                        f1.resetearSpinnerCuentasRevision();
-                        f1.ocultarTeclado();
-                        f1.documentoABuscarParaEditar_XATv
-                                .setBackgroundColor(Color.parseColor("#90E0D8"));
-                    });
+                    // ⭐ (14-nov): el control de cambios sin guardar se hace ANTES de cambiar el
+                    // número (F1.antesDeCambiarDocumento: ventana 📅 y ↻); aquí solo se carga.
+                    // NOTE: llamado dos veces — comportamiento original preservado
+                    f1.colocarDocConsultadoEnListaItemDoc();
+                    f1.colocarDocConsultadoEnListaItemDoc();
+                    f1.sumarItemListaDocumento();
+                    f1.actualizarSumasListado();
+                    f1.controlACeroTotales_XTv.setText("" + f1.$netoT);
+                    f1.pasarItemListaTodoResumidoAItemListaRevision();
+                    // ⭐ (13-nov): sin saldos del documento anterior en "cuentas a revisar";
+                    // al elegir la cuenta se recalculan con el ajuste del 10-nov.
+                    f1.resetearSpinnerCuentasRevision();
+                    f1.ocultarTeclado();
+                    f1.documentoABuscarParaEditar_XATv
+                            .setBackgroundColor(Color.parseColor("#90E0D8"));
                 });
     }
 
     // Escritura en el campo de búsqueda de documento
     private void setupDocumentSearchTextWatcher() {
         f1.documentoABuscarParaEditar_XATv.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                // ⭐ (13-nov): antes de que el cambio borre la lista, copia el documento abierto
-                // si tiene cambios sin guardar (F1.capturarRescateSiHayCambios).
-                if (count > 0) f1.capturarRescateSiHayCambios(s.toString());
-            }
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -166,8 +167,13 @@ public class UpdateDeleteUnit {
                                 .onItemClick(null, null, 0, 0);
                     }
                 });
-        f1.limpiarDocumentoModificar_XChB.setOnClickListener(v -> ciclo.tocar());
-        f1.limpiarDocumentoModificar_XChB.setOnLongClickListener(v -> ciclo.tocarLargo());
+        // ⭐ (14-nov): el ↻ también pasa por el control de cambios sin guardar.
+        f1.limpiarDocumentoModificar_XChB.setOnClickListener(v ->
+                f1.antesDeCambiarDocumento(null, ciclo::tocar));
+        f1.limpiarDocumentoModificar_XChB.setOnLongClickListener(v -> {
+            f1.antesDeCambiarDocumento(null, ciclo::tocarLargo);
+            return true;
+        });
     }
 
     // Botón eliminar documento — pide confirmación antes de borrar

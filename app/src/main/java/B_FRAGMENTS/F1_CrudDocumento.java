@@ -2308,22 +2308,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         boolean hayPlantilla = descripcionABuscarEnPlantilla_XAtv != null
                 && !descripcionABuscarEnPlantilla_XAtv.getText().toString().isEmpty();
 
-        // ⭐ (13-nov) también cuenta la copia pendiente del control de cambios de Edición.
-        return hayRegistros || hayValorEt || hayDesc || hayDoc || hayPlantilla
-                || rescateDocumento != null;
+        return hayRegistros || hayValorEt || hayDesc || hayDoc || hayPlantilla;
     }
 
     public void hacerBackupSilencioso(int radioButtonId) {
-        // ⭐ (13-nov): si se sale de Edición con un documento a medio cambiar (copia pendiente del
-        // control de cambios), se guarda la copia: así lo modificado no se pierde.
-        if (radioButtonId == R.id.updateDelete_XRb && rescateDocumento != null
-                && rescateRegistros != null && rescateEncabezado != null) {
-            A5_CacheManager.guardarRegistros(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateRegistros);
-            A5_CacheManager.guardarEncabezado(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateEncabezado);
-            limpiarRescate();
-            actualizarBadgeCache();
-            return;
-        }
         int areaId = A5_CacheManager.radioButtonToAreaId(
                 radioButtonId,
                 R.id.create_XRb, R.id.template_XRb, R.id.updateDelete_XRb);
@@ -2949,36 +2937,62 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ⭐ NUEVO (13-nov, Jorge): control al cambiar de documento en Edición (autocomplete, ↻ y
-    // la lista 📅). Antes, escribir otro número borraba sin aviso lo que se había modificado del
-    // documento abierto y no se había guardado. Ahora:
-    //   1. Antes de que el campo del número cambie (beforeTextChanged), si el documento abierto
-    //      tiene cambios sin guardar, se guarda una copia EN MEMORIA (registros + encabezado).
-    //   2. Al elegir el documento nuevo, si hay copia, se pregunta: pasar el abierto a Espera,
-    //      descartarlo o cancelar (volver a él con sus cambios).
-    // La copia no se escribe en caché hasta que el usuario elige; así no interfiere con las
-    // restauraciones ni con el intercambio de Espera (Canal D).
+    // ⭐ REDISEÑO (14-nov, Jorge): un solo flujo para elegir el documento de Edición.
+    // El número de F1 ya no se escribe: se elige en la ventana 📅 (autocomplete del número o
+    // lista por fecha) o con el ↻. Antes de cambiar de documento, con la lista del abierto
+    // todavía intacta, se revisa si tiene cambios sin guardar y se pregunta:
+    // "Pasar a Espera ⇄" (si está libre) / "Descartar y abrir" / "Cancelar".
+    // (Reemplaza la copia de rescate en memoria del 13-nov, que dependía de la escritura.)
     // ═══════════════════════════════════════════════════════════════
-    private String rescateDocumento = null;
-    private ArrayList<A3_2_TipoTransaccionesGetsYSets> rescateRegistros = null;
-    private A5_CacheManager.Encabezado rescateEncabezado = null;
-    public boolean cambioDeDocumentoDesdeLista = false;
 
-    /** Paso 1: llamado desde beforeTextChanged del número de documento (UpdateDeleteUnit). */
-    public void capturarRescateSiHayCambios(String documentoAnterior) {
-        if (rescateDocumento != null) return; // ya hay una copia pendiente
-        if (documentoAnterior == null || documentoAnterior.trim().isEmpty()) return;
-        if (!documentoCargadoParaEdicion || listaDocumento_ArrayLTT == null
-                || listaDocumento_ArrayLTT.isEmpty()) return;
-        boolean porUsuario = cambioDeDocumentoDesdeLista
-                || (documentoABuscarParaEditar_XATv != null && documentoABuscarParaEditar_XATv.hasFocus());
-        if (!porUsuario) return; // restauraciones e intercambios programáticos: no aplica
-        String doc = documentoAnterior.trim();
-        if (!hayCambiosSinGuardar(doc)) return;
-        rescateDocumento = doc;
-        rescateRegistros = new ArrayList<>(listaDocumento_ArrayLTT);
-        rescateEncabezado = buildEncabezado();
-        rescateEncabezado.campo_8_docBuscarEditar = doc;
+    /** Abre un documento en Edición desde la ventana 📅 (en cualquier área). */
+    public void abrirDocumentoEnEdicion(String documento) {
+        if (documento == null || documento.trim().isEmpty()) return;
+        final String doc = documento.trim();
+        if (currentRadioButtonId != R.id.updateDelete_XRb) {
+            optionsDoc_XRg.check(R.id.updateDelete_XRb); // mismo camino que tocar el área Edición
+        }
+        String abierto = documentoABuscarParaEditar_XATv.getText().toString().trim();
+        if (doc.equals(abierto) && documentoCargadoParaEdicion) return; // ya está abierto
+        antesDeCambiarDocumento(doc, () -> {
+            documentoABuscarParaEditar_XATv.setText(doc);
+            documentoABuscarParaEditar_XATv.dismissDropDown();
+            if (documentoABuscarParaEditar_XATv.getOnItemClickListener() != null) {
+                documentoABuscarParaEditar_XATv.getOnItemClickListener().onItemClick(null, null, 0, 0);
+            }
+        });
+    }
+
+    /** Control de cambios sin guardar del documento abierto en Edición, antes de cambiarlo. */
+    public void antesDeCambiarDocumento(String nuevoDocumento, Runnable cambiar) {
+        String abierto = documentoABuscarParaEditar_XATv.getText().toString().trim();
+        if (abierto.isEmpty() || !documentoCargadoParaEdicion || listaDocumento_ArrayLTT == null
+                || listaDocumento_ArrayLTT.isEmpty() || !hayCambiosSinGuardar(abierto)) {
+            cambiar.run();
+            return;
+        }
+        boolean esperaOcupada = A5_CacheManager.restaurarEncabezado(getContext(),
+                A1_1_AyudanteBD.AREA_UPDATE_ESPERA) != null;
+        String destino = nuevoDocumento == null || nuevoDocumento.isEmpty()
+                ? "cambiar de documento" : "abrir el " + nuevoDocumento;
+        String texto = "El documento " + abierto + " tiene cambios sin guardar. ¿Qué hago con él "
+                + "antes de " + destino + "?"
+                + (esperaOcupada ? "\n\nEspera ya tiene otro documento; termínalo antes si quieres "
+                + "usarla para este." : "");
+        androidx.appcompat.app.AlertDialog.Builder b = new androidx.appcompat.app.AlertDialog.Builder(getActivity())
+                .setTitle("Cambios sin guardar")
+                .setView(A1BASES.A20_Informacion.vista(getActivity(), texto))
+                .setCancelable(false)
+                .setNeutralButton("Descartar y abrir", (d, w) -> cambiar.run())
+                .setNegativeButton("Cancelar", null);
+        if (!esperaOcupada) {
+            b.setPositiveButton("Pasar a Espera ⇄", (d, w) -> {
+                hacerBackupSilenciosoCanalD(A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+                cambiar.run();
+                actualizarVisibilidadBotonVerde();
+            });
+        }
+        b.show();
     }
 
     /** Compara la pantalla con la base: cuentas, valores, descripciones y fecha. */
@@ -3009,76 +3023,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 + (t.tipoT_6Description_String == null ? "" : t.tipoT_6Description_String.trim());
     }
 
-    /** Paso 2: llamado al elegir el documento nuevo (listener del autocomplete). */
-    public void confirmarCambioDeDocumento(String nuevoDocumento, Runnable cargarNuevo) {
-        cambioDeDocumentoDesdeLista = false;
-        if (rescateDocumento == null) {
-            cargarNuevo.run();
-            return;
-        }
-        final String abierto = rescateDocumento;
-        if (abierto.equals(nuevoDocumento == null ? "" : nuevoDocumento.trim())) {
-            volverAlDocumentoRescatado(); // volvió a elegir el mismo: se recupera con sus cambios
-            return;
-        }
-        boolean esperaOcupada = A5_CacheManager.restaurarEncabezado(getContext(),
-                A1_1_AyudanteBD.AREA_UPDATE_ESPERA) != null;
-        String texto = "El documento " + abierto + " tiene cambios sin guardar. ¿Qué hago con él "
-                + "antes de abrir el " + nuevoDocumento + "?"
-                + (esperaOcupada ? "\n\nEspera ya tiene otro documento; termínalo antes si quieres "
-                + "usarla para este." : "");
-        androidx.appcompat.app.AlertDialog.Builder b = new androidx.appcompat.app.AlertDialog.Builder(getActivity())
-                .setTitle("Cambios sin guardar")
-                .setView(A1BASES.A20_Informacion.vista(getActivity(), texto))
-                .setCancelable(false)
-                .setNeutralButton("Descartar y abrir", (d, w) -> {
-                    limpiarRescate();
-                    cargarNuevo.run();
-                })
-                .setNegativeButton("Cancelar", (d, w) -> volverAlDocumentoRescatado());
-        if (!esperaOcupada) {
-            b.setPositiveButton("Pasar a Espera ⇄", (d, w) -> {
-                A5_CacheManager.guardarRegistros(getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA, rescateRegistros);
-                A5_CacheManager.guardarEncabezado(getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA, rescateEncabezado);
-                limpiarRescate();
-                cargarNuevo.run();
-                actualizarVisibilidadBotonVerde();
-                actualizarBadgeCache();
-            });
-        }
-        b.show();
-    }
-
-    /** "Cancelar": el documento abierto vuelve a la pantalla con sus cambios. */
-    private void volverAlDocumentoRescatado() {
-        if (rescateRegistros != null && rescateEncabezado != null) {
-            A5_CacheManager.guardarRegistros(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateRegistros);
-            A5_CacheManager.guardarEncabezado(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateEncabezado);
-            limpiarRescate();
-            restoreBackups(R.id.updateDelete_XRb);
-            mostrarAreaCorrespondiente(R.id.updateDelete_XRb);
-        } else {
-            limpiarRescate();
-        }
-    }
-
-    public void limpiarRescate() {
-        rescateDocumento = null;
-        rescateRegistros = null;
-        rescateEncabezado = null;
-    }
-
     public void hacerBackupSilenciosoCanalD(int areaId) {
-        // ⭐ (13-nov): igual que hacerBackupSilencioso — con copia pendiente del control de
-        // cambios, se guarda la copia (también al intercambiar con Espera).
-        if (areaId == A1_1_AyudanteBD.AREA_UPDATE && rescateDocumento != null
-                && rescateRegistros != null && rescateEncabezado != null) {
-            A5_CacheManager.guardarRegistros(getContext(), areaId, rescateRegistros);
-            A5_CacheManager.guardarEncabezado(getContext(), areaId, rescateEncabezado);
-            limpiarRescate();
-            actualizarBadgeCache();
-            return;
-        }
         // ✅ Registros primero — emula CSV_RECORDS
         A5_CacheManager.guardarRegistros(getContext(), areaId, listaDocumento_ArrayLTT);
 

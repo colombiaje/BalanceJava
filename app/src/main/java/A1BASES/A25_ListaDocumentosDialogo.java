@@ -31,7 +31,10 @@ import com.jj.appbalancev31.R;
 import B_FRAGMENTS.F1_CrudDocumento;
 
 /**
- * ⭐ NUEVO (13-nov, Jorge): lista de documentos por fecha, desde el botón 📅 de F1 › Edición.
+ * ⭐ NUEVO (13-nov, Jorge): lista de documentos por fecha, desde el botón 📅 de F1.
+ * ⭐ (14-nov, Jorge): es el único camino para elegir el documento de Edición — arriba el número
+ * con autocomplete (como antes en Edición) y abajo la lista por fecha. El botón está en la barra
+ * de opciones, junto a las áreas y la calculadora.
  *
  * Para qué: antes de registrar algo en una fecha, ver qué documentos ya existen ese día (y los
  * vecinos) y así no duplicar. Columnas: fecha · número · descripción corta (la del primer ítem).
@@ -39,8 +42,8 @@ import B_FRAGMENTS.F1_CrudDocumento;
  *   - Orden: del más reciente al más antiguo (fecha y, dentro del día, número de mayor a menor).
  *   - "Ir a fecha": salta al día elegido y resalta sus documentos; si ese día no tiene, queda en
  *     el anterior más cercano y lo dice.
- *   - Tocar una fila: carga el documento en Edición exactamente como al elegirlo en el
- *     autocomplete del número (mismo listener).
+ *   - Tocar una fila o elegir el número: F1 pasa a Edición si hace falta, pregunta si el
+ *     documento abierto tiene cambios sin guardar y carga el elegido (F1.abrirDocumentoEnEdicion).
  *   - "Nuevo en esta fecha": pasa a F1 › Nuevo con "otra fecha" ya puesta. El número del
  *     documento se toma al GUARDAR (último registrado + 1, B12), así que no choca con borradores
  *     en espera ni con respaldos sin registrar. Si Nuevo tiene un borrador en espera, no se toca:
@@ -75,6 +78,33 @@ public class A25_ListaDocumentosDialogo {
         int pad = dp(10);
         raiz.setPadding(pad, pad / 2, pad, 0);
 
+        // ⭐ (14-nov, Jorge): opción 1 — escribir el número, como venía funcionando en Edición.
+        android.widget.AutoCompleteTextView numero = new android.widget.AutoCompleteTextView(context);
+        numero.setHint("Escribe el número del documento");
+        numero.setTextSize(18);
+        numero.setTextColor(A20_Informacion.COLOR_TEXTO);
+        numero.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        numero.setThreshold(1);
+        numero.setBackgroundColor(Color.parseColor("#F4D7F5"));
+        numero.setPadding(dp(8), dp(4), dp(8), dp(4));
+        List<String> numeros = new ArrayList<>();
+        for (String[] fila : filas) numeros.add(fila[0]);
+        numero.setAdapter(new android.widget.ArrayAdapter<>(context,
+                android.R.layout.simple_dropdown_item_1line, numeros));
+        numero.setOnItemClickListener((p, v, posicion, id) ->
+                abrirEnEdicion(String.valueOf(p.getItemAtPosition(posicion))));
+        numero.setOnEditorActionListener((v, accion, evento) -> {
+            String texto = numero.getText().toString().trim();
+            if (numeros.contains(texto)) {
+                abrirEnEdicion(texto);
+                return true;
+            }
+            return false;
+        });
+        raiz.addView(numero, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
+
+        // Opción 2 — buscar por fecha en la lista.
         LinearLayout botones = new LinearLayout(context);
         botones.setOrientation(LinearLayout.HORIZONTAL);
         Button irAFecha = boton("Ir a fecha");
@@ -87,7 +117,10 @@ public class A25_ListaDocumentosDialogo {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(40), 1f);
         lp.setMarginStart(dp(6));
         botones.addView(nuevoEnFecha, lp);
-        raiz.addView(botones);
+        LinearLayout.LayoutParams lpBotones = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lpBotones.topMargin = dp(6);
+        raiz.addView(botones, lpBotones);
 
         nota = new TextView(context);
         nota.setTextSize(13);
@@ -95,7 +128,7 @@ public class A25_ListaDocumentosDialogo {
         nota.setBackgroundColor(A20_Informacion.COLOR_FONDO);
         nota.setPadding(dp(6), dp(3), dp(6), dp(3));
         nota.setText(filas.size() + " documentos, del más reciente al más antiguo. "
-                + "Toca uno para editarlo.");
+                + "Escribe el número arriba o toca uno de la lista para editarlo.");
         LinearLayout.LayoutParams lpNota = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lpNota.topMargin = dp(6);
@@ -108,10 +141,10 @@ public class A25_ListaDocumentosDialogo {
         lista.setAdapter(adaptador);
         lista.setOnItemClickListener((p, v, posicion, id) -> abrirEnEdicion(filas.get(posicion)[0]));
         raiz.addView(lista, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(420)));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(380)));
 
         dialogo = new AlertDialog.Builder(context)
-                .setTitle("Documentos por fecha")
+                .setTitle("Documentos")
                 .setView(raiz)
                 .setNegativeButton("Cerrar", null)
                 .show();
@@ -173,24 +206,19 @@ public class A25_ListaDocumentosDialogo {
         }, hoy.get(Calendar.YEAR), hoy.get(Calendar.MONTH), hoy.get(Calendar.DAY_OF_MONTH)).show();
     }
 
-    /** Igual que elegir el número en el autocomplete de Edición (mismo listener). */
+    /** ⭐ (14-nov) un solo camino: F1 pasa a Edición si hace falta, revisa cambios sin guardar
+     *  del documento abierto y carga el elegido (F1.abrirDocumentoEnEdicion). */
     private void abrirEnEdicion(String documento) {
+        if (TextUtils.isEmpty(documento)) return;
         if (dialogo != null) dialogo.dismiss();
-        if (f1.documentoABuscarParaEditar_XATv == null) return;
-        // ⭐ (13-nov): marca el cambio como del usuario, para el control de cambios sin guardar.
-        f1.cambioDeDocumentoDesdeLista = true;
-        f1.documentoABuscarParaEditar_XATv.setText(documento);
-        f1.documentoABuscarParaEditar_XATv.dismissDropDown();
-        if (!TextUtils.isEmpty(documento)
-                && f1.documentoABuscarParaEditar_XATv.getOnItemClickListener() != null) {
-            f1.documentoABuscarParaEditar_XATv.getOnItemClickListener()
-                    .onItemClick(null, null, 0, 0);
-        }
+        f1.abrirDocumentoEnEdicion(documento);
     }
 
     private void nuevoEnFechaElegida() {
         if (fechaElegida == 0) return;
-        if (f1.existenBackupsPara(R.id.create_XRb)) {
+        // ⭐ (14-nov) el botón ya está fuera de Edición: también se protege un Nuevo en pantalla.
+        boolean nuevoConDatos = f1.currentRadioButtonId == R.id.create_XRb && f1.hayDatosEnAreaActual();
+        if (nuevoConDatos || f1.existenBackupsPara(R.id.create_XRb)) {
             new AlertDialog.Builder(context)
                     .setTitle("Nuevo tiene un borrador")
                     .setView(A20_Informacion.vista(context,
