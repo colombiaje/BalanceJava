@@ -302,7 +302,7 @@ public class RecordDocumentUnit {
                     // ⭐ (11-nov): ya no se captura aquí copiarDesripcionAnterior_String (lo guarda
                     // B12 al agregar el registro); aquí pisaba el anterior con el del registro nuevo.
                 } else {
-                    fondoConBorde(f1.cuenta_XAtv, "#F4D7F5");
+                    fondoConBorde(f1.cuenta_XAtv, "#DDE6FB"); // ⭐ (14-nov, Jorge) vacía: azul claro, como en el layout
                 }
             }
 
