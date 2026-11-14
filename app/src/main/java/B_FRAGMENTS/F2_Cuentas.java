@@ -1968,10 +1968,13 @@ public class F2_Cuentas extends DialogFragment {
         int nuevo;
         if (actual < 0) nuevo = paso > 0 ? 0 : filas.size() - 1;
         else nuevo = actual + paso;
-        if (nuevo < 0 || nuevo >= filas.size()) {
-            Toast.makeText(getActivity(), paso > 0 ? "Es la última cuenta" : "Es la primera cuenta",
-                    Toast.LENGTH_SHORT).show();
-            return;
+        // ⭐ (14-nov, Jorge): recorrido circular — tras la última sigue la primera y viceversa.
+        if (nuevo >= filas.size()) {
+            nuevo = 0;
+            Toast.makeText(getActivity(), "De nuevo al inicio", Toast.LENGTH_SHORT).show();
+        } else if (nuevo < 0) {
+            nuevo = filas.size() - 1;
+            Toast.makeText(getActivity(), "Pasa a la última cuenta", Toast.LENGTH_SHORT).show();
         }
         cargarCuentaParaNavegar(filas, nuevo);
     }
