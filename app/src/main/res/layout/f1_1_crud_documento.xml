@@ -1279,7 +1279,7 @@
                     app:layout_columnSpan="6"
                     app:useDefaultMargins="false"
                     app:rowCount="2"
-                    app:columnCount="5"
+                    app:columnCount="6"
                     android:visibility="visible"
 
                     >
@@ -1289,23 +1289,45 @@
                     android:layout_marginVertical="3dp"
 
                         android:id="@+id/cuenta_XAtv"
-                                                android:layout_width="290dp"
+                                                android:layout_width="255dp"
                         android:layout_height="27dp"
                         android:background="#DDE6FB"
                         android:completionThreshold="1"
                         android:dropDownWidth="350dp"
                         android:dropDownHeight="300dp"
                         android:dropDownSelector="@color/design_default_color_primary"
-                        android:hint="Cuenta ▾ toca: lista"
+                        android:hint="Cuenta"
                         android:maxLength="40"
                         android:popupBackground="#F886AD"
                         android:singleLine="true"
                         android:textColor="#425DF6"
-                        android:textColorHint="#425DF6"
+                        android:textColorHint="#9AA6E8"
                         android:textSize="22dp"
                         app:layout_column="0"
                         app:layout_gravity="center_vertical"
                         app:layout_row="1" />
+
+                    <!-- ⭐ NUEVO (14-nov, Jorge): ▾ abre la lista completa de cuentas, para quien no
+                         recuerda el nombre o no conoce el plan de cuentas. -->
+                    <Button
+                        android:id="@+id/listaCuentas_XBt"
+                        android:layout_width="32dp"
+                        android:layout_height="27dp"
+                        android:layout_marginVertical="3dp"
+                        android:layout_marginHorizontal="0dp"
+                        android:backgroundTint="#425DF6"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        android:text="▾"
+                        android:textColor="@android:color/white"
+                        android:textSize="18sp"
+                        android:contentDescription="Ver la lista de cuentas"
+                        app:layout_row="1"
+                        app:layout_column="1"
+                        app:layout_gravity="center_vertical" />
 
                     <Button
                     android:layout_marginHorizontal="3dp"
@@ -1316,7 +1338,7 @@
                         android:background="@drawable/ic_clean_paste"
                         android:padding="0dp"
                         app:layout_row="1"
-                        app:layout_column="1"
+                        app:layout_column="2"
                         android:gravity="center"
                         app:layout_gravity="center_vertical"
                         android:visibility="gone"
@@ -1329,7 +1351,7 @@
                         android:layout_width="35dp"
                         android:layout_height="27dp"
                         app:layout_row="1"
-                        app:layout_column="2"
+                        app:layout_column="3"
                         app:layout_gravity="center_vertical"
                         android:background="@drawable/ic_clean_paste"
                         android:padding="0dp"
@@ -1347,7 +1369,7 @@
                         android:textSize="25dp"
                         android:visibility="gone"
                         app:layout_row="1"
-                        app:layout_column="3"
+                        app:layout_column="4"
                         app:layout_gravity="center_vertical"
                         />
 
@@ -1363,7 +1385,7 @@
                     android:textColor="#425DF6"
                     android:textSize="20dp"
                     app:layout_row="1"
-                    app:layout_column="4"
+                    app:layout_column="5"
                     app:layout_gravity="center_vertical"
                     android:visibility="visible"
 

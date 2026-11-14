@@ -32,6 +32,10 @@ public class RecordDocumentUnit {
         inflateViews(view);
         loadInitialData();
         setupListeners();
+        // ⭐ (14-nov, Jorge): el botón ▾ junto a la cuenta abre la lista completa de cuentas (tocar
+        // el campo vacío no se disparaba de forma fiable y además no se veía).
+        View listaCuentas = view.findViewById(R.id.listaCuentas_XBt);
+        if (listaCuentas != null) listaCuentas.setOnClickListener(v -> mostrarListaDeCuentas());
     }
 
     private void inflateViews(View view) {
@@ -284,11 +288,9 @@ public class RecordDocumentUnit {
         // mientras se escribe (lo principal) y, además, con el campo vacío, al tocarlo despliega
         // la lista COMPLETA de cuentas, para quien no recuerda el nombre o no conoce el plan de
         // cuentas (la ayuda está en el hint: "Cuenta ▾ toca: lista").
-        f1.cuenta_XAtv.setOnFocusChangeListener((v, hasFocus) -> {
-            if (!hasFocus) f1.ocultarTeclado();
-            else mostrarListaCompletaDeCuentasSiVacio();
-        });
-        f1.cuenta_XAtv.setOnClickListener(v -> mostrarListaCompletaDeCuentasSiVacio());
+        f1.cuenta_XAtv.setOnFocusChangeListener(
+                (v, hasFocus) -> { if (!hasFocus) f1.ocultarTeclado(); });
+
 
         f1.cuenta_XAtv.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
@@ -337,14 +339,25 @@ public class RecordDocumentUnit {
     // defensivo de confirmarRegistroAlElegirSigno() ("maneja inventario — completa el
     // diálogo..."). Se extrae aquí para que CUALQUIER forma de fijar cuenta_XAtv (clic en la
     // lista, o cualquiera de los botones de pegar) dispare la misma resolución.
-    /** Con el campo de cuenta vacío, despliega todas las cuentas (sin filtrar). */
-    private void mostrarListaCompletaDeCuentasSiVacio() {
-        if (!f1.cuenta_XAtv.getText().toString().trim().isEmpty()) return;
-        android.widget.ListAdapter adaptador = f1.cuenta_XAtv.getAdapter();
-        if (!(adaptador instanceof android.widget.Filterable)) return;
-        ((android.widget.Filterable) adaptador).getFilter().filter(null, cuantas -> {
-            if (cuantas > 0 && f1.cuenta_XAtv.isShown()) f1.cuenta_XAtv.showDropDown();
-        });
+    /** ▾: ventana con todas las cuentas; la elegida se captura igual que en el autocomplete. */
+    private void mostrarListaDeCuentas() {
+        if (f1.getActivity() == null || f1.accountAllAz_List == null) return;
+        java.util.List<String> cuentas = new java.util.ArrayList<>();
+        for (Object o : f1.accountAllAz_List) {
+            String c = String.valueOf(o);
+            if (!c.trim().isEmpty()) cuentas.add(c);
+        }
+        if (cuentas.isEmpty()) return;
+        f1.ocultarTeclado();
+        new androidx.appcompat.app.AlertDialog.Builder(f1.getActivity())
+                .setTitle("Cuentas (" + cuentas.size() + ")")
+                .setItems(cuentas.toArray(new String[0]), (d, i) -> {
+                    f1.cuenta_XAtv.setText(cuentas.get(i));
+                    f1.cuenta_XAtv.dismissDropDown();
+                    seleccionarCuentaDesdeTexto();
+                })
+                .setNegativeButton("Cerrar", null)
+                .show();
     }
 
     private void seleccionarCuentaDesdeTexto() {
