@@ -177,6 +177,8 @@ public class A25_ListaDocumentosDialogo {
     private void abrirEnEdicion(String documento) {
         if (dialogo != null) dialogo.dismiss();
         if (f1.documentoABuscarParaEditar_XATv == null) return;
+        // ⭐ (13-nov): marca el cambio como del usuario, para el control de cambios sin guardar.
+        f1.cambioDeDocumentoDesdeLista = true;
         f1.documentoABuscarParaEditar_XATv.setText(documento);
         f1.documentoABuscarParaEditar_XATv.dismissDropDown();
         if (!TextUtils.isEmpty(documento)

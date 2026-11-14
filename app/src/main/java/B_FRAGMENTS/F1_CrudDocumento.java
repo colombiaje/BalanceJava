@@ -2308,10 +2308,22 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         boolean hayPlantilla = descripcionABuscarEnPlantilla_XAtv != null
                 && !descripcionABuscarEnPlantilla_XAtv.getText().toString().isEmpty();
 
-        return hayRegistros || hayValorEt || hayDesc || hayDoc || hayPlantilla;
+        // ⭐ (13-nov) también cuenta la copia pendiente del control de cambios de Edición.
+        return hayRegistros || hayValorEt || hayDesc || hayDoc || hayPlantilla
+                || rescateDocumento != null;
     }
 
     public void hacerBackupSilencioso(int radioButtonId) {
+        // ⭐ (13-nov): si se sale de Edición con un documento a medio cambiar (copia pendiente del
+        // control de cambios), se guarda la copia: así lo modificado no se pierde.
+        if (radioButtonId == R.id.updateDelete_XRb && rescateDocumento != null
+                && rescateRegistros != null && rescateEncabezado != null) {
+            A5_CacheManager.guardarRegistros(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateRegistros);
+            A5_CacheManager.guardarEncabezado(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateEncabezado);
+            limpiarRescate();
+            actualizarBadgeCache();
+            return;
+        }
         int areaId = A5_CacheManager.radioButtonToAreaId(
                 radioButtonId,
                 R.id.create_XRb, R.id.template_XRb, R.id.updateDelete_XRb);
@@ -2936,7 +2948,137 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         return enc;
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (13-nov, Jorge): control al cambiar de documento en Edición (autocomplete, ↻ y
+    // la lista 📅). Antes, escribir otro número borraba sin aviso lo que se había modificado del
+    // documento abierto y no se había guardado. Ahora:
+    //   1. Antes de que el campo del número cambie (beforeTextChanged), si el documento abierto
+    //      tiene cambios sin guardar, se guarda una copia EN MEMORIA (registros + encabezado).
+    //   2. Al elegir el documento nuevo, si hay copia, se pregunta: pasar el abierto a Espera,
+    //      descartarlo o cancelar (volver a él con sus cambios).
+    // La copia no se escribe en caché hasta que el usuario elige; así no interfiere con las
+    // restauraciones ni con el intercambio de Espera (Canal D).
+    // ═══════════════════════════════════════════════════════════════
+    private String rescateDocumento = null;
+    private ArrayList<A3_2_TipoTransaccionesGetsYSets> rescateRegistros = null;
+    private A5_CacheManager.Encabezado rescateEncabezado = null;
+    public boolean cambioDeDocumentoDesdeLista = false;
+
+    /** Paso 1: llamado desde beforeTextChanged del número de documento (UpdateDeleteUnit). */
+    public void capturarRescateSiHayCambios(String documentoAnterior) {
+        if (rescateDocumento != null) return; // ya hay una copia pendiente
+        if (documentoAnterior == null || documentoAnterior.trim().isEmpty()) return;
+        if (!documentoCargadoParaEdicion || listaDocumento_ArrayLTT == null
+                || listaDocumento_ArrayLTT.isEmpty()) return;
+        boolean porUsuario = cambioDeDocumentoDesdeLista
+                || (documentoABuscarParaEditar_XATv != null && documentoABuscarParaEditar_XATv.hasFocus());
+        if (!porUsuario) return; // restauraciones e intercambios programáticos: no aplica
+        String doc = documentoAnterior.trim();
+        if (!hayCambiosSinGuardar(doc)) return;
+        rescateDocumento = doc;
+        rescateRegistros = new ArrayList<>(listaDocumento_ArrayLTT);
+        rescateEncabezado = buildEncabezado();
+        rescateEncabezado.campo_8_docBuscarEditar = doc;
+    }
+
+    /** Compara la pantalla con la base: cuentas, valores, descripciones y fecha. */
+    private boolean hayCambiosSinGuardar(String doc) {
+        try {
+            A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> r = a22QueryManager.queryTransactionsByDocument(doc);
+            List<A3_2_TipoTransaccionesGetsYSets> bd = r != null ? r.getDatos() : null;
+            if (bd == null || bd.isEmpty()) return true;
+            if (bd.size() != listaDocumento_ArrayLTT.size()) return true;
+            List<String> enBd = new ArrayList<>(), enPantalla = new ArrayList<>();
+            for (A3_2_TipoTransaccionesGetsYSets t : bd) enBd.add(firma(t));
+            for (A3_2_TipoTransaccionesGetsYSets t : listaDocumento_ArrayLTT) enPantalla.add(firma(t));
+            Collections.sort(enBd);
+            Collections.sort(enPantalla);
+            if (!enBd.equals(enPantalla)) return true;
+            Integer fechaBd = bd.get(0).tipoT_8DateOfDocument_Integer;
+            return dateInUpdateAssignedInCaledarView_Int != 0
+                    && (fechaBd == null || dateInUpdateAssignedInCaledarView_Int != fechaBd);
+        } catch (Exception e) {
+            Log.e("F1_CrudDocumento", "No se pudo comparar el documento " + doc + ": " + e.getMessage());
+            return true; // ante la duda, proteger lo que hay en pantalla
+        }
+    }
+
+    private static String firma(A3_2_TipoTransaccionesGetsYSets t) {
+        return (t.tipoT_3Accout_String == null ? "" : t.tipoT_3Accout_String.trim()) + "|"
+                + t.tipoT_5Value_Integer + "|"
+                + (t.tipoT_6Description_String == null ? "" : t.tipoT_6Description_String.trim());
+    }
+
+    /** Paso 2: llamado al elegir el documento nuevo (listener del autocomplete). */
+    public void confirmarCambioDeDocumento(String nuevoDocumento, Runnable cargarNuevo) {
+        cambioDeDocumentoDesdeLista = false;
+        if (rescateDocumento == null) {
+            cargarNuevo.run();
+            return;
+        }
+        final String abierto = rescateDocumento;
+        if (abierto.equals(nuevoDocumento == null ? "" : nuevoDocumento.trim())) {
+            volverAlDocumentoRescatado(); // volvió a elegir el mismo: se recupera con sus cambios
+            return;
+        }
+        boolean esperaOcupada = A5_CacheManager.restaurarEncabezado(getContext(),
+                A1_1_AyudanteBD.AREA_UPDATE_ESPERA) != null;
+        String texto = "El documento " + abierto + " tiene cambios sin guardar. ¿Qué hago con él "
+                + "antes de abrir el " + nuevoDocumento + "?"
+                + (esperaOcupada ? "\n\nEspera ya tiene otro documento; termínalo antes si quieres "
+                + "usarla para este." : "");
+        androidx.appcompat.app.AlertDialog.Builder b = new androidx.appcompat.app.AlertDialog.Builder(getActivity())
+                .setTitle("Cambios sin guardar")
+                .setView(A1BASES.A20_Informacion.vista(getActivity(), texto))
+                .setCancelable(false)
+                .setNeutralButton("Descartar y abrir", (d, w) -> {
+                    limpiarRescate();
+                    cargarNuevo.run();
+                })
+                .setNegativeButton("Cancelar", (d, w) -> volverAlDocumentoRescatado());
+        if (!esperaOcupada) {
+            b.setPositiveButton("Pasar a Espera ⇄", (d, w) -> {
+                A5_CacheManager.guardarRegistros(getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA, rescateRegistros);
+                A5_CacheManager.guardarEncabezado(getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA, rescateEncabezado);
+                limpiarRescate();
+                cargarNuevo.run();
+                actualizarVisibilidadBotonVerde();
+                actualizarBadgeCache();
+            });
+        }
+        b.show();
+    }
+
+    /** "Cancelar": el documento abierto vuelve a la pantalla con sus cambios. */
+    private void volverAlDocumentoRescatado() {
+        if (rescateRegistros != null && rescateEncabezado != null) {
+            A5_CacheManager.guardarRegistros(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateRegistros);
+            A5_CacheManager.guardarEncabezado(getContext(), A1_1_AyudanteBD.AREA_UPDATE, rescateEncabezado);
+            limpiarRescate();
+            restoreBackups(R.id.updateDelete_XRb);
+            mostrarAreaCorrespondiente(R.id.updateDelete_XRb);
+        } else {
+            limpiarRescate();
+        }
+    }
+
+    public void limpiarRescate() {
+        rescateDocumento = null;
+        rescateRegistros = null;
+        rescateEncabezado = null;
+    }
+
     public void hacerBackupSilenciosoCanalD(int areaId) {
+        // ⭐ (13-nov): igual que hacerBackupSilencioso — con copia pendiente del control de
+        // cambios, se guarda la copia (también al intercambiar con Espera).
+        if (areaId == A1_1_AyudanteBD.AREA_UPDATE && rescateDocumento != null
+                && rescateRegistros != null && rescateEncabezado != null) {
+            A5_CacheManager.guardarRegistros(getContext(), areaId, rescateRegistros);
+            A5_CacheManager.guardarEncabezado(getContext(), areaId, rescateEncabezado);
+            limpiarRescate();
+            actualizarBadgeCache();
+            return;
+        }
         // ✅ Registros primero — emula CSV_RECORDS
         A5_CacheManager.guardarRegistros(getContext(), areaId, listaDocumento_ArrayLTT);
 

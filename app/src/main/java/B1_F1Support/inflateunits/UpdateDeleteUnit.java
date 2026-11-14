@@ -75,23 +75,35 @@ public class UpdateDeleteUnit {
     private void setupDocumentSearchItemClick() {
         f1.documentoABuscarParaEditar_XATv.setOnItemClickListener(
                 (adapterView, view, i, l) -> {
-                    // NOTE: llamado dos veces — comportamiento original preservado
-                    f1.colocarDocConsultadoEnListaItemDoc();
-                    f1.colocarDocConsultadoEnListaItemDoc();
-                    f1.sumarItemListaDocumento();
-                    f1.actualizarSumasListado();
-                    f1.controlACeroTotales_XTv.setText("" + f1.$netoT);
-                    f1.pasarItemListaTodoResumidoAItemListaRevision();
-                    f1.ocultarTeclado();
-                    f1.documentoABuscarParaEditar_XATv
-                            .setBackgroundColor(Color.parseColor("#90E0D8"));
+                    // ⭐ (13-nov, Jorge): si el documento que estaba abierto tiene cambios sin
+                    // guardar, F1 pregunta antes (Espera / Descartar / Cancelar).
+                    String nuevo = f1.documentoABuscarParaEditar_XATv.getText().toString().trim();
+                    f1.confirmarCambioDeDocumento(nuevo, () -> {
+                        // NOTE: llamado dos veces — comportamiento original preservado
+                        f1.colocarDocConsultadoEnListaItemDoc();
+                        f1.colocarDocConsultadoEnListaItemDoc();
+                        f1.sumarItemListaDocumento();
+                        f1.actualizarSumasListado();
+                        f1.controlACeroTotales_XTv.setText("" + f1.$netoT);
+                        f1.pasarItemListaTodoResumidoAItemListaRevision();
+                        // ⭐ (13-nov): sin saldos del documento anterior en "cuentas a revisar";
+                        // al elegir la cuenta se recalculan con el ajuste del 10-nov.
+                        f1.resetearSpinnerCuentasRevision();
+                        f1.ocultarTeclado();
+                        f1.documentoABuscarParaEditar_XATv
+                                .setBackgroundColor(Color.parseColor("#90E0D8"));
+                    });
                 });
     }
 
     // Escritura en el campo de búsqueda de documento
     private void setupDocumentSearchTextWatcher() {
         f1.documentoABuscarParaEditar_XATv.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // ⭐ (13-nov): antes de que el cambio borre la lista, copia el documento abierto
+                // si tiene cambios sin guardar (F1.capturarRescateSiHayCambios).
+                if (count > 0) f1.capturarRescateSiHayCambios(s.toString());
+            }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
