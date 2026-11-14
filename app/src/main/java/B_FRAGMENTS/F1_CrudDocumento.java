@@ -2354,10 +2354,15 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         }
 
         // 3. Restaurar registros
-        listaDocumento_ArrayLTT = A5_CacheManager.restaurarRegistros(getContext(), areaId);
-
-        if (listaDocumento_ArrayLTT == null) {
-            listaDocumento_ArrayLTT = new ArrayList<>(); // Inicialización de seguridad
+        // ⭐ CORRECCIÓN (14-nov, reportado por Jorge con capturas): los registros se leen en una
+        // variable local y se asignan DESPUÉS de poner el número en "Editar Doc. #". Antes se
+        // asignaban primero, y al cambiar el número (p. ej. 2834 → 2801 al intercambiar con
+        // Espera o "Enviar a Área 3") el TextWatcher del campo (before > 0) vaciaba la lista
+        // recién restaurada: Edición quedaba con el número pero "sin datos".
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosRestaurados =
+                A5_CacheManager.restaurarRegistros(getContext(), areaId);
+        if (registrosRestaurados == null) {
+            registrosRestaurados = new ArrayList<>(); // Inicialización de seguridad
         }
 
         // ⭐ NUEVO (1-oct, reportado por Jorge): el cuadro "Editar Doc. #" (documentoABuscarParaEditar_XATv)
@@ -2369,7 +2374,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // cargado, se deja vacío en vez de mostrar un número suelto de una sesión vieja sin
         // documento real detrás.
         if (radioButtonId == R.id.updateDelete_XRb) {
-            if (!listaDocumento_ArrayLTT.isEmpty() && enc != null
+            if (!registrosRestaurados.isEmpty() && enc != null
                     && enc.campo_8_docBuscarEditar != null
                     && !enc.campo_8_docBuscarEditar.isEmpty()) {
                 documentoABuscarParaEditar_XATv.setText(enc.campo_8_docBuscarEditar);
@@ -2383,6 +2388,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             // contra la BD cada vez que se entra/restaura esta área.
             dynamicQueryByDocumentinUpdate();
         }
+        // ⭐ (14-nov) ahora sí: la lista restaurada, ya con el número puesto.
+        listaDocumento_ArrayLTT = registrosRestaurados;
 
         // ⭐ NUEVO (29-oct, reportado por Jorge con captura de pantalla): "Físico"
         // (inputPhysicalVsAccounting_XEt) se restauraba desde la caché en aplicarEncabezadoAVistas(),
