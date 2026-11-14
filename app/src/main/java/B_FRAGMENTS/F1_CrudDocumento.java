@@ -3028,47 +3028,66 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             return;
         }
         boolean conCambios = !documentoCargadoParaEdicion || hayCambiosSinGuardar(abierto);
-        boolean esperaOcupada = A5_CacheManager.restaurarEncabezado(getContext(),
-                A1_1_AyudanteBD.AREA_UPDATE_ESPERA) != null;
+        // ⭐ (14-nov, Jorge): con Espera ocupada también se ofrece pasar el abierto a Espera,
+        // reemplazando el que está allí (mismo criterio que ya usa el Canal D desde F3_2). Si el
+        // de Espera tiene cambios sin guardar, se advierte que se pierden.
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> registrosEspera = A5_CacheManager.restaurarRegistros(
+                getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+        boolean esperaOcupada = registrosEspera != null && !registrosEspera.isEmpty();
+        String enEspera = esperaOcupada ? navManager.obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE_ESPERA) : "";
+        boolean esperaConCambios = esperaOcupada && hayCambiosSinGuardar(enEspera, registrosEspera);
         String destino = nuevoDocumento == null || nuevoDocumento.isEmpty()
                 ? "cambiar de documento" : "abrir el " + nuevoDocumento;
         String texto = "Tienes abierto el documento " + abierto
                 + (conCambios ? ", con cambios sin guardar" : " (sin cambios)")
                 + ". ¿Qué hago con él antes de " + destino + "?"
-                + (esperaOcupada ? "\n\nEspera ya tiene otro documento; termínalo antes si quieres "
-                + "usarla para este." : "");
+                + (esperaOcupada ? "\n\nEspera tiene el " + enEspera + "; si pasas el " + abierto
+                + " a Espera, el " + enEspera + " sale de Espera"
+                + (esperaConCambios ? " y SE PIERDEN sus cambios sin guardar." : " (no tiene cambios).")
+                : "");
         androidx.appcompat.app.AlertDialog.Builder b = new androidx.appcompat.app.AlertDialog.Builder(getActivity())
                 .setTitle(conCambios ? "Cambios sin guardar" : "Documento abierto")
                 .setView(A1BASES.A20_Informacion.vista(getActivity(), texto))
                 .setCancelable(false)
                 .setNeutralButton(conCambios ? "Descartar y abrir" : "Cerrar y abrir", (d, w) -> cambiar.run())
                 .setNegativeButton("Cancelar", null);
-        if (!esperaOcupada) {
-            b.setPositiveButton("Pasar a Espera ⇄", (d, w) -> {
-                hacerBackupSilenciosoCanalD(A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
-                cambiar.run();
-                actualizarVisibilidadBotonVerde();
-            });
-        }
+        b.setPositiveButton(esperaOcupada ? "Pasar a Espera (reemplaza el " + enEspera + ")"
+                : "Pasar a Espera ⇄", (d, w) -> {
+            hacerBackupSilenciosoCanalD(A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+            cambiar.run();
+            actualizarVisibilidadBotonVerde();
+        });
         b.show();
     }
 
     /** Compara la pantalla con la base: cuentas, valores, descripciones y fecha. */
     private boolean hayCambiosSinGuardar(String doc) {
+        if (hayCambiosSinGuardar(doc, listaDocumento_ArrayLTT)) return true;
+        try {
+            A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> r = a22QueryManager.queryTransactionsByDocument(doc);
+            List<A3_2_TipoTransaccionesGetsYSets> bd = r != null ? r.getDatos() : null;
+            Integer fechaBd = bd != null && !bd.isEmpty() ? bd.get(0).tipoT_8DateOfDocument_Integer : null;
+            return dateInUpdateAssignedInCaledarView_Int != 0
+                    && (fechaBd == null || dateInUpdateAssignedInCaledarView_Int != fechaBd);
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /** Compara una lista de registros con la base (cuentas, valores y descripciones). */
+    private boolean hayCambiosSinGuardar(String doc, List<A3_2_TipoTransaccionesGetsYSets> lista) {
+        if (lista == null) return false;
         try {
             A23_QueryResult<A3_2_TipoTransaccionesGetsYSets> r = a22QueryManager.queryTransactionsByDocument(doc);
             List<A3_2_TipoTransaccionesGetsYSets> bd = r != null ? r.getDatos() : null;
             if (bd == null || bd.isEmpty()) return true;
-            if (bd.size() != listaDocumento_ArrayLTT.size()) return true;
+            if (bd.size() != lista.size()) return true;
             List<String> enBd = new ArrayList<>(), enPantalla = new ArrayList<>();
             for (A3_2_TipoTransaccionesGetsYSets t : bd) enBd.add(firma(t));
-            for (A3_2_TipoTransaccionesGetsYSets t : listaDocumento_ArrayLTT) enPantalla.add(firma(t));
+            for (A3_2_TipoTransaccionesGetsYSets t : lista) enPantalla.add(firma(t));
             Collections.sort(enBd);
             Collections.sort(enPantalla);
-            if (!enBd.equals(enPantalla)) return true;
-            Integer fechaBd = bd.get(0).tipoT_8DateOfDocument_Integer;
-            return dateInUpdateAssignedInCaledarView_Int != 0
-                    && (fechaBd == null || dateInUpdateAssignedInCaledarView_Int != fechaBd);
+            return !enBd.equals(enPantalla);
         } catch (Exception e) {
             Log.e("F1_CrudDocumento", "No se pudo comparar el documento " + doc + ": " + e.getMessage());
             return true; // ante la duda, proteger lo que hay en pantalla
