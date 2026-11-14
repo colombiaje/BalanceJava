@@ -267,6 +267,12 @@ public class F2_Cuentas extends DialogFragment {
 
     AutoCompleteTextView emulateAttributesAccount_XAct;
     TextView titleModifyXTV;
+    // ⭐ NUEVO (14-nov, Jorge): recorrido del plan de cuentas en "Modificar cuenta".
+    LinearLayout navegacionCuentas_XLL;
+    Button cuentaAnterior_XBt, cuentaSiguiente_XBt;
+    TextView infoCuentaNavegacion_XTv;
+    private int navIndice = -1;
+    private String firmaFormularioCargado = null;
     TextView titleNewXTv;
 
     RadioButton outAccounts_XRb;
@@ -520,6 +526,12 @@ public class F2_Cuentas extends DialogFragment {
         copyCuentaABuscarXChb= inflarViews_View.findViewById(R.id.copyCuentaABuscarXChb);
         emulateAttributesAccount_XAct= inflarViews_View.findViewById(R.id.emulateAttributesAccount_XAct);
         titleModifyXTV= inflarViews_View.findViewById(R.id.titleModifyXTV);
+        navegacionCuentas_XLL = inflarViews_View.findViewById(R.id.navegacionCuentas_XLL);
+        cuentaAnterior_XBt = inflarViews_View.findViewById(R.id.cuentaAnterior_XBt);
+        cuentaSiguiente_XBt = inflarViews_View.findViewById(R.id.cuentaSiguiente_XBt);
+        infoCuentaNavegacion_XTv = inflarViews_View.findViewById(R.id.infoCuentaNavegacion_XTv);
+        cuentaAnterior_XBt.setOnClickListener(v -> navegarCuenta(-1));
+        cuentaSiguiente_XBt.setOnClickListener(v -> navegarCuenta(+1));
         titleNewXTv= inflarViews_View.findViewById(R.id.titleNewXTv);
         cleanFieldsAccount_XBt = (Button)inflarViews_View.findViewById(R.id.cleanFieldsAccount_XBt);
 
@@ -1192,7 +1204,10 @@ public class F2_Cuentas extends DialogFragment {
             area2crud_XGl.setBackgroundColor(Color.parseColor("#FF5722"));
             titleNewXTv.setVisibility(View.GONE);
             titleModifyXTV.setVisibility(View.VISIBLE);
-            area3AttributesXLY.setVisibility(View.VISIBLE);
+            navegacionCuentas_XLL.setVisibility(View.VISIBLE); // ⭐ (14-nov) ◀ ▶
+            infoCuentaNavegacion_XTv.setText("◀ ▶ recorre el plan de cuentas");
+            // ⭐ (14-nov, Jorge): "Atributos cuenta" se retira; el formulario ya muestra todo.
+            area3AttributesXLY.setVisibility(View.GONE);
             clickSave_XBt.setVisibility(View.GONE);
             clickUpdate_XBt.setVisibility(View.VISIBLE);
             clickDeleteXBt.setVisibility(View.VISIBLE);
@@ -1218,7 +1233,8 @@ public class F2_Cuentas extends DialogFragment {
             area2crud_XGl.setBackgroundColor(Color.parseColor("#F25087"));
             titleNewXTv.setVisibility(View.VISIBLE);
             titleModifyXTV.setVisibility(View.GONE);
-            area3AttributesXLY.setVisibility(View.VISIBLE);
+            navegacionCuentas_XLL.setVisibility(View.GONE); // ⭐ (14-nov)
+            area3AttributesXLY.setVisibility(View.GONE); // ⭐ (14-nov, Jorge): retirada
             clickSave_XBt.setVisibility(View.VISIBLE);
             clickUpdate_XBt.setVisibility(View.GONE);
             clickDeleteXBt.setVisibility(View.GONE);
@@ -1864,8 +1880,10 @@ public class F2_Cuentas extends DialogFragment {
 
                     if(seeModifyXChB.isChecked()) {
                         interrelationsAccountsGroups(); // Acción al aceptar
+                        transacciones_XLL.setVisibility(View.GONE); // ⭐ (14-nov) no arrastrar el aviso de otra cuenta
                         cuentaConTransacciones();
                         verItemsPorCuenta();
+                        sincronizarNavegacionConCuentaCargada(); // ⭐ (14-nov) ◀ ▶ sigue desde aquí
                     }
 
                 }
@@ -1883,6 +1901,124 @@ public class F2_Cuentas extends DialogFragment {
 
     // ⭐ RETIRADO — tanda 2 v10: focalizarNuevasSpinerGrupo2() encadenaba el foco del spinner
     // de Grupo1 hacia el de Grupo2 al elegir algo — ya no hace falta, solo queda un spinner.
+
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (14-nov, Jorge): recorrer el plan de cuentas en "Modificar cuenta".
+    // Orden por Ítem (luego cuenta_id). Si el formulario tiene cambios sin guardar, se pregunta
+    // antes de pasar a otra cuenta.
+    // ═══════════════════════════════════════════════════════════════
+    /** Filas: {cuenta_id, Cuenta, Item, Fecha} en el orden del plan de cuentas. */
+    private ArrayList<String[]> listaCuentasParaNavegar() {
+        ArrayList<String[]> filas = new ArrayList<>();
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
+                version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try (Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta, Item, Fecha FROM cuentas " +
+                "ORDER BY CAST(Item AS INTEGER), cuenta_id", null)) {
+            while (c.moveToNext()) {
+                filas.add(new String[]{c.getString(0), c.getString(1), c.getString(2), c.getString(3)});
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo leer el plan de cuentas: " + e.getMessage());
+        } finally {
+            db.close();
+        }
+        return filas;
+    }
+
+    /** Firma del formulario para saber si hay cambios sin guardar. */
+    private String firmaFormulario() {
+        ContentValues renta = new ContentValues();
+        ponerDatosRentaDelFormulario(renta);
+        return account_XAct.getText().toString().trim() + "|" +
+                grupo1CuentaNueva_XSp.getSelectedItemPosition() + "|" +
+                cerrableCuentaNueva_XChB.isChecked() + "|" +
+                conciliableCuentaNueva_XChB.isChecked() + "|" +
+                conInventarioCuentaNueva_XChB.isChecked() + "|" + renta;
+    }
+
+    private boolean hayCambiosSinGuardarEnCuenta() {
+        return cuentaIdEnModificar_Long != null && firmaFormularioCargado != null
+                && !firmaFormularioCargado.equals(firmaFormulario());
+    }
+
+    private void navegarCuenta(int paso) {
+        if (!seeModifyXChB.isChecked()) return;
+        if (hayCambiosSinGuardarEnCuenta()) {
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("Cambios sin guardar")
+                    .setMessage("\"" + nombreOriginalEnModificar_String + "\" tiene cambios sin guardar.")
+                    .setPositiveButton("Guardar", (d, w) -> {
+                        clickModify(); // si guarda, el formulario se limpia; si cancela, sigue avisando
+                        Toast.makeText(getActivity(), "Toca " + (paso > 0 ? "▶" : "◀") +
+                                " para seguir recorriendo", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNeutralButton("Descartar y seguir", (d, w) -> {
+                        firmaFormularioCargado = null;
+                        navegarCuenta(paso);
+                    })
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+            return;
+        }
+        ArrayList<String[]> filas = listaCuentasParaNavegar();
+        if (filas.isEmpty()) return;
+        int actual = indiceDeCuentaCargada(filas);
+        if (actual < 0) actual = navIndice;
+        int nuevo;
+        if (actual < 0) nuevo = paso > 0 ? 0 : filas.size() - 1;
+        else nuevo = actual + paso;
+        if (nuevo < 0 || nuevo >= filas.size()) {
+            Toast.makeText(getActivity(), paso > 0 ? "Es la última cuenta" : "Es la primera cuenta",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        cargarCuentaParaNavegar(filas, nuevo);
+    }
+
+    private int indiceDeCuentaCargada(ArrayList<String[]> filas) {
+        if (cuentaIdEnModificar_Long == null) return -1;
+        String id = String.valueOf(cuentaIdEnModificar_Long);
+        for (int i = 0; i < filas.size(); i++) if (id.equals(filas.get(i)[0])) return i;
+        return -1;
+    }
+
+    private void cargarCuentaParaNavegar(ArrayList<String[]> filas, int indice) {
+        String[] fila = filas.get(indice);
+        cleanClickFieldsAccount();
+        existingText = fila[1];
+        cuentaSeleccionadaAqui = fila[1];
+        interrelationsAccountsGroups();
+        transacciones_XLL.setVisibility(View.GONE);
+        cuentaConTransacciones();
+        navIndice = indice;
+        mostrarInfoNavegacion(filas, indice);
+        tomarFirmaFormulario();
+    }
+
+    /** Tras cargar una cuenta con "Texto a buscar": el recorrido sigue desde ella. */
+    private void sincronizarNavegacionConCuentaCargada() {
+        ArrayList<String[]> filas = listaCuentasParaNavegar();
+        int i = indiceDeCuentaCargada(filas);
+        if (i >= 0) {
+            navIndice = i;
+            mostrarInfoNavegacion(filas, i);
+        }
+        tomarFirmaFormulario();
+    }
+
+    private void mostrarInfoNavegacion(ArrayList<String[]> filas, int i) {
+        String[] f = filas.get(i);
+        infoCuentaNavegacion_XTv.setText((i + 1) + "/" + filas.size() + " · id " + f[0] +
+                " · ítem " + (f[2] == null ? "—" : f[2]) + " · fecha " + (f[3] == null ? "—" : f[3]));
+    }
+
+    /** Se toma después de que los spinners terminen de posicionarse. */
+    private void tomarFirmaFormulario() {
+        View raiz = getView();
+        if (raiz == null) return;
+        raiz.post(() -> firmaFormularioCargado = cuentaIdEnModificar_Long == null ? null : firmaFormulario());
+    }
 
     public void cleanClickFieldsAccount () {
 
