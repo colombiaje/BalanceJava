@@ -569,18 +569,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     }
 
     public void ocultarTeclado (){
-
-        View vieww = getActivity().getCurrentFocus(); // Obtener la vista actual
-        //Forzar el enfoque a una vista vacia.
-        if (vieww == null) {
-            // Si no hay una vista, usa la vista raíz del fragmento
-            vieww = getView();
-        }
-
-        if (vieww != null) {
-            InputMethodManager input = (InputMethodManager) (getActivity().getSystemService(Context.INPUT_METHOD_SERVICE));
-            input.hideSoftInputFromWindow(vieww.getWindowToken(), 0);
-        }
+        A1BASES.A26_Teclado.ocultar(getActivity()); // ⭐ (14-nov) manejo único del teclado
     }
 
     private void listenerCalendario () {

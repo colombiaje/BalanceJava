@@ -696,8 +696,7 @@ public class F2_Cuentas extends DialogFragment {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_NEXT) {
-                    ocultarTeclado();
-                    verTeclado();
+                    ocultarTeclado(); // ⭐ (14-nov) sin verTeclado(): sigue el spinner de tipo
                     v.clearFocus();
                     grupo1CuentaNueva_XSp.requestFocus();
                     grupo1CuentaNueva_XSp.performClick();
@@ -1205,6 +1204,7 @@ public class F2_Cuentas extends DialogFragment {
             titleNewXTv.setVisibility(View.GONE);
             titleModifyXTV.setVisibility(View.VISIBLE);
             navegacionCuentas_XLL.setVisibility(View.VISIBLE); // ⭐ (14-nov) ◀ ▶
+            navIndice = -1; // ⭐ (14-nov) al entrar, ▶ empieza en la primera cuenta y ◀ en la última
             infoCuentaNavegacion_XTv.setText("◀ ▶ recorre el plan de cuentas");
             // ⭐ (14-nov, Jorge): "Atributos cuenta" se retira; el formulario ya muestra todo.
             area3AttributesXLY.setVisibility(View.GONE);
@@ -1884,6 +1884,7 @@ public class F2_Cuentas extends DialogFragment {
                         cuentaConTransacciones();
                         verItemsPorCuenta();
                         sincronizarNavegacionConCuentaCargada(); // ⭐ (14-nov) ◀ ▶ sigue desde aquí
+                        ocultarTeclado(); // ⭐ (14-nov) E: cuenta elegida, se cierra el teclado
                     }
 
                 }
@@ -1976,6 +1977,7 @@ public class F2_Cuentas extends DialogFragment {
             nuevo = filas.size() - 1;
             Toast.makeText(getActivity(), "Pasa a la última cuenta", Toast.LENGTH_SHORT).show();
         }
+        ocultarTeclado(); // ⭐ (14-nov) E
         cargarCuentaParaNavegar(filas, nuevo);
     }
 
@@ -3125,22 +3127,13 @@ public class F2_Cuentas extends DialogFragment {
         fechaCuentaNueva_String= DateFormat.getDateTimeInstance(). format(date);
     }
 
+    // ⭐ (14-nov): tenía la condición al revés (no hacía nada o se caía). Ahora usa el manejo único.
     public void  verTeclado () {
-
-        View view = getActivity().getCurrentFocus();
-        if(view == null) {
-            InputMethodManager imm = (InputMethodManager) (getActivity()).getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.showSoftInput((View) view.getWindowToken(), InputMethodManager.SHOW_IMPLICIT);
-
-        }
+        A1BASES.A26_Teclado.mostrar(getActivity() == null ? null : getActivity().getCurrentFocus());
     }
 
     public void ocultarTeclado(){
-        View view = getActivity().getCurrentFocus();
-        if(view != null){
-            InputMethodManager input = (InputMethodManager) (getActivity().getSystemService(Context.INPUT_METHOD_SERVICE));
-            input.hideSoftInputFromWindow(view.getWindowToken(), 0);
-        }
+        A1BASES.A26_Teclado.ocultar(getActivity());
     }
 
     //f1

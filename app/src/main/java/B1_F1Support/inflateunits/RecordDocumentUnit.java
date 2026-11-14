@@ -212,7 +212,8 @@ public class RecordDocumentUnit {
 
         f1.valor_XEt.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
-                f1.ocultarTeclado();
+                // ⭐ (14-nov, Jorge): ya no se oculta el teclado al recibir el foco; competía con
+                // el toque del usuario y a veces salía y a veces no.
                 f1.primerRegistroAListaDocumentoCuentaConciliable();
             }
         });

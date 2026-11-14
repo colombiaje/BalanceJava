@@ -397,4 +397,11 @@ public class C2_ActivityMenu extends AppCompatActivity {
             }
         }
     }
+
+    /** ⭐ NUEVO (14-nov, Jorge): tocar fuera de un campo de texto cierra el teclado en toda la app. */
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent evento) {
+        A1BASES.A26_Teclado.ocultarSiTocaFueraDeCampos(this, evento);
+        return super.dispatchTouchEvent(evento);
+    }
 }

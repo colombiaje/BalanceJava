@@ -2234,22 +2234,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     public void ocultarTeclado() {
-        // ⭐ VALIDAR que el Fragment esté attached a la Activity
-        if (getActivity() == null || !isAdded()) {
-            return; // Salir si no hay Activity o el Fragment no está agregado
-        }
-
-        View vieww = getActivity().getCurrentFocus(); // Obtener la vista actual
-        //Forzar el enfoque a una vista vacia.
-        if (vieww == null) {
-            // Si no hay una vista, usa la vista raíz del fragmento
-            vieww = getView();
-        }
-
-        if (vieww != null) {
-            InputMethodManager input = (InputMethodManager) (getActivity().getSystemService(Context.INPUT_METHOD_SERVICE));
-            input.hideSoftInputFromWindow(vieww.getWindowToken(), 0);
-        }
+        if (getActivity() == null || !isAdded()) return;
+        A1BASES.A26_Teclado.ocultar(getActivity()); // ⭐ (14-nov) manejo único del teclado
     }
 
     private void calcularMovimientosOriginalesDelDocumento() {
