@@ -111,13 +111,13 @@ public class RecordDocumentUnit {
                         String selected = f1.cuentaConciliacion_XSp.getSelectedItem().toString();
 
                         if (selected.isEmpty()) {
-                            f1.cuentaConciliacion_XSp.setBackgroundColor(Color.parseColor("#F4D7F5"));
+                            fondoConBorde(f1.cuentaConciliacion_XSp, "#F4D7F5");
                             return;
                         }
 
                         f1.dynamicQuerySumByAccountAcordingToArgument();
                         f1.dynamicQueryByAllAccountAz();
-                        f1.cuentaConciliacion_XSp.setBackgroundColor(Color.parseColor("#1de9b6"));
+                        fondoConBorde(f1.cuentaConciliacion_XSp, "#1de9b6");
                         f1.cuentaConciliacion_XSp.setVisibility(View.VISIBLE);
 
                         // ⭐ NUEVO (29-oct, reportado por Jorge — bug previo, no de este patch):
@@ -236,12 +236,12 @@ public class RecordDocumentUnit {
                     if (count > 0) {
                         f1.actualizarSumasListado();
                         f1.digitarFisicoVsSaldoConciliacion();
-                        f1.valor_XEt.setBackgroundColor(Color.parseColor("#1de9b6"));
+                        fondoConBorde(f1.valor_XEt, "#1de9b6");
                         f1.primerRegistroAListaDocumentoCuentaConciliable();
                         f1.$quedaPorRegistrarConRegistroActual = 0;
                         f1.seeGridLAyoutAccount();
                     } else {
-                        f1.valor_XEt.setBackgroundColor(Color.parseColor("#F4D7F5"));
+                        fondoConBorde(f1.valor_XEt, "#F4D7F5");
                         f1.seeGridLAyoutAccount();
                     }
                 } catch (Exception e) {
@@ -266,14 +266,14 @@ public class RecordDocumentUnit {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (count > 0) {
-                    f1.descripcion_XAtv.setBackgroundColor(Color.parseColor("#1de9b6"));
+                    fondoConBorde(f1.descripcion_XAtv, "#1de9b6");
                     // ⭐ (11-nov, Jorge): ya no se captura aquí copiarValorAnterior_String ni
                     // copiarSigno_String. Al escribir la descripción del registro NUEVO el valor
                     // todavía está vacío, así que se borraba el valor del registro anterior y el
                     // ↻ de Valor no lo recordaba. Ahora lo guarda B12 al agregar cada registro.
                     f1.seeGridLAyoutAccount();
                 } else {
-                    f1.descripcion_XAtv.setBackgroundColor(Color.parseColor("#F4D7F5"));
+                    fondoConBorde(f1.descripcion_XAtv, "#F4D7F5");
                     f1.seeGridLAyoutAccount();
                 }
             }
@@ -298,11 +298,11 @@ public class RecordDocumentUnit {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (count > 0) {
-                    f1.cuenta_XAtv.setBackgroundColor(Color.parseColor("#1de9b6"));
+                    fondoConBorde(f1.cuenta_XAtv, "#1de9b6");
                     // ⭐ (11-nov): ya no se captura aquí copiarDesripcionAnterior_String (lo guarda
                     // B12 al agregar el registro); aquí pisaba el anterior con el del registro nuevo.
                 } else {
-                    f1.cuenta_XAtv.setBackgroundColor(Color.parseColor("#F4D7F5"));
+                    fondoConBorde(f1.cuenta_XAtv, "#F4D7F5");
                 }
             }
 
@@ -597,5 +597,18 @@ public class RecordDocumentUnit {
             f1.clearViewValuesAreaRecords();
             f1.ocultarTeclado();
         });
+    }
+
+    /**
+     * ⭐ NUEVO (14-nov, Jorge): cambia el relleno del campo (turquesa con dato, lila vacío)
+     * conservando el borde fino azul rey de bg_campo_registro; setBackgroundColor lo borraba.
+     */
+    private static void fondoConBorde(android.view.View campo, String color) {
+        android.graphics.drawable.GradientDrawable fondo = new android.graphics.drawable.GradientDrawable();
+        float d = campo.getResources().getDisplayMetrics().density;
+        fondo.setCornerRadius(6 * d);
+        fondo.setStroke(Math.max(1, Math.round(d)), Color.parseColor("#1F3FA6"));
+        fondo.setColor(Color.parseColor(color));
+        campo.setBackground(fondo);
     }
 }
