@@ -1151,7 +1151,8 @@
 
                 <!-- ⭐ REORDEN UX (14-nov, Jorge): el registro manual queda en dos filas. Fila 1:
                      valor con su ↻ a la izquierda de la descripción con su ↻. Fila 2: cuenta, su ↻,
-                     el spinner de cuentas y al final el signo. Valor y signo salen de
+                     el spinner de cuentas y al final el signo (descripción 240 dp y cuenta 230 dp,
+                     alineadas aunque pasen el ancho de "A conciliar"). Valor y signo salen de
                      seccion1HaceRegistrosItemsLista_XGl, que queda oculta. -->
                 <EditText
                     android:layout_marginHorizontal="3dp"
@@ -1192,7 +1193,7 @@
                     android:layout_marginHorizontal="3dp"
                     android:layout_marginVertical="2dp"
                     android:id="@+id/descripcion_XAtv"
-                    android:layout_width="200dp"
+                    android:layout_width="240dp"
                     android:layout_height="27dp"
                     android:background="#F4D7F5"
                     android:completionThreshold="1"
@@ -1287,7 +1288,7 @@
 
                         android:id="@+id/cuenta_XAtv"
                         android:layout_marginTop="3dp"
-                        android:layout_width="190dp"
+                        android:layout_width="230dp"
                         android:layout_height="27dp"
                         android:background="#DDE6FB"
                         android:completionThreshold="1"
