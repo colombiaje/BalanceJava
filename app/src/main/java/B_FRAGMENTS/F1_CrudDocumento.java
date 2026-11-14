@@ -974,8 +974,12 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         cuentaOriginalEnModificacion = listaDocumento_ArrayLTT.get(posicion).tipoT_3Accout_String;
 
         // Configurar UI para modo modificación
-        cuenta_XAtv.setText("Modo modificacion"); // Solo para UI visual
-        cuenta_XAtv.setVisibility(View.GONE);
+        // ⭐ CAMBIO (14-nov, Jorge): el autocomplete de cuenta queda VISIBLE con la cuenta del ítem
+        // y es la base para cambiarla (escribiendo o eligiendo de su lista). Antes se ocultaba y
+        // solo se podía cambiar con el spinner.
+        cuenta_XAtv.setVisibility(View.VISIBLE);
+        cuenta_XAtv.setText(cuentaOriginalEnModificacion);
+        cuenta_XAtv.dismissDropDown();
         pegarCuetaAnterior_XChB.setVisibility(View.GONE);
         pegarCuentaSpinner_XChB.setVisibility(View.GONE);
 

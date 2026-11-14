@@ -355,7 +355,7 @@ public class RecordDocumentUnit {
                         f1.copiarSigno_String = f1.signo_XSp.getSelectedItem().toString();
                         f1.copiarDesripcionAnterior_String =
                                 f1.descripcion_XAtv.getText().toString();
-                        f1.cuenta_XAtv.setVisibility(View.GONE);
+                        // ⭐ (14-nov, Jorge): el autocomplete ya no se oculta en modificación.
                         f1.cuenta_XSp.setBackgroundColor(selected.isEmpty()
                                 ? Color.parseColor("#F4D7F5")
                                 : Color.parseColor("#1de9b6"));
