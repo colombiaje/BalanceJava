@@ -26,6 +26,7 @@ public class UpdateDeleteUnit {
         inflateViews(view);
         loadInitialData();
         setupListeners();
+        setupListaDocumentosPorFecha(view); // ⭐ 13-nov
     }
 
     private void inflateViews(View view) {
@@ -60,6 +61,14 @@ public class UpdateDeleteUnit {
         setupDeleteDocumentButton();
         setupChangeDateCheckbox();
         setupConsecutivoClick();
+    }
+
+    // ⭐ NUEVO (13-nov, Jorge): botón 📅 → lista de documentos por fecha (A25_ListaDocumentosDialogo).
+    private void setupListaDocumentosPorFecha(View view) {
+        View boton = view.findViewById(R.id.listaDocumentosPorFecha_XBt);
+        if (boton != null) {
+            boton.setOnClickListener(v -> new A1BASES.A25_ListaDocumentosDialogo(f1).mostrar());
+        }
     }
 
     // Selección de documento en el autocomplete
