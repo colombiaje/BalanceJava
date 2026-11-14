@@ -91,9 +91,11 @@ public class SeeDocumentUnit {
                         && rehusarSiNoEsElUltimo(itemAEliminar, "eliminar")) {
                     break;
                 }
+                f1.guardarParaDeshacer(); // ⭐ (14-nov, Jorge) copia antes de eliminar
                 f1.listaDocumento_ArrayLTT.remove(position);
                 f1.renumerarItemsListaDocumento();
                 f1.procesarActualizacionCompleta();
+                f1.ofrecerDeshacer("Ítem eliminado");
                 break;
         }
     }

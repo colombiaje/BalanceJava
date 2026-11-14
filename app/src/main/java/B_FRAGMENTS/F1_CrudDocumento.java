@@ -1881,6 +1881,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     public void clearViewsValuesForInitializeCRUD() {
         cancelarModoModificacionSiActivo(); // ⭐ (14-nov) limpiar/guardar/cambiar área cierran el modo
+        descartarDeshacer();
         // Create new area
         estadoChBOtraFechaInicialEnAdicionar_String = null;
         assignedOtherDateInCreateNew_XChB.setChecked(false);
@@ -2149,6 +2150,63 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         if (listaDocumento_XLv != null && listaDocumento_XLv.getAdapter() instanceof android.widget.BaseAdapter) {
             ((android.widget.BaseAdapter) listaDocumento_XLv.getAdapter()).notifyDataSetChanged(); // resalta la fila
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (14-nov, Jorge): deshacer al eliminar o modificar un ítem del documento en pantalla.
+    // Antes del cambio se copia la lista (copia profunda de cada ítem: guardarModificacion los
+    // cambia en su lugar); después aparece un aviso con "Deshacer" (8 s). Vale mientras el
+    // documento no se guarde, limpie ni cambie: esos eventos descartan la copia.
+    // ═══════════════════════════════════════════════════════════════
+    private ArrayList<A3_2_TipoTransaccionesGetsYSets> deshacerLista = null;
+    private int deshacerArea = 0;
+
+    public void guardarParaDeshacer() {
+        if (listaDocumento_ArrayLTT == null) return;
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> copia = new ArrayList<>();
+        for (A3_2_TipoTransaccionesGetsYSets t : listaDocumento_ArrayLTT) copia.add(copiarItem(t));
+        deshacerLista = copia;
+        deshacerArea = currentRadioButtonId;
+    }
+
+    /** Copia todos los campos públicos del ítem (incluye los de inventario y subtotal). */
+    private static A3_2_TipoTransaccionesGetsYSets copiarItem(A3_2_TipoTransaccionesGetsYSets t) {
+        A3_2_TipoTransaccionesGetsYSets c = new A3_2_TipoTransaccionesGetsYSets();
+        for (java.lang.reflect.Field campo : A3_2_TipoTransaccionesGetsYSets.class.getFields()) {
+            if (java.lang.reflect.Modifier.isStatic(campo.getModifiers())) continue;
+            try {
+                campo.set(c, campo.get(t));
+            } catch (IllegalAccessException ignorado) {
+                // campos públicos: no debería ocurrir
+            }
+        }
+        return c;
+    }
+
+    public void ofrecerDeshacer(String accion) {
+        if (deshacerLista == null || getView() == null) return;
+        Snackbar.make(getView(), accion, 8000)
+                .setAction("Deshacer", v -> deshacer())
+                .show();
+    }
+
+    private void deshacer() {
+        if (deshacerLista == null || deshacerArea != currentRadioButtonId) {
+            Toast.makeText(getActivity(), "Ya no se puede deshacer: el documento cambió",
+                    Toast.LENGTH_SHORT).show();
+            descartarDeshacer();
+            return;
+        }
+        cancelarModoModificacionSiActivo();
+        listaDocumento_ArrayLTT = deshacerLista;
+        descartarDeshacer();
+        procesarActualizacionCompleta();
+        Toast.makeText(getActivity(), "Cambio deshecho", Toast.LENGTH_SHORT).show();
+    }
+
+    public void descartarDeshacer() {
+        deshacerLista = null;
+        deshacerArea = 0;
     }
 
     /** Cierra el modo modificación sin guardar (✕, escobita, limpiar, cambiar de documento o área). */
@@ -2847,6 +2905,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     //limpiarListaYAdaptador() — método nuevo auxiliar que centraliza la limpieza:
     public void limpiarListaYAdaptador() {
         cancelarModoModificacionSiActivo(); // ⭐ (14-nov) cargar/restaurar otro documento cierra el modo
+        descartarDeshacer();
         if (listaDocumento_ArrayLTT != null) {
             listaDocumento_ArrayLTT.clear();
         }

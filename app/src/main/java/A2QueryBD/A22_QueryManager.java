@@ -193,6 +193,19 @@ public class A22_QueryManager {
 
         // Ejecutamos la consulta y mapeamos los resultados
         List<String> descripciones = a3_2_consultas_para_queryManager.executeQuery(transactionBuilder, cursor -> cursor.getString(cursor.getColumnIndex("c6_Descripcion")));
+        // ⭐ (14-nov, Jorge): sin repeticiones en la lista de sugerencias. DISTINCT solo quita las
+        // idénticas; "abono a Yolanda" y "abono a Yolanda " (espacio final, doble espacio o
+        // mayúsculas distintas) salían dos veces. Se normaliza (recorte, espacios, minúsculas)
+        // y se conserva la primera, recortada. No cambia la base: solo la lista que se muestra.
+        java.util.LinkedHashMap<String, String> unicas = new java.util.LinkedHashMap<>();
+        for (String d : descripciones) {
+            if (d == null) continue;
+            String limpia = d.replace('\u00A0', ' ').trim().replaceAll("\\s+", " ");
+            if (limpia.isEmpty()) continue;
+            String clave = limpia.toLowerCase(java.util.Locale.ROOT);
+            if (!unicas.containsKey(clave)) unicas.put(clave, limpia);
+        }
+        descripciones = new ArrayList<>(unicas.values());
 
         if (!descripciones.isEmpty()) {
             return new A23_QueryResult<>(descripciones.size(), new ArrayList<>(descripciones), "Consulta exitosa");

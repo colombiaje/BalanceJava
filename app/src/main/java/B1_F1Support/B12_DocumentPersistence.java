@@ -1748,6 +1748,7 @@ public class B12_DocumentPersistence {
             return;
         }
 
+        f1.guardarParaDeshacer(); // ⭐ (14-nov, Jorge) copia antes de modificar el ítem
         try {
             Integer valorNuevo = Integer.parseInt(
                     f1.valor_XEt.getText().toString().trim());
@@ -1810,6 +1811,7 @@ public class B12_DocumentPersistence {
 
             f1.finalizarModoModificacion();
             f1.procesarActualizacionCompleta();
+            f1.ofrecerDeshacer("Ítem modificado"); // ⭐ (14-nov, Jorge)
 
             // La cuenta pudo haber cambiado (o su Grupo1/Grupo2 recién se
             // refrescó arriba) — es el punto más probable donde una
