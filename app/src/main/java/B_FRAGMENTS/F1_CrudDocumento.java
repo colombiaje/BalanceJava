@@ -2947,7 +2947,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // ⭐ REDISEÑO (14-nov, Jorge): un solo flujo para elegir el documento de Edición.
     // El número de F1 ya no se escribe: se elige en la ventana 📅 (autocomplete del número o
     // lista por fecha) o con el ↻. Antes de cambiar de documento, con la lista del abierto
-    // todavía intacta, se revisa si tiene cambios sin guardar y se pregunta:
+    // todavía intacta, se pregunta siempre (14-nov), indicando si tiene cambios sin guardar:
     // "Pasar a Espera ⇄" (si está libre) / "Descartar y abrir" / "Cancelar".
     // (Reemplaza la copia de rescate en memoria del 13-nov, que dependía de la escritura.)
     // ═══════════════════════════════════════════════════════════════
@@ -2970,27 +2970,34 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         });
     }
 
-    /** Control de cambios sin guardar del documento abierto en Edición, antes de cambiarlo. */
+    /**
+     * Control del documento abierto en Edición, antes de cambiarlo.
+     * ⭐ (14-nov, Jorge): pregunta SIEMPRE que haya un documento abierto, tenga o no cambios —
+     * el usuario puede necesitarlo aunque no lo haya modificado. Opciones: "Pasar a Espera ⇄"
+     * (si Espera está libre), "Cerrar y abrir" / "Descartar y abrir" (según haya cambios) y
+     * "Cancelar".
+     */
     public void antesDeCambiarDocumento(String nuevoDocumento, Runnable cambiar) {
         String abierto = documentoABuscarParaEditar_XATv.getText().toString().trim();
-        if (abierto.isEmpty() || !documentoCargadoParaEdicion || listaDocumento_ArrayLTT == null
-                || listaDocumento_ArrayLTT.isEmpty() || !hayCambiosSinGuardar(abierto)) {
-            cambiar.run();
+        if (abierto.isEmpty() || listaDocumento_ArrayLTT == null || listaDocumento_ArrayLTT.isEmpty()) {
+            cambiar.run(); // Edición vacía: no hay nada que proteger
             return;
         }
+        boolean conCambios = !documentoCargadoParaEdicion || hayCambiosSinGuardar(abierto);
         boolean esperaOcupada = A5_CacheManager.restaurarEncabezado(getContext(),
                 A1_1_AyudanteBD.AREA_UPDATE_ESPERA) != null;
         String destino = nuevoDocumento == null || nuevoDocumento.isEmpty()
                 ? "cambiar de documento" : "abrir el " + nuevoDocumento;
-        String texto = "El documento " + abierto + " tiene cambios sin guardar. ¿Qué hago con él "
-                + "antes de " + destino + "?"
+        String texto = "Tienes abierto el documento " + abierto
+                + (conCambios ? ", con cambios sin guardar" : " (sin cambios)")
+                + ". ¿Qué hago con él antes de " + destino + "?"
                 + (esperaOcupada ? "\n\nEspera ya tiene otro documento; termínalo antes si quieres "
                 + "usarla para este." : "");
         androidx.appcompat.app.AlertDialog.Builder b = new androidx.appcompat.app.AlertDialog.Builder(getActivity())
-                .setTitle("Cambios sin guardar")
+                .setTitle(conCambios ? "Cambios sin guardar" : "Documento abierto")
                 .setView(A1BASES.A20_Informacion.vista(getActivity(), texto))
                 .setCancelable(false)
-                .setNeutralButton("Descartar y abrir", (d, w) -> cambiar.run())
+                .setNeutralButton(conCambios ? "Descartar y abrir" : "Cerrar y abrir", (d, w) -> cambiar.run())
                 .setNegativeButton("Cancelar", null);
         if (!esperaOcupada) {
             b.setPositiveButton("Pasar a Espera ⇄", (d, w) -> {
