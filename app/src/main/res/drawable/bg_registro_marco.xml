@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ⭐ NUEVO (14-nov, Jorge): marco del bloque de conciliación y registro de F1. Relleno gris
+     muy claro (los blancos no se veían bien) y borde magenta de 2 dp; el área que lo usa lleva
+     padding para que el borde se vea completo. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="14dp" />
+    <stroke android:width="2dp" android:color="#E441F1" />
+    <solid android:color="#EDEDF2" />
+</shape>
