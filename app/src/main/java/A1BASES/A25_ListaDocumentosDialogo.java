@@ -219,13 +219,22 @@ public class A25_ListaDocumentosDialogo {
         // ⭐ (14-nov) el botón ya está fuera de Edición: también se protege un Nuevo en pantalla.
         boolean nuevoConDatos = f1.currentRadioButtonId == R.id.create_XRb && f1.hayDatosEnAreaActual();
         if (nuevoConDatos || f1.existenBackupsPara(R.id.create_XRb)) {
+            // ⭐ (14-nov, Jorge): dos opciones claras. "Terminar el borrador" cierra la lista y
+            // lleva a Nuevo con el borrador tal como estaba; "Cancelar" sigue en la lista.
+            // (Pendiente, opción B: respaldar el borrador y retomarlo solo al guardar el nuevo.)
             new AlertDialog.Builder(context)
                     .setTitle("Nuevo tiene un borrador")
                     .setView(A20_Informacion.vista(context,
-                            "En F1 › Nuevo hay un documento en espera sin guardar. Termínalo o "
-                                    + "límpialo primero; así no se mezcla con el que quieres crear el "
+                            "En F1 › Nuevo hay un documento sin guardar. Termínalo o límpialo "
+                                    + "primero; así no se mezcla con el que quieres crear el "
                                     + fechaTexto(fechaElegida) + "."))
-                    .setPositiveButton("Entendido", null)
+                    .setPositiveButton("Terminar el borrador", (d, w) -> {
+                        if (dialogo != null) dialogo.dismiss();
+                        if (f1.currentRadioButtonId != R.id.create_XRb) {
+                            f1.optionsDoc_XRg.check(R.id.create_XRb); // restaura el borrador
+                        }
+                    })
+                    .setNegativeButton("Cancelar", null)
                     .show();
             return;
         }
