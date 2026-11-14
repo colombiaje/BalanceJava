@@ -374,11 +374,16 @@ public class B13_NavigationManager {
                 A5_CacheManager.restaurarRegistros(
                         f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE);
 
-        if (encSlot3 != null) {
+        // ⭐ CORRECCIÓN (14-nov, reportado por Jorge): Edición solo pasa a Espera si de verdad
+        // tiene registros. Antes un encabezado sin registros (Edición vacía) quedaba en Espera
+        // como "documento" fantasma: "Sin caché guardado" en los registros.
+        if (encSlot3 != null && registrosSlot3 != null && !registrosSlot3.isEmpty()) {
             A5_CacheManager.guardarRegistros(f1.getContext(),
                     A1_1_AyudanteBD.AREA_UPDATE_ESPERA, registrosSlot3);
             A5_CacheManager.guardarEncabezado(f1.getContext(),
                     A1_1_AyudanteBD.AREA_UPDATE_ESPERA, encSlot3);
+        } else {
+            A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
         }
         if (encSlot4 != null) {
 
@@ -455,6 +460,34 @@ public class B13_NavigationManager {
                 f1.setInvisibleUpdateAndDeleteAntesDeEditar();
             }
         }
+    }
+
+    /**
+     * ⭐ NUEVO (14-nov, Jorge): traer el documento de Espera a Edición CERRANDO el que está en
+     * Edición (Espera queda vacía). Alternativa al intercambio ⇄.
+     */
+    public void traerDeEsperaCerrandoEdicion(boolean desdeVisor) {
+        if (desdeVisor || f1.currentRadioButtonId != R.id.updateDelete_XRb) {
+            sincronizarYMostrarArea(R.id.updateDelete_XRb);
+        }
+        A5_CacheManager.Encabezado enc = A5_CacheManager.restaurarEncabezado(
+                f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+        ArrayList<A3_2_TipoTransaccionesGetsYSets> registros = A5_CacheManager.restaurarRegistros(
+                f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+        if (enc == null || registros == null || registros.isEmpty()) {
+            A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+            actualizarVisibilidadBotonVerde();
+            mostrarMensajeLightCanalD("Espera estaba vacía");
+            return;
+        }
+        A5_CacheManager.guardarRegistros(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE, registros);
+        A5_CacheManager.guardarEncabezado(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE, enc);
+        A5_CacheManager.eliminar(f1.getContext(), A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+        f1.restoreBackups(R.id.updateDelete_XRb);
+        f1.recalcularAjusteDeSaldosDesdeBD();
+        actualizarVisibilidadBotonVerde();
+        f1.actualizarBadgeCache();
+        mostrarMensajeLightCanalD("Doc. #" + enc.campo_8_docBuscarEditar + " en edición; Espera vacía");
     }
 
     public String obtenerNumeroDocDeSlot(int areaId) {
@@ -652,6 +685,13 @@ public class B13_NavigationManager {
      * campos vacíos y borraría sin querer el backup real de Área 3.
      */
     public void irAEsperaYIntercambiarDesdeVisor() {
+        // ⭐ CORRECCIÓN (14-nov, reportado por Jorge): si ya se está en Edición, lo que hay EN
+        // PANTALLA se respalda antes de sincronizar. sincronizarYMostrarArea() solo respaldaba al
+        // venir de otra área; estando en Edición recargaba la caché (vieja: el documento abierto
+        // por la lista 📅 aún no estaba respaldado) y el documento en pantalla se perdía.
+        if (f1.currentRadioButtonId == R.id.updateDelete_XRb && f1.hayDatosEnAreaActual()) {
+            f1.hacerBackupSilenciosoCanalD(A1_1_AyudanteBD.AREA_UPDATE);
+        }
         sincronizarYMostrarArea(R.id.updateDelete_XRb);
         intercambiarSlot3YSlot4CanalD(); // hace el intercambio real + refresca + actualiza botón verde
         mostrarFeedbackRestauracion(R.id.updateDelete_XRb);

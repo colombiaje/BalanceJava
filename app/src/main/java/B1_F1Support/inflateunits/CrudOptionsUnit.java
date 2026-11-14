@@ -96,7 +96,8 @@ public class CrudOptionsUnit {
 
     // Botón verde Canal D — intercambia slot 3 y slot 4
     private void setupCanalDButton() {
-        f1.botonVerde_XBt.setOnClickListener(v -> f1.intercambiarSlot3YSlot4CanalD());
+        // ⭐ (14-nov): pregunta antes si Edición tiene un documento (F1.antesDeTraerDeEspera).
+        f1.botonVerde_XBt.setOnClickListener(v -> f1.antesDeTraerDeEspera(false));
     }
 
     // Spinner: seleccionar cuenta navega al visor de transacciones (F3_2)

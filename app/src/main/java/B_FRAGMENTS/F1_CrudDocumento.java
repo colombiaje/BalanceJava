@@ -2786,7 +2786,51 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     /** Escenario C — "🔄 Enviar a Área 3" desde la pestaña "Espera" del panel de auditoría. */
     public void irAEsperaYIntercambiarDesdeVisor() {
-        navManager.irAEsperaYIntercambiarDesdeVisor();
+        antesDeTraerDeEspera(true); // ⭐ (14-nov) pregunta si Edición tiene un documento
+    }
+
+    /**
+     * ⭐ NUEVO (14-nov, Jorge): antes de traer el documento de Espera a Edición (botón verde ⇄ o
+     * "Enviar a Área 3"), si Edición tiene un documento se pregunta:
+     *   "Intercambiar ⇄" (el de Edición pasa a Espera) / "Cerrar X y traer Y" (Espera queda
+     *   vacía) / "Cancelar". Si Edición está vacía, se trae directo.
+     */
+    public void antesDeTraerDeEspera(boolean desdeVisor) {
+        String enEspera = navManager.obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE_ESPERA);
+        String enEdicion = "";
+        boolean conCambios = false;
+        if (currentRadioButtonId == R.id.updateDelete_XRb) {
+            if (listaDocumento_ArrayLTT != null && !listaDocumento_ArrayLTT.isEmpty()) {
+                enEdicion = documentoABuscarParaEditar_XATv.getText().toString().trim();
+                conCambios = !enEdicion.isEmpty()
+                        && (!documentoCargadoParaEdicion || hayCambiosSinGuardar(enEdicion));
+            }
+        } else {
+            ArrayList<A3_2_TipoTransaccionesGetsYSets> regs = A5_CacheManager.restaurarRegistros(
+                    getContext(), A1_1_AyudanteBD.AREA_UPDATE);
+            if (regs != null && !regs.isEmpty()) {
+                String n = navManager.obtenerNumeroDocDeSlot(A1_1_AyudanteBD.AREA_UPDATE);
+                enEdicion = "?".equals(n) ? "" : n;
+            }
+        }
+        Runnable intercambio = desdeVisor ? navManager::irAEsperaYIntercambiarDesdeVisor
+                : navManager::intercambiarSlot3YSlot4CanalD;
+        if (enEdicion.isEmpty()) {
+            intercambio.run(); // Edición vacía: el de Espera pasa a Edición y Espera queda vacía
+            return;
+        }
+        String texto = "En Edición tienes el documento " + enEdicion
+                + (conCambios ? ", con cambios sin guardar" : "") + ". Al traer el " + enEspera
+                + " de Espera, ¿qué hago con el " + enEdicion + "?";
+        new androidx.appcompat.app.AlertDialog.Builder(getActivity())
+                .setTitle("Traer de Espera")
+                .setView(A1BASES.A20_Informacion.vista(getActivity(), texto))
+                .setCancelable(false)
+                .setPositiveButton("Intercambiar ⇄", (d, w) -> intercambio.run())
+                .setNeutralButton((conCambios ? "Descartar " : "Cerrar ") + enEdicion,
+                        (d, w) -> navManager.traerDeEsperaCerrandoEdicion(desdeVisor))
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     /**
