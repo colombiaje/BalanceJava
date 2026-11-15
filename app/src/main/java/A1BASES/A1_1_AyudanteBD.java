@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 30; // ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
+    public static final int version1BalanceSqlite_int_PSF = 31; // v31 plantillas (P1); ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -2324,6 +2324,41 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     public static final String TABLE_SOPORTE_RENTA = "soporte_renta";
     public static final String TABLE_SOPORTE_RENTA_CONCEPTO = "soporte_renta_concepto";
 
+    // ⭐ NUEVO (15-nov, BD v31, plantillas P1): un tipo de plantilla = un modelo vigente.
+    // plantilla_item guarda el modelo; plantilla_item_anterior, solo la versión inmediatamente
+    // anterior (para deshacer). Ver el doc "BalanceJava — Diseño de plantillas".
+    public static final String TABLE_PLANTILLA = "plantilla";
+    public static final String TABLE_PLANTILLA_ITEM = "plantilla_item";
+    public static final String TABLE_PLANTILLA_ITEM_ANTERIOR = "plantilla_item_anterior";
+
+    static final String SQL_CREAR_PLANTILLA =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_PLANTILLA + " (" +
+                    "plantilla_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "nombre TEXT NOT NULL UNIQUE COLLATE NOCASE, " +
+                    "periodicidad TEXT NOT NULL DEFAULT 'mensual', " +
+                    "activa INTEGER NOT NULL DEFAULT 1, " +
+                    "creada TEXT, " +
+                    "ultimo_uso INTEGER, " +
+                    "usos INTEGER NOT NULL DEFAULT 0, " +
+                    "origen TEXT)";
+
+    private static String sqlCrearPlantillaItem(String tabla) {
+        return "CREATE TABLE IF NOT EXISTS " + tabla + " (" +
+                "plantilla_id INTEGER NOT NULL, " +
+                "orden INTEGER NOT NULL, " +
+                "cuenta_id INTEGER NOT NULL, " +
+                "signo TEXT NOT NULL, " +
+                "valor INTEGER NOT NULL DEFAULT 0, " +
+                "concepto TEXT, " +
+                "PRIMARY KEY (plantilla_id, orden))";
+    }
+
+    static void crearTablasPlantilla(SQLiteDatabase db) {
+        db.execSQL(SQL_CREAR_PLANTILLA);
+        db.execSQL(sqlCrearPlantillaItem(TABLE_PLANTILLA_ITEM));
+        db.execSQL(sqlCrearPlantillaItem(TABLE_PLANTILLA_ITEM_ANTERIOR));
+    }
+
     private static final String SQL_CREAR_SOPORTE_RENTA =
             "CREATE TABLE IF NOT EXISTS " + TABLE_SOPORTE_RENTA + " (" +
                     "anio_fiscal INTEGER NOT NULL, " +
@@ -2813,6 +2848,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_AJUSTE_RENTA_CONTRAPARTIDA); // ⭐ NUEVO (8-nov, BD v28)
         db.execSQL(SQL_CREAR_SOPORTE_RENTA); // ⭐ NUEVO (9-nov, BD v29, renta R7)
         db.execSQL(SQL_CREAR_SOPORTE_RENTA_CONCEPTO);
+        crearTablasPlantilla(db); // ⭐ NUEVO (15-nov, BD v31, plantillas P1)
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -3774,6 +3810,12 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 db.execSQL("ALTER TABLE tipo_cuenta_temp_v30 RENAME TO " + TABLE_TIPO_CUENTA);
             }
             crearIndiceUnicoNombreCuenta(db);
+        }
+
+        // ⭐ NUEVO (15-nov): versión 31 — plantillas P1 (tablas nuevas, vacías; las transacciones
+        // no cambian).
+        if (oldVersion < 31) {
+            crearTablasPlantilla(db);
         }
     }
 

@@ -71,7 +71,11 @@ public class B12_DocumentPersistence {
     // enseguida, y la pantalla se limpiaba igual que en un guardado real. Con el valor de
     // retorno, ExecuteButtonsUnit ahora puede saltarse ese post-procesamiento cuando el
     // guardado fue bloqueado.
+    /** ⭐ NUEVO (15-nov, plantillas P1): plantilla nueva usada en el documento que se guarda. */
+    private Long plantillaUsadaAlGuardar = null;
+
     public boolean baseParaGuardarEnLaEnBDConListaDocumento(String nombreDelRadioButton) {
+        plantillaUsadaAlGuardar = null;
         assignDocumentDate(nombreDelRadioButton);
         f1.renumerarItemsListaDocumento();
 
@@ -208,6 +212,9 @@ public class B12_DocumentPersistence {
                                 cuentaIdParaGuardar,
                                 tipoCuentaIdParaGuardar}
                 );
+            }
+            if (plantillaUsadaAlGuardar != null) { // ⭐ (15-nov, plantillas P1)
+                A1BASES.A27_Plantillas.registrarUso(db, plantillaUsadaAlGuardar, f1.DateOfDocument_Integer);
             }
             db.setTransactionSuccessful();
         } catch (Exception e) {
@@ -473,6 +480,19 @@ public class B12_DocumentPersistence {
                         item.tipoTset_7FechaYHoraMetodoEnA5(A99_MetodosVarios.stringFechaYHora);
                         item.tipoTset_8FechaInicialMetodoEnA5(f1.DateOfDocument_Integer);
                         item.tipoTset_9FechaModificacionMetodoEnA5("No Aplica");
+                    }
+                    // ⭐ NUEVO (15-nov, plantillas P1): con una plantilla nueva, cada descripción
+                    // lleva el periodo del documento ("Agua · Q1 nov 2026") y se anota el uso.
+                    A1BASES.A27_Plantillas.Plantilla plantilla = A1BASES.A27_Plantillas.buscarPorNombre(
+                            f1.getContext(), f1.descripcionABuscarEnPlantilla_XAtv.getText().toString());
+                    if (plantilla != null) {
+                        String periodo = A1BASES.A27_Plantillas.periodo(plantilla.periodicidad,
+                                f1.DateOfDocument_Integer);
+                        for (A3_2_TipoTransaccionesGetsYSets item : f1.listaDocumento_ArrayLTT) {
+                            item.tipoTset_6DescripcionMetodoEnA5(A1BASES.A27_Plantillas.conPeriodo(
+                                    item.tipoT_6Description_String, periodo));
+                        }
+                        plantillaUsadaAlGuardar = plantilla.id;
                     }
                 }
                 break;

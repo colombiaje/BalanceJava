@@ -20,7 +20,10 @@ public class CreateTemplateUnit {
         this.f1 = fragment;
     }
 
+    private View raiz;
+
     public void setup(View view) {
+        raiz = view;
         inflateViews(view);
         loadInitialData();
         setupListeners();
@@ -41,31 +44,89 @@ public class CreateTemplateUnit {
     }
 
     private void setupListeners() {
+        setupMenuPlantillas();
         setupOnItemClick();
         setupTextWatcher();
         setupCopyPasteButton();
         setupAssignDateCheckbox();
     }
 
+    // ⭐ NUEVO (15-nov, plantillas P1): botón 🗂 con el asistente de carga inicial y el acceso a
+    // las plantillas antiguas (descripciones con "plantilla"), mientras se termina la transición.
+    private void setupMenuPlantillas() {
+        View boton = raiz == null ? null : raiz.findViewById(R.id.menuPlantillas_XBt);
+        if (boton == null) return;
+        boton.setOnClickListener(v -> {
+            if (f1.getContext() == null) return;
+            String[] opciones = {"Asistente: convertir plantillas antiguas", "Usar una plantilla antigua"};
+            new androidx.appcompat.app.AlertDialog.Builder(f1.getContext())
+                    .setTitle("Plantillas")
+                    .setItems(opciones, (d, i) -> {
+                        if (i == 0) {
+                            new A1BASES.A28_AsistentePlantillasDialogo(f1.getContext(),
+                                    () -> f1.dynamicQueryByDescriptionPlantillaOnly(
+                                            f1.descripcionABuscarEnPlantilla_XAtv)).mostrar();
+                        } else {
+                            elegirAntigua();
+                        }
+                    })
+                    .setNegativeButton("Cerrar", null)
+                    .show();
+        });
+    }
+
+    private void elegirAntigua() {
+        A2QueryBD.A23_QueryResult<String> r =
+                f1.a22QueryManager.queryTransactionsByDescriptionsWithPlantillaFilter();
+        if (r == null || r.getDatos() == null || r.getDatos().isEmpty()) {
+            Toast.makeText(f1.getActivity(), "No hay plantillas antiguas", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String[] antiguas = r.getDatos().toArray(new String[0]);
+        new androidx.appcompat.app.AlertDialog.Builder(f1.getContext())
+                .setTitle("Plantillas antiguas (" + antiguas.length + ")")
+                .setItems(antiguas, (d, i) -> {
+                    f1.descripcionABuscarEnPlantilla_XAtv.setText(antiguas[i]);
+                    f1.descripcionABuscarEnPlantilla_XAtv.dismissDropDown();
+                    cargarSeleccion(true);
+                })
+                .setNegativeButton("Cerrar", null)
+                .show();
+    }
+
     // Selección de plantilla en el dropdown
     private void setupOnItemClick() {
         f1.descripcionABuscarEnPlantilla_XAtv.setOnItemClickListener(
-                (adapterView, view, i, l) -> {
-                    // NOTE: llamado dos veces — comportamiento original preservado
-                    f1.colocarDocConsultadoEnListaItemDoc();
-                    f1.colocarDocConsultadoEnListaItemDoc();
-                    f1.actualizarSumasListado();
-                    f1.sumarItemListaDocumento();
+                (adapterView, view, i, l) -> cargarSeleccion(false));
+    }
 
-                    f1.siguienteDocEnAdicionar_Integer =
-                            Integer.parseInt(f1.ultimoDocumentoEnLaTabla) + 1;
-                    f1.nuevoNumeroDocEnAdicionar_String =
-                            String.format("%04d", f1.siguienteDocEnAdicionar_Integer);
-                    f1.consecutivoNuevoDocEnPLantilla_XTv.setText(f1.nuevoNumeroDocEnAdicionar_String);
+    /**
+     * ⭐ CAMBIO (15-nov, plantillas P1): si el texto es el nombre de una plantilla nueva, se
+     * cargan los ítems de su modelo vigente; si no (o si se pidió una antigua), el camino de
+     * siempre: el documento cuya descripción la contiene.
+     */
+    private void cargarSeleccion(boolean forzarAntigua) {
+        String texto = f1.descripcionABuscarEnPlantilla_XAtv.getText().toString().trim();
+        A1BASES.A27_Plantillas.Plantilla nueva = forzarAntigua ? null
+                : A1BASES.A27_Plantillas.buscarPorNombre(f1.getContext(), texto);
+        if (nueva != null) {
+            f1.cargarPlantillaNueva(nueva);
+        } else {
+            // NOTE: llamado dos veces — comportamiento original preservado
+            f1.colocarDocConsultadoEnListaItemDoc();
+            f1.colocarDocConsultadoEnListaItemDoc();
+        }
+        f1.actualizarSumasListado();
+        f1.sumarItemListaDocumento();
 
-                    f1.pasarItemListaTodoResumidoAItemListaRevision();
-                    f1.ocultarTeclado();
-                });
+        f1.siguienteDocEnAdicionar_Integer =
+                Integer.parseInt(f1.ultimoDocumentoEnLaTabla) + 1;
+        f1.nuevoNumeroDocEnAdicionar_String =
+                String.format("%04d", f1.siguienteDocEnAdicionar_Integer);
+        f1.consecutivoNuevoDocEnPLantilla_XTv.setText(f1.nuevoNumeroDocEnAdicionar_String);
+
+        f1.pasarItemListaTodoResumidoAItemListaRevision();
+        f1.ocultarTeclado();
     }
 
     // Escritura en el campo de búsqueda de plantilla

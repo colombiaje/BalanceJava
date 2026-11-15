@@ -1196,6 +1196,19 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             return;
         }
 
+        // ⭐ CAMBIO (15-nov, plantillas P1): con plantillas nuevas, el autocomplete muestra solo
+        // esas (activas, por uso reciente). Sin ninguna todavía, la lista antigua de siempre.
+        List<A1BASES.A27_Plantillas.Plantilla> nuevas = A1BASES.A27_Plantillas.listarActivas(getContext());
+        if (!nuevas.isEmpty()) {
+            List<String> nombres = new ArrayList<>();
+            for (A1BASES.A27_Plantillas.Plantilla p : nuevas) nombres.add(p.nombre);
+            ArrayAdapter<String> adaptadorNuevas = new ArrayAdapter<>(getActivity(),
+                    android.R.layout.simple_list_item_1, nombres);
+            ((AutoCompleteTextView) miVista).setAdapter(adaptadorNuevas);
+            ((AutoCompleteTextView) miVista).setThreshold(1);
+            return;
+        }
+
         A23_QueryResult<String> plantillas_Resultado_Consulta =
                 a22QueryManager.queryTransactionsByDescriptionsWithPlantillaFilter();
 
@@ -1744,6 +1757,39 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
         Toast.makeText(getActivity(), "Backup local, en Drive y documento actualizado", Toast.LENGTH_SHORT).show();
 
+    }
+
+    /**
+     * ⭐ NUEVO (15-nov, plantillas P1): carga en el área Template los ítems del modelo vigente de
+     * una plantilla nueva: cuentas, signos, últimos valores y el concepto de cada ítem como
+     * descripción (al guardar se le agrega el periodo, ver B12.assignDocumentDate).
+     */
+    public void cargarPlantillaNueva(A1BASES.A27_Plantillas.Plantilla plantilla) {
+        resetearSpinnerCuentasRevision();
+        try {
+            dynamicQuerySumByAccountAcordingToArgument();
+            dynamicQueryByAllAccountAz();
+            ArrayList<A3_2_TipoTransaccionesGetsYSets> items =
+                    A1BASES.A27_Plantillas.itemsComoDocumento(getContext(), plantilla.id);
+            if (items.isEmpty()) {
+                Toast.makeText(getActivity(), "La plantilla no tiene ítems", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            documentoCargadoParaEdicion = false;
+            movimientosOriginalesDocumento_HashMap.clear();
+            documentoYFechaInicialBaseDeLaPLantilla_XTv.setText("  " +
+                    A1BASES.A27_Plantillas.textoPeriodicidad(plantilla.periodicidad) + " · " +
+                    items.size() + " ítems" + (plantilla.ultimoUso > 0 ? " · último uso " + plantilla.ultimoUso : ""));
+            listaDocumento_ArrayLTT = items;
+            conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
+                    new D_F1_AdaptadorCrudDocumento(getActivity(), listaDocumento_ArrayLTT, null);
+            listaDocumento_XLv.setAdapter(conexionListDocumentForGeneralWithListView_Adaptador1_TipoT);
+            consecutivoItemRegistro_XTv.setText("Item:" + "\n" + items.size() + "/" + items.size());
+            sumarItemListaDocumento();
+        } catch (Exception e) {
+            Log.e("DocumentLoad", "Error al cargar la plantilla", e);
+            Toast.makeText(getActivity(), "Error al cargar la plantilla", Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void colocarDocConsultadoEnListaItemDoc() {
