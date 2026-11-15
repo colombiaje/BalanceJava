@@ -377,13 +377,15 @@
 
             />
 
+        <!-- ⭐ (14-nov, Jorge): el campo muestra el cuenta_id (llave interna), no el Ítem del
+             plan; el rótulo pasa de "Item" a "Id". El Ítem del plan está en la línea de ◀ ▶. -->
         <TextView
 
             android:id="@+id/item"
             android:layout_width="70dp"
             android:layout_height="25dp"
             android:background="@android:color/holo_purple"
-            android:text="Item"
+            android:text="Id"
             android:textColor="@android:color/white"
             android:textSize="18dp"
             app:layout_column="1"
