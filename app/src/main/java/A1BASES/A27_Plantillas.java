@@ -229,6 +229,12 @@ public final class A27_Plantillas {
      */
     public static boolean reemplazarModelo(Context ctx, long plantillaId, String periodicidad,
                                            List<NuevoItem> items) {
+        return reemplazarModelo(ctx, plantillaId, periodicidad, null, items);
+    }
+
+    /** Igual, anotando además la descripción antigua de donde salió el modelo (origen). */
+    public static boolean reemplazarModelo(Context ctx, long plantillaId, String periodicidad,
+                                           String origen, List<NuevoItem> items) {
         SQLiteDatabase db = abrir(ctx, true);
         db.beginTransaction();
         try {
@@ -238,11 +244,10 @@ public final class A27_Plantillas {
                     " SELECT * FROM " + A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM + " WHERE plantilla_id = ?", id);
             db.delete(A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM, "plantilla_id = ?", id);
             escribirItems(db, A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM, plantillaId, items);
-            if (periodicidad != null) {
-                ContentValues v = new ContentValues();
-                v.put("periodicidad", periodicidad);
-                db.update(A1_1_AyudanteBD.TABLE_PLANTILLA, v, "plantilla_id = ?", id);
-            }
+            ContentValues v = new ContentValues();
+            if (periodicidad != null) v.put("periodicidad", periodicidad);
+            if (origen != null) v.put("origen", origen);
+            if (v.size() > 0) db.update(A1_1_AyudanteBD.TABLE_PLANTILLA, v, "plantilla_id = ?", id);
             db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
@@ -290,11 +295,20 @@ public final class A27_Plantillas {
         return mesAnio;
     }
 
-    /** Agrega " · periodo" a la descripción, una sola vez. */
+    /**
+     * Pone " · periodo" al final de la descripción, quitando antes uno anterior (si la fecha
+     * del documento cambió, el periodo se reemplaza, no se acumula).
+     */
     public static String conPeriodo(String descripcion, String periodo) {
-        String d = descripcion == null ? "" : descripcion.trim();
-        if (periodo.isEmpty() || d.endsWith(periodo)) return d;
+        String d = sinPeriodo(descripcion);
+        if (periodo.isEmpty()) return d;
         return d.isEmpty() ? periodo : d + " · " + periodo;
+    }
+
+    /** Quita un " · Q1 nov 2026" o " · nov 2026" final, si lo hay. */
+    public static String sinPeriodo(String descripcion) {
+        String d = descripcion == null ? "" : descripcion.trim();
+        return d.replaceFirst("\\s*·\\s*(Q[12] )?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic) \\d{4}$", "").trim();
     }
 
     /** Concepto por defecto: el nombre de la cuenta sin el prefijo CxP, CxC o PAT. */

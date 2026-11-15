@@ -1786,9 +1786,31 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             listaDocumento_XLv.setAdapter(conexionListDocumentForGeneralWithListView_Adaptador1_TipoT);
             consecutivoItemRegistro_XTv.setText("Item:" + "\n" + items.size() + "/" + items.size());
             sumarItemListaDocumento();
+            aplicarPeriodoPlantillaEnLista(); // si la fecha ya estaba elegida
         } catch (Exception e) {
             Log.e("DocumentLoad", "Error al cargar la plantilla", e);
             Toast.makeText(getActivity(), "Error al cargar la plantilla", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * ⭐ NUEVO (15-nov, Jorge): con una plantilla nueva cargada y la fecha ya elegida, cada
+     * descripción de la lista muestra el periodo de una vez ("Aseo · Q2 nov 2026"); si la fecha
+     * cambia, el periodo se reemplaza.
+     */
+    public void aplicarPeriodoPlantillaEnLista() {
+        if (dateTemplateAssignedInCaledarView_Int <= 0 || listaDocumento_ArrayLTT == null) return;
+        A1BASES.A27_Plantillas.Plantilla plantilla = A1BASES.A27_Plantillas.buscarPorNombre(
+                getContext(), descripcionABuscarEnPlantilla_XAtv.getText().toString());
+        if (plantilla == null) return;
+        String periodo = A1BASES.A27_Plantillas.periodo(plantilla.periodicidad,
+                dateTemplateAssignedInCaledarView_Int);
+        for (A3_2_TipoTransaccionesGetsYSets item : listaDocumento_ArrayLTT) {
+            item.tipoTset_6DescripcionMetodoEnA5(
+                    A1BASES.A27_Plantillas.conPeriodo(item.tipoT_6Description_String, periodo));
+        }
+        if (conexionListDocumentForGeneralWithListView_Adaptador1_TipoT != null) {
+            conexionListDocumentForGeneralWithListView_Adaptador1_TipoT.notifyDataSetChanged();
         }
     }
 

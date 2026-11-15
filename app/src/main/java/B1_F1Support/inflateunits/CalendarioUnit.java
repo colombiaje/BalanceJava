@@ -57,6 +57,7 @@ public class CalendarioUnit {
                         f1.dateTemplateAssignedInCaledarView_Int = selectedDate;
                         f1.dateInTemplate_XTv.setText("" + selectedDate);
                         f1.assignedDateInTemplate_XChB.setChecked(false);
+                        f1.aplicarPeriodoPlantillaEnLista(); // ⭐ (15-nov, Jorge) periodo visible de una vez
                         closeCalendar();
                     }
 

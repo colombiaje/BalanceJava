@@ -57,22 +57,25 @@ public final class A28_AsistentePlantillasDialogo {
             Toast.makeText(ctx, "No hay plantillas antiguas para convertir", Toast.LENGTH_LONG).show();
             return;
         }
-        Set<String> convertidas = new HashSet<>();
+        // ⭐ (15-nov, Jorge): la marca ✓ dice a qué plantilla se convirtió la familia.
+        Map<String, String> convertidas = new HashMap<>();
         int creadas = 0;
         for (A27_Plantillas.Plantilla p : A27_Plantillas.listarTodas(ctx)) {
             creadas++;
-            if (p.origen != null) convertidas.add(p.origen.trim().toLowerCase(Locale.ROOT));
+            if (p.origen != null) convertidas.put(p.origen.trim().toLowerCase(Locale.ROOT), p.nombre);
         }
         final List<String> claves = new ArrayList<>(familias.keySet());
         String[] filas = new String[claves.size()];
         for (int i = 0; i < claves.size(); i++) {
             List<Version> vs = familias.get(claves.get(i));
-            boolean hecha = false;
+            String plantilla = null;
             for (Version v : vs) {
-                if (convertidas.contains(v.descripcion.trim().toLowerCase(Locale.ROOT))) hecha = true;
+                String n = convertidas.get(v.descripcion.trim().toLowerCase(Locale.ROOT));
+                if (n != null) plantilla = n;
             }
-            filas[i] = (hecha ? "✓ " : "") + claves.get(i) + "  ·  " + vs.size() +
-                    (vs.size() == 1 ? " versión" : " versiones") + " · última " + fechaTexto(vs.get(0).fecha);
+            filas[i] = (plantilla != null ? "✓ " : "") + claves.get(i) + "  ·  " + vs.size() +
+                    (vs.size() == 1 ? " versión" : " versiones") + " · última " + fechaTexto(vs.get(0).fecha) +
+                    (plantilla != null ? "  → " + plantilla : "");
         }
         new AlertDialog.Builder(ctx)
                 .setTitle("Asistente de plantillas (" + creadas + " creadas)")
@@ -185,7 +188,8 @@ public final class A28_AsistentePlantillasDialogo {
                     .setMessage("No se crea otra con el mismo nombre. ¿Reemplazar su modelo con este documento? " +
                             "El modelo actual queda como versión anterior.")
                     .setPositiveButton("Reemplazar", (d, w) -> {
-                        boolean ok = A27_Plantillas.reemplazarModelo(ctx, existente.id, periodicidad, items);
+                        boolean ok = A27_Plantillas.reemplazarModelo(ctx, existente.id, periodicidad,
+                                v.descripcion, items);
                         Toast.makeText(ctx, ok ? "Modelo de \"" + existente.nombre + "\" actualizado"
                                 : "No se pudo actualizar", Toast.LENGTH_LONG).show();
                         mostrar();
