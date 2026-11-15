@@ -38,8 +38,9 @@ public class A30_RestauradorPlantillas {
         if (context == null) return;
         new AlertDialog.Builder(context)
                 .setTitle("Restaurar plantillas")
-                .setView(A20_Informacion.vista(context, "Se toma el respaldo más reciente (Drive o, si no, " +
-                        "la carpeta Balance). Las plantillas que falten se crean; las que ya existen con el " +
+                .setView(A20_Informacion.vista(context, "Enseguida verá los últimos 5 respaldos de Drive " +
+                        "(★ el más reciente) y elige cuál restaurar; también puede tomar el de la carpeta " +
+                        "Balance. Las plantillas que falten se crean; las que ya existen con el " +
                         "mismo nombre toman el modelo del respaldo y su modelo actual queda como versión anterior."))
                 .setPositiveButton("Restaurar", (d, w) -> restaurar())
                 .setNegativeButton("Cancelar", null)
@@ -60,18 +61,7 @@ public class A30_RestauradorPlantillas {
                     usarLocal("no está en Drive");
                     return;
                 }
-                A6_2_GoogleDriveDownloader.DriveFileInfo ultimo = archivos.get(0);
-                drive.descargarArchivo(ultimo.id, ultimo.nombre, new A6_2_GoogleDriveDownloader.OnFileDownloadedListener() {
-                    @Override
-                    public void onFileDownloaded(String localPath) {
-                        importar(new File(localPath), "Drive: " + ultimo.nombre);
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        usarLocal("falló la descarga (" + error + ")");
-                    }
-                });
+                elegir(drive, archivos);
             }
 
             @Override
@@ -79,6 +69,53 @@ public class A30_RestauradorPlantillas {
                 usarLocal("Drive no respondió (" + error + ")");
             }
         });
+    }
+
+    /**
+     * ⭐ (15-nov, Jorge): muestra los últimos 5 respaldos de Drive (Drive conserva solo esos y
+     * borra los anteriores al subir uno nuevo) para elegir cuál restaurar; el primero es el más
+     * reciente. También se puede tomar el de la carpeta Balance del equipo.
+     */
+    private void elegir(A6_2_GoogleDriveDownloader drive, List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
+        if (progreso != null && progreso.isShowing()) progreso.dismiss();
+        final int n = Math.min(5, archivos.size());
+        String[] filas = new String[n + 1];
+        for (int i = 0; i < n; i++) {
+            A6_2_GoogleDriveDownloader.DriveFileInfo a = archivos.get(i);
+            filas[i] = (i == 0 ? "★ " : "") + fecha(a.fechaCreacion) + " · " + a.nombre;
+        }
+        filas[n] = "Carpeta Balance del equipo";
+        new AlertDialog.Builder(context)
+                .setTitle("Respaldos de plantillas (últimos " + n + ")")
+                .setItems(filas, (d, i) -> {
+                    progreso.setMessage("Restaurando…");
+                    progreso.show();
+                    if (i == n) {
+                        usarLocal("elegida por el usuario");
+                        return;
+                    }
+                    A6_2_GoogleDriveDownloader.DriveFileInfo elegido = archivos.get(i);
+                    drive.descargarArchivo(elegido.id, elegido.nombre,
+                            new A6_2_GoogleDriveDownloader.OnFileDownloadedListener() {
+                                @Override
+                                public void onFileDownloaded(String localPath) {
+                                    importar(new File(localPath), "Drive: " + elegido.nombre);
+                                }
+
+                                @Override
+                                public void onError(String error) {
+                                    usarLocal("falló la descarga (" + error + ")");
+                                }
+                            });
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    /** "2026-11-15T13:40:12.345Z" → "2026-11-15 13:40" (UTC, como lo da Drive). */
+    private static String fecha(String iso) {
+        if (iso == null || iso.length() < 16) return iso == null ? "" : iso;
+        return iso.substring(0, 10) + " " + iso.substring(11, 16);
     }
 
     private void usarLocal(String motivo) {
