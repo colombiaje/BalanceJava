@@ -45,6 +45,7 @@ public class CreateTemplateUnit {
 
     private void setupListeners() {
         setupMenuPlantillas();
+        setupListaPlantillas();
         setupOnItemClick();
         setupTextWatcher();
         setupCopyPasteButton();
@@ -76,6 +77,38 @@ public class CreateTemplateUnit {
                         } else {
                             elegirAntigua();
                         }
+                    })
+                    .setNegativeButton("Cerrar", null)
+                    .show();
+        });
+    }
+
+    // ⭐ NUEVO (15-nov, Jorge): ▾ abre la lista completa de plantillas activas, con sus ítems y
+    // su último uso, para quien no recuerda el nombre. Sin plantillas nuevas, las antiguas.
+    private void setupListaPlantillas() {
+        View boton = raiz == null ? null : raiz.findViewById(R.id.listaPlantillas_XBt);
+        if (boton == null) return;
+        boton.setOnClickListener(v -> {
+            if (f1.getContext() == null) return;
+            f1.ocultarTeclado();
+            final java.util.List<A1BASES.A27_Plantillas.Plantilla> activas =
+                    A1BASES.A27_Plantillas.listarActivas(f1.getContext());
+            if (activas.isEmpty()) {
+                elegirAntigua();
+                return;
+            }
+            String[] filas = new String[activas.size()];
+            for (int i = 0; i < activas.size(); i++) {
+                A1BASES.A27_Plantillas.Plantilla p = activas.get(i);
+                filas[i] = p.nombre + "  ·  " + p.items + " ítems" + (p.ultimoUso > 0
+                        ? " · usada " + A1BASES.A27_Plantillas.fechaCorta(p.ultimoUso) : "");
+            }
+            new androidx.appcompat.app.AlertDialog.Builder(f1.getContext())
+                    .setTitle("Plantillas (" + activas.size() + ")")
+                    .setItems(filas, (d, i) -> {
+                        f1.descripcionABuscarEnPlantilla_XAtv.setText(activas.get(i).nombre);
+                        f1.descripcionABuscarEnPlantilla_XAtv.dismissDropDown();
+                        cargarSeleccion(false);
                     })
                     .setNegativeButton("Cerrar", null)
                     .show();

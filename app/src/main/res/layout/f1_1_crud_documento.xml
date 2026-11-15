@@ -527,30 +527,54 @@
                 app:layout_gravity="center_vertical"
                 />
 
-            <AutoCompleteTextView
-                android:id="@+id/descripcionABuscarEnPlantilla_XAtv"
-                android:layout_width="275dp"
-                android:layout_height="25dp"
+            <!-- ⭐ (15-nov, Jorge): igual que en Cuenta, un botón ▾ junto al campo abre la lista
+                 completa de plantillas; el hint queda tenue. -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_marginLeft="10dp"
                 android:layout_marginRight="5dp"
-                android:background="#F4D7F5"
-                android:completionThreshold="1"
-                android:dropDownWidth="350dp"
-                android:dropDownHeight="300dp"
-                android:dropDownSelector="@color/design_default_color_primary"
-                android:hint="Escriba la descripcion"
-                android:maxLength="48"
-                android:popupBackground="#92E0D8"
-                android:singleLine="true"
-                android:textColor="#1A1AFF"
-                android:textColorHint="#425DF6"
-                android:textSize="20dp"
-                android:textStyle="bold"
+                android:layout_marginTop="2dp"
                 app:layout_column="0"
                 app:layout_columnSpan="2"
-                app:layout_row="1"
-                android:layout_marginTop="2dp"
-                />
+                app:layout_row="1">
+
+                <AutoCompleteTextView
+                    android:id="@+id/descripcionABuscarEnPlantilla_XAtv"
+                    android:layout_width="241dp"
+                    android:layout_height="27dp"
+                    android:background="#F4D7F5"
+                    android:completionThreshold="1"
+                    android:dropDownWidth="350dp"
+                    android:dropDownHeight="300dp"
+                    android:dropDownSelector="@color/design_default_color_primary"
+                    android:hint="Plantilla"
+                    android:maxLength="48"
+                    android:popupBackground="#92E0D8"
+                    android:singleLine="true"
+                    android:textColor="#1A1AFF"
+                    android:textColorHint="#9AA6E8"
+                    android:textSize="20dp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/listaPlantillas_XBt"
+                    android:layout_width="32dp"
+                    android:layout_height="27dp"
+                    android:layout_marginLeft="2dp"
+                    android:backgroundTint="#425DF6"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:padding="0dp"
+                    android:text="▾"
+                    android:textColor="@android:color/white"
+                    android:textSize="18sp"
+                    android:contentDescription="Ver la lista de plantillas" />
+            </LinearLayout>
 
             <CheckBox
                 android:id="@+id/copyPasteDescriptionTemplate_XChb"
