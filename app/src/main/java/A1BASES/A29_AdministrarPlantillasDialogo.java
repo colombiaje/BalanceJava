@@ -38,6 +38,7 @@ public final class A29_AdministrarPlantillasDialogo {
     }
 
     private void avisarCambio() {
+        A27_Plantillas.respaldar(ctx); // ⭐ (15-nov, P3) cada cambio queda respaldado (local y Drive)
         if (alCambiar != null) alCambiar.run();
     }
 
@@ -180,7 +181,8 @@ public final class A29_AdministrarPlantillasDialogo {
             A27_Plantillas.Plantilla p = todas.get(i);
             boolean activa = esActiva(p.id);
             if (activa) activas++;
-            filas[i] = (activa ? "" : "⊘ ") + p.nombre + " · " + p.items + " ítems · " +
+            boolean viejo = activa && A27_Plantillas.sinUso12Meses(p, A27_Plantillas.creada(ctx, p.id));
+            filas[i] = (activa ? (viejo ? "⏳ " : "") : "⊘ ") + p.nombre + " · " + p.items + " ítems · " +
                     A27_Plantillas.textoPeriodicidad(p.periodicidad) +
                     (p.ultimoUso > 0 ? " · usada " + A27_Plantillas.fechaCorta(p.ultimoUso) : "");
         }

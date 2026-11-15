@@ -450,6 +450,181 @@ public final class A27_Plantillas {
         return (fecha % 100) + "-" + MESES[mes - 1];
     }
 
+    // ═══════════════════════ P3: respaldo, restauración y sin uso ═══════════════════════
+
+    /** Carpeta de Drive de las cuentas (F2): las plantillas viajan con ellas. */
+    public static final String FOLDER_ID_DRIVE = "1jrcnKozSB2okTStCaPyxkGz39GwBKL_y";
+    public static final String PREFIJO_CSV = "214_Plantillas";
+    private static final String ENCABEZADO_CSV = "plantilla,periodicidad,activa,creada,ultimo_uso,usos,origen," +
+            "orden,cuenta_id,cuenta,signo,valor,concepto";
+
+    /** Escribe 214_Plantillas.csv en la carpeta Balance (un renglón por ítem). Devuelve el archivo o null. */
+    public static java.io.File exportarCsv(Context ctx) {
+        if (ctx == null || !android.os.Environment.MEDIA_MOUNTED.equals(android.os.Environment.getExternalStorageState())) {
+            return null;
+        }
+        java.io.File archivo = new java.io.File(android.os.Environment.getExternalStorageDirectory().getPath() +
+                "/Balance/" + PREFIJO_CSV + ".csv");
+        SQLiteDatabase db = abrir(ctx, false);
+        try (Cursor c = db.rawQuery("SELECT p.nombre, p.periodicidad, p.activa, p.creada, p.ultimo_uso, p.usos, " +
+                "p.origen, i.orden, i.cuenta_id, cu.Cuenta, i.signo, i.valor, i.concepto " +
+                "FROM " + A1_1_AyudanteBD.TABLE_PLANTILLA + " p JOIN " + A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM +
+                " i ON i.plantilla_id = p.plantilla_id LEFT JOIN cuentas cu ON cu.cuenta_id = i.cuenta_id " +
+                "ORDER BY p.nombre COLLATE NOCASE, i.orden", null);
+             java.io.OutputStreamWriter salida = new java.io.OutputStreamWriter(
+                     new java.io.FileOutputStream(archivo, false), java.nio.charset.StandardCharsets.UTF_8)) {
+            salida.write(ENCABEZADO_CSV + "\n");
+            while (c.moveToNext()) {
+                StringBuilder linea = new StringBuilder();
+                for (int k = 0; k < 13; k++) {
+                    if (k > 0) linea.append(",");
+                    String v = c.isNull(k) ? "" : c.getString(k);
+                    linea.append(campoCsv(v));
+                }
+                salida.write(linea.append("\n").toString());
+            }
+            return archivo;
+        } catch (Exception e) {
+            Log.e(TAG, "exportarCsv: " + e.getMessage());
+            return null;
+        } finally {
+            db.close();
+        }
+    }
+
+    /** Exporta y sube a Drive (rota los respaldos viejos). Se llama tras cada cambio de plantillas. */
+    public static void respaldar(Context ctx) {
+        java.io.File archivo = exportarCsv(ctx);
+        if (archivo == null) return;
+        try {
+            new A6_1_GoogleDriveManager(ctx, archivo.getParent() + "/", archivo.getName(), FOLDER_ID_DRIVE)
+                    .uploadFileToDrive();
+        } catch (Exception e) {
+            Log.e(TAG, "respaldar: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Importa un 214_Plantillas: por nombre, crea las que faltan y reemplaza el modelo de las que
+     * ya existen (el actual queda como anterior). La cuenta se busca por cuenta_id y, si no
+     * coincide el nombre, por nombre. Devuelve un resumen.
+     */
+    public static String importarCsv(Context ctx, String texto) {
+        java.util.LinkedHashMap<String, List<String[]>> porPlantilla = new java.util.LinkedHashMap<>();
+        String[] lineas = texto.replace("\r", "").split("\n");
+        for (String l : lineas) {
+            if (l.trim().isEmpty() || l.startsWith("plantilla,")) continue;
+            String[] f = partirCsv(l);
+            if (f.length < 13 || f[0].trim().isEmpty()) continue;
+            List<String[]> grupo = porPlantilla.get(f[0].trim());
+            if (grupo == null) porPlantilla.put(f[0].trim(), grupo = new ArrayList<>());
+            grupo.add(f);
+        }
+        int creadas = 0, actualizadas = 0, omitidos = 0;
+        SQLiteDatabase lectura = abrir(ctx, false);
+        java.util.Map<Long, String> nombrePorId = new java.util.HashMap<>();
+        java.util.Map<String, Long> idPorNombre = new java.util.HashMap<>();
+        try (Cursor c = lectura.rawQuery("SELECT cuenta_id, Cuenta FROM cuentas", null)) {
+            while (c.moveToNext()) {
+                nombrePorId.put(c.getLong(0), c.getString(1));
+                idPorNombre.put(c.getString(1).trim().toLowerCase(Locale.ROOT), c.getLong(0));
+            }
+        } finally {
+            lectura.close();
+        }
+        for (java.util.Map.Entry<String, List<String[]>> e : porPlantilla.entrySet()) {
+            List<NuevoItem> items = new ArrayList<>();
+            for (String[] f : e.getValue()) {
+                Long id = null;
+                try { id = Long.parseLong(f[8].trim()); } catch (NumberFormatException ignorado) { }
+                String nombreCuenta = f[9].trim();
+                if (id == null || (!nombreCuenta.isEmpty() && !nombreCuenta.equalsIgnoreCase(nombrePorId.get(id)))) {
+                    id = idPorNombre.get(nombreCuenta.toLowerCase(Locale.ROOT));
+                }
+                if (id == null) { omitidos++; continue; }
+                int valor = 0;
+                try { valor = Integer.parseInt(f[11].trim()); } catch (NumberFormatException ignorado) { }
+                items.add(new NuevoItem(id, f[10].trim(), valor, f[12]));
+            }
+            if (items.isEmpty()) continue;
+            String[] cab = e.getValue().get(0);
+            String periodicidad = cab[1].trim().isEmpty() ? MENSUAL : cab[1].trim();
+            Plantilla existente = buscarPorNombre(ctx, e.getKey());
+            long id;
+            if (existente != null) {
+                reemplazarModelo(ctx, existente.id, periodicidad, cab[6].isEmpty() ? null : cab[6], items);
+                id = existente.id;
+                actualizadas++;
+            } else {
+                id = crear(ctx, e.getKey(), periodicidad, cab[6].isEmpty() ? null : cab[6], items);
+                if (id < 0) continue;
+                creadas++;
+            }
+            SQLiteDatabase db = abrir(ctx, true);
+            try {
+                ContentValues v = new ContentValues();
+                v.put("activa", "0".equals(cab[2].trim()) ? 0 : 1);
+                if (!cab[3].trim().isEmpty()) v.put("creada", cab[3].trim());
+                try { v.put("ultimo_uso", Integer.parseInt(cab[4].trim())); } catch (NumberFormatException ignorado) { }
+                try { v.put("usos", Integer.parseInt(cab[5].trim())); } catch (NumberFormatException ignorado) { }
+                db.update(A1_1_AyudanteBD.TABLE_PLANTILLA, v, "plantilla_id = ?", new String[]{String.valueOf(id)});
+            } finally {
+                db.close();
+            }
+        }
+        return creadas + " creadas, " + actualizadas + " actualizadas" +
+                (omitidos > 0 ? ", " + omitidos + " ítems omitidos (cuenta no encontrada)" : "");
+    }
+
+    private static String campoCsv(String v) {
+        if (v.contains(",") || v.contains("\"") || v.contains("\n")) return "\"" + v.replace("\"", "\"\"") + "\"";
+        return v;
+    }
+
+    private static String[] partirCsv(String linea) {
+        List<String> campos = new ArrayList<>();
+        StringBuilder actual = new StringBuilder();
+        boolean comillas = false;
+        for (int i = 0; i < linea.length(); i++) {
+            char ch = linea.charAt(i);
+            if (comillas) {
+                if (ch == '"') {
+                    if (i + 1 < linea.length() && linea.charAt(i + 1) == '"') { actual.append('"'); i++; }
+                    else comillas = false;
+                } else actual.append(ch);
+            } else if (ch == '"') comillas = true;
+            else if (ch == ',') { campos.add(actual.toString()); actual.setLength(0); }
+            else actual.append(ch);
+        }
+        campos.add(actual.toString());
+        return campos.toArray(new String[0]);
+    }
+
+    /**
+     * ¿Lleva 12 meses o más sin uso? Cuenta desde el último uso o, si nunca se usó, desde su
+     * creación.
+     */
+    public static boolean sinUso12Meses(Plantilla p, String creada) {
+        int hoy = Integer.parseInt(new SimpleDateFormat("yyyyMMdd", Locale.ROOT).format(new Date()));
+        int referencia = p.ultimoUso;
+        if (referencia <= 0 && creada != null && creada.length() >= 10) {
+            try { referencia = Integer.parseInt(creada.substring(0, 10).replace("-", "")); }
+            catch (NumberFormatException ignorado) { referencia = 0; }
+        }
+        return referencia > 0 && referencia <= hoy - 10000;
+    }
+
+    /** Fecha de creación ("aaaa-mm-dd hh:mm") de una plantilla. */
+    public static String creada(Context ctx, long plantillaId) {
+        SQLiteDatabase db = abrir(ctx, false);
+        try (Cursor c = db.rawQuery("SELECT creada FROM " + A1_1_AyudanteBD.TABLE_PLANTILLA +
+                " WHERE plantilla_id = ?", new String[]{String.valueOf(plantillaId)})) {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } finally {
+            db.close();
+        }
+    }
+
     // ═══════════════════════ Textos ═══════════════════════
 
     /**

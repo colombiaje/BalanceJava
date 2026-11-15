@@ -194,6 +194,7 @@ public final class A28_AsistentePlantillasDialogo {
                     .setPositiveButton("Actualizar esa", (d, w) -> {
                         boolean ok = A27_Plantillas.reemplazarModelo(ctx, parecido.plantilla.id, null,
                                 v.descripcion, items);
+                        A27_Plantillas.respaldar(ctx); // ⭐ (15-nov, P3)
                         Toast.makeText(ctx, ok ? "Modelo de \"" + parecido.plantilla.nombre + "\" actualizado"
                                 : "No se pudo actualizar", Toast.LENGTH_LONG).show();
                         mostrar();
@@ -211,6 +212,7 @@ public final class A28_AsistentePlantillasDialogo {
                     .setPositiveButton("Reemplazar", (d, w) -> {
                         boolean ok = A27_Plantillas.reemplazarModelo(ctx, existente.id, periodicidad,
                                 v.descripcion, items);
+                        A27_Plantillas.respaldar(ctx); // ⭐ (15-nov, P3)
                         Toast.makeText(ctx, ok ? "Modelo de \"" + existente.nombre + "\" actualizado"
                                 : "No se pudo actualizar", Toast.LENGTH_LONG).show();
                         mostrar();
@@ -224,6 +226,7 @@ public final class A28_AsistentePlantillasDialogo {
 
     private void crearNueva(String nombre, String periodicidad, Version v, List<A27_Plantillas.NuevoItem> items) {
         long id = A27_Plantillas.crear(ctx, nombre, periodicidad, v.descripcion, items);
+        if (id > 0) A27_Plantillas.respaldar(ctx); // ⭐ (15-nov, P3)
         int activas = A27_Plantillas.listarActivas(ctx).size();
         Toast.makeText(ctx, id > 0 ? "Plantilla \"" + nombre + "\" creada (" + activas + " activas)"
                 : "No se pudo crear la plantilla", Toast.LENGTH_LONG).show();

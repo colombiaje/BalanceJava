@@ -115,6 +115,8 @@ public class A6_3_CSVDriveUploader {
                             .uploadFileToDrive();
                     Log.d(TAG, "Proceso de subida iniciado para renglones de renta: " + nombreRenglones);
                 }
+                // ⭐ NUEVO (15-nov, plantillas P3): las plantillas también viajan con las cuentas.
+                A27_Plantillas.respaldar(context);
             } else {
                 String mensaje = "El archivo no existe: " + nombreArchivo;
                 Log.e(TAG, mensaje);

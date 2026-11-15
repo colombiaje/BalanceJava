@@ -61,7 +61,8 @@ public class CreateTemplateUnit {
             if (f1.getContext() == null) return;
             // ⭐ (15-nov, plantillas P2): crear con el documento en pantalla y administrar.
             String[] opciones = {"Crear plantilla con el documento en pantalla", "Administrar plantillas",
-                    "Asistente: convertir plantillas antiguas", "Usar una plantilla antigua"};
+                    "Asistente: convertir plantillas antiguas", "Usar una plantilla antigua",
+                    "Restaurar plantillas desde respaldo"};
             Runnable refrescar = () -> f1.dynamicQueryByDescriptionPlantillaOnly(
                     f1.descripcionABuscarEnPlantilla_XAtv);
             new androidx.appcompat.app.AlertDialog.Builder(f1.getContext())
@@ -74,8 +75,10 @@ public class CreateTemplateUnit {
                             new A1BASES.A29_AdministrarPlantillasDialogo(f1.getContext(), refrescar).administrar();
                         } else if (i == 2) {
                             new A1BASES.A28_AsistentePlantillasDialogo(f1.getContext(), refrescar).mostrar();
-                        } else {
+                        } else if (i == 3) {
                             elegirAntigua();
+                        } else {
+                            new A1BASES.A30_RestauradorPlantillas(f1.getContext(), refrescar).confirmarYRestaurar();
                         }
                     })
                     .setNegativeButton("Cerrar", null)
@@ -98,20 +101,36 @@ public class CreateTemplateUnit {
                 return;
             }
             String[] filas = new String[activas.size()];
+            // ⭐ (15-nov, P3): las que llevan 12 meses sin uso salen con ⏳ y se ofrece archivarlas.
+            final java.util.List<A1BASES.A27_Plantillas.Plantilla> viejas = new java.util.ArrayList<>();
             for (int i = 0; i < activas.size(); i++) {
                 A1BASES.A27_Plantillas.Plantilla p = activas.get(i);
-                filas[i] = p.nombre + "  ·  " + p.items + " ítems" + (p.ultimoUso > 0
+                boolean vieja = A1BASES.A27_Plantillas.sinUso12Meses(p,
+                        A1BASES.A27_Plantillas.creada(f1.getContext(), p.id));
+                if (vieja) viejas.add(p);
+                filas[i] = (vieja ? "⏳ " : "") + p.nombre + "  ·  " + p.items + " ítems" + (p.ultimoUso > 0
                         ? " · usada " + A1BASES.A27_Plantillas.fechaCorta(p.ultimoUso) : "");
             }
-            new androidx.appcompat.app.AlertDialog.Builder(f1.getContext())
+            androidx.appcompat.app.AlertDialog.Builder lista = new androidx.appcompat.app.AlertDialog.Builder(f1.getContext())
                     .setTitle("Plantillas (" + activas.size() + ")")
                     .setItems(filas, (d, i) -> {
                         f1.descripcionABuscarEnPlantilla_XAtv.setText(activas.get(i).nombre);
                         f1.descripcionABuscarEnPlantilla_XAtv.dismissDropDown();
                         cargarSeleccion(false);
                     })
-                    .setNegativeButton("Cerrar", null)
-                    .show();
+                    .setNegativeButton("Cerrar", null);
+            if (!viejas.isEmpty()) {
+                lista.setNeutralButton("Archivar ⏳ (" + viejas.size() + ")", (d, w) -> {
+                    for (A1BASES.A27_Plantillas.Plantilla p : viejas) {
+                        A1BASES.A27_Plantillas.activar(f1.getContext(), p.id, false);
+                    }
+                    A1BASES.A27_Plantillas.respaldar(f1.getContext());
+                    f1.dynamicQueryByDescriptionPlantillaOnly(f1.descripcionABuscarEnPlantilla_XAtv);
+                    Toast.makeText(f1.getActivity(), viejas.size() + " plantillas archivadas (sin uso en 12 meses); " +
+                            "se reactivan en 🗂 › Administrar", Toast.LENGTH_LONG).show();
+                });
+            }
+            lista.show();
         });
     }
 
