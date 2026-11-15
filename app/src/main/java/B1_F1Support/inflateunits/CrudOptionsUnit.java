@@ -24,6 +24,7 @@ public class CrudOptionsUnit {
         inflateViews(view);
         loadInitialData();
         setupListeners();
+        setupListaCuentasConsulta(view);
     }
 
     private void inflateViews(View view) {
@@ -117,6 +118,43 @@ public class CrudOptionsUnit {
                     @Override
                     public void onNothingSelected(AdapterView<?> parent) {}
                 });
+    }
+
+    // ⭐ NUEVO (15-nov, Jorge): ▾ junto a "Escribir cuenta" abre la lista completa de cuentas y
+    // consulta la elegida en un paso, por el mismo camino del autocomplete (memoria del ↻ y
+    // regreso con atrás). Reemplaza el spinner, que abría la consulta por otro camino.
+    private void setupListaCuentasConsulta(View raiz) {
+        View boton = raiz.findViewById(R.id.listaCuentasConsulta_XBt);
+        if (boton == null) return;
+        boton.setOnClickListener(v -> {
+            if (f1.getActivity() == null) return;
+            java.util.List<String> cuentas = new java.util.ArrayList<>();
+            android.widget.SpinnerAdapter fuente = f1.consultaPorCuentaYFechaEnOtroFragment_XSp == null
+                    ? null : f1.consultaPorCuentaYFechaEnOtroFragment_XSp.getAdapter();
+            if (fuente != null) {
+                for (int k = 0; k < fuente.getCount(); k++) {
+                    String c = String.valueOf(fuente.getItem(k));
+                    if (!c.trim().isEmpty()) cuentas.add(c);
+                }
+            } else if (f1.accountAllAz_List != null) {
+                for (Object o : f1.accountAllAz_List) {
+                    String c = String.valueOf(o);
+                    if (!c.trim().isEmpty()) cuentas.add(c);
+                }
+            }
+            if (cuentas.isEmpty()) return;
+            f1.ocultarTeclado();
+            new androidx.appcompat.app.AlertDialog.Builder(f1.getActivity())
+                    .setTitle("Consultar cuenta (" + cuentas.size() + ")")
+                    .setItems(cuentas.toArray(new String[0]), (d, i) -> {
+                        f1.buscarCuentaParaTransaccionest_XAT.setText(cuentas.get(i));
+                        f1.buscarCuentaParaTransaccionest_XAT.dismissDropDown();
+                        if (cicloBuscar != null) cicloBuscar.registrarConsulta(cuentas.get(i));
+                        f1.verTransaccionesPorCuentaConAutocompeteText();
+                    })
+                    .setNegativeButton("Cerrar", null)
+                    .show();
+        });
     }
 
     // Autocomplete: escribir cierra el visor al borrar, seleccionar navega

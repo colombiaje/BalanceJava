@@ -128,6 +128,7 @@ public class F3_1_VerInformePrincipal extends Fragment {
         //limpiarBuscar_XChB = (CheckBox) inflarViews_View.findViewById(R.id.limpiarBuscar_XChB);
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
+        configurarListaCuentasConsulta(inflarViews_View); // ⭐ (15-nov) ▾
         calculadora_Fragment = new F6_Calculadora();
         valorRecibidoResultadoCalculadora_XTv = (TextView) inflarViews_View.findViewById(R.id.valorRecibidoResultadoCalculadora_XTv);
         opcionSaleDeLaApp_XRb = (RadioButton) inflarViews_View.findViewById(R.id.opcionSaleDeLaApp_XRb);
@@ -447,6 +448,45 @@ public class F3_1_VerInformePrincipal extends Fragment {
         });
 
     }
+    /**
+     * ⭐ NUEVO (15-nov, Jorge): ▾ junto a "Texto a buscar" abre la lista completa de cuentas y
+     * abre las transacciones de la elegida en un paso (atajo; el campo sigue filtrando el
+     * informe). Reemplaza al spinner, que queda oculto; abre F3_2 igual que tocar una fila.
+     */
+    private void configurarListaCuentasConsulta(View raiz) {
+        View boton = raiz.findViewById(R.id.listaCuentasConsulta_XBt);
+        if (boton == null) return;
+        boton.setOnClickListener(v -> {
+            if (getActivity() == null || consultaCuentasOrdenAscendente_ArrayAdapter == null) return;
+            java.util.List<String> cuentas = new java.util.ArrayList<>();
+            for (int k = 0; k < consultaCuentasOrdenAscendente_ArrayAdapter.getCount(); k++) {
+                String c = String.valueOf(consultaCuentasOrdenAscendente_ArrayAdapter.getItem(k));
+                if (!c.trim().isEmpty()) cuentas.add(c);
+            }
+            if (cuentas.isEmpty()) return;
+            A1BASES.A26_Teclado.ocultar(getActivity());
+            new androidx.appcompat.app.AlertDialog.Builder(getActivity())
+                    .setTitle("Consultar cuenta (" + cuentas.size() + ")")
+                    .setItems(cuentas.toArray(new String[0]), (d, i) -> abrirTransaccionesDeCuenta(cuentas.get(i)))
+                    .setNegativeButton("Cerrar", null)
+                    .show();
+        });
+    }
+
+    private void abrirTransaccionesDeCuenta(String cuenta) {
+        try {
+            Fragment fragment = new F3_2_VerItemTransaccion();
+            Bundle bundle = new Bundle();
+            bundle.putString("keyAccount", cuenta);
+            fragment.setArguments(bundle);
+            getActivity().getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.contenedor_fragments_f0_Xf, fragment, "F32_TAG")
+                    .commit();
+        } catch (Exception e) {
+            Toast.makeText(getActivity(), "No se puede ver la vista", Toast.LENGTH_SHORT).show();
+        }
+    }
+
 //foco 1 metodo spiner
     public void verTransaccionesPorCuentaConSpinnerEnF2 () {
         try {

@@ -77,9 +77,31 @@
                 android:background="@drawable/ic_spinner_arrow_down"
                 android:textColor="#425DF6"
                 android:textSize="24dp"
+                android:visibility="gone"
                 app:layout_row="1"
                 app:layout_column="2"
             />
+
+            <!-- ⭐ (15-nov, Jorge): ▾ abre la lista completa de cuentas y consulta la elegida
+                     en un paso (atajo del autocomplete). El spinner anterior queda oculto. -->
+                <Button
+                    android:id="@+id/listaCuentasConsulta_XBt"
+                    android:layout_width="40dp"
+                    android:layout_height="30dp"
+                    android:backgroundTint="#425DF6"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:padding="0dp"
+                    android:text="▾"
+                    android:textColor="@android:color/white"
+                    android:textSize="20sp"
+                    android:contentDescription="Ver la lista de cuentas y consultar una"
+                    app:layout_row="1"
+                    app:layout_column="2"
+                    app:layout_gravity="center_vertical"
+                    android:layout_marginHorizontal="6dp" />
 
 
             <RadioButton
