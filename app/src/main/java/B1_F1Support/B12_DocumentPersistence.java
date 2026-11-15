@@ -214,7 +214,11 @@ public class B12_DocumentPersistence {
                 );
             }
             if (plantillaUsadaAlGuardar != null) { // ⭐ (15-nov, plantillas P1)
-                A1BASES.A27_Plantillas.registrarUso(db, plantillaUsadaAlGuardar, f1.DateOfDocument_Integer);
+                try { // anotar el uso nunca debe impedir guardar el documento
+                    A1BASES.A27_Plantillas.registrarUso(db, plantillaUsadaAlGuardar, f1.DateOfDocument_Integer);
+                } catch (Exception e) {
+                    Log.w(TAG, "No se pudo anotar el uso de la plantilla: " + e.getMessage());
+                }
             }
             db.setTransactionSuccessful();
         } catch (Exception e) {
