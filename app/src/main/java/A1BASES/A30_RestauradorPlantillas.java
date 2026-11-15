@@ -34,17 +34,10 @@ public class A30_RestauradorPlantillas {
         this.alTerminar = alTerminar;
     }
 
+    /** ⭐ (15-nov, Jorge): sin paso previo de confirmación; va directo a la lista de respaldos. */
     public void confirmarYRestaurar() {
         if (context == null) return;
-        new AlertDialog.Builder(context)
-                .setTitle("Restaurar plantillas")
-                .setView(A20_Informacion.vista(context, "Enseguida verá los últimos 5 respaldos de Drive " +
-                        "(★ el más reciente) y elige cuál restaurar; también puede tomar el de la carpeta " +
-                        "Balance. Las plantillas que falten se crean; las que ya existen con el " +
-                        "mismo nombre toman el modelo del respaldo y su modelo actual queda como versión anterior."))
-                .setPositiveButton("Restaurar", (d, w) -> restaurar())
-                .setNegativeButton("Cancelar", null)
-                .show();
+        restaurar();
     }
 
     private void restaurar() {
@@ -85,8 +78,16 @@ public class A30_RestauradorPlantillas {
             filas[i] = (i == 0 ? "★ " : "") + fecha(a.fechaCreacion) + " · " + a.nombre;
         }
         filas[n] = "Carpeta Balance del equipo";
+        android.widget.TextView titulo = new android.widget.TextView(context);
+        int pad = Math.round(16 * context.getResources().getDisplayMetrics().density);
+        titulo.setPadding(pad, pad, pad, pad / 2);
+        titulo.setText("Restaurar plantillas: elija un respaldo\n" +
+                "Crea las que faltan; las del mismo nombre se actualizan (la actual queda como anterior).");
+        titulo.setTextColor(A20_Informacion.COLOR_TEXTO);
+        titulo.setBackgroundColor(A20_Informacion.COLOR_FONDO);
+        titulo.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15);
         new AlertDialog.Builder(context)
-                .setTitle("Respaldos de plantillas (últimos " + n + ")")
+                .setCustomTitle(titulo)
                 .setItems(filas, (d, i) -> {
                     progreso.setMessage("Restaurando…");
                     progreso.show();
