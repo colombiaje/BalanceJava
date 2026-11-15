@@ -43,23 +43,68 @@ public final class A29_AdministrarPlantillasDialogo {
 
     // ═══════════════════════ Después de guardar ═══════════════════════
 
-    /** Se llama tras guardar un documento hecho con la plantilla; pregunta solo si cambió. */
+    /**
+     * Se llama tras guardar un documento hecho con la plantilla; pregunta solo si cambió (el
+     * periodo de la descripción no cuenta). ⭐ (15-nov, Jorge): el aviso dice qué cambió y qué
+     * pasa con cada opción; el documento queda guardado en ambos casos.
+     */
     public void preguntarSiPasaAModelo(long plantillaId, List<A27_Plantillas.NuevoItem> documento) {
         if (documento.isEmpty() || !A27_Plantillas.difiereDelModelo(ctx, plantillaId, documento)) return;
         A27_Plantillas.Plantilla p = porId(plantillaId);
         if (p == null) return;
+        String mensaje = "El documento ya quedó guardado. Cambios frente al modelo:\n" +
+                diferencias(plantillaId, documento) + "\n\n" +
+                "• Mantener el modelo: la plantilla sigue igual; estos cambios solo valen para este documento.\n" +
+                "• Actualizar el modelo: este documento pasa a ser la plantilla. El modelo actual se " +
+                "guarda como versión anterior (se recupera en 🗂 › Administrar › Deshacer).";
         new AlertDialog.Builder(ctx)
-                .setTitle("¿Actualizar el modelo?")
-                .setMessage("El documento quedó distinto del modelo de \"" + p.nombre + "\".\n\n" +
-                        "¿Este documento pasa a ser el modelo? El actual queda como versión anterior.")
-                .setPositiveButton("Sí, es el modelo", (d, w) -> {
+                .setTitle("Plantilla \"" + p.nombre + "\"")
+                .setMessage(mensaje)
+                .setPositiveButton("Actualizar el modelo", (d, w) -> {
                     boolean ok = A27_Plantillas.reemplazarModelo(ctx, plantillaId, null, documento);
                     Toast.makeText(ctx, ok ? "Modelo de \"" + p.nombre + "\" actualizado"
                             : "No se pudo actualizar", Toast.LENGTH_LONG).show();
                     avisarCambio();
                 })
-                .setNegativeButton("No", null)
+                .setNegativeButton("Mantener el modelo", null)
                 .show();
+    }
+
+    /** Resumen de diferencias por cuenta: valor o signo, concepto, ítems agregados y quitados. */
+    private String diferencias(long plantillaId, List<A27_Plantillas.NuevoItem> documento) {
+        List<A27_Plantillas.Item> modelo = A27_Plantillas.items(ctx, plantillaId);
+        java.util.Map<Long, A27_Plantillas.Item> porCuenta = new java.util.LinkedHashMap<>();
+        for (A27_Plantillas.Item m : modelo) porCuenta.put(m.cuentaId, m);
+        List<String> lineas = new ArrayList<>();
+        java.util.Set<Long> vistos = new java.util.HashSet<>();
+        for (A27_Plantillas.NuevoItem d : documento) {
+            vistos.add(d.cuentaId);
+            A27_Plantillas.Item m = porCuenta.get(d.cuentaId);
+            String nombre = d.concepto;
+            if (m == null) {
+                lineas.add("+ " + nombre + " " + d.signo + d.valor + " (nuevo)");
+                continue;
+            }
+            if (!m.signo.equals(d.signo) || Math.abs(m.valor) != d.valor) {
+                lineas.add("• " + nombre + ": " + m.signo + Math.abs(m.valor) + " → " + d.signo + d.valor);
+            }
+            String cm = m.concepto == null ? "" : m.concepto.trim();
+            if (!cm.equalsIgnoreCase(d.concepto == null ? "" : d.concepto.trim())) {
+                lineas.add("• Concepto \"" + cm + "\" → \"" + d.concepto + "\"");
+            }
+        }
+        for (A27_Plantillas.Item m : modelo) {
+            if (!vistos.contains(m.cuentaId)) {
+                lineas.add("− " + (m.concepto == null ? m.cuenta : m.concepto) + " (quitado)");
+            }
+        }
+        if (lineas.isEmpty()) lineas.add("• Cambió el orden de los ítems");
+        if (lineas.size() > 8) {
+            int resto = lineas.size() - 7;
+            lineas = new ArrayList<>(lineas.subList(0, 7));
+            lineas.add("… y " + resto + " más");
+        }
+        return android.text.TextUtils.join("\n", lineas);
     }
 
     // ═══════════════════════ Crear con el documento en pantalla ═══════════════════════
