@@ -156,6 +156,9 @@ public class F3_1_VerInformePrincipal extends Fragment {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
 
                 sumaPorCuenta_AdaptadorTransaccionesInformes_Class.filtrarPorTextoExcrito(buscar_XTv.getText().toString());
+                // ⭐ (15-nov, Jorge): si hay una consulta de cuenta abierta (▾ o una fila), se cierra
+                // al escribir para que se vea el informe filtrado.
+                cerrarConsultaDeCuenta();
 
             }
             @Override
@@ -471,6 +474,14 @@ public class F3_1_VerInformePrincipal extends Fragment {
                     .setNegativeButton("Cerrar", null)
                     .show();
         });
+    }
+
+    private void cerrarConsultaDeCuenta() {
+        if (getActivity() == null || !isAdded()) return;
+        Fragment f32 = getActivity().getSupportFragmentManager().findFragmentByTag("F32_TAG");
+        if (f32 != null && f32.isAdded()) {
+            getActivity().getSupportFragmentManager().beginTransaction().remove(f32).commitAllowingStateLoss();
+        }
     }
 
     private void abrirTransaccionesDeCuenta(String cuenta) {
