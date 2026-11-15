@@ -280,6 +280,176 @@ public final class A27_Plantillas {
                 new Object[]{fechaDocumento, plantillaId});
     }
 
+    // ═══════════════════════ P2: administrar y comparar ═══════════════════════
+
+    /** Ítems del documento en pantalla como ítems de modelo (concepto = descripción sin periodo). */
+    public static List<NuevoItem> desdeDocumento(List<A3_2_TipoTransaccionesGetsYSets> documento) {
+        List<NuevoItem> l = new ArrayList<>();
+        if (documento == null) return l;
+        for (A3_2_TipoTransaccionesGetsYSets t : documento) {
+            if (t.tipoT_14CuentaId_Long == null || t.tipoT_5Value_Integer == null) continue;
+            if (Boolean.TRUE.equals(t.tipoT_18ConInventario_Boolean)) continue; // inventario: no entra
+            int v = t.tipoT_5Value_Integer;
+            String concepto = sinPeriodo(t.tipoT_6Description_String);
+            if (concepto.isEmpty()) concepto = conceptoDeCuenta(t.tipoT_3Accout_String);
+            l.add(new NuevoItem(t.tipoT_14CuentaId_Long, v < 0 ? "-" : "+", v, concepto));
+        }
+        return l;
+    }
+
+    /** ¿El documento es distinto del modelo vigente (cuentas, signos, valores o conceptos)? */
+    public static boolean difiereDelModelo(Context ctx, long plantillaId, List<NuevoItem> documento) {
+        List<Item> modelo = items(ctx, plantillaId);
+        if (modelo.size() != documento.size()) return true;
+        for (int i = 0; i < modelo.size(); i++) {
+            Item m = modelo.get(i);
+            NuevoItem d = documento.get(i);
+            String cm = m.concepto == null ? "" : m.concepto.trim();
+            String cd = d.concepto == null ? "" : d.concepto.trim();
+            if (m.cuentaId != d.cuentaId || !m.signo.equals(d.signo) || Math.abs(m.valor) != d.valor
+                    || !cm.equalsIgnoreCase(cd)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Resultado de comparar por contenido: la plantilla más parecida y cuántas cuentas comparten. */
+    public static final class Parecido {
+        public Plantilla plantilla;
+        public int comunes;
+        public int total;
+    }
+
+    /**
+     * La plantilla activa que comparte más cuentas, si comparte al menos el 70 % (sobre la
+     * lista más larga). Null si ninguna llega.
+     */
+    public static Parecido masParecida(Context ctx, List<NuevoItem> documento, Long excluir) {
+        java.util.Set<Long> propias = new java.util.HashSet<>();
+        for (NuevoItem n : documento) propias.add(n.cuentaId);
+        Parecido mejor = null;
+        for (Plantilla p : listarActivas(ctx)) {
+            if (excluir != null && p.id == excluir) continue;
+            java.util.Set<Long> otras = new java.util.HashSet<>();
+            for (Item it : items(ctx, p.id)) otras.add(it.cuentaId);
+            int comunes = 0;
+            for (Long c : propias) if (otras.contains(c)) comunes++;
+            int total = Math.max(propias.size(), otras.size());
+            if (total == 0 || comunes * 100 < 70 * total) continue;
+            if (mejor == null || comunes * mejor.total > mejor.comunes * total) {
+                mejor = new Parecido();
+                mejor.plantilla = p;
+                mejor.comunes = comunes;
+                mejor.total = total;
+            }
+        }
+        return mejor;
+    }
+
+    /** Cambia el nombre (id fijo). False si el nombre ya lo usa otra. */
+    public static boolean renombrar(Context ctx, long plantillaId, String nombre) {
+        Plantilla otra = buscarPorNombre(ctx, nombre);
+        if (otra != null && otra.id != plantillaId) return false;
+        SQLiteDatabase db = abrir(ctx, true);
+        try {
+            ContentValues v = new ContentValues();
+            v.put("nombre", nombre.trim());
+            return db.update(A1_1_AyudanteBD.TABLE_PLANTILLA, v, "plantilla_id = ?",
+                    new String[]{String.valueOf(plantillaId)}) == 1;
+        } catch (Exception e) {
+            Log.e(TAG, "renombrar: " + e.getMessage());
+            return false;
+        } finally {
+            db.close();
+        }
+    }
+
+    public static void activar(Context ctx, long plantillaId, boolean activa) {
+        SQLiteDatabase db = abrir(ctx, true);
+        try {
+            ContentValues v = new ContentValues();
+            v.put("activa", activa ? 1 : 0);
+            db.update(A1_1_AyudanteBD.TABLE_PLANTILLA, v, "plantilla_id = ?", new String[]{String.valueOf(plantillaId)});
+        } finally {
+            db.close();
+        }
+    }
+
+    public static void cambiarPeriodicidad(Context ctx, long plantillaId, String periodicidad) {
+        SQLiteDatabase db = abrir(ctx, true);
+        try {
+            ContentValues v = new ContentValues();
+            v.put("periodicidad", periodicidad);
+            db.update(A1_1_AyudanteBD.TABLE_PLANTILLA, v, "plantilla_id = ?", new String[]{String.valueOf(plantillaId)});
+        } finally {
+            db.close();
+        }
+    }
+
+    /** Cambia solo los conceptos del modelo (en el orden de sus ítems); no crea versión anterior. */
+    public static void actualizarConceptos(Context ctx, long plantillaId, List<String> conceptos) {
+        SQLiteDatabase db = abrir(ctx, true);
+        db.beginTransaction();
+        try {
+            for (int i = 0; i < conceptos.size(); i++) {
+                ContentValues v = new ContentValues();
+                v.put("concepto", conceptos.get(i).trim());
+                db.update(A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM, v, "plantilla_id = ? AND orden = ?",
+                        new String[]{String.valueOf(plantillaId), String.valueOf(i + 1)});
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
+    }
+
+    public static boolean tieneAnterior(Context ctx, long plantillaId) {
+        SQLiteDatabase db = abrir(ctx, false);
+        try (Cursor c = db.rawQuery("SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM_ANTERIOR +
+                " WHERE plantilla_id = ?", new String[]{String.valueOf(plantillaId)})) {
+            return c.moveToFirst() && c.getInt(0) > 0;
+        } finally {
+            db.close();
+        }
+    }
+
+    /** Deshace el último reemplazo: intercambia el modelo vigente con la versión anterior. */
+    public static boolean restaurarAnterior(Context ctx, long plantillaId) {
+        if (!tieneAnterior(ctx, plantillaId)) return false; // sin anterior no se toca el modelo
+        SQLiteDatabase db = abrir(ctx, true);
+        db.beginTransaction();
+        try {
+            String[] id = {String.valueOf(plantillaId)};
+            String it = A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM, ant = A1_1_AyudanteBD.TABLE_PLANTILLA_ITEM_ANTERIOR;
+            db.execSQL("CREATE TEMP TABLE IF NOT EXISTS plantilla_intercambio AS SELECT * FROM " + it + " WHERE 0");
+            db.execSQL("DELETE FROM plantilla_intercambio");
+            db.execSQL("INSERT INTO plantilla_intercambio SELECT * FROM " + it + " WHERE plantilla_id = ?", id);
+            db.delete(it, "plantilla_id = ?", id);
+            db.execSQL("INSERT INTO " + it + " SELECT * FROM " + ant + " WHERE plantilla_id = ?", id);
+            db.delete(ant, "plantilla_id = ?", id);
+            db.execSQL("INSERT INTO " + ant + " SELECT * FROM plantilla_intercambio");
+            db.execSQL("DELETE FROM plantilla_intercambio");
+            db.setTransactionSuccessful();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "restaurarAnterior: " + e.getMessage());
+            return false;
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
+    }
+
+    /** "16-nov" a partir de aaaammdd. */
+    public static String fechaCorta(int fecha) {
+        if (fecha < 19000101) return "";
+        int mes = (fecha / 100) % 100;
+        if (mes < 1 || mes > 12) return String.valueOf(fecha);
+        return (fecha % 100) + "-" + MESES[mes - 1];
+    }
+
     // ═══════════════════════ Textos ═══════════════════════
 
     /**

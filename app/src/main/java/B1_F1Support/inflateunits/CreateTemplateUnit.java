@@ -58,14 +58,21 @@ public class CreateTemplateUnit {
         if (boton == null) return;
         boton.setOnClickListener(v -> {
             if (f1.getContext() == null) return;
-            String[] opciones = {"Asistente: convertir plantillas antiguas", "Usar una plantilla antigua"};
+            // ⭐ (15-nov, plantillas P2): crear con el documento en pantalla y administrar.
+            String[] opciones = {"Crear plantilla con el documento en pantalla", "Administrar plantillas",
+                    "Asistente: convertir plantillas antiguas", "Usar una plantilla antigua"};
+            Runnable refrescar = () -> f1.dynamicQueryByDescriptionPlantillaOnly(
+                    f1.descripcionABuscarEnPlantilla_XAtv);
             new androidx.appcompat.app.AlertDialog.Builder(f1.getContext())
                     .setTitle("Plantillas")
                     .setItems(opciones, (d, i) -> {
                         if (i == 0) {
-                            new A1BASES.A28_AsistentePlantillasDialogo(f1.getContext(),
-                                    () -> f1.dynamicQueryByDescriptionPlantillaOnly(
-                                            f1.descripcionABuscarEnPlantilla_XAtv)).mostrar();
+                            new A1BASES.A29_AdministrarPlantillasDialogo(f1.getContext(), refrescar)
+                                    .crearDesdeDocumento(f1.listaDocumento_ArrayLTT);
+                        } else if (i == 1) {
+                            new A1BASES.A29_AdministrarPlantillasDialogo(f1.getContext(), refrescar).administrar();
+                        } else if (i == 2) {
+                            new A1BASES.A28_AsistentePlantillasDialogo(f1.getContext(), refrescar).mostrar();
                         } else {
                             elegirAntigua();
                         }

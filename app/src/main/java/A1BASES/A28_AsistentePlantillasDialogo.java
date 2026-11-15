@@ -182,6 +182,27 @@ public final class A28_AsistentePlantillasDialogo {
             return;
         }
         A27_Plantillas.Plantilla existente = A27_Plantillas.buscarPorNombre(ctx, nombre);
+        // ⭐ (15-nov, plantillas P2): control por contenido — si otra plantilla comparte el 70 % o
+        // más de las cuentas, se ofrece actualizar esa en lugar de crear otra.
+        A27_Plantillas.Parecido parecido = existente != null ? null
+                : A27_Plantillas.masParecida(ctx, items, null);
+        if (parecido != null) {
+            new AlertDialog.Builder(ctx)
+                    .setTitle("Se parece a \"" + parecido.plantilla.nombre + "\"")
+                    .setMessage(parecido.comunes + " de " + parecido.total + " cuentas iguales.\n\n" +
+                            "¿Actualizar esa plantilla con esta versión en lugar de crear otra?")
+                    .setPositiveButton("Actualizar esa", (d, w) -> {
+                        boolean ok = A27_Plantillas.reemplazarModelo(ctx, parecido.plantilla.id, null,
+                                v.descripcion, items);
+                        Toast.makeText(ctx, ok ? "Modelo de \"" + parecido.plantilla.nombre + "\" actualizado"
+                                : "No se pudo actualizar", Toast.LENGTH_LONG).show();
+                        mostrar();
+                    })
+                    .setNeutralButton("Crear otra", (d, w) -> crearNueva(nombre, periodicidad, v, items))
+                    .setNegativeButton("Cancelar", (d, w) -> mostrar())
+                    .show();
+            return;
+        }
         if (existente != null) {
             new AlertDialog.Builder(ctx)
                     .setTitle("Ya existe \"" + existente.nombre + "\"")
@@ -198,6 +219,10 @@ public final class A28_AsistentePlantillasDialogo {
                     .show();
             return;
         }
+        crearNueva(nombre, periodicidad, v, items);
+    }
+
+    private void crearNueva(String nombre, String periodicidad, Version v, List<A27_Plantillas.NuevoItem> items) {
         long id = A27_Plantillas.crear(ctx, nombre, periodicidad, v.descripcion, items);
         int activas = A27_Plantillas.listarActivas(ctx).size();
         Toast.makeText(ctx, id > 0 ? "Plantilla \"" + nombre + "\" creada (" + activas + " activas)"

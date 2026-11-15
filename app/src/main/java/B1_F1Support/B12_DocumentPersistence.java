@@ -77,6 +77,13 @@ public class B12_DocumentPersistence {
     public boolean baseParaGuardarEnLaEnBDConListaDocumento(String nombreDelRadioButton) {
         plantillaUsadaAlGuardar = null;
         assignDocumentDate(nombreDelRadioButton);
+        // ⭐ (15-nov, plantillas P2): foto del documento para preguntar, tras guardar, si pasa a
+        // ser el modelo (la lista se limpia después del guardado).
+        final Long plantillaDelDocumento = plantillaUsadaAlGuardar;
+        final java.util.List<A1BASES.A27_Plantillas.NuevoItem> fotoParaModelo =
+                plantillaDelDocumento == null ? null
+                        : A1BASES.A27_Plantillas.desdeDocumento(f1.listaDocumento_ArrayLTT);
+        boolean guardadoOk = false;
         f1.renumerarItemsListaDocumento();
 
         // ⭐ CORRECCIÓN — v12 tanda 3 (segundo fix, 29-sep): la verificación se movió a su
@@ -221,6 +228,7 @@ public class B12_DocumentPersistence {
                 }
             }
             db.setTransactionSuccessful();
+            guardadoOk = true;
         } catch (Exception e) {
             Log.e(TAG, "Error inserting transactions", e);
             // ⭐ CAMBIO — v12 tanda 4: si el mensaje trae detalle (ver el guardado de ítems de
@@ -242,6 +250,11 @@ public class B12_DocumentPersistence {
         f1.numeroConsecutivoDocEnEdicion_XTv.setText(f1.documentoRecibido_Resultado_String);
         f1.metodosVarios_Class.fechasYHoras();
         if ("create_XRb".equals(nombreDelRadioButton)) ofrecerVolverAAjustesFiscales();
+        if (guardadoOk && plantillaDelDocumento != null && f1.getContext() != null) {
+            new A1BASES.A29_AdministrarPlantillasDialogo(f1.getContext(),
+                    () -> f1.dynamicQueryByDescriptionPlantillaOnly(f1.descripcionABuscarEnPlantilla_XAtv))
+                    .preguntarSiPasaAModelo(plantillaDelDocumento, fotoParaModelo);
+        }
         return true;
     }
 

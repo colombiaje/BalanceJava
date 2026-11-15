@@ -1779,7 +1779,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             movimientosOriginalesDocumento_HashMap.clear();
             documentoYFechaInicialBaseDeLaPLantilla_XTv.setText("  " +
                     A1BASES.A27_Plantillas.textoPeriodicidad(plantilla.periodicidad) + " · " +
-                    items.size() + " ítems" + (plantilla.ultimoUso > 0 ? " · último uso " + plantilla.ultimoUso : ""));
+                    items.size() + " ítems" + (plantilla.ultimoUso > 0
+                    ? " · usada " + A1BASES.A27_Plantillas.fechaCorta(plantilla.ultimoUso) : ""));
             listaDocumento_ArrayLTT = items;
             conexionListDocumentForGeneralWithListView_Adaptador1_TipoT =
                     new D_F1_AdaptadorCrudDocumento(getActivity(), listaDocumento_ArrayLTT, null);
