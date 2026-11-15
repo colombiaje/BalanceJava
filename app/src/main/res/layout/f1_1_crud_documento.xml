@@ -84,7 +84,7 @@
                      cuentas y consulta la elegida en un paso. El spinner anterior queda oculto. -->
                 <FrameLayout
                     android:layout_width="200dp"
-                    android:layout_height="27dp"
+                    android:layout_height="40dp"
                     android:layout_marginTop="2dp"
                     android:layout_marginEnd="5dp">
 
@@ -116,7 +116,7 @@
                     <Button
                         android:id="@+id/listaCuentasConsulta_XBt"
                         android:layout_width="26dp"
-                        android:layout_height="22dp"
+                        android:layout_height="30dp"
                         android:layout_gravity="end|center_vertical"
                         android:layout_marginEnd="5dp"
                         android:backgroundTint="#425DF6"
