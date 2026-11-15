@@ -199,9 +199,7 @@ public class F2_Cuentas extends DialogFragment {
     String [] nombreTipoCuentaCuentas_ArrayString = new String[0];
 
     //4 Consultar cuentas
-    Spinner cuentasOrdenAzParaVistaDetalleCuenta_XSp;
     public static String cuentaSeleccionadaAqui;
-    ArrayAdapter<String> cuentasOrdenAscendente_ArrayAdapterString;
     Spinner consultaPorCuentaYFechaEnOtroFragment_XSp;
     TextView valorRecibidoResultadoCalculadora_XTv;
     F6_Calculadora calculadora_Fragment;
@@ -209,7 +207,6 @@ public class F2_Cuentas extends DialogFragment {
     ArrayAdapter <String> cuentasOrdenAscendenteConsultarTransaccionesOtrosFragments_ArrayAdapter;
     Button cleanFieldsAccount_XBt;
     GridLayout area4SeeAccountsXGl;
-    TextView tituloConsultarDEtallesCuentaXTV;
     TextView areaTituloBackupsYCierreXTv;
     CheckBox verCuentas_XChb;
     CheckBox verBackupsYCierres_XChb;
@@ -228,14 +225,11 @@ public class F2_Cuentas extends DialogFragment {
     SimpleDateFormat fecc=new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
     String nombreArchivoBackupCuentas_String;
     A5_1_BackupManager a6_backupManager;
-    String[] cuentaSeleccionadaAqui_ArrayS_Result;
 
     //Abrir la bd en lectura
     private SQLiteDatabase db;
 
 
-    TableLayout atributos_XTL;
-    LinearLayout area3AttributesXLY;
 
     LinearLayout area5BackupsClosingXLL;
     TextView cuentaConTransacciones_XTv;
@@ -515,8 +509,6 @@ public class F2_Cuentas extends DialogFragment {
         seeModifyXChB=inflarViews_View.findViewById(R.id.seeModifyXChB);
         verCuentas_XChb = inflarViews_View.findViewById(R.id.verCuentas_XChb);
         verBackupsYCierres_XChb = inflarViews_View.findViewById(R.id.verBackupsYCierres_XChb);
-        atributos_XTL= inflarViews_View.findViewById(R.id.atributos_XTL);
-        area3AttributesXLY= inflarViews_View.findViewById(R.id.area3AttributesXLY);
         area5BackupsClosingXLL= inflarViews_View.findViewById(R.id.area5BackupsClosingXLL);
         cuentaConTransacciones_XTv= inflarViews_View.findViewById(R.id.cuentaConTransacciones_XTv);
         transacciones_XLL= inflarViews_View.findViewById(R.id.transacciones_XLL);
@@ -577,14 +569,12 @@ public class F2_Cuentas extends DialogFragment {
                 mostrarDialogoPrimerArticulo(cuentaIdEnModificar_Long, nombreParaDialogo);
             }
         });
-        cuentasOrdenAzParaVistaDetalleCuenta_XSp=(Spinner) inflarViews_View.findViewById(R.id.cuentasOrdenAzParaVistaDetalleCuenta_XSp);
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
         calculadora_Fragment = new F6_Calculadora();
         valorRecibidoResultadoCalculadora_XTv = (TextView) inflarViews_View.findViewById(R.id.valorRecibidoResultadoCalculadora_XTv);
         opcionSaleDeLaApp_XRb = (RadioButton) inflarViews_View.findViewById(R.id.opcionSaleDeLaApp_XRb);
         area4SeeAccountsXGl = (GridLayout) inflarViews_View.findViewById(R.id.area4SeeAccountsXGl);
-        tituloConsultarDEtallesCuentaXTV = (TextView) inflarViews_View.findViewById(R.id.tituloConsultarDEtallesCuentaXTV);
         areaTituloBackupsYCierreXTv = (TextView) inflarViews_View.findViewById(R.id.areaTituloBackupsYCierreXTv);
         verCuentas_XChb = (CheckBox) inflarViews_View.findViewById(R.id.verCuentas_XChb);
         OpcionesCierre_XRg = (RadioGroup) inflarViews_View.findViewById(R.id.OpcionesCierre_XRg);
@@ -662,7 +652,6 @@ public class F2_Cuentas extends DialogFragment {
 
                 if(seeNewXChB.isChecked()) {
                     registrarNuevas();
-                    verItemsPorCuenta();
                 }
 
                 if(seeModifyXChB.isChecked()){
@@ -789,24 +778,8 @@ public class F2_Cuentas extends DialogFragment {
         //eventos
         dynamicQuery();
 
-        cuentasOrdenAzParaVistaDetalleCuenta_XSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-
-                cuentaSeleccionadaAqui=cuentasOrdenAzParaVistaDetalleCuenta_XSp.getSelectedItem().toString();
-
-                if (cuentasOrdenAzParaVistaDetalleCuenta_XSp.getSelectedItem().equals("")) {
-                    atributos_XTL.removeAllViews();
-                }
-                else {
-                    dynamicQuery2();
-                    verItemsPorCuenta();
-                }
-            }
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
+        // ⭐ RETIRADO (14-nov, Jorge): selector "Atributos cuenta" y su tabla — el formulario de
+        // Modificar y la línea de ◀ ▶ ya muestran lo mismo (fecha e ítem incluidos).
 
         listenerOtrosFragments();
 
@@ -1047,10 +1020,6 @@ public class F2_Cuentas extends DialogFragment {
         A23_QueryResult queryAzAllAccounts_Result = a22QueryManager.queryAzAllAccounts();
         queryAzAllAccounts_Result_ArrayList = queryAzAllAccounts_Result.getDatos();
 
-        cuentasOrdenAscendente_ArrayAdapterString = new ArrayAdapter<String> (getActivity(),
-                android.R.layout.simple_list_item_multiple_choice, queryAzAllAccounts_Result_ArrayList);
-        cuentasOrdenAscendente_ArrayAdapterString.setDropDownViewResource(android.R.layout.simple_list_item_multiple_choice);
-        cuentasOrdenAzParaVistaDetalleCuenta_XSp.setAdapter(cuentasOrdenAscendente_ArrayAdapterString);
 
         //Cursor al llamar una cuenta
         if (cuentaNueva_String == null) {
@@ -1058,22 +1027,6 @@ public class F2_Cuentas extends DialogFragment {
         }
         llamadaCursorUnaCuenta = A22_QueryManager.queryCursorGenericTableColumnArguments
                 ("cuentas","Cuenta",new String[]{cuentaNueva_String});
-
-    }
-
-    public void dynamicQuery2 () {
-
-        //Atributos de cuenta
-        // Asegurarse de que no sea null antes de asignar
-        A23_QueryResult<String []> queryAttributesByAccount_Result = a22QueryManager.queryAttributesByAccount(cuentaSeleccionadaAqui);
-
-        if (queryAttributesByAccount_Result == null || queryAttributesByAccount_Result.getAtributosCuenta() == null) {
-            cuentaSeleccionadaAqui_ArrayS_Result = new String[0]; // Evita la excepción
-        } else {
-            cuentaSeleccionadaAqui_ArrayS_Result = queryAttributesByAccount_Result.getAtributosCuenta();
-        }
-
-        ArrayList<String> cuentaSeleccionadaAqui_ArrayList_Result = new ArrayList<>(Arrays.asList(cuentaSeleccionadaAqui_ArrayS_Result));
 
     }
 
@@ -1206,8 +1159,6 @@ public class F2_Cuentas extends DialogFragment {
             navegacionCuentas_XLL.setVisibility(View.VISIBLE); // ⭐ (14-nov) ◀ ▶
             navIndice = -1; // ⭐ (14-nov) al entrar, ▶ empieza en la primera cuenta y ◀ en la última
             infoCuentaNavegacion_XTv.setText("◀ ▶ recorre el plan de cuentas");
-            // ⭐ (14-nov, Jorge): "Atributos cuenta" se retira; el formulario ya muestra todo.
-            area3AttributesXLY.setVisibility(View.GONE);
             clickSave_XBt.setVisibility(View.GONE);
             clickUpdate_XBt.setVisibility(View.VISIBLE);
             clickDeleteXBt.setVisibility(View.VISIBLE);
@@ -1234,7 +1185,6 @@ public class F2_Cuentas extends DialogFragment {
             titleNewXTv.setVisibility(View.VISIBLE);
             titleModifyXTV.setVisibility(View.GONE);
             navegacionCuentas_XLL.setVisibility(View.GONE); // ⭐ (14-nov)
-            area3AttributesXLY.setVisibility(View.GONE); // ⭐ (14-nov, Jorge): retirada
             clickSave_XBt.setVisibility(View.VISIBLE);
             clickUpdate_XBt.setVisibility(View.GONE);
             clickDeleteXBt.setVisibility(View.GONE);
@@ -1882,7 +1832,6 @@ public class F2_Cuentas extends DialogFragment {
                         interrelationsAccountsGroups(); // Acción al aceptar
                         transacciones_XLL.setVisibility(View.GONE); // ⭐ (14-nov) no arrastrar el aviso de otra cuenta
                         cuentaConTransacciones();
-                        verItemsPorCuenta();
                         sincronizarNavegacionConCuentaCargada(); // ⭐ (14-nov) ◀ ▶ sigue desde aquí
                         ocultarTeclado(); // ⭐ (14-nov) E: cuenta elegida, se cierra el teclado
                     }
@@ -2057,8 +2006,6 @@ public class F2_Cuentas extends DialogFragment {
         modoPlantilla = false;
         nombrePlantillaOriginal_String = null;
         account_XAct.setBackgroundColor(Color.parseColor("#F4D7F5"));
-
-        atributos_XTL.removeAllViews();
 
     }
 
@@ -2307,7 +2254,6 @@ public class F2_Cuentas extends DialogFragment {
         }
 
         if (actualizar == 1) {
-            atributos_XTL.removeAllViews();
             Toast.makeText(getActivity(), fueRenombrado ? "Cuenta renombrada" : "Registro modificado", Toast.LENGTH_SHORT).show();
             if (fueRenombrado) {
                 notificarActualizacionCuentas();
@@ -2335,7 +2281,6 @@ public class F2_Cuentas extends DialogFragment {
             // limpieza aquí, solo corre después de un guardado real y exitoso, sin importar
             // si vino del camino síncrono (sin renombrar) o del callback del diálogo
             // (renombrando).
-            verItemsPorCuenta();
             cleanClickFieldsAccount();
 
             if (seActivoInventarioAhora) {
@@ -2345,126 +2290,6 @@ public class F2_Cuentas extends DialogFragment {
             Toast.makeText(getActivity(), "La cuenta no existe", Toast.LENGTH_SHORT).show();
         }
     }
-
-    public void verItemsPorCuenta (){
-
-        atributos_XTL.removeAllViews();
-        //Contexto 1 obtener Atributos Cuenta para postrar en el textview
-
-        //Atributos de cuenta
-        if (cuentasOrdenAzParaVistaDetalleCuenta_XSp == null || cuentaSeleccionadaAqui == null) {
-            return;
-        }
-
-        //consultasClass.consultarDetalleCuentaDeCuentaSeleccionada();
-
-        // ⭐ CORRECCIÓN — Fase 4 (parte B): este arreglo de etiquetas se había quedado con 5
-        // elementos desde antes de la Fase 3 (parte B), cuando cuentaSeleccionadaAqui_ArrayS_Result
-        // pasó a traer un 6to elemento (cuenta_id). El bucle de abajo recorre por
-        // cuentaSeleccionadaAqui_ArrayS_Result.length e indexa este arreglo con el mismo índice,
-        // así que desde entonces cualquier cuenta con cuenta_id (o sea, todas) lanzaba
-        // ArrayIndexOutOfBoundsException al seleccionarla aquí. Se completa con las etiquetas que
-        // faltaban (cuenta_id de la Fase 3, Cerrable de esta fase).
-        // ⭐ CORRECCIÓN — v10: mismo problema otra vez — A22_QueryManager.queryAttributesByAccount()
-        // agregó tipo_cuenta_id como 8vo elemento (índice 7), pero este arreglo de etiquetas se
-        // quedó en 7. Cualquier cuenta volvía a lanzar ArrayIndexOutOfBoundsException al abrir su
-        // detalle desde "Ver Cuentas". Se agrega la etiqueta que faltaba.
-        // ⭐ CORRECCIÓN — Tanda 6 (31-oct): TERCERA vez el mismo problema — la v12 tanda 3
-        // agregó con_inventario como 9no elemento (índice 8) en queryAttributesByAccount(), y
-        // este arreglo se quedó en 8 etiquetas. registrarNuevas() llama a este método justo
-        // después de guardar (desde el botón Guardar), así que al crear una cuenta la app se
-        // caía con ArrayIndexOutOfBoundsException ANTES de llegar a mostrar el diálogo del
-        // primer artículo de inventario. Se agrega la etiqueta y, para que no vuelva a pasar
-        // con la próxima columna, el bucle de abajo ya no indexa este arreglo a ciegas.
-        String []  atributos_ArrayS = new String[]{"item", "Nombre cuenta", "Grupo 1", "Grupo 2", "Fecha", "cuenta_id", "Cerrable", "tipo_cuenta_id", "con_inventario", "liquidez"};
-        // Crear un ArrayList de HashMaps
-        ArrayList<HashMap<String, String>> listaConColumnas = new ArrayList<>();
-
-        if (cuentaSeleccionadaAqui_ArrayS_Result == null) {
-            return;
-        }
-
-        // ⭐ NUEVO (31-oct, pedido de Jorge): se agrega la liquidez (heredada del tipo de cuenta)
-        // como una línea más del panel, sin tocar el arreglo de atributos que usan otras pantallas.
-        String[] valoresAtributos = java.util.Arrays.copyOf(
-                cuentaSeleccionadaAqui_ArrayS_Result, cuentaSeleccionadaAqui_ArrayS_Result.length + 1);
-        if (cuentaSeleccionadaAqui_ArrayS_Result.length > 1) {
-            A1_1_AyudanteBD ayudanteLiq = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
-                    version1BalanceSqlite_int_PSF);
-            SQLiteDatabase dbLiq = ayudanteLiq.getReadableDatabase();
-            try {
-                valoresAtributos[valoresAtributos.length - 1] =
-                        A1_1_AyudanteBD.liquidezDeCuenta(dbLiq, cuentaSeleccionadaAqui_ArrayS_Result[1]);
-            } catch (Exception e) {
-                Log.e(TAG, "No se pudo consultar la liquidez de la cuenta: " + e.getMessage());
-            } finally {
-                dbLiq.close();
-            }
-        }
-
-        // ⭐ NUEVO (3-nov, renta R2): renglón de renta, entidad y soporte, como 3 líneas más.
-        atributos_ArrayS = Arrays.copyOf(atributos_ArrayS, atributos_ArrayS.length + 3);
-        atributos_ArrayS[atributos_ArrayS.length - 3] = "renglón renta";
-        atributos_ArrayS[atributos_ArrayS.length - 2] = "entidad";
-        atributos_ArrayS[atributos_ArrayS.length - 1] = "soporte";
-        if (valoresAtributos.length == atributos_ArrayS.length - 3 && cuentaSeleccionadaAqui_ArrayS_Result.length > 1) {
-            valoresAtributos = Arrays.copyOf(valoresAtributos, valoresAtributos.length + 3);
-            A1_1_AyudanteBD ayudanteRenta = new A1_1_AyudanteBD(getActivity(), "balance.db", null,
-                    version1BalanceSqlite_int_PSF);
-            SQLiteDatabase dbRenta = ayudanteRenta.getReadableDatabase();
-            try {
-                String nombre = cuentaSeleccionadaAqui_ArrayS_Result[1];
-                valoresAtributos[valoresAtributos.length - 3] = A1_1_AyudanteBD.renglonRentaDeCuenta(dbRenta, nombre);
-                Cursor cr = dbRenta.rawQuery("SELECT entidad, tipo_soporte FROM cuentas WHERE Cuenta = ?",
-                        new String[]{nombre});
-                if (cr.moveToFirst()) {
-                    valoresAtributos[valoresAtributos.length - 2] = cr.getString(0);
-                    valoresAtributos[valoresAtributos.length - 1] = cr.getString(1);
-                }
-                cr.close();
-            } catch (Exception e) {
-                Log.e(TAG, "No se pudo consultar los datos de renta de la cuenta: " + e.getMessage());
-            } finally {
-                dbRenta.close();
-            }
-        }
-
-        for (int i = 0; i < valoresAtributos.length; i++) {
-            HashMap<String, String> columna = new HashMap<>();
-            String etiqueta = i < atributos_ArrayS.length ? atributos_ArrayS[i] : "atributo " + i;
-            columna.put(etiqueta, valoresAtributos[i]); // Nombre del atributo
-            listaConColumnas.add(columna);
-        }
-
-        // Agregar filas dinámicamente
-        for (HashMap<String, String> columna : listaConColumnas) {
-            for (Map.Entry<String, String> entry : columna.entrySet()) {
-                TableRow tableRow = new TableRow(getActivity());
-
-                // Crear TextViews para atributo y valor
-                TextView atributoView = new TextView(getActivity());
-                TextView valorView = new TextView(getActivity());
-
-                atributoView.setText(entry.getKey());
-                atributoView.setPadding(10, 10, 10, 10);
-
-                valorView.setText(entry.getValue());
-                valorView.setPadding(10, 10, 10, 10);
-
-                // Agregar TextViews a la fila
-                tableRow.addView(atributoView);
-                tableRow.addView(valorView);
-
-                // Agregar fila al TableLayout
-                atributos_XTL.addView(tableRow);
-            }
-
-            atributos_XTL.setVisibility(View.VISIBLE);
-        }
-
-    }
-
-    //Backups and closures Methods
 
     public void pedirPermisoAlDispositivo () {
         // PERMISOS PARA ANDROID 6 O SUPERIOR
@@ -3089,7 +2914,6 @@ public class F2_Cuentas extends DialogFragment {
         transacciones_XLL.setVisibility(View.GONE);
         //grupo1ModificarCuenta_XSp.setSelection(0);
         //grupo2ModificarCuenta_XSp.setSelection(0);
-        atributos_XTL.removeAllViews();
     }
 
     public  void cuentaConTransacciones () {
@@ -3114,10 +2938,8 @@ public class F2_Cuentas extends DialogFragment {
     public void setvisibilityOcultarAreas () {
 
         area2crud_XGl.setVisibility(View.GONE);
-        area3AttributesXLY.setVisibility(View.GONE);
         area4SeeAccountsXGl.setVisibility(View.GONE);
         area5BackupsClosingXLL.setVisibility(View.GONE);
-        atributos_XTL.removeAllViews();
 
     }
 
