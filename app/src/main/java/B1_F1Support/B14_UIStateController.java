@@ -70,10 +70,10 @@ public class B14_UIStateController {
         f1.areaUpdateAndDelete_XGl.setVisibility(View.GONE);
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.VISIBLE);
+        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.VISIBLE);
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.VISIBLE);
+        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.guardarCambiosALaBD.setVisibility(View.VISIBLE);
         f1.cleanSinCambiosInBD_XBt.setVisibility(View.VISIBLE);
         f1.salidaEsteFragment_XBt.setVisibility(View.VISIBLE);
@@ -98,9 +98,9 @@ public class B14_UIStateController {
         f1.salidaEsteFragment_XBt.setVisibility(View.VISIBLE);
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.VISIBLE);
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.VISIBLE);
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.VISIBLE);
+        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
         f1.resetearSpinnerCuentasRevision();
     }
@@ -122,10 +122,10 @@ public class B14_UIStateController {
         f1.areaUpdateAndDelete_XGl.setVisibility(View.VISIBLE);
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.VISIBLE);
+        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.VISIBLE);
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.VISIBLE);
+        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
         // Botones de acción
         f1.guardarCambiosALaBD.setVisibility(View.VISIBLE);
@@ -147,9 +147,9 @@ public class B14_UIStateController {
 
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.INVISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.INVISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.INVISIBLE);
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.INVISIBLE);
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.INVISIBLE);
+        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
         f1.resetearSpinnerCuentasRevision();
     }
@@ -175,9 +175,9 @@ public class B14_UIStateController {
         // Áreas de layout
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.INVISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.INVISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.INVISIBLE);
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.INVISIBLE);
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.INVISIBLE);
+        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
+        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
         f1.resetearSpinnerCuentasRevision();
     }
@@ -191,7 +191,7 @@ public class B14_UIStateController {
         f1.areaTemplate_XGl.setVisibility(View.VISIBLE);
         f1.areaUpdateAndDelete_XGl.setVisibility(View.GONE);
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.VISIBLE);
+        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.areaButtons_XLL.setVisibility(View.VISIBLE);
 
         // Tema rosa — identifica visualmente el área Plantilla
@@ -214,7 +214,7 @@ public class B14_UIStateController {
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.VISIBLE);
+        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.areaButtons_XLL.setVisibility(View.VISIBLE);
 
         // Tema lila — identifica visualmente el área Editar
