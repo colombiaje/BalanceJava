@@ -168,6 +168,10 @@ public class RecordDocumentUnit {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // ⭐ (16-nov, Jorge): el color sigue al contenido, como en los demás campos (verde
+                // con dato, lila vacío, con borde). Antes solo cambiaba al teclear 1 o 2 caracteres
+                // y no al pegar desde la calculadora, ni cuando faltaba la cuenta a conciliar.
+                fondoConBorde(f1.inputPhysicalVsAccounting_XEt, s.length() > 0 ? "#1de9b6" : "#F4D7F5");
                 if (count > 0 && count < 3) {
                     if (f1.cuentaConciliacion_XSp.getSelectedItem().toString().isEmpty()) {
                         Toast.makeText(f1.getActivity(),
@@ -176,13 +180,9 @@ public class RecordDocumentUnit {
                         return;
                     }
                     f1.digitarFisicoVsSaldoConciliacion();
-                    f1.inputPhysicalVsAccounting_XEt
-                            .setBackgroundColor(Color.parseColor("#1de9b6"));
                 }
                 if (count == 0) {
                     f1.digitarFisicoVsSaldoConciliacion();
-                    f1.inputPhysicalVsAccounting_XEt
-                            .setBackgroundColor(Color.parseColor("#F4D7F5"));
                 }
             }
 
@@ -303,7 +303,7 @@ public class RecordDocumentUnit {
                     // ⭐ (11-nov): ya no se captura aquí copiarDesripcionAnterior_String (lo guarda
                     // B12 al agregar el registro); aquí pisaba el anterior con el del registro nuevo.
                 } else {
-                    fondoConBorde(f1.cuenta_XAtv, "#DDE6FB"); // ⭐ (14-nov, Jorge) vacía: azul claro, como en el layout
+                    fondoConBorde(f1.cuenta_XAtv, "#F4D7F5"); // ⭐ (16-nov, Jorge) vacía: el mismo lila de los demás campos
                 }
             }
 

@@ -1104,7 +1104,7 @@
                         android:layout_marginEnd="4dp"
                         android:layout_width="50dp"
                         android:layout_height="32dp"
-                        android:background="#F4D7F5"
+                        android:background="@drawable/bg_campo_registro"
                         android:gravity="center"
                         android:hint="Fisico"
                         android:inputType="number"
@@ -1209,7 +1209,8 @@
                 android:id="@+id/seccion2HaceRegistroItemLista_XGl"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_registro_marco"
+                android:padding="4dp"
                 app:layout_row="1"
                 app:layout_column="0"
                 app:layout_gravity="center"
@@ -1358,13 +1359,23 @@
 
                     >
 
-                    <AutoCompleteTextView
-                    android:layout_marginHorizontal="3dp"
-                    android:layout_marginVertical="3dp"
-
-                        android:id="@+id/cuenta_XAtv"
-                                                android:layout_width="255dp"
+                    <!-- ⭐ (16-nov, Jorge): ▾ dentro del campo Cuenta, como en las búsquedas; abre la
+                         lista completa de cuentas. -->
+                    <FrameLayout
+                        android:layout_width="287dp"
                         android:layout_height="27dp"
+                        android:layout_marginHorizontal="3dp"
+                        android:layout_marginVertical="3dp"
+                        app:layout_column="0"
+                        app:layout_gravity="center_vertical"
+                        app:layout_row="1">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/cuenta_XAtv"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="32dp"
                         android:background="@drawable/bg_campo_cuenta"
                         android:completionThreshold="1"
                         android:dropDownWidth="350dp"
@@ -1376,19 +1387,14 @@
                         android:singleLine="true"
                         android:textColor="#425DF6"
                         android:textColorHint="#9AA6E8"
-                        android:textSize="22dp"
-                        app:layout_column="0"
-                        app:layout_gravity="center_vertical"
-                        app:layout_row="1" />
+                        android:textSize="22dp" />
 
-                    <!-- ⭐ NUEVO (14-nov, Jorge): ▾ abre la lista completa de cuentas, para quien no
-                         recuerda el nombre o no conoce el plan de cuentas. -->
                     <Button
                         android:id="@+id/listaCuentas_XBt"
-                        android:layout_width="32dp"
-                        android:layout_height="27dp"
-                        android:layout_marginVertical="3dp"
-                        android:layout_marginHorizontal="0dp"
+                        android:layout_width="26dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="end|center_vertical"
+                        android:layout_marginEnd="3dp"
                         android:backgroundTint="#425DF6"
                         android:insetTop="0dp"
                         android:insetBottom="0dp"
@@ -1397,11 +1403,9 @@
                         android:padding="0dp"
                         android:text="▾"
                         android:textColor="@android:color/white"
-                        android:textSize="18sp"
-                        android:contentDescription="Ver la lista de cuentas"
-                        app:layout_row="1"
-                        app:layout_column="1"
-                        app:layout_gravity="center_vertical" />
+                        android:textSize="16sp"
+                        android:contentDescription="Ver la lista de cuentas" />
+                    </FrameLayout>
 
                     <Button
                     android:layout_marginHorizontal="3dp"
@@ -1476,7 +1480,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_registro_marco"
+                android:padding="4dp"
                 app:columnCount="6"
                 app:layout_row="3"
                 app:layout_column="0"
