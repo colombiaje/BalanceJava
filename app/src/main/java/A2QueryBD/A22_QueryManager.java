@@ -206,6 +206,13 @@ public class A22_QueryManager {
             if (!unicas.containsKey(clave)) unicas.put(clave, limpia);
         }
         descripciones = new ArrayList<>(unicas.values());
+        // ⭐ (16-nov, Jorge): orden alfabético sin distinguir mayúsculas. El ORDER BY de SQLite
+        // compara por código (todas las mayúsculas antes que las minúsculas: "TC nu…" antes que
+        // "aseo d1"). Se ordena con las reglas del español: sin distinguir mayúsculas y con
+        // tildes y ñ en su lugar.
+        java.text.Collator orden = java.text.Collator.getInstance(new java.util.Locale("es", "CO"));
+        orden.setStrength(java.text.Collator.SECONDARY);
+        descripciones.sort(orden);
 
         if (!descripciones.isEmpty()) {
             return new A23_QueryResult<>(descripciones.size(), new ArrayList<>(descripciones), "Consulta exitosa");
