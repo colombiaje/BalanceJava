@@ -143,8 +143,18 @@ public class D_F1_AdaptadorCrudDocumento extends ArrayAdapter<A3_2_TipoTransacci
         Integer[] saldos = B_FRAGMENTS.F1_CrudDocumento.saldosTrasItem;
         if (saldoTras != null && columnasVisibles.contains(4) && saldos != null
                 && saldos.length == arrayListTipoPersonalizado.size() && saldos[position] != null) {
-            saldoTras.setText("= " + saldos[position]);
+            boolean[] contrarios = B_FRAGMENTS.F1_CrudDocumento.saldoContrarioTrasItem;
+            boolean contrario = contrarios != null && contrarios.length == saldos.length && contrarios[position];
             saldoTras.setVisibility(View.VISIBLE);
+            if (contrario) {
+                // ⭐ (16-nov, Jorge): saldo contrario a la naturaleza de la cuenta → alerta.
+                saldoTras.setText("⚠ = " + saldos[position]);
+                saldoTras.setBackgroundResource(R.drawable.bg_saldo_contrario);
+                saldoTras.setTextColor(android.graphics.Color.WHITE);
+                saldoTras.setTypeface(null, android.graphics.Typeface.BOLD);
+            } else {
+                saldoTras.setText("= " + saldos[position]);
+            }
         }
 
         // ⭐ (14-nov, Jorge): resalta en naranja claro el ítem que se está modificando.

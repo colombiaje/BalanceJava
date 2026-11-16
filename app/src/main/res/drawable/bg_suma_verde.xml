@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ⭐ NUEVO (16-nov, Jorge): Dif. en verde cuando hay diferencia que cuadrar: tocarla lleva el
+     valor al campo Valor del registro. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="6dp" />
+    <stroke android:width="1dp" android:color="#FFFFFF" />
+    <solid android:color="#1de9b6" />
+</shape>

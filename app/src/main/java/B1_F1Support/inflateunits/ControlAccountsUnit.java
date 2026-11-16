@@ -34,6 +34,25 @@ public class ControlAccountsUnit {
 
     private void setupListeners() {
         setupReviewAccountSpinner();
+        setupToqueDif();
+    }
+
+    // ⭐ NUEVO (16-nov, Jorge): tocar Dif. (en verde, con ítems y sin cuadrar) lleva el valor de
+    // la diferencia al campo Valor, para cerrar el documento con el último registro sin
+    // escribirlo. El signo lo elige el usuario al final, como siempre; se le indica cuál cuadra.
+    private void setupToqueDif() {
+        f1.controlACeroTotales_XTv.setOnClickListener(v -> {
+            if (f1.listaDocumento_ArrayLTT == null || f1.listaDocumento_ArrayLTT.isEmpty()
+                    || f1.$netoT == null || f1.$netoT == 0) {
+                return;
+            }
+            int diferencia = f1.$netoT;
+            f1.valor_XEt.setText(String.valueOf(Math.abs(diferencia)));
+            f1.valor_XEt.setSelection(f1.valor_XEt.getText().length());
+            android.widget.Toast.makeText(f1.getActivity(), "Valor " + Math.abs(diferencia) +
+                    ": para cuadrar, al final elija el signo " + (diferencia > 0 ? "−" : "+"),
+                    android.widget.Toast.LENGTH_LONG).show();
+        });
     }
 
     // Spinner de revisión de cuentas — muestra saldo inicial, movimientos y saldo final.

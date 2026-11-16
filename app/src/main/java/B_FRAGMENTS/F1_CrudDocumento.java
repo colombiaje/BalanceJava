@@ -1924,6 +1924,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     /** ⭐ NUEVO (16-nov, Jorge): saldo de la cuenta después de cada renglón de la lista. */
     public static Integer[] saldosTrasItem = null;
+    /** ⭐ (16-nov, Jorge): true si ese saldo queda contrario a la naturaleza de la cuenta. */
+    public static boolean[] saldoContrarioTrasItem = null;
 
     /**
      * Saldo de la cuenta en la base + los movimientos de esa cuenta en el documento hasta ese
@@ -1933,8 +1935,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      */
     public void calcularSaldosTrasItems() {
         try {
+            actualizarColorDif();
             if (listaDocumento_ArrayLTT == null || listaDocumento_ArrayLTT.isEmpty() || a22QueryManager == null) {
                 saldosTrasItem = null;
+                saldoContrarioTrasItem = null;
                 return;
             }
             if (currentRadioButtonId == R.id.updateDelete_XRb
@@ -1943,7 +1947,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             }
             boolean enEdicion = currentRadioButtonId == R.id.updateDelete_XRb && documentoCargadoParaEdicion;
             java.util.HashMap<String, Integer> acumulado = new java.util.HashMap<>();
+            java.util.HashMap<String, String> naturalezas = new java.util.HashMap<>();
             Integer[] resultado = new Integer[listaDocumento_ArrayLTT.size()];
+            boolean[] contrario = new boolean[listaDocumento_ArrayLTT.size()];
             for (int i = 0; i < listaDocumento_ArrayLTT.size(); i++) {
                 A3_2_TipoTransaccionesGetsYSets item = listaDocumento_ArrayLTT.get(i);
                 String cuenta = item.tipoT_3Accout_String;
@@ -1962,15 +1968,48 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 saldo += item.tipoT_5Value_Integer;
                 acumulado.put(cuenta, saldo);
                 resultado[i] = saldo;
+                // Contrario a la naturaleza: deudora con saldo negativo o acreedora con positivo
+                // (mismo criterio que la depuración de saldos contrarios de renta).
+                if (!naturalezas.containsKey(cuenta)) naturalezas.put(cuenta, naturalezaDeCuenta(cuenta));
+                String naturaleza = naturalezas.get(cuenta);
+                contrario[i] = ("DEUDORA".equals(naturaleza) && saldo < 0)
+                        || ("ACREEDORA".equals(naturaleza) && saldo > 0);
             }
             saldosTrasItem = resultado;
+            saldoContrarioTrasItem = contrario;
             if (conexionListDocumentForGeneralWithListView_Adaptador1_TipoT != null) {
                 conexionListDocumentForGeneralWithListView_Adaptador1_TipoT.notifyDataSetChanged();
             }
         } catch (Exception e) {
             saldosTrasItem = null;
+            saldoContrarioTrasItem = null;
             Log.e("F1", "Error en calcularSaldosTrasItems", e);
         }
+    }
+
+    /** Naturaleza normal (DEUDORA / ACREEDORA) del tipo de la cuenta; null si no se sabe. */
+    private String naturalezaDeCuenta(String cuenta) {
+        if (ayudante_Class == null) return null;
+        android.database.sqlite.SQLiteDatabase db = ayudante_Class.getReadableDatabase();
+        try (android.database.Cursor c = db.rawQuery("SELECT tc.naturaleza_normal FROM cuentas cu " +
+                "JOIN tipo_cuenta tc ON tc.tipo_cuenta_id = cu.tipo_cuenta_id WHERE cu.Cuenta = ?",
+                new String[]{cuenta})) {
+            return c.moveToFirst() ? c.getString(0) : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * ⭐ NUEVO (16-nov, Jorge): Dif. se pone verde cuando hay ítems y el documento no cuadra,
+     * sugiriendo tocarla: el toque lleva el valor de la diferencia al campo Valor.
+     */
+    public void actualizarColorDif() {
+        if (controlACeroTotales_XTv == null) return;
+        boolean hayDiferencia = listaDocumento_ArrayLTT != null && !listaDocumento_ArrayLTT.isEmpty()
+                && $netoT != null && $netoT != 0;
+        controlACeroTotales_XTv.setBackgroundResource(hayDiferencia ? R.drawable.bg_suma_verde : R.drawable.bg_suma);
+        controlACeroTotales_XTv.setTextColor(Color.parseColor(hayDiferencia ? "#1F3FA6" : "#FAFAFD"));
     }
 
     public void sumarItemListaSaldosCuenta() {
