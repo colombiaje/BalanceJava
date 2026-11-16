@@ -272,8 +272,7 @@ public class A25_ListaDocumentosDialogo {
         b.setText(texto);
         b.setAllCaps(false);
         b.setTextSize(14);
-        b.setTextColor(Color.WHITE);
-        b.setBackgroundColor(Color.parseColor("#2E7D32"));
+        A31_EstiloBoton.accion(b); // ⭐ (16-nov) estilo único de botones (antes verde oscuro)
         b.setPadding(dp(4), 0, dp(4), 0);
         return b;
     }

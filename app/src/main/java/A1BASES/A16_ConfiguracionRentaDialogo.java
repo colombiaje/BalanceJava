@@ -144,6 +144,7 @@ public class A16_ConfiguracionRentaDialogo {
         Button importar_XBt = new Button(context);
         importar_XBt.setText("Importar CSV (plantilla o fotos)");
         importar_XBt.setOnClickListener(v -> elegirPlantilla(context, alCambiar));
+        A1BASES.A31_EstiloBoton.accion(importar_XBt); // ⭐ (16-nov) estilo único de botones
         raiz.addView(importar_XBt);
 
         ScrollView scroll = new ScrollView(context);

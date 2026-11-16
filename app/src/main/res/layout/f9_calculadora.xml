@@ -244,13 +244,13 @@
             <!-- Botón "Usar Resultado" - Solo visible cuando se llama desde un campo -->
             <Button
                 android:id="@+id/usarResultado_XBt"
+                android:background="@drawable/bg_boton_accion"
+                android:textColor="#1F3FA6"
                 android:layout_width="0dp"
                 android:layout_height="42dp"
                 android:layout_weight="1"
                 android:text="Usar Resultado"
-                android:textColor="@android:color/white"
                 android:textStyle="bold"
-                android:background="#4CAF50"
                 android:textAllCaps="false"
                 android:layout_marginEnd="6dp"
                 android:visibility="gone"
@@ -261,11 +261,11 @@
             <!-- Botón Cerrar/Salir -->
             <Button
                 android:id="@+id/salir_XBt"
+                android:background="@drawable/bg_boton_accion"
+                android:textColor="#1F3FA6"
                 android:layout_width="wrap_content"
                 android:layout_height="52dp"
                 android:text="Cerrar"
-                android:textColor="#757575"
-                android:background="@android:color/transparent"
                 android:textAllCaps="false"
                 android:paddingStart="28dp"
                 android:paddingEnd="28dp"

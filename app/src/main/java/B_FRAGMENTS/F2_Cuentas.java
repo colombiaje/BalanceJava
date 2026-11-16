@@ -1328,10 +1328,12 @@ public class F2_Cuentas extends DialogFragment {
 
         Button guardarYAgregarOtro_XBt = new Button(getActivity());
         guardarYAgregarOtro_XBt.setText("Guardar y agregar otro");
+        A1BASES.A31_EstiloBoton.accion(guardarYAgregarOtro_XBt); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(guardarYAgregarOtro_XBt);
 
         Button guardarYTerminar_XBt = new Button(getActivity());
         guardarYTerminar_XBt.setText("Guardar y terminar");
+        A1BASES.A31_EstiloBoton.accion(guardarYTerminar_XBt); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(guardarYTerminar_XBt);
 
         // ⭐ NUEVO — Tanda 6 (31-oct, pedido de Jorge): ver la lista de artículos de la cuenta
@@ -1340,6 +1342,7 @@ public class F2_Cuentas extends DialogFragment {
         verArticulos_XBt.setText("Ver artículos");
         verArticulos_XBt.setOnClickListener(v ->
                 new A1BASES.A14_ListaArticulosDialogo().mostrar(getActivity(), cuentaId, nombreCuenta));
+        A1BASES.A31_EstiloBoton.accion(verArticulos_XBt); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(verArticulos_XBt);
 
         // ⭐ NUEVO — Tanda 6 (31-oct, pedido de Jorge): si la cuenta YA tiene artículos (p.ej.

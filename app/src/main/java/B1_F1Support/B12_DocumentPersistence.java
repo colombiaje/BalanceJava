@@ -1027,6 +1027,7 @@ public class B12_DocumentPersistence {
         verHistorialDesdeRegistroBtn.setOnClickListener(v ->
                 new A13_HistorialInventarioDialogo().mostrar(
                         f1.getActivity(), cuentaId, cuentaAlItemList));
+        A1BASES.A31_EstiloBoton.accion(verHistorialDesdeRegistroBtn); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(verHistorialDesdeRegistroBtn);
 
         // ⭐ NUEVO (1-oct, pedido de Jorge, punto "1.b" de su retroalimentación sobre edición de
@@ -1061,6 +1062,7 @@ public class B12_DocumentPersistence {
         Button editarExistenteBtn = new Button(f1.getActivity());
         editarExistenteBtn.setText("Editar el registro existente");
         editarExistenteBtn.setVisibility(View.GONE);
+        A1BASES.A31_EstiloBoton.accion(editarExistenteBtn); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(editarExistenteBtn);
 
         List<String> nombresParaSpinner = new ArrayList<>();
@@ -1095,6 +1097,7 @@ public class B12_DocumentPersistence {
             if (dialogoHolder[0] != null) dialogoHolder[0].dismiss();
             mostrarDialogoNuevoArticulo(cuentaAlItemList, atributosCuenta, cuentaId, posicionAEditar);
         });
+        A1BASES.A31_EstiloBoton.accion(crearNuevoArticuloBtn); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(crearNuevoArticuloBtn);
 
         // ⭐ NUEVO — campo de descripción propio del diálogo (ver el comentario junto a
@@ -1646,10 +1649,12 @@ public class B12_DocumentPersistence {
 
         Button guardarYAgregarOtroBtn = new Button(f1.getActivity());
         guardarYAgregarOtroBtn.setText("Guardar y agregar otro");
+        A1BASES.A31_EstiloBoton.accion(guardarYAgregarOtroBtn); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(guardarYAgregarOtroBtn);
 
         Button guardarYTerminarBtn = new Button(f1.getActivity());
         guardarYTerminarBtn.setText("Guardar y terminar");
+        A1BASES.A31_EstiloBoton.accion(guardarYTerminarBtn); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(guardarYTerminarBtn);
 
         // ⭐ NUEVO — Tanda 6 (31-oct, pedido de Jorge): ver la lista de artículos de la cuenta
@@ -1658,6 +1663,7 @@ public class B12_DocumentPersistence {
         verArticulosBtn.setText("Ver artículos");
         verArticulosBtn.setOnClickListener(v ->
                 new A14_ListaArticulosDialogo().mostrar(f1.getActivity(), cuentaId, cuentaAlItemList));
+        A1BASES.A31_EstiloBoton.accion(verArticulosBtn); // ⭐ (16-nov) estilo único de botones
         contenedor.addView(verArticulosBtn);
 
         AlertDialog dialogoArticulo = new AlertDialog.Builder(f1.getActivity())

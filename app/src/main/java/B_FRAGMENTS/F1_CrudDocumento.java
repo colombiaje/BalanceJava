@@ -828,6 +828,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lpBoton.setMargins(0, 32, 0, 0);
         btCorregirYVolverARegistrar.setLayoutParams(lpBoton);
+        A1BASES.A31_EstiloBoton.accion(btCorregirYVolverARegistrar); // ⭐ (16-nov) estilo único de botones
         layout.addView(btCorregirYVolverARegistrar);
 
         scroll.addView(layout);

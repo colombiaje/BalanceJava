@@ -22,9 +22,10 @@
 
         <Button
             android:id="@+id/volver_XBt"
+                android:background="@drawable/bg_boton_accion"
+                android:textColor="#1F3FA6"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="#8BC34A"
             android:text="Salir"
             android:layout_marginEnd="5dp"/>
 

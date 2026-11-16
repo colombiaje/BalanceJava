@@ -380,6 +380,7 @@ public class A9_VisorTablasDialogo extends DialogFragment {
             lpE.setMargins(4, 0, 4, 0);
             btEditar.setLayoutParams(lpE);
             btEditar.setOnClickListener(v -> editarArea(area));
+            A1BASES.A31_EstiloBoton.accion(btEditar); // ⭐ (16-nov) estilo único de botones
             fila.addView(btEditar);
         } else {
             Button btIntercambiar = new Button(getContext());
@@ -390,6 +391,7 @@ public class A9_VisorTablasDialogo extends DialogFragment {
             lpI.setMargins(4, 0, 4, 0);
             btIntercambiar.setLayoutParams(lpI);
             btIntercambiar.setOnClickListener(v -> enviarEsperaAArea3());
+            A1BASES.A31_EstiloBoton.accion(btIntercambiar); // ⭐ (16-nov) estilo único de botones
             fila.addView(btIntercambiar);
         }
 
@@ -401,6 +403,7 @@ public class A9_VisorTablasDialogo extends DialogFragment {
         lpB.setMargins(4, 0, 4, 0);
         btBorrar.setLayoutParams(lpB);
         btBorrar.setOnClickListener(v -> confirmarBorrarArea(area));
+        A1BASES.A31_EstiloBoton.delicado(btBorrar); // ⭐ (16-nov) estilo único de botones
         fila.addView(btBorrar);
 
         return fila;

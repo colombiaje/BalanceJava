@@ -626,11 +626,12 @@
             <!-- ⭐ NUEVO (15-nov, plantillas P1): menú de plantillas (asistente y antiguas). -->
             <Button
                 android:id="@+id/menuPlantillas_XBt"
+                android:background="@drawable/bg_boton_accion"
+                android:textColor="#1F3FA6"
                 android:layout_width="40dp"
                 android:layout_height="28dp"
                 android:layout_marginTop="2dp"
                 android:layout_marginRight="4dp"
-                android:background="@drawable/bg_green_square"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:padding="0dp"
@@ -913,6 +914,8 @@
 
             <Button
                 android:id="@+id/guardarCambiosALaBD"
+                android:background="@drawable/bg_boton_accion"
+                android:textColor="#1F3FA6"
                 android:insetBottom="0dp"
                 android:insetTop="0dp"
                 android:minWidth="0dp"
@@ -932,6 +935,8 @@
 
             <Button
                 android:id="@+id/cleanSinCambiosInBD_XBt"
+                android:background="@drawable/bg_boton_accion"
+                android:textColor="#1F3FA6"
                 android:insetBottom="0dp"
                 android:insetTop="0dp"
                 android:minWidth="0dp"
@@ -952,6 +957,8 @@
 
             <Button
                 android:id="@+id/salidaEsteFragment_XBt"
+                android:background="@drawable/bg_boton_accion"
+                android:textColor="#1F3FA6"
                 android:insetBottom="0dp"
                 android:insetTop="0dp"
                 android:minWidth="0dp"
