@@ -148,7 +148,7 @@ public class D_F1_AdaptadorCrudDocumento extends ArrayAdapter<A3_2_TipoTransacci
             saldoTras.setVisibility(View.VISIBLE);
             if (contrario) {
                 // ⭐ (16-nov, Jorge): saldo contrario a la naturaleza de la cuenta → alerta.
-                saldoTras.setText("⚠ = " + saldos[position]);
+                saldoTras.setText("= " + saldos[position]); // (16-nov, Jorge) sin ⚠: basta el rojo
                 saldoTras.setBackgroundResource(R.drawable.bg_saldo_contrario);
                 saldoTras.setTextColor(android.graphics.Color.WHITE);
                 saldoTras.setTypeface(null, android.graphics.Typeface.BOLD);

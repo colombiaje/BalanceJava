@@ -93,16 +93,22 @@
                 android:visibility="visible"
                 android:text="Valor" />
 
+            <!-- ⭐ (16-nov, Jorge): ocupa el ancho de la celda y la letra se ajusta sola (13 → 8 sp)
+                 para que los saldos grandes se vean completos, sin cortarse con "…". -->
             <TextView
                 android:id="@+id/c5_SaldoTrasItem_XTv"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:layout_height="18dp"
                 android:layout_marginTop="2dp"
                 android:background="#1de9b6"
-                android:paddingHorizontal="4dp"
-                android:singleLine="true"
+                android:paddingHorizontal="2dp"
+                android:maxLines="1"
+                android:gravity="center_vertical"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="13sp"
+                android:autoSizeStepGranularity="1sp"
                 android:textColor="#1F3FA6"
-                android:textSize="13sp"
                 android:visibility="gone" />
         </LinearLayout>
 
