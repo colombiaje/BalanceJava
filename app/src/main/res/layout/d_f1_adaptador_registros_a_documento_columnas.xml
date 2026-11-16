@@ -74,17 +74,37 @@
             android:visibility="gone"
             android:text="+-" />
 
-        <TextView
-            android:id="@+id/c5_Valor_XTv"
+        <!-- ⭐ (16-nov, Jorge): bajo el valor, en verde, el saldo que le queda a la cuenta después de
+             este renglón (saldo en la base + movimientos de esa cuenta hasta aquí). -->
+        <LinearLayout
             android:layout_width="70dp"
             android:layout_height="match_parent"
             android:layout_weight="3"
             android:background="@drawable/bg_green_square3"
-            android:ellipsize="end"
-            android:padding="5dp"
-            android:singleLine="true"
-            android:visibility="visible"
-            android:text="Valor" />
+            android:orientation="vertical"
+            android:padding="5dp">
+
+            <TextView
+                android:id="@+id/c5_Valor_XTv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:visibility="visible"
+                android:text="Valor" />
+
+            <TextView
+                android:id="@+id/c5_SaldoTrasItem_XTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:background="#1de9b6"
+                android:paddingHorizontal="4dp"
+                android:singleLine="true"
+                android:textColor="#1F3FA6"
+                android:textSize="13sp"
+                android:visibility="gone" />
+        </LinearLayout>
 
 
         <TextView

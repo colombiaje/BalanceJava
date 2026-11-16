@@ -1919,6 +1919,58 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         } catch (Exception e) {
             Log.e("F1", "Error en sumarItemListaDocumento", e);
         }
+        calcularSaldosTrasItems(); // ⭐ (16-nov) saldo por renglón junto al valor
+    }
+
+    /** ⭐ NUEVO (16-nov, Jorge): saldo de la cuenta después de cada renglón de la lista. */
+    public static Integer[] saldosTrasItem = null;
+
+    /**
+     * Saldo de la cuenta en la base + los movimientos de esa cuenta en el documento hasta ese
+     * renglón (acumulado si la cuenta se repite). En Edición, el saldo de partida descuenta los
+     * movimientos originales del documento (misma regla que Saldo 1 de la lista de revisión).
+     * Una consulta por cuenta distinta.
+     */
+    public void calcularSaldosTrasItems() {
+        try {
+            if (listaDocumento_ArrayLTT == null || listaDocumento_ArrayLTT.isEmpty() || a22QueryManager == null) {
+                saldosTrasItem = null;
+                return;
+            }
+            if (currentRadioButtonId == R.id.updateDelete_XRb
+                    && (!documentoCargadoParaEdicion || movimientosOriginalesDocumento_HashMap.isEmpty())) {
+                asegurarAjusteDeSaldosEnEdicion();
+            }
+            boolean enEdicion = currentRadioButtonId == R.id.updateDelete_XRb && documentoCargadoParaEdicion;
+            java.util.HashMap<String, Integer> acumulado = new java.util.HashMap<>();
+            Integer[] resultado = new Integer[listaDocumento_ArrayLTT.size()];
+            for (int i = 0; i < listaDocumento_ArrayLTT.size(); i++) {
+                A3_2_TipoTransaccionesGetsYSets item = listaDocumento_ArrayLTT.get(i);
+                String cuenta = item.tipoT_3Accout_String;
+                if (cuenta == null || cuenta.trim().isEmpty() || item.tipoT_5Value_Integer == null
+                        || item.esFilaSubtotal()) {
+                    continue;
+                }
+                Integer saldo = acumulado.get(cuenta);
+                if (saldo == null) {
+                    A23_QueryResult<Void> suma = a22QueryManager.querySumTransactionsByAccount(cuenta);
+                    saldo = suma == null ? 0 : suma.getSuma();
+                    if (enEdicion && movimientosOriginalesDocumento_HashMap.containsKey(cuenta)) {
+                        saldo -= movimientosOriginalesDocumento_HashMap.get(cuenta);
+                    }
+                }
+                saldo += item.tipoT_5Value_Integer;
+                acumulado.put(cuenta, saldo);
+                resultado[i] = saldo;
+            }
+            saldosTrasItem = resultado;
+            if (conexionListDocumentForGeneralWithListView_Adaptador1_TipoT != null) {
+                conexionListDocumentForGeneralWithListView_Adaptador1_TipoT.notifyDataSetChanged();
+            }
+        } catch (Exception e) {
+            saldosTrasItem = null;
+            Log.e("F1", "Error en calcularSaldosTrasItems", e);
+        }
     }
 
     public void sumarItemListaSaldosCuenta() {

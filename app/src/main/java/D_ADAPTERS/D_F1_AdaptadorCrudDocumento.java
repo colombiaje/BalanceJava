@@ -137,6 +137,16 @@ public class D_F1_AdaptadorCrudDocumento extends ArrayAdapter<A3_2_TipoTransacci
             vTlistItem_11.setVisibility(View.GONE);
         }
 
+        // ⭐ NUEVO (16-nov, Jorge): saldo de la cuenta después de este renglón (F1 lo calcula en
+        // calcularSaldosTrasItems; solo se muestra si corresponde a esta misma lista).
+        TextView saldoTras = inflarViews_View.findViewById(R.id.c5_SaldoTrasItem_XTv);
+        Integer[] saldos = B_FRAGMENTS.F1_CrudDocumento.saldosTrasItem;
+        if (saldoTras != null && columnasVisibles.contains(4) && saldos != null
+                && saldos.length == arrayListTipoPersonalizado.size() && saldos[position] != null) {
+            saldoTras.setText("= " + saldos[position]);
+            saldoTras.setVisibility(View.VISIBLE);
+        }
+
         // ⭐ (14-nov, Jorge): resalta en naranja claro el ítem que se está modificando.
         String enModificacion = B_FRAGMENTS.F1_CrudDocumento.consecutivoRegistroAModificar_StringStatic;
         if (enModificacion != null && !enModificacion.isEmpty()
