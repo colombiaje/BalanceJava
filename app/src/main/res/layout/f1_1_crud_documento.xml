@@ -557,13 +557,11 @@
                 app:layout_gravity="center_vertical"
                 />
 
-            <!-- ⭐ (15-nov, Jorge): igual que en Cuenta, un botón ▾ junto al campo abre la lista
-                 completa de plantillas; el hint queda tenue. -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
+            <!-- ⭐ (16-nov, Jorge): ▾ dentro del campo de plantilla, como en Cuenta y las búsquedas;
+                 abre la lista completa de plantillas. El hint queda tenue. -->
+            <FrameLayout
+                android:layout_width="275dp"
+                android:layout_height="30dp"
                 android:layout_marginLeft="10dp"
                 android:layout_marginRight="5dp"
                 android:layout_marginTop="2dp"
@@ -573,8 +571,10 @@
 
                 <AutoCompleteTextView
                     android:id="@+id/descripcionABuscarEnPlantilla_XAtv"
-                    android:layout_width="241dp"
-                    android:layout_height="27dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="36dp"
                     android:background="#F4D7F5"
                     android:completionThreshold="1"
                     android:dropDownWidth="350dp"
@@ -591,9 +591,10 @@
 
                 <Button
                     android:id="@+id/listaPlantillas_XBt"
-                    android:layout_width="32dp"
-                    android:layout_height="27dp"
-                    android:layout_marginLeft="2dp"
+                    android:layout_width="30dp"
+                    android:layout_height="25dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_marginEnd="3dp"
                     android:backgroundTint="#425DF6"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
@@ -602,9 +603,9 @@
                     android:padding="0dp"
                     android:text="▾"
                     android:textColor="@android:color/white"
-                    android:textSize="18sp"
+                    android:textSize="17sp"
                     android:contentDescription="Ver la lista de plantillas" />
-            </LinearLayout>
+            </FrameLayout>
 
             <CheckBox
                 android:id="@+id/copyPasteDescriptionTemplate_XChb"
@@ -1375,7 +1376,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:paddingStart="4dp"
-                        android:paddingEnd="32dp"
+                        android:paddingEnd="36dp"
                         android:background="@drawable/bg_campo_cuenta"
                         android:completionThreshold="1"
                         android:dropDownWidth="350dp"
@@ -1391,8 +1392,8 @@
 
                     <Button
                         android:id="@+id/listaCuentas_XBt"
-                        android:layout_width="26dp"
-                        android:layout_height="22dp"
+                        android:layout_width="30dp"
+                        android:layout_height="25dp"
                         android:layout_gravity="end|center_vertical"
                         android:layout_marginEnd="3dp"
                         android:backgroundTint="#425DF6"
@@ -1403,7 +1404,7 @@
                         android:padding="0dp"
                         android:text="▾"
                         android:textColor="@android:color/white"
-                        android:textSize="16sp"
+                        android:textSize="17sp"
                         android:contentDescription="Ver la lista de cuentas" />
                     </FrameLayout>
 
