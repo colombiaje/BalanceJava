@@ -35,10 +35,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="50dp"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
+                app:layout_gravity="center_horizontal"
                 tools:ignore="MissingConstraints"
                 android:visibility="visible"
-                android:layout_marginLeft="15dp"
                 >
+                <!-- ⭐ (16-nov, Jorge): barra centrada en la pantalla y sus íconos a la misma altura. -->
 
                 <CheckBox
                     android:id="@+id/seeNewXChB"
@@ -744,6 +746,7 @@
                 android:layout_width="35dp"
                 android:layout_height="35dp"
                 android:background="@drawable/ic_clean"
+                android:layout_marginEnd="6dp"
                 app:layout_gravity="center_horizontal"
 
                 />
@@ -754,7 +757,6 @@
                 android:textColor="#1F3FA6"
                 android:layout_width="120dp"
                 android:layout_height="35dp"
-                android:layout_marginTop="3dp"
                 android:layout_marginEnd="6dp"
                 android:layout_marginRight="6dp"
                 android:text="Guardar"
@@ -768,7 +770,6 @@
                 android:textColor="#1F3FA6"
                 android:layout_width="120dp"
                 android:layout_height="35dp"
-                android:layout_marginTop="3dp"
                 android:layout_marginEnd="6dp"
                 android:layout_marginRight="6dp"
                 android:text="Modificar"
@@ -925,13 +926,16 @@
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_row="5"
+        app:layout_row="3"
         app:layout_column="0"
         android:visibility="visible"
         app:layout_gravity="center_horizontal"
-        android:layout_marginTop="5dp"
-        android:layout_marginEnd="5dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_menu_opciones"
+        android:padding="6dp"
         >
+        <!-- ⭐ (16-nov, Jorge): el menú va arriba del listado de cuentas, enmarcado, y cada
+             opción se ve como botón verde de acción (ejecuta el proceso al tocarla). -->
 
         <TextView
             android:id="@+id/areaTituloBackupsYCierreXTv"
@@ -959,22 +963,28 @@
                 <RadioButton
                 android:id="@+id/_11_opcionBackupDeReservaCuentas_XRb"
                 android:layout_width="300dp"
-                android:layout_height="33dp"
-                android:background="#58A5E3"
+                android:layout_height="36dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_opcion_accion"
+                android:button="@null"
+                android:gravity="center"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="1. Backup"
                  />
 
                 <RadioButton
                 android:id="@+id/_2_1_opcionSincronizarCuentasDesdeSheets_XRb"
                 android:layout_width="300dp"
-                android:layout_height="33dp"
-                android:background="#58A5E3"
+                android:layout_height="36dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_opcion_accion"
+                android:button="@null"
+                android:gravity="center"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="2.1 Sincronizar Cuentas con Sheets"
                     />
 
@@ -982,22 +992,28 @@
                 <RadioButton
                 android:id="@+id/_2_2_opcionImportarCuentasGoogleSheets_XRb"
                 android:layout_width="300dp"
-                android:layout_height="33dp"
-                android:background="#58A5E3"
+                android:layout_height="36dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_opcion_accion"
+                android:button="@null"
+                android:gravity="center"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="2.2 Importar de Sheets"
                   />
 
             <RadioButton
                 android:id="@+id/_31_opcionRestaurarCuentasBackup_XRb"
                 android:layout_width="300dp"
-                android:layout_height="33dp"
-                android:background="#58A5E3"
+                android:layout_height="36dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_opcion_accion"
+                android:button="@null"
+                android:gravity="center"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="3. Restaurar backup"
                  />
 
@@ -1006,11 +1022,14 @@
             <RadioButton
                 android:id="@+id/_4_opcionConfiguracionRentaFiscal_XRb"
                 android:layout_width="300dp"
-                android:layout_height="33dp"
-                android:background="#58A5E3"
+                android:layout_height="36dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_opcion_accion"
+                android:button="@null"
+                android:gravity="center"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="4. Configuración renta fiscal"
                  />
 

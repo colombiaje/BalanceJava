@@ -73,19 +73,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center"
                 android:visibility="visible"
                 app:layout_row="0"
                 app:layout_column="0"
                 app:layout_columnSpan="4"
                 app:layout_gravity="center_horizontal"
                 >
+                <!-- ⭐ (16-nov, Jorge): fila centrada; campo, 🔄 y Salir a la misma altura. -->
 
                 <!-- ⭐ (15-nov, Jorge): ▾ dentro del campo (como en Cuenta): abre la lista completa de
                      cuentas y consulta la elegida en un paso. El spinner anterior queda oculto. -->
                 <FrameLayout
                     android:layout_width="200dp"
                     android:layout_height="40dp"
-                    android:layout_marginTop="2dp"
                     android:layout_marginEnd="5dp">
 
                 <AutoCompleteTextView
@@ -529,6 +530,8 @@
                 android:id="@+id/etiquetaTituloPlantilla_XTv"
                 android:layout_width="280dp"
                 android:layout_height="25dp"
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="2dp"
                 android:text="Documento con plantilla"
                 android:textSize="20dp"
                 android:textAlignment="center"
@@ -536,8 +539,8 @@
                 android:background="#425DF6"
                 app:layout_row="0"
                 app:layout_column="0"
-                app:layout_columnSpan="2"
-                app:layout_gravity="center"
+                app:layout_columnSpan="3"
+                app:layout_gravity="fill_horizontal|center_vertical"
                 android:layout_marginTop="2dp"
                 />
 
@@ -545,7 +548,8 @@
                 android:id="@+id/consecutivoNuevoDocEnPLantilla_XTv"
                 android:layout_width="40dp"
                 android:layout_height="25dp"
-                android:layout_marginRight="5dp"
+                android:layout_marginRight="4dp"
+                android:layout_marginTop="2dp"
                 android:background="#425DF6"
                 android:inputType="number"
                 android:text=""
@@ -553,8 +557,8 @@
                 android:textColorHint="#F9F9FB"
                 android:textSize="15dp"
                 app:layout_row="0"
-                app:layout_column="2"
-                app:layout_gravity="center_vertical"
+                app:layout_column="3"
+                app:layout_gravity="end|center_vertical"
                 />
 
             <!-- ⭐ (16-nov, Jorge): ▾ dentro del campo de plantilla, como en Cuenta y las búsquedas;
@@ -615,7 +619,7 @@
                 android:button="@null"
                 android:textSize="25dp"
                 android:textStyle="bold"
-                app:layout_gravity="center_horizontal"
+                app:layout_gravity="center"
                 android:layout_marginLeft="2dp"
                 android:background="@drawable/ic_clean_paste"
                 app:layout_row="1"
@@ -629,7 +633,7 @@
                 android:background="@drawable/bg_boton_accion"
                 android:textColor="#1F3FA6"
                 android:layout_width="40dp"
-                android:layout_height="28dp"
+                android:layout_height="30dp"
                 android:layout_marginTop="2dp"
                 android:layout_marginRight="4dp"
                 android:minWidth="0dp"
@@ -637,6 +641,7 @@
                 android:padding="0dp"
                 android:text="🗂"
                 android:textSize="16dp"
+                app:layout_gravity="center_vertical"
                 app:layout_row="1"
                 app:layout_column="3" />
 

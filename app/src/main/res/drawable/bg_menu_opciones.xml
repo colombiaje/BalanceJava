@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ⭐ NUEVO (16-nov, Jorge): marco del menú de opciones (Backups y cierre / Tipos de cierre)
+     para que destaque sobre el fondo de la pantalla. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="12dp" />
+    <stroke android:width="2dp" android:color="#1F3FA6" />
+    <solid android:color="#DCE8F5" />
+</shape>

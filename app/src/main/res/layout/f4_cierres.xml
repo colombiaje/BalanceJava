@@ -90,7 +90,8 @@
         app:layout_row="3"
         app:layout_column="0"
         app:layout_gravity="center_horizontal"
-        android:background="#58A5E3"
+        android:background="@drawable/bg_menu_opciones"
+        android:padding="4dp"
         android:visibility="visible"
         android:layout_marginTop="2dp"
         >
@@ -103,41 +104,49 @@
             app:layout_gravity="center_horizontal"
             app:layout_row="0"
             app:layout_column="0"
-            android:layout_marginLeft="10dp"
             >
+            <!-- ⭐ (16-nov, Jorge): cada opción se ve como botón verde de acción (ejecuta el
+                 proceso al tocarla), todas del mismo ancho. -->
 
             <RadioButton
                 android:id="@+id/_1_opcionBackupDeReservaTransacciones_XRb"
-                android:layout_width="wrap_content"
-                android:layout_height="25dp"
-                android:layout_marginLeft="1dp"
-                android:background="#58A5E3"
+                android:layout_width="320dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="3dp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/bg_opcion_accion"
                 android:text="1. Backup de reserva"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:textSize="15dp"
                 android:textStyle="bold"
                 />
 
             <RadioButton
                 android:id="@+id/_2_opcionAutonomoTransacciones_XRb"
-                android:layout_width="wrap_content"
-                android:layout_height="25dp"
-                android:background="#58A5E3"
+                android:layout_width="320dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="3dp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/bg_opcion_accion"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="2. Interno todas las cuentas"
-                android:layout_marginLeft="1dp"
                 />
 
             <RadioButton
                 android:id="@+id/_3_opcionTransaccionesAlgunasCuentas_XRb"
-                android:layout_width="wrap_content"
-                android:layout_height="25dp"
-                android:background="#58A5E3"
+                android:layout_width="320dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="3dp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/bg_opcion_accion"
                 android:textSize="14dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="3. Interno de algunas cuentas"
 
                 />
@@ -145,34 +154,43 @@
             <RadioButton
                 android:id="@+id/_4_1_opcionSincronizarBalance_desde_Sheets_XRb"
                 android:text="4.1 Sincronizar Balance desde Sheets"
-                android:layout_width="wrap_content"
-                android:layout_height="25dp"
-                android:background="#58A5E3"
+                android:layout_width="320dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="3dp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/bg_opcion_accion"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
 
                 />
 
             <RadioButton
                 android:id="@+id/_4_2_opcion_Importar_Balance_desde_Sheets_XRb"
-                android:layout_width="wrap_content"
-                android:layout_height="25dp"
-                android:background="#58A5E3"
+                android:layout_width="320dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="3dp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/bg_opcion_accion"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="4.2 Importar Balance desde Sheets"
                 />
 
             <RadioButton
                 android:id="@+id/_5_opcionRecuperarBackupTransacciones_XRb"
-                android:layout_width="wrap_content"
-                android:layout_height="25dp"
-                android:background="#58A5E3"
+                android:layout_width="320dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="3dp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/bg_opcion_accion"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="5. Restaurar todas las transacciones"
                
                 />
@@ -180,12 +198,15 @@
             <!-- ⭐ NUEVO (3-nov, renta R4, pedido de Jorge): reporte de renta fiscal. -->
             <RadioButton
                 android:id="@+id/_6_opcionReporteRentaFiscal_XRb"
-                android:layout_width="wrap_content"
-                android:layout_height="25dp"
-                android:background="#58A5E3"
+                android:layout_width="320dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="3dp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/bg_opcion_accion"
                 android:textSize="15dp"
                 android:textStyle="bold"
-                android:textColor="@android:color/white"
+                android:textColor="#1F3FA6"
                 android:text="6. Reporte renta fiscal"
                 />
 
