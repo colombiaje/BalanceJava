@@ -2293,6 +2293,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         View fila = raiz.findViewById(R.id.filaModificacion_XLL);
         View bloque = raiz.findViewById(R.id.areaConciliacionYRegistro_XGl);
         if (fila != null) fila.setVisibility(enModoModificacion ? View.VISIBLE : View.GONE);
+        ajustarAltoListaRegistros(); // ⭐ (16-nov) la fila de modificación cambia el espacio
         if (bloque != null) {
             bloque.setBackgroundResource(enModoModificacion
                     ? R.drawable.bg_registro_marco_modificacion : R.drawable.bg_registro_marco);
@@ -2657,18 +2658,31 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         if (dateInTemplate_XTv != null) {
             dateInTemplate_XTv.setVisibility(enPlantilla ? View.VISIBLE : View.GONE);
         }
-        // ⭐ (11-nov, Jorge): la lista de registros es un poco más baja en Plantilla (180 dp) y en
-        // Nuevo (195 dp) que en Edición (230 dp), para que se vea la lista de cuentas a revisar.
-        if (listaDocumento_XLv != null) {
+        // ⭐ CAMBIO (16-nov, Jorge): el alto de la lista de registros se calcula según la pantalla,
+        // para que llegue hasta abajo dejando un margen en cualquier equipo (con alto fijo, en el
+        // 13T se salía del margen y en la Pad 5 sobraba espacio). Antes: 265/280/315 dp fijos.
+        ajustarAltoListaRegistros();
+    }
+
+    /** Alto de la lista = desde su borde superior hasta el fondo visible, menos 16 dp de margen. */
+    public void ajustarAltoListaRegistros() {
+        if (listaDocumento_XLv == null) return;
+        listaDocumento_XLv.post(() -> {
+            if (!isAdded() || getActivity() == null) return;
+            android.graphics.Rect visible = new android.graphics.Rect();
+            getActivity().getWindow().getDecorView().getWindowVisibleDisplayFrame(visible);
+            int[] pos = new int[2];
+            listaDocumento_XLv.getLocationInWindow(pos);
+            float d = getResources().getDisplayMetrics().density;
+            int alto = visible.bottom - pos[1] - Math.round(16 * d);
+            int minimo = Math.round(150 * d);
+            if (alto < minimo) alto = minimo;
             ViewGroup.LayoutParams lp = listaDocumento_XLv.getLayoutParams();
-            if (lp != null) {
-                // ⭐ (16-nov, Jorge): +85 dp, el espacio que dejó la lista de revisión retirada.
-                int altoDp = enPlantilla ? 265 : (radioButtonId == R.id.create_XRb ? 280 : 315);
-                lp.height = Math.round(altoDp
-                        * getResources().getDisplayMetrics().density);
+            if (lp != null && lp.height != alto) {
+                lp.height = alto;
                 listaDocumento_XLv.setLayoutParams(lp);
             }
-        }
+        });
     }
 
     // 3
