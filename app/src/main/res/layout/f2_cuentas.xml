@@ -4,7 +4,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="450dp"
+    android:layout_width="match_parent"
     android:layout_height="800dp"
     android:background="#EFA9A4"
     tools:context="B_FRAGMENTS.F2_Cuentas"
@@ -13,6 +13,8 @@
     android:layout_marginLeft="0dp"
     android:layout_marginTop="60dp"
     >
+    <!-- ⭐ (16-nov, Jorge): ancho = pantalla (antes 450dp fijos, más que el 13T), para que las
+         áreas centradas queden centradas de verdad en cada equipo. -->
 
     <TextView
         android:id="@+id/valorRecibidoResultadoCalculadora_XTv"
