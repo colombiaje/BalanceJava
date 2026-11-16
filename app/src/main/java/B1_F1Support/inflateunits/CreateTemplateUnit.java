@@ -184,7 +184,6 @@ public class CreateTemplateUnit {
                 String.format("%04d", f1.siguienteDocEnAdicionar_Integer);
         f1.consecutivoNuevoDocEnPLantilla_XTv.setText(f1.nuevoNumeroDocEnAdicionar_String);
 
-        f1.pasarItemListaTodoResumidoAItemListaRevision();
         f1.ocultarTeclado();
     }
 

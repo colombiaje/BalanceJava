@@ -30,8 +30,6 @@ public class UpdateDeleteUnit {
     }
 
     private void inflateViews(View view) {
-        f1.envolventeEncabezadoItemListaRevisar_XLl = view.findViewById(R.id.envolventeEncabezadoItemListaRevisar_XLl);
-        f1.embolventeItemsListaRevisar_XLl          = view.findViewById(R.id.embolventeItemsListaRevisar_XLl);
         f1.areaUpdateAndDelete_XGl                  = view.findViewById(R.id.areaUpdateAndDelete_XGl);
         f1.documentoABuscarParaEditar_XATv          = view.findViewById(R.id.documentoABuscarParaEditar_XATv);
         f1.dateInUpdate_XTv                         = view.findViewById(R.id.dateInUpdate_XTv);
@@ -91,10 +89,6 @@ public class UpdateDeleteUnit {
                     f1.sumarItemListaDocumento();
                     f1.actualizarSumasListado();
                     f1.controlACeroTotales_XTv.setText("" + f1.$netoT);
-                    f1.pasarItemListaTodoResumidoAItemListaRevision();
-                    // ⭐ (13-nov): sin saldos del documento anterior en "cuentas a revisar";
-                    // al elegir la cuenta se recalculan con el ajuste del 10-nov.
-                    f1.resetearSpinnerCuentasRevision();
                     f1.ocultarTeclado();
                     f1.documentoABuscarParaEditar_XATv
                             .setBackgroundColor(Color.parseColor("#90E0D8"));
@@ -260,7 +254,6 @@ public class UpdateDeleteUnit {
             f1.numeroConsecutivoDocEnEdicion_XTv.setFocusable(true);
             Toast.makeText(f1.getActivity(),
                     "Se edito el Documento", Toast.LENGTH_SHORT).show();
-            f1.pasarItemListaTodoResumidoAItemListaRevision();
         });
     }
 }

@@ -204,14 +204,6 @@ public class B13_NavigationManager {
         // que en mostrarAreaLimpia()/restoreBackups() — también al entrar por Canal D.
         f1.dynamicQueryByDocumentinUpdate();
         f1.colocarDocConsultadoEnListaItemDoc();
-        f1.pasarItemListaTodoResumidoAItemListaRevision();
-
-        if (f1.listaCuentasDeRevision_XSp.getAdapter() != null
-                && f1.listaCuentasDeRevision_XSp.getAdapter().getCount() > 1) {
-            f1.listaCuentasDeRevision_XSp.setSelection(1);
-            f1.actualizarSpinnerCuentasRevision();
-        }
-        f1.resetearSpinnerCuentasRevision();
 
         f1.updateDelete_XRb.post(() -> {
             f1.optionsDoc_XRg.setOnCheckedChangeListener(null);

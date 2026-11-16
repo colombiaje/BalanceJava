@@ -483,7 +483,6 @@ public class RecordDocumentUnit {
                     f1.confirmarRegistroAlElegirSigno();
                     f1.digitarFisicoVsSaldoConciliacion();
                     f1.renumerarItemsListaDocumento();
-                    f1.pasarItemListaTodoResumidoAItemListaRevision();
                     f1.sumarItemListaDocumento();
                     f1.actualizarSumasListado();
                 }

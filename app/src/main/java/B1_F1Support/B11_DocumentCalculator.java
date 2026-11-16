@@ -179,50 +179,8 @@ public class B11_DocumentCalculator {
         }
     }
 
-    // ═════════════════════════════════════════════════════════════
-    // 4. extraerCuentasUnicas — parte pura de pasarItemListaTodoResumidoAItemListaRevision()
-    //
-    // ANTES en el fragment: construía la lista Y asignaba el adapter al spinner.
-    // AHORA: solo construye y retorna la lista.
-    // El fragment toma la lista, crea el adapter y asigna al spinner.
-    // ═════════════════════════════════════════════════════════════
-    public ArrayList<String> extraerCuentasUnicas(List<A3_2_TipoTransaccionesGetsYSets> lista) {
-        ArrayList<String> resultado = new ArrayList<>();
-        resultado.add(""); // ítem vacío en posición 0
-        if (lista == null) return resultado;
-
-        for (A3_2_TipoTransaccionesGetsYSets item : lista) {
-            String cuenta = item.tipoT_3Accout_String;
-            if (cuenta != null && !resultado.contains(cuenta)) {
-                resultado.add(cuenta);
-            }
-        }
-        return resultado;
-    }
-
-    // ═════════════════════════════════════════════════════════════
-    // 5. sumarCuentaRevision — parte pura de sumarItemListaSaldosCuenta()
-    //
-    // ANTES en el fragment: leía listaCuentasDeRevision_XSp y escribía en
-    //   movimientoListaCuentasRevisar_XTv directamente.
-    // AHORA: recibe la cuenta como String, retorna el entero.
-    // El fragment pinta el TextView.
-    // ═════════════════════════════════════════════════════════════
-    public int sumarCuentaRevision(List<A3_2_TipoTransaccionesGetsYSets> lista,
-                                   String cuentaRevision) {
-        int suma = 0;
-        if (lista == null || cuentaRevision == null) return suma;
-        try {
-            for (A3_2_TipoTransaccionesGetsYSets item : lista) {
-                if (cuentaRevision.equals(item.tipoT_3Accout_String)) {
-                    suma += item.tipoT_5Value_Integer;
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error sumando saldos cuenta revisión", e);
-        }
-        return suma;
-    }
+    // ⭐ RETIRADOS (16-nov, Jorge): 4. extraerCuentasUnicas y 5. sumarCuentaRevision, de la
+    // lista de revisión de cuentas (la reemplazó el saldo de cada renglón).
 
     // ═════════════════════════════════════════════════════════════
     // 6. calcularMovimientosOriginales — extrae calcularMovimientosOriginalesDelDocumento()

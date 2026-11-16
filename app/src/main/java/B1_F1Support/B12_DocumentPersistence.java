@@ -620,10 +620,6 @@ public class B12_DocumentPersistence {
         if (item == null) return;
 
         f1.listaDocumento_ArrayLTT.add(item);
-        f1.listaCuentasRevisionParaAdapterSpinner_ArrayListString.add(cuentaConciliable);
-        f1.conectarListaCuentasRevisionConSpinner_arrayAdapterString.notifyDataSetChanged();
-        f1.listaCuentasDeRevision_XSp.setAdapter(
-                f1.conectarListaCuentasRevisionConSpinner_arrayAdapterString);
 
         Toast.makeText(f1.getActivity(), "Primer registro", Toast.LENGTH_SHORT).show();
     }

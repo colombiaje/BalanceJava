@@ -199,14 +199,12 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // =========================================================
     public ArrayList<A3_2_TipoTransaccionesGetsYSets> listaDocumento_ArrayLTT      = new ArrayList<>();
     ArrayList<A3_2_TipoTransaccionesGetsYSets> itemsListaBackup_ArrayListTipoT;
-    public ArrayList<String> listaCuentasRevisionParaAdapterSpinner_ArrayListString  = new ArrayList<>();
     ArrayList        cuentasConciliablesDeItemsLista_ArrayList                = new ArrayList<String>();
     public D_F1_AdaptadorCrudDocumento conexionListDocumentForGeneralWithListView_Adaptador1_TipoT;
     public ArrayAdapter<String> adapterConsecutivoDocAz;
     ArrayAdapter<String> consultacuentasOrdenAscendente_List_ArrayAdapter;
     ArrayAdapter         adaptadorCuentasConciliables;
     ArrayAdapter         adaptadorCuentaVaciaParaIniciar_ArrayAdapter;
-    public ArrayAdapter         conectarListaCuentasRevisionConSpinner_arrayAdapterString;
     public List                 signos_ListString;
 
     // =========================================================
@@ -228,8 +226,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public Integer $quedaPorRegistrarConRegistroActual = 0;
     public Integer $adicionesAc;
     public Integer $diferenciaAConciliar_Integer              = 0;
-    public Integer sumaMovimientoItemListaCuentaRevision_Integer = null;
-    public int sumaTransaccionesCuenta;
     public int         sumaTransaccionesCuenta2;
 
     // =========================================================
@@ -254,7 +250,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     String cuentaRegistroInicial_String;
     String cuentaConciliableASumar;
     String cuentaConciliableASumar2;
-    String cuentaConciliableASumar3;
     public String descripcionPLantillaABuscar_String;
     String descripcionABuscarEnPlantilla_String;
     String leeDocODescricionRecibido_String;
@@ -332,14 +327,11 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public GridLayout  areaConciliacionYRegistro_XGl;
     public GridLayout  areaCalendario_XGl;
     public GridLayout  areaDocumento_XGl;
-    public GridLayout  areaListaRevisarCuentas_XGl;
     public GridLayout  seccion1HaceRegistrosItemsLista_XGl;
     public GridLayout  cuenta_XGL;
     public GridLayout  transacciones_crud_XCL;
     public LinearLayout areaButtons_XLL;
     public LinearLayout envolventeEncabezadoItemLista_XLl;
-    public LinearLayout embolventeItemsListaRevisar_XLl;
-    public LinearLayout envolventeEncabezadoItemListaRevisar_XLl;
     public ListView    listaDocumento_XLv;
     public CalendarView calendarView_XCv;
 
@@ -357,7 +349,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public Spinner signo_XSp;
     public Spinner cuenta_XSp;
     public Spinner cuentaConciliacion_XSp;
-    public Spinner listaCuentasDeRevision_XSp;
     public Spinner consultaPorCuentaYFechaEnOtroFragment_XSp;
 
     // =========================================================
@@ -393,9 +384,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public TextView documentoYFechaInicialBaseDeLaPLantilla_XTv;
     public TextView diferenciaAConciliar_XTv;
     public TextView saldoCuentaAconciliar_XTv;
-    public TextView saldoInicialeListaCuentasRevisar_XTv;
-    public TextView movimientoListaCuentasRevisar_XTv;
-    public TextView saldoFinalListaCuentasRevisar_XTv;
     public TextView dateInUpdate_XTv;
     public TextView changeOfDateInUpdate_XTv;
     // NOTE: EtiquetaFechaNueva_XTv and etiquetadateInUpdate_XTv are aliases
@@ -588,7 +576,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
         cuentaConciliacion_XSp.setSelection(0);
 
-        pasarItemListaTodoResumidoAItemListaRevision();
 
         salidaEsteFragment_XBt.setVisibility(View.VISIBLE);
         ocultarTeclado();
@@ -671,7 +658,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
             });
         }
 
-        resetearSpinnerCuentasRevision();
         //ojo2
         // ⭐ REGISTRAR EL RECEIVER
         cuentasActualizadasReceiver = new BroadcastReceiver() {
@@ -907,8 +893,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // Lista de TODOS tus spinners críticos
         Spinner[] spinners = {
                 cuentaConciliacion_XSp,
-                signo_XSp,
-                listaCuentasDeRevision_XSp
+                signo_XSp
                 // Agrega aquí otros spinners que uses en las áreas
         };
 
@@ -1282,21 +1267,10 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         A23_QueryResult<Void> sumaPorCuenta = a22QueryManager.querySumTransactionsByAccount(cuentaConciliableASumar);
         $sAc = sumaPorCuenta.getSuma();
 
-        //
-        if (listaCuentasDeRevision_XSp == null || listaCuentasDeRevision_XSp.getAdapter() == null || listaCuentasDeRevision_XSp.getAdapter().isEmpty()) {
-            return;
-        }
-
-        Object selectedItem = listaCuentasDeRevision_XSp.getSelectedItem();
-        if (selectedItem == null) {
-            return;
-        }
-
-        cuentaConciliableASumar3 = selectedItem.toString();
-
-        A23_QueryResult<Void> resultadoSuma = a22QueryManager.querySumTransactionsByAccount(cuentaConciliableASumar3);
-        sumaTransaccionesCuenta = resultadoSuma.getSuma();
-
+        // ⭐ (16-nov, Jorge): retirada la lista de revisión. Antes este cálculo quedaba después
+        // de un "return" que salía si esa lista estaba vacía, y entonces sumaTransaccionesCuenta2
+        // (el Saldo de conciliación, ver B12.digitarFisicoVsSaldoConciliacion) podía quedar
+        // con el valor de una consulta anterior. Ahora se calcula siempre.
         cuentaConciliableASumar2 = cuentaConciliacion_XSp.getSelectedItem().toString();
         A23_QueryResult<Void> sumaPorCuenta2 = a22QueryManager.querySumTransactionsByAccount(cuentaConciliableASumar2);
         sumaTransaccionesCuenta2 = sumaPorCuenta2.getSuma();
@@ -1677,42 +1651,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     }
 
-    public void actualizarSpinnerCuentasRevision() {
-        if (listaCuentasDeRevision_XSp.getSelectedItem() != null &&
-                !listaCuentasDeRevision_XSp.getSelectedItem().toString().equals("") &&
-                !listaCuentasDeRevision_XSp.getSelectedItem().toString().equals("1 No conciliar")) {
-
-            dynamicQuerySumByAccountAcordingToArgument();
-            dynamicQueryByAllAccountAz();
-
-            $sAc = Integer.parseInt(String.valueOf(sumaTransaccionesCuenta));
-
-            // === NUEVO: Ajustar saldo si estamos en modo edición ===
-            asegurarAjusteDeSaldosEnEdicion(); // ⭐ (10-nov)
-            Integer saldoInicialAjustado = $sAc;
-
-            if (documentoCargadoParaEdicion) {
-                String cuentaSeleccionada = listaCuentasDeRevision_XSp.getSelectedItem().toString();
-
-                if (movimientosOriginalesDocumento_HashMap.containsKey(cuentaSeleccionada)) {
-                    Integer movimientoOriginal = movimientosOriginalesDocumento_HashMap.get(cuentaSeleccionada);
-                    saldoInicialAjustado = $sAc - movimientoOriginal;
-                }
-            }
-
-            saldoInicialeListaCuentasRevisar_XTv.setText("" + saldoInicialAjustado);
-
-            sumarItemListaSaldosCuenta();
-
-            Integer saldo2CuentaARevisar_Integer =
-                    saldoInicialAjustado + sumaMovimientoItemListaCuentaRevision_Integer;
-            saldoFinalListaCuentasRevisar_XTv.setText("" + saldo2CuentaARevisar_Integer);
-
-            listaCuentasDeRevision_XSp.setBackgroundColor(Color.parseColor("#1de9b6"));
-            listaCuentasDeRevision_XSp.setVisibility(View.VISIBLE);
-            resetearSpinnerCuentasRevision();
-        }
-    }
 
     public void actualizarTotales() {
         sumarItemListaDocumento();
@@ -1723,7 +1661,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public void procesarActualizacionCompleta() {
         digitarFisicoVsSaldoConciliacion();
         actualizarTotales();
-        actualizarSpinnerCuentasRevision();
         actualizarListView();
     }
 
@@ -1766,7 +1703,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      * descripción (al guardar se le agrega el periodo, ver B12.assignDocumentDate).
      */
     public void cargarPlantillaNueva(A1BASES.A27_Plantillas.Plantilla plantilla) {
-        resetearSpinnerCuentasRevision();
         try {
             dynamicQuerySumByAccountAcordingToArgument();
             dynamicQueryByAllAccountAz();
@@ -1818,7 +1754,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
 
     public void colocarDocConsultadoEnListaItemDoc() {
 
-        resetearSpinnerCuentasRevision();
 
         try {
             String leeDocODescricionABuscar_String = null;
@@ -2013,21 +1948,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         controlACeroTotales_XTv.setTextColor(Color.parseColor(hayDiferencia ? "#1F3FA6" : "#FAFAFD"));
     }
 
-    public void sumarItemListaSaldosCuenta() {
-        sumarItemListaDocumento();
-        actualizarSumasListado();
-
-        if (listaCuentasDeRevision_XSp == null
-                || listaCuentasDeRevision_XSp.getAdapter() == null
-                || listaCuentasDeRevision_XSp.getSelectedItem() == null) return;
-
-        String cuentaRevision = listaCuentasDeRevision_XSp.getSelectedItem().toString();
-        sumaMovimientoItemListaCuentaRevision_Integer =
-                calculator.sumarCuentaRevision(listaDocumento_ArrayLTT, cuentaRevision);
-
-        movimientoListaCuentasRevisar_XTv.setText(
-                "" + sumaMovimientoItemListaCuentaRevision_Integer);
-    }
 
 
     //methods clear
@@ -2090,7 +2010,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         listaDocumento_XLv.setAdapter(conexionListDocumentForGeneralWithListView_Adaptador1_TipoT);
 
         cuentasConciliablesDeItemsLista_ArrayList.clear();
-        listaCuentasRevisionParaAdapterSpinner_ArrayListString.clear();
     }
 
     //metodos read bases de datos
@@ -2216,24 +2135,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         persistence.guardarModificacion();
     }
 
-    public void pasarItemListaTodoResumidoAItemListaRevision() {
-        ArrayList<String> nuevaLista =
-                calculator.extraerCuentasUnicas(listaDocumento_ArrayLTT);
-
-        listaCuentasRevisionParaAdapterSpinner_ArrayListString = nuevaLista;
-        conectarListaCuentasRevisionConSpinner_arrayAdapterString = new ArrayAdapter<>(
-                getActivity(),
-                android.R.layout.simple_list_item_multiple_choice,
-                listaCuentasRevisionParaAdapterSpinner_ArrayListString);
-        // ⭐ CAMBIO (10-nov, Nivel 6): primero el adaptador nuevo y después la selección. Antes
-        // setSelection(0) iba primero y actuaba sobre el adaptador ANTERIOR (otra lista de
-        // cuentas); la posición 0 de la lista nueva solo quedaba por el valor por defecto de
-        // setAdapter. Se quita además el notifyDataSetChanged() de un adaptador recién creado,
-        // que no hacía nada.
-        listaCuentasDeRevision_XSp.setAdapter(
-                conectarListaCuentasRevisionConSpinner_arrayAdapterString);
-        listaCuentasDeRevision_XSp.setSelection(0);
-    }
 
     //metodos de instalacion de la aplicacion
     public void crearCarpetaDeLaAppBalance() {
@@ -2401,13 +2302,12 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     private void calcularMovimientosOriginalesDelDocumento() {
-        resetearSpinnerCuentasRevision();
         movimientosOriginalesDocumento_HashMap =
                 calculator.calcularMovimientosOriginales(listaDocumento_ArrayLTT);
     }
 
     /**
-     * Reconstruye el ajuste transitorio de saldos del spinner listaCuentasDeRevision_XSp
+     * Reconstruye el ajuste transitorio de saldos del documento en edición
      * (documentoCargadoParaEdicion + movimientosOriginalesDocumento_HashMap) para un documento
      * que llega restaurado desde la caché (botón verde / Canal D) y NO por
      * colocarDocConsultadoEnListaItemDoc(), único lugar que hasta ahora los establecía.
@@ -2416,8 +2316,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
      * restaurada: esa lista puede ser un borrador ya editado, y contarlo como "original"
      * daría un Saldo 1 incorrecto.
      *
-     * No toca la lista, el spinner ni los TextViews; solo el estado que leen
-     * ControlAccountsUnit.setupReviewAccountSpinner() y actualizarSpinnerCuentasRevision().
+     * No toca la lista ni los TextViews; solo el estado que lee calcularSaldosTrasItems()
+     * (saldo de cada renglón).
      */
     public void recalcularAjusteDeSaldosDesdeBD() {
         String doc = documentoABuscarParaEditar_XATv.getText().toString().trim();
@@ -2444,7 +2344,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     }
 
     /**
-     * ⭐ NUEVO (10-nov, Jorge): en Área 3 (updateDelete) el Saldo 1 de listaCuentasDeRevision_XSp
+     * ⭐ NUEVO (10-nov, Jorge): en Área 3 (updateDelete) el saldo de partida de cada cuenta
      * debe ser el saldo de la BD MENOS lo que ya aporta el documento en edición, para que Saldo 2
      * quede igual al saldo real. Ese ajuste dependía de que cada camino de entrada (consecutivo,
      * botón verde, F3_2_VerItemTransaccion) hubiera dejado listo documentoCargadoParaEdicion y
@@ -2458,20 +2358,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         }
     }
 
-    public void resetearSpinnerCuentasRevision() {
-        if (listaCuentasDeRevision_XSp != null &&
-                listaCuentasDeRevision_XSp.getAdapter() != null &&
-                listaCuentasDeRevision_XSp.getAdapter().getCount() > 0) {
-
-            listaCuentasDeRevision_XSp.setSelection(0, false); // Seleccionar item vacío (posición 0)
-
-            // Limpiar TextViews asociados
-            saldoInicialeListaCuentasRevisar_XTv.setText("");
-            movimientoListaCuentasRevisar_XTv.setText("");
-            saldoFinalListaCuentasRevisar_XTv.setText("");
-
-        }
-    }
 
     public void restaurarListenerRadioGroup() {
         optionsDoc_XRg.setOnCheckedChangeListener((group, checkedId) -> {
@@ -2610,7 +2496,7 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         // ⭐ AQUÍ APAGAMOS EL ESCUDO
         // Usamos un pequeño post para asegurar que el Spinner procese el cambio
         // antes de reactivar la lógica pesada.
-        listaCuentasDeRevision_XSp.postDelayed(() -> estaRestaurando = false, 100);
+        cuentaConciliacion_XSp.postDelayed(() -> estaRestaurando = false, 100);
 
         // 4. Actualizar contador
         int total = listaDocumento_ArrayLTT != null
@@ -2618,7 +2504,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         consecutivoItemRegistro_XTv.setText(
                 total > 0 ? "Item:\n" + total + "/" + total : "0/0");
 
-        pasarItemListaTodoResumidoAItemListaRevision();
         sumarItemListaDocumento();
         actualizarSumasListado();
         inputPhysicalVsAccounting_XEt.requestFocus();

@@ -10,8 +10,8 @@ import B_FRAGMENTS.F1_CrudDocumento;
 /**
  * UIStateController — control de visibilidad de áreas para F1_CrudDocumento.
  *
- * REGLA: esta clase SOLO cambia visibilidad, colores de fondo y llama a
- * resetearSpinnerCuentasRevision(). No contiene lógica de negocio ni queries.
+ * REGLA: esta clase SOLO cambia visibilidad y colores de fondo. No contiene lógica de
+ * negocio ni queries.
  *
  * Recibe el fragment como referencia y accede a sus vistas (package-private).
  * El fragment instancia esta clase una sola vez y delega todos los cambios
@@ -36,9 +36,7 @@ public class B14_UIStateController {
         f1.areaUpdateAndDelete_XGl.setVisibility(View.GONE);
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.GONE);
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.GONE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE);
         f1.areaButtons_XLL.setVisibility(View.GONE);
-        f1.resetearSpinnerCuentasRevision();
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -70,10 +68,7 @@ public class B14_UIStateController {
         f1.areaUpdateAndDelete_XGl.setVisibility(View.GONE);
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.guardarCambiosALaBD.setVisibility(View.VISIBLE);
         f1.cleanSinCambiosInBD_XBt.setVisibility(View.VISIBLE);
         f1.salidaEsteFragment_XBt.setVisibility(View.VISIBLE);
@@ -82,9 +77,7 @@ public class B14_UIStateController {
         f1.transacciones_crud_XCL.setBackgroundColor(Color.parseColor("#FAEF94"));
         f1.areaConciliacionYRegistro_XGl.setBackgroundResource(R.drawable.bg_yelow_square);
         f1.areaDocumento_XGl.setBackgroundResource(R.drawable.bg_yelow_square);
-        f1.areaListaRevisarCuentas_XGl.setBackgroundResource(R.drawable.bg_yelow_square);
 
-        f1.resetearSpinnerCuentasRevision();
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -98,11 +91,7 @@ public class B14_UIStateController {
         f1.salidaEsteFragment_XBt.setVisibility(View.VISIBLE);
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
-        f1.resetearSpinnerCuentasRevision();
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -122,17 +111,13 @@ public class B14_UIStateController {
         f1.areaUpdateAndDelete_XGl.setVisibility(View.VISIBLE);
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
         // Botones de acción
         f1.guardarCambiosALaBD.setVisibility(View.VISIBLE);
         f1.cleanSinCambiosInBD_XBt.setVisibility(View.VISIBLE);
         f1.salidaEsteFragment_XBt.setVisibility(View.VISIBLE);
 
-        f1.resetearSpinnerCuentasRevision();
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -147,11 +132,7 @@ public class B14_UIStateController {
 
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.INVISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.INVISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
-        f1.resetearSpinnerCuentasRevision();
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -175,11 +156,7 @@ public class B14_UIStateController {
         // Áreas de layout
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.INVISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.INVISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.embolventeItemsListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
-        f1.envolventeEncabezadoItemListaRevisar_XLl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
 
-        f1.resetearSpinnerCuentasRevision();
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -191,16 +168,13 @@ public class B14_UIStateController {
         f1.areaTemplate_XGl.setVisibility(View.VISIBLE);
         f1.areaUpdateAndDelete_XGl.setVisibility(View.GONE);
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.areaButtons_XLL.setVisibility(View.VISIBLE);
 
         // Tema rosa — identifica visualmente el área Plantilla
         f1.transacciones_crud_XCL.setBackgroundColor(Color.parseColor("#FA94B7"));
         f1.areaConciliacionYRegistro_XGl.setBackgroundResource(R.drawable.bg_template);
         f1.areaDocumento_XGl.setBackgroundResource(R.drawable.bg_template);
-        f1.areaListaRevisarCuentas_XGl.setBackgroundResource(R.drawable.bg_template);
 
-        f1.resetearSpinnerCuentasRevision();
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -214,15 +188,12 @@ public class B14_UIStateController {
         f1.areaConciliacionYRegistro_XGl.setVisibility(View.VISIBLE);
         f1.areaDocumento_XGl.setVisibility(View.VISIBLE);
         f1.envolventeEncabezadoItemLista_XLl.setVisibility(View.VISIBLE);
-        f1.areaListaRevisarCuentas_XGl.setVisibility(View.GONE); // ⭐ (16-nov, Jorge) retirada: la reemplaza el "= saldo" de cada renglón
         f1.areaButtons_XLL.setVisibility(View.VISIBLE);
 
         // Tema lila — identifica visualmente el área Editar
         f1.transacciones_crud_XCL.setBackgroundColor(Color.parseColor("#AF87F6"));
         f1.areaConciliacionYRegistro_XGl.setBackgroundResource(R.drawable.bg_lilac_square);
         f1.areaDocumento_XGl.setBackgroundResource(R.drawable.bg_lilac_square);
-        f1.areaListaRevisarCuentas_XGl.setBackgroundResource(R.drawable.bg_lilac_square);
 
-        f1.resetearSpinnerCuentasRevision();
     }
 }
