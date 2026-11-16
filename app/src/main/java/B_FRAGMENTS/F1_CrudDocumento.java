@@ -2662,7 +2662,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         if (listaDocumento_XLv != null) {
             ViewGroup.LayoutParams lp = listaDocumento_XLv.getLayoutParams();
             if (lp != null) {
-                int altoDp = enPlantilla ? 180 : (radioButtonId == R.id.create_XRb ? 195 : 230);
+                // ⭐ (16-nov, Jorge): +85 dp, el espacio que dejó la lista de revisión retirada.
+                int altoDp = enPlantilla ? 265 : (radioButtonId == R.id.create_XRb ? 280 : 315);
                 lp.height = Math.round(altoDp
                         * getResources().getDisplayMetrics().density);
                 listaDocumento_XLv.setLayoutParams(lp);
