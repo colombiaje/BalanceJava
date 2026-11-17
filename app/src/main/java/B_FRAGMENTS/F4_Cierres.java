@@ -5,6 +5,7 @@ import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE;
+import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS;
@@ -295,10 +296,11 @@ public class F4_Cierres extends Fragment {
      */
     public void _2iniciarCierreAutonomoTransaccionesTodasLasCuentas() {
 
-        subirArchivosADriveConDelay(new String[]{
-                //"421 Backup antes de cerrar todas las cuentas.csv",
-                CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS.getFileName(),
-        });
+        // ⭐ CAMBIO E0 (17-nov): el 421 se hace YA y verificado; antes iba con retardo y el
+        // cierre borraba a los 10 s aunque ese respaldo hubiera fallado.
+        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS.getFileName(), 6)) {
+            return;
+        }
 
         new Handler().postDelayed(() -> {
 
@@ -312,6 +314,11 @@ public class F4_Cierres extends Fragment {
                         getActivity(),
                         nombreArchivoResumen
                 );
+                // ⭐ E0 (17-nov): sin resumen de saldos no se borra nada.
+                if (!archivoConContenido(nombreArchivoResumen)) {
+                    Toast.makeText(getActivity(), "No se generó el resumen de saldos; no se borró nada.", Toast.LENGTH_LONG).show();
+                    return;
+                }
 
                 // 2. Borrar historial de transacciones
                 _7borrarHistorialTransacciones("transacciones");
@@ -499,10 +506,10 @@ public class F4_Cierres extends Fragment {
 
     public void _3iniciarCierreAutonomoTransaccionesAlgunasCuentas() {
 
-        subirArchivosADriveConDelay(new String[]{
-                //"431 Backup antes de cerrar algunas cuentas.csv",
-                CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS.getFileName()
-        });
+        // ⭐ CAMBIO E0 (17-nov): el 431 se hace YA y verificado (antes, con retardo y sin revisar).
+        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS.getFileName(), 6)) {
+            return;
+        }
 
         new Handler().postDelayed(() -> {
 
@@ -515,6 +522,11 @@ public class F4_Cierres extends Fragment {
                         getActivity(),
                         nombreArchivoResumen
                 );
+                // ⭐ E0 (17-nov): sin resumen de saldos no se borra nada.
+                if (!archivoConContenido(nombreArchivoResumen)) {
+                    Toast.makeText(getActivity(), "No se generó el resumen de saldos; no se borró nada.", Toast.LENGTH_LONG).show();
+                    return;
+                }
 
                 // 2. Borrar transacciones de algunas cuentas
                 A1_2_OperacionesBD operacionesBD_class = new A1_2_OperacionesBD(getActivity());
@@ -579,28 +591,25 @@ public class F4_Cierres extends Fragment {
         try {
             dynamicQuery();
 
-            // 1. Si hay transacciones, hacer backup antes de restaurar
+            // ⭐ CAMBIO E0 (17-nov): el respaldo "antes" (451_1) ya se hizo y verificó en
+            // _5_dialogoElegirOrigenRestauracion(). Aquí: borrar, importar y DESPUÉS el 451_2
+            // (antes iba con 15 s de retardo, cruzado con la importación).
             if (todasLasTransacciones_Result_List.size() != 0) {
                 _7borrarHistorialTransacciones("transacciones");
-
-                new Handler().postDelayed(() -> {
-                    A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                            requireContext(),
-                            //"451 Backup antes de restaurar transacciones.csv",
-                            CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(),
-                            FOLDER_ID_DRIVE,
-                            5
-                    );
-                    Log.d(TAG, "Backup pre-restauración guardado");
-                }, 15000);
-            } else {
-                Toast.makeText(getActivity(), "No hay transacciones para hacer backup", Toast.LENGTH_LONG).show();
             }
 
             // 2. Restaurar desde backup
             //String nombreArchivo = "411 Backup antes de cierres.csv";
             String nombreArchivo = CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getFileName();
             importarTransaccionesDesdeCSV(nombreArchivo);
+
+            // 3. Respaldo "después"
+            A6_3_CSVDriveUploader.guardarYSubirTransacciones(
+                    requireContext(),
+                    CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(),
+                    FOLDER_ID_DRIVE,
+                    5
+            );
 
             Log.d(TAG, "Transacciones restauradas correctamente");
         } catch (Exception e) {
@@ -615,43 +624,28 @@ public class F4_Cierres extends Fragment {
      * Importa transacciones desde un archivo CSV
      * Busca en carpeta de app y en carpeta tradicional
      */
+    // ⭐ CAMBIO E0 respaldos (17-nov, Jorge): por NOMBRE se lee solo la carpeta "Balance".
+    // Antes se prefería la carpeta interna de la app, donde quedan las descargas de Drive, y
+    // una copia vieja descargada podía tapar el respaldo local más nuevo del mismo nombre.
     private void importarTransaccionesDesdeCSV(String nombreArchivo) {
         Log.d(TAG, "=== IMPORTANDO CSV ===");
         Log.d(TAG, "Archivo solicitado: " + nombreArchivo);
-
-        // Ubicación 1: Carpeta de la app (Android 10+)
-        File carpetaApp = requireContext().getExternalFilesDir(null);
-        String rutaApp = carpetaApp.getAbsolutePath() + "/Balance/" + nombreArchivo;
-        File archivoApp = new File(rutaApp);
-
-        // Ubicación 2: Carpeta tradicional
-        String rutaTradicional = Environment.getExternalStorageDirectory() + "/Balance/" + nombreArchivo;
-        File archivoTradicional = new File(rutaTradicional);
-
-        Log.d(TAG, "Buscando en carpeta app: " + rutaApp);
-        Log.d(TAG, "Archivo existe en app: " + archivoApp.exists());
-        Log.d(TAG, "Buscando en carpeta tradicional: " + rutaTradicional);
-        Log.d(TAG, "Archivo existe en tradicional: " + archivoTradicional.exists());
-
-        // Determinar qué archivo usar
-        File archivoAUsar = null;
-        String rutaFinal = null;
-
-        if (archivoApp.exists()) {
-            archivoAUsar = archivoApp;
-            rutaFinal = rutaApp;
-            Log.d(TAG, "Usando archivo de carpeta app");
-        } else if (archivoTradicional.exists()) {
-            archivoAUsar = archivoTradicional;
-            rutaFinal = rutaTradicional;
-            Log.d(TAG, "Usando archivo de carpeta tradicional");
-        } else {
-            Log.e(TAG, "Archivo no encontrado en ninguna ubicación");
+        File archivo = archivoLocalBalance(nombreArchivo);
+        if (!archivo.exists()) {
+            Log.e(TAG, "Archivo no encontrado: " + archivo.getAbsolutePath());
             Toast.makeText(getActivity(),
                     "Archivo no encontrado: " + nombreArchivo,
                     Toast.LENGTH_LONG).show();
             return;
         }
+        importarTransaccionesDesdeArchivo(archivo);
+    }
+
+    // ⭐ NUEVO E0 (17-nov): importa EXACTAMENTE el archivo indicado (p. ej. el recién descargado
+    // de Drive), sin buscarlo por nombre en otras carpetas.
+    private void importarTransaccionesDesdeArchivo(File archivoAUsar) {
+        String rutaFinal = archivoAUsar.getAbsolutePath();
+        Log.d(TAG, "Importando desde: " + rutaFinal);
 
         Log.d(TAG, "Tamaño archivo: " + archivoAUsar.length() + " bytes");
 
@@ -738,9 +732,10 @@ public class F4_Cierres extends Fragment {
             Log.d(TAG, "Otros errores: " + otrosErrores);
             Log.d(TAG, "Desde: " + rutaFinal);
 
-            String origen = (archivoAUsar == archivoApp) ? "Carpeta de la app (Android 10+)" : "Carpeta tradicional";
+            // ⭐ E0 (17-nov): origen según la carpeta real del archivo importado.
+            String origen = rutaFinal.contains("/Android/data/") ? "Descarga de Drive (carpeta de la app)" : "Carpeta Balance";
             String resumen = "Diagnóstico de importación de transacciones\n\n"
-                    + "Archivo: " + nombreArchivo + "\n"
+                    + "Archivo: " + archivoAUsar.getName() + "\n"
                     + "Origen: " + origen + "\n"
                     + "Ruta: " + rutaFinal + "\n\n"
                     + "Líneas leídas: " + lineasImportadas + "\n"
@@ -1032,6 +1027,33 @@ public class F4_Cierres extends Fragment {
      * Sube múltiples archivos a Drive con delay
      * Incluye rotación automática (mantiene últimos 5)
      */
+    // ⭐ NUEVO E0 respaldos (17-nov, Jorge): respaldo previo OBLIGATORIO antes de borrar
+    // transacciones. Si no queda escrito y verificado, se avisa y el proceso no sigue.
+    private boolean respaldoPrevioOk(String nombreArchivo, int maxBackups) {
+        boolean ok = A6_3_CSVDriveUploader.guardarYSubirTransacciones(
+                requireContext(), nombreArchivo, FOLDER_ID_DRIVE, maxBackups);
+        if (!ok) {
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("No se hizo ningún cambio")
+                    .setMessage("No se pudo guardar el respaldo previo:\n\n" + nombreArchivo +
+                            "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
+                    .setPositiveButton("Entendido", null)
+                    .show();
+        }
+        return ok;
+    }
+
+    // ⭐ NUEVO E0 (17-nov): archivo en la carpeta local "Balance".
+    private File archivoLocalBalance(String nombreArchivo) {
+        return new File(Environment.getExternalStorageDirectory() + "/Balance/" + nombreArchivo);
+    }
+
+    // ⭐ NUEVO E0 (17-nov): true si el archivo existe y tiene contenido.
+    private boolean archivoConContenido(String nombreArchivo) {
+        File f = archivoLocalBalance(nombreArchivo);
+        return f.exists() && f.length() > 0;
+    }
+
     private void subirArchivosADriveConDelay(String[] nombresArchivos) {
         new Handler().postDelayed(() -> {
             for (String nombreArchivo : nombresArchivos) {
@@ -1087,13 +1109,10 @@ public class F4_Cierres extends Fragment {
 
             // Diálogo para elegir origen: Local o Drive
 
-            A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                    requireContext(),
-                    //"441 Backup antes de Balance_desde_Sheets.csv",
-                    CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName(),
-                    FOLDER_ID_DRIVE,
-                    5
-            );
+            // ⭐ CAMBIO E0 (17-nov): respaldo "antes" verificado; si falla, no se sigue.
+            if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName(), 5)) {
+                return;
+            }
             _4_2_dialogoElegirOrigenRestauracion();
         });
     }
@@ -1316,7 +1335,9 @@ public class F4_Cierres extends Fragment {
                 "Se eliminarán y restaurarán desde el backup.");
 
         builder.setPositiveButton("Sí, restaurar", (dialog, which) -> {
-            _7borrarHistorialTransacciones("transacciones");
+            // ⭐ CAMBIO E0 (17-nov): ya NO se borra aquí; se borra solo cuando la descarga
+            // terminó bien (ver onFileDownloaded). Antes, si la descarga fallaba, la tabla
+            // quedaba vacía.
             Log.d(TAG, "Usuario confirmó descarga y restauración");
             _4_2_descargarYRestaurarDesdeGoogleDrive(archivo);
         });
@@ -1353,6 +1374,8 @@ public class F4_Cierres extends Fragment {
 
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             try {
+                                // ⭐ E0 (17-nov): descarga bien → ahora sí se borra y se importa.
+                                _7borrarHistorialTransacciones("transacciones");
                                 _4_ejecutarRestauracionDesdeArchivoLocal(localPath);
 
                                 if (progressDialog.isShowing()) {
@@ -1419,11 +1442,11 @@ public class F4_Cierres extends Fragment {
             Log.d(TAG, "Transacciones antes de borrar: " + transaccionesActuales);
 
             // Importar desde archivo descargado
+            // ⭐ E0 (17-nov): se importa EXACTAMENTE el archivo descargado.
             File archivo = new File(rutaArchivo);
-            String nombreArchivo = archivo.getName();
-            Log.d(TAG, "Importando desde: " + nombreArchivo);
+            Log.d(TAG, "Importando desde: " + archivo.getAbsolutePath());
 
-            importarTransaccionesDesdeCSV(nombreArchivo);
+            importarTransaccionesDesdeArchivo(archivo);
 
             // Actualizar vista
             _7verNumeroDeTransacciones();
@@ -1448,22 +1471,12 @@ public class F4_Cierres extends Fragment {
         try {
             dynamicQuery();
 
-            // Si hay transacciones, hacer backup antes de restaurar
+            // ⭐ CAMBIO E0 (17-nov): antes, 5 s DESPUÉS de borrar se volvía a escribir el
+            // respaldo "antes" (442_1) con el mismo nombre, y así se perdía el estado previo
+            // real. Ahora el "antes" se hace y verifica al tocar la opción 4.2; aquí se borra,
+            // se importa y se guarda el "después" (442_2).
             if (todasLasTransacciones_Result_List.size() != 0) {
                 _7borrarHistorialTransacciones("transacciones");
-
-                new Handler().postDelayed(() -> {
-                    A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                            requireContext(),
-                            //"441 Backup antes de Balance_desde_Sheets.csv",
-                            CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName(),
-                            FOLDER_ID_DRIVE,
-                            5
-                    );
-                    Log.d(TAG, "Backup pre-restauración guardado");
-                }, 5000);
-            } else {
-                Toast.makeText(getActivity(), "No hay transacciones para hacer backup", Toast.LENGTH_LONG).show();
             }
 
             // Restaurar desde backup
@@ -1471,6 +1484,13 @@ public class F4_Cierres extends Fragment {
             String nombreArchivo = CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName();
             Log.d(TAG, "Importando: " + nombreArchivo);
             importarTransaccionesDesdeCSV(nombreArchivo);
+
+            A6_3_CSVDriveUploader.guardarYSubirTransacciones(
+                    requireContext(),
+                    CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS.getFileName(),
+                    FOLDER_ID_DRIVE,
+                    5
+            );
 
             Log.d(TAG, "Transacciones restauradas: " + _7verNumeroDeTransacciones());
 
@@ -1514,17 +1534,18 @@ public class F4_Cierres extends Fragment {
             int selectedId = radioGroup.getCheckedRadioButtonId();
             if (selectedId == 1) {
                 // Restaurar desde local (método actual)
-                A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                        requireContext(),
-                        //"451 Backup antes de restaurar transacciones.csv",
-                        CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(),
-                        FOLDER_ID_DRIVE,
-                        5
-                );
+                // ⭐ CAMBIO E0 (17-nov): respaldo "antes" verificado; si falla, no se sigue.
+                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(), 5)) {
+                    return;
+                }
 
                 _5_1_dialogoRestaurarDesdeLocalTransacciones();
             } else {
                 // Restaurar desde Drive (nuevo)
+                // ⭐ NUEVO E0 (17-nov): Drive no tenía respaldo "antes".
+                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(), 5)) {
+                    return;
+                }
                 _5_2_dialogoRestaurarDesdeGoogleDrive();
             }
         });
@@ -1616,21 +1637,10 @@ public class F4_Cierres extends Fragment {
                 "Se eliminarán y restaurarán desde el backup.");
 
         builder.setPositiveButton("Sí, restaurar", (dialog, which) -> {
-            //backup antes
-            
+            // ⭐ CAMBIO E0 (17-nov): el "antes" se hizo al elegir Drive; el "después" se hace
+            // al terminar la importación (antes iba a los 20 s, aunque la descarga no hubiera
+            // terminado).
             _5_descargarYRestaurarDesdeGoogleDrive(archivo);
-
-            //backup despues
-            new Handler().postDelayed(() -> {
-                A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                        requireContext(),
-                        //"451 Backup antes de restaurar transacciones.csv",
-                        CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(),
-                        FOLDER_ID_DRIVE,
-                        5
-                );
-                Log.d(TAG, "Backup pre-restauración guardado");
-            }, 20000);
 
         });
 
@@ -1658,7 +1668,7 @@ public class F4_Cierres extends Fragment {
         progressDialog.setCancelable(false);
         progressDialog.show();
 
-        _7borrarHistorialTransacciones("transacciones");
+        // ⭐ CAMBIO E0 (17-nov): ya NO se borra antes de descargar (ver onFileDownloaded).
 
         // Descargar archivo
         driveDownloader.descargarArchivo(archivo.id, archivo.nombre,
@@ -1671,8 +1681,16 @@ public class F4_Cierres extends Fragment {
                         // Delay para que el usuario vea el mensaje de restauración
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             try {
-                                // Ejecutar restauración usando método existente
+                                // ⭐ E0 (17-nov): descarga bien → ahora sí se borra e importa,
+                                // y luego el respaldo "después".
+                                _7borrarHistorialTransacciones("transacciones");
                                 _5_ejecutarRestauracionDesdeArchivoLocal(localPath);
+                                A6_3_CSVDriveUploader.guardarYSubirTransacciones(
+                                        requireContext(),
+                                        CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(),
+                                        FOLDER_ID_DRIVE,
+                                        5
+                                );
 
                                 // Cerrar diálogo
                                 if (progressDialog.isShowing()) {
@@ -1731,9 +1749,9 @@ public class F4_Cierres extends Fragment {
             }*/
 
             // Importar desde archivo descargado
+            // ⭐ E0 (17-nov): se importa EXACTAMENTE el archivo descargado.
             File archivo = new File(rutaArchivo);
-            String nombreArchivo = archivo.getName();
-            importarTransaccionesDesdeCSV(nombreArchivo);
+            importarTransaccionesDesdeArchivo(archivo);
 
             // Actualizar vista
             _7verNumeroDeTransacciones();

@@ -29,7 +29,9 @@ public class A6_3_CSVDriveUploader {
      * @param nombreArchivo Nombre base del archivo (se agregará timestamp automáticamente)
      * @param folderId ID de la carpeta en Google Drive
      */
-    public static void guardarYSubirTransacciones(Context context, String nombreArchivo, String folderId, int maxBackups) {
+    // ⭐ CAMBIO E0 (17-nov, Jorge): devuelve true si el respaldo LOCAL quedó escrito y verificado
+    // (la subida a Drive sigue en segundo plano). Quien vaya a borrar datos debe revisar este valor.
+    public static boolean guardarYSubirTransacciones(Context context, String nombreArchivo, String folderId, int maxBackups) {
         Log.d("CSVDriveUploader", "═══════════════════════════════════════");
         Log.d("CSVDriveUploader", "INICIO guardarYSubirTransacciones");
         Log.d("CSVDriveUploader", "Archivo: " + nombreArchivo);
@@ -37,9 +39,14 @@ public class A6_3_CSVDriveUploader {
         Log.d("CSVDriveUploader", "MaxBackups: " + maxBackups);  // ← CORREGIDO: era maxArchivos
         Log.d("CSVDriveUploader", "═══════════════════════════════════════");
 
+        boolean guardadoOk = false;
         try {
             // 1. Guardar archivo localmente
-            A5_1_BackupManager.guardarTodasLasTransancionsAUnArchivoCSV(context, nombreArchivo);
+            guardadoOk = A5_1_BackupManager.guardarTodasLasTransancionsAUnArchivoCSV(context, nombreArchivo);
+            if (!guardadoOk) {
+                Log.e("CSVDriveUploader", "✗ Respaldo local falló: " + nombreArchivo);
+                return false;
+            }
             Log.d("CSVDriveUploader", "✓ Archivo guardado localmente: " + nombreArchivo);
 
             // 2. Verificar que existe
@@ -70,6 +77,7 @@ public class A6_3_CSVDriveUploader {
         Log.d("CSVDriveUploader", "═══════════════════════════════════════");
         Log.d("CSVDriveUploader", "FIN guardarYSubirTransacciones");
         Log.d("CSVDriveUploader", "═══════════════════════════════════════");
+        return guardadoOk;
     }
 
     /**

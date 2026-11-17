@@ -2490,7 +2490,10 @@ public class F2_Cuentas extends DialogFragment {
         //nombreArchivoBackupCuentas_String = "222_1_BackupAntesDeRestaurarCuentasDesdeSheets.csv";
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName();
 
-        subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
+        // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se borra nada.
+        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String)) {
+            return;
+        }
 
         File carpeta_File = new File(Environment.getExternalStorageDirectory() + "/Balance/");
 
@@ -2586,7 +2589,10 @@ public class F2_Cuentas extends DialogFragment {
     public void _3_backupAndRestoreDialog () {
          //backup antes de restaurar
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL.getFileName();
-        subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
+        // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se ofrece restaurar.
+        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String)) {
+            return;
+        }
         AlertDialog.Builder dialogo_AlertDialog = new AlertDialog.Builder(getActivity());
         dialogo_AlertDialog.setTitle("Advertencia");
         dialogo_AlertDialog.setMessage("¿Hay: "+verNumeroDeRegistrosCuentas()+" Cuentas"+" " +
@@ -2634,17 +2640,36 @@ public class F2_Cuentas extends DialogFragment {
     /**
      * Método mejorado para subir CSV con rotación automática
      */
-    public void subirCsvBackupCrud(String nombreArchivoBackupCuentas_String, int maxBackups){
+    // ⭐ CAMBIO E0 respaldos (17-nov, Jorge): devuelve true si el CSV de cuentas quedó escrito.
+    public boolean subirCsvBackupCrud(String nombreArchivoBackupCuentas_String, int maxBackups){
         a6_backupManager = new A5_1_BackupManager();
-        a6_backupManager.backupCuentasArchivoCSV(nombreArchivoBackupCuentas_String, a22QueryManager);
+        boolean ok = a6_backupManager.backupCuentasArchivoCSV(nombreArchivoBackupCuentas_String, a22QueryManager);
+        if (!ok) {
+            return false;
+        }
 
         A6_3_CSVDriveUploader.guardarYSubirCuentas(
                 requireContext(),
                 nombreArchivoBackupCuentas_String,
                 FOLDER_ID_DRIVE
         );
+        return true;
+    }
 
+    // ⭐ NUEVO E0 (17-nov): respaldo previo OBLIGATORIO antes de borrar cuentas. Si falla, se
+    // avisa y el proceso no sigue.
+    private boolean respaldoCuentasPrevioOk(String nombreArchivo) {
+        if (subirCsvBackupCrud(nombreArchivo, 5)) {
+            return true;
         }
+        new AlertDialog.Builder(getActivity())
+                .setTitle("No se hizo ningún cambio")
+                .setMessage("No se pudo guardar el respaldo previo de cuentas:\n\n" + nombreArchivo +
+                        "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
+                .setPositiveButton("Entendido", null)
+                .show();
+        return false;
+    }
 
     public void _3_starBackupAndRestore () {
 
@@ -3111,7 +3136,10 @@ public class F2_Cuentas extends DialogFragment {
         long cuentasActuales = verNumeroDeRegistrosCuentas();
 
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL.getFileName();
-        subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
+        // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se ofrece restaurar.
+        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String)) {
+            return;
+        }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         builder.setTitle("Confirmar restauración");
@@ -3121,17 +3149,10 @@ public class F2_Cuentas extends DialogFragment {
                 "Se eliminarán y restaurarán desde el backup.");
 
         builder.setPositiveButton("Sí, restaurar", (dialog, which) -> {
-            borrarHistorialCuentas("cuentas");
+            // ⭐ CAMBIO E0 (17-nov): ya NO se borra antes de descargar; se borra cuando la
+            // descarga terminó bien, y el respaldo "después" va al final de la importación
+            // (antes iba a los 3 s, aunque la descarga no hubiera terminado).
             _3_descargarYRestaurarDesdeGoogleDrive(archivo);
-
-            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName();
-                    subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
-                }
-            }, 3000);
-
         });
 
         builder.setNegativeButton("Cancelar", (dialog, which) -> {
@@ -3159,7 +3180,11 @@ public class F2_Cuentas extends DialogFragment {
 
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             try {
+                                // ⭐ E0 (17-nov): descarga bien → ahora sí se borra e importa.
+                                borrarHistorialCuentas("cuentas");
                                 _3_ejecutarRestauracionDesdeArchivoLocal(localPath);
+                                nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName();
+                                subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
 
                                 if (progressDialog.isShowing()) {
                                     progressDialog.dismiss();
@@ -3198,9 +3223,8 @@ public class F2_Cuentas extends DialogFragment {
      */
     private void _3_ejecutarRestauracionDesdeArchivoLocal(String rutaArchivo) {
         try {
-            File archivo = new File(rutaArchivo);
-            String nombreArchivo = archivo.getName();
-            importarCuentasDesdeCSV(nombreArchivo);
+            // ⭐ E0 (17-nov): se importa EXACTAMENTE el archivo descargado.
+            importarCuentasDesdeCSV(rutaArchivo);
             repararReferenciasCuentaIdTrasRestaurarCuentas("Drive");
 
             long cuentasRestauradas = verNumeroDeRegistrosCuentas();
@@ -3218,29 +3242,16 @@ public class F2_Cuentas extends DialogFragment {
     /**
      * NUEVO: Importar cuentas desde CSV (busca en ambas ubicaciones)
      */
-    private void importarCuentasDesdeCSV(String nombreArchivo) {
-        // Ubicación 1: Carpeta de la app (Android 10+)
-        File carpetaApp = requireContext().getExternalFilesDir(null);
-        String rutaApp = carpetaApp.getAbsolutePath() + "/Balance/" + nombreArchivo;
-        File archivoApp = new File(rutaApp);
-
-        // Ubicación 2: Carpeta tradicional
-        String rutaTradicional = Environment.getExternalStorageDirectory() + "/Balance/" + nombreArchivo;
-        File archivoTradicional = new File(rutaTradicional);
-
-        File archivoAUsar = null;
-        String rutaFinal = null;
-
-        if (archivoApp.exists()) {
-            archivoAUsar = archivoApp;
-            rutaFinal = rutaApp;
-            } else if (archivoTradicional.exists()) {
-            archivoAUsar = archivoTradicional;
-            rutaFinal = rutaTradicional;
-            } else {
-            Log.e(TAG, "Archivo no encontrado en ninguna ubicación");
+    // ⭐ CAMBIO E0 respaldos (17-nov, Jorge): recibe la RUTA exacta del archivo descargado.
+    // Antes buscaba por nombre y prefería la carpeta interna de la app, donde podía quedar
+    // una descarga vieja con el mismo nombre.
+    private void importarCuentasDesdeCSV(String rutaArchivo) {
+        File archivoAUsar = new File(rutaArchivo);
+        String rutaFinal = rutaArchivo;
+        if (!archivoAUsar.exists()) {
+            Log.e(TAG, "Archivo no encontrado: " + rutaArchivo);
             Toast.makeText(getActivity(),
-                    "Archivo no encontrado: " + nombreArchivo,
+                    "Archivo no encontrado: " + archivoAUsar.getName(),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -3283,7 +3294,7 @@ public class F2_Cuentas extends DialogFragment {
             }
 
             String resumen = "Diagnóstico de importación de cuentas\n\n"
-                    + "Archivo: " + nombreArchivo + "\n"
+                    + "Archivo: " + archivoAUsar.getName() + "\n"
                     + "Ruta: " + rutaFinal + "\n\n"
                     + "Líneas leídas: " + lineasImportadas + "\n"
                     + "Insertadas correctamente: " + insertadasOk + "\n"

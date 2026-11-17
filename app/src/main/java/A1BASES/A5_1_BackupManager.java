@@ -275,10 +275,11 @@ public class A5_1_BackupManager {
                 // (columna 12), mismo criterio aditivo — un backup viejo de hasta 11 columnas se
                 // sigue leyendo igual (F2_Cuentas.insertarCuenta() de abajo).
                 for (A3_1_TipoCuentasGetsYSets cuenta : todasLasCuentas_List_Result) {
+                    // ⭐ E0 (17-nov): nombre y grupos sin comas (una coma corría la fila al restaurar).
                     String linea = cuenta.tipoTgetCuenta_1Item() + "," +
-                            cuenta.tipoTgetCuenta_2Cuenta() + "," +
-                            cuenta.tipoTgetCuenta_3G1() + "," +
-                            cuenta.tipoTgetCuenta_3G2() + "," +
+                            textoCsv(cuenta.tipoTgetCuenta_2Cuenta()) + "," +
+                            textoCsv(cuenta.tipoTgetCuenta_3G1()) + "," +
+                            textoCsv(cuenta.tipoTgetCuenta_3G2()) + "," +
                             cuenta.tipoTgetCuenta_5Fecha() + "," +
                             (cuenta.tipoTgetCuenta_6CuentaId() == null ? "" : cuenta.tipoTgetCuenta_6CuentaId()) + "," +
                             (cuenta.tipoTgetCuenta_7CodigoCuenta() == null ? "" : cuenta.tipoTgetCuenta_7CodigoCuenta()) + "," +
@@ -342,7 +343,11 @@ public class A5_1_BackupManager {
 
         };
 
-        public static void guardarTodasLasTransancionsAUnArchivoCSV(Context context, String nombreArchivoTransaccionesADrive) {
+        // ⭐ CAMBIO E0 respaldos (17-nov, Jorge): devuelve true solo si el archivo quedó escrito y
+        // completo, para que los cierres y restauraciones NO borren nada si el respaldo falló.
+        // Se escribe primero en un ".tmp" y al final se renombra: si algo falla a mitad, el
+        // respaldo anterior con ese nombre sigue intacto (antes se borraba primero).
+        public static boolean guardarTodasLasTransancionsAUnArchivoCSV(Context context, String nombreArchivoTransaccionesADrive) {
             String nombreArchivoBackupTransacciones_String = null;
 
             for (String archivo : archivoTransaccionesADrive) {
@@ -353,19 +358,19 @@ public class A5_1_BackupManager {
                 }
             }
 
-            /*if (nombreArchivoBackupTransacciones_String == null) {
-                Toast.makeText(context, "Nombre de archivo no válido", Toast.LENGTH_SHORT).show();
-                return;
-            }*/
+            // ⭐ E0 (17-nov): un nombre fuera de la lista ya no produce el archivo "null".
+            if (nombreArchivoBackupTransacciones_String == null) {
+                nombreArchivoBackupTransacciones_String = nombreArchivoTransaccionesADrive;
+            }
 
             if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
                 try {
                     String rutaDestino_String = Environment.getExternalStorageDirectory().getPath() + "/Balance/";
                     String rutaDestinoYNombreArchivo_String = rutaDestino_String + nombreArchivoBackupTransacciones_String;
                     File archivo_File = new File(rutaDestinoYNombreArchivo_String);
-
-                    if (archivo_File.exists()) {
-                        archivo_File.delete();
+                    File temporal_File = new File(rutaDestinoYNombreArchivo_String + ".tmp");
+                    if (temporal_File.exists()) {
+                        temporal_File.delete();
                     }
 
                     //A2ConsultasAnterior consultasClass = new A2ConsultasAnterior(context);
@@ -376,7 +381,7 @@ public class A5_1_BackupManager {
                     A23_QueryResult todasLAsTransacciones_Result =  a22QueryManager.queryAllTransactions();
                     ArrayList<A3_2_TipoTransaccionesGetsYSets> todasLasTransacciones_Result_ArrayLTT = todasLAsTransacciones_Result.getDatos();
 
-                    OutputStreamWriter salidaArchivo_OutputStreamWriter = new OutputStreamWriter(new FileOutputStream(archivo_File));
+                    OutputStreamWriter salidaArchivo_OutputStreamWriter = new OutputStreamWriter(new FileOutputStream(temporal_File));
 
                     // ⭐ CAMBIO — Fase 4 (parte C): se agrega cuenta_id como 14ta columna al
                     // final — las 13 de siempre quedan en el mismo orden y posición. Ver
@@ -417,7 +422,9 @@ public class A5_1_BackupManager {
                                         TransaccionX.tipoTget_2ItemDocMetodoEnA5() + "," +
                                         // (1-nov) c3, c4, c10..c13 ya no van (ver ENCABEZADO_CSV_TRANSACCIONES).
                                         TransaccionX.tipoTget_5ValorMetodoEnA5() + "," +
-                                        TransaccionX.tipoTget_6DescripcionMetodoEnA5() + "," +
+                                        // ⭐ E0 (17-nov): una coma en la descripción corría la fila
+                                        // de columnas y se perdía al restaurar; se cambia por espacio.
+                                        textoCsv(TransaccionX.tipoTget_6DescripcionMetodoEnA5()) + "," +
                                         TransaccionX.tipoTget_7FechaYHoraMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_8FechaInicialMetodoEnA5() + "," +
                                         TransaccionX.tipoTget_9FechaModificacionMetodoEnA5() + "," +
@@ -429,13 +436,46 @@ public class A5_1_BackupManager {
                     }
 
                     salidaArchivo_OutputStreamWriter.close();
-                    //Toast.makeText(context, "Archivo 1 guardado localmente", Toast.LENGTH_SHORT).show();
+
+                    // ⭐ E0 (17-nov): verificación — el temporal debe tener encabezado + una línea
+                    // por transacción; solo entonces reemplaza al respaldo anterior.
+                    int lineasEscritas = contarLineas(temporal_File);
+                    int esperadas = todasLasTransacciones_Result_ArrayLTT.size() + 1;
+                    if (lineasEscritas != esperadas) {
+                        temporal_File.delete();
+                        Toast.makeText(context, "Respaldo incompleto (" + lineasEscritas + " de " + esperadas
+                                + " líneas): " + nombreArchivoBackupTransacciones_String, Toast.LENGTH_LONG).show();
+                        return false;
+                    }
+                    if (archivo_File.exists() && !archivo_File.delete()) {
+                        temporal_File.delete();
+                        Toast.makeText(context, "No se pudo reemplazar el respaldo: " + nombreArchivoBackupTransacciones_String, Toast.LENGTH_LONG).show();
+                        return false;
+                    }
+                    if (!temporal_File.renameTo(archivo_File)) {
+                        Toast.makeText(context, "No se pudo guardar el respaldo: " + nombreArchivoBackupTransacciones_String, Toast.LENGTH_LONG).show();
+                        return false;
+                    }
+                    return true;
                 } catch (Exception ex) {
                     Toast.makeText(context, "Error al guardar el archivo: " + ex.getMessage(), Toast.LENGTH_SHORT).show();
+                    return false;
                 }
             } else {
                 Toast.makeText(context, "No se encuentra la memoria externa", Toast.LENGTH_SHORT).show();
+                return false;
             }
+        }
+
+        // ⭐ NUEVO E0 (17-nov): cuenta las líneas de un archivo (verificación de respaldos).
+        private static int contarLineas(File archivo) {
+            int n = 0;
+            try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(archivo))) {
+                while (br.readLine() != null) n++;
+            } catch (Exception e) {
+                return -1;
+            }
+            return n;
         }
 
     //El contenido del archivo csv por ser de cierre varia en el contenido de las transacciones en algunos de sus campos o columnas,
