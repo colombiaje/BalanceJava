@@ -355,9 +355,49 @@ public class C2_ActivityMenu extends AppCompatActivity {
                 f2.replace(R.id.contenedor_fragments_f0_Xf, new F2_Cuentas()).commit();
                 return true;
 
+            // ⭐ NUEVO E1 respaldos (17-nov, Jorge): respaldo completo de balance.db, verificado,
+            // local y en Drive. Opción temporal hasta la pantalla "Respaldos" (E2).
+            case "Respaldo completo ahora":
+                hacerRespaldoCompleto();
+                return true;
+
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    // ⭐ NUEVO E1 respaldos (17-nov): ejecuta el respaldo en segundo plano y muestra el resultado.
+    private void hacerRespaldoCompleto() {
+        final AlertDialog espera = new AlertDialog.Builder(this)
+                .setTitle("Respaldo completo")
+                .setMessage("Copiando y verificando la base…")
+                .setCancelable(false)
+                .show();
+        A1BASES.A32_Respaldos.respaldarEnSegundoPlano(this, A1BASES.A32_Respaldos.TIPO_MANUAL, 5,
+                new A1BASES.A32_Respaldos.Escucha() {
+                    @Override
+                    public void alTerminarLocal(A1BASES.A32_Respaldos.Resultado r) {
+                        if (espera.isShowing()) espera.dismiss();
+                        if (isFinishing()) return;
+                        new AlertDialog.Builder(C2_ActivityMenu.this)
+                                .setTitle(r.ok ? "✓ Respaldo verificado" : "✗ Respaldo no realizado")
+                                .setMessage(r.ok
+                                        ? "Archivo: " + r.archivo.getName()
+                                            + "\nCarpeta: " + A1BASES.A32_Respaldos.CARPETA_LOCAL
+                                            + "\nVersión de base: v" + r.version
+                                            + "\nTablas: " + r.tablas + " · Filas: " + r.filas
+                                            + "\n\nSubiendo a Drive… te aviso al terminar."
+                                        : r.mensaje)
+                                .setPositiveButton("Entendido", null)
+                                .show();
+                    }
+
+                    @Override
+                    public void alTerminarDrive(boolean ok, String mensaje) {
+                        Toast.makeText(C2_ActivityMenu.this, (ok ? "✓ " : "✗ ") + mensaje,
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 
     @Override

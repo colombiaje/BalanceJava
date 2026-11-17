@@ -27,4 +27,10 @@
         android:title="Cuentas"
         app:showAsAction="never"/>
 
+    <!-- ⭐ NUEVO E1 respaldos (17-nov, Jorge): opción temporal hasta la pantalla "Respaldos" (E2). -->
+    <item
+        android:id="@+id/respaldoCompleto"
+        android:title="Respaldo completo ahora"
+        app:showAsAction="never"/>
+
 </menu>
