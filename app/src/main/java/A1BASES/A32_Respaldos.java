@@ -824,7 +824,25 @@ public class A32_Respaldos {
             if (archivos != null) lista.addAll(Arrays.asList(archivos));
         }
         Collections.sort(lista, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
-        return lista;
+        // ⭐ (18-nov, Jorge): el "último" de Balance es el mismo archivo que la copia más nueva
+        // del historial (se guardan juntos). Si hay una copia igual (mismo tamaño y casi la
+        // misma hora), el "último" no se muestra, para no ver el mismo respaldo dos veces.
+        List<File> sinRepetir = new ArrayList<>();
+        for (File f : lista) {
+            boolean enHistorial = "Historial".equals(f.getParentFile() == null ? "" : f.getParentFile().getName());
+            boolean repetido = false;
+            if (!enHistorial) {
+                for (File h : lista) {
+                    boolean hEnHistorial = "Historial".equals(h.getParentFile() == null ? "" : h.getParentFile().getName());
+                    if (hEnHistorial && h.length() == f.length() && Math.abs(h.lastModified() - f.lastModified()) < 5000) {
+                        repetido = true;
+                        break;
+                    }
+                }
+            }
+            if (!repetido) sinRepetir.add(f);
+        }
+        return sinRepetir;
     }
 
     /** Texto para una lista de elección: nombre, fecha y si es el "último" de Balance. */
