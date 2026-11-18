@@ -705,4 +705,108 @@ public class A32_Respaldos {
         return texto;
     }
 
+
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (18-nov, Jorge): alerta de cierres y tabla de últimos respaldos
+    // ═════════════════════════════════════════════════════════════
+
+    /** Texto del resumen más reciente de una operación (de cualquier equipo), o null. */
+    public static String ultimoResumen(String operacion) {
+        File[] archivos = carpetaLocal().listFiles((d, n) ->
+                n.contains("_" + TIPO_RESUMEN + "-" + operacion + "_") && n.endsWith(".txt"));
+        if (archivos == null || archivos.length == 0) return null;
+        File ultimo = archivos[0];
+        for (File f : archivos) if (f.lastModified() > ultimo.lastModified()) ultimo = f;
+        try (InputStream in = new FileInputStream(ultimo)) {
+            byte[] datos = new byte[(int) Math.min(ultimo.length(), 20000)];
+            int leidos = in.read(datos);
+            return new String(datos, 0, Math.max(0, leidos), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Fila de la tabla de últimos respaldos: {tipo, nombre, fecha en ms}. */
+    public static class Fila {
+        public String tipo;
+        public String nombre;
+        public long fecha;
+    }
+
+    /**
+     * El respaldo más reciente de cada tipo en este equipo: copias completas (.db) por tipo,
+     * resúmenes (.txt) por operación y CSV del historial por número de archivo.
+     */
+    public static List<Fila> ultimosPorTipo() {
+        Map<String, Fila> porTipo = new LinkedHashMap<>();
+        File[] completos = carpetaLocal().listFiles();
+        if (completos != null) {
+            for (File f : completos) {
+                String n = f.getName();
+                String tipo;
+                if (n.endsWith(".db")) {
+                    tipo = "Copia completa (.db) · " + segmentoTipo(n);
+                } else if (n.endsWith(".txt")) {
+                    tipo = "Resumen · " + segmentoTipo(n).replaceFirst("^" + TIPO_RESUMEN + "-", "");
+                } else {
+                    continue;
+                }
+                anotarSiEsMasNuevo(porTipo, tipo, f);
+            }
+        }
+        File[] csv = new File(Environment.getExternalStorageDirectory(), "Balance/Historial").listFiles();
+        if (csv != null) {
+            for (File f : csv) {
+                if (!f.getName().endsWith(".csv")) continue;
+                anotarSiEsMasNuevo(porTipo, "CSV · " + tipoCsv(f.getName()), f);
+            }
+        }
+        List<Fila> filas = new ArrayList<>(porTipo.values());
+        Collections.sort(filas, (a, b) -> Long.compare(b.fecha, a.fecha));
+        return filas;
+    }
+
+    private static void anotarSiEsMasNuevo(Map<String, Fila> porTipo, String tipo, File f) {
+        Fila actual = porTipo.get(tipo);
+        if (actual == null || f.lastModified() > actual.fecha) {
+            Fila fila = new Fila();
+            fila.tipo = tipo;
+            fila.nombre = f.getName();
+            fila.fecha = f.lastModified();
+            porTipo.put(tipo, fila);
+        }
+    }
+
+    /** "PAD5_auto_v31_2026…" → "auto"; "PAD5_resumen-cierre-total_2026…" → "resumen-cierre-total". */
+    private static String segmentoTipo(String nombre) {
+        String[] partes = nombre.split("_");
+        return partes.length > 1 ? partes[1] : nombre;
+    }
+
+    /** Nombre corto de un CSV según su número (sin prefijo de equipo ni fecha). */
+    private static String tipoCsv(String nombre) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{3}(_\\d)?)_").matcher(nombre);
+        String numero = m.find() ? m.group(1) : "";
+        switch (numero.length() >= 3 ? numero.substring(0, 3) : numero) {
+            case "121": return "121 transacciones (cada GUARDAR)";
+            case "211": return "211 cuentas";
+            case "213": return "213 renglones de renta";
+            case "214": return "214 plantillas";
+            case "222": return numero + " cuentas desde Sheets";
+            case "231": return "231 cuentas antes de restaurar";
+            case "411": return "411 transacciones antes de cierres";
+            case "421": return "421 antes del cierre total";
+            case "422": return "422 saldos del cierre total";
+            case "423": return "423 fotos de renta";
+            case "425": return "425 ajustes de renta";
+            case "426": return "426 soportes de renta";
+            case "431": return "431 antes del cierre de algunas";
+            case "432": return "432 saldos del cierre de algunas";
+            case "442": return numero + " transacciones desde Sheets";
+            case "451": return "451 antes de restaurar transacciones";
+            case "452": return "452 antes de restaurar desde Drive";
+            default: return numero.isEmpty() ? nombre : numero;
+        }
+    }
+
 }

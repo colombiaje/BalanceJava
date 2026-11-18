@@ -245,7 +245,8 @@ public class F4_Cierres extends Fragment {
             dynamicQuery();
             if (todasLasTransacciones_Result_List.size() != 0) {
                 opcionActualCierre_XTv.setText(_2_opcionAutonomoTransacciones_XRb.getText().toString());
-                _2dialogoCierreAutonomoMetodoEnF51();
+                // ⭐ CAMBIO (18-nov, Jorge): antes del cierre se muestra el resumen del último.
+                alertaUltimoCierre("cierre-total", "cierre total", this::_2dialogoCierreAutonomoMetodoEnF51);
             } else {
                 Toast.makeText(getActivity(), "No hay transacciones para hacer backup", Toast.LENGTH_LONG).show();
             }
@@ -263,7 +264,7 @@ public class F4_Cierres extends Fragment {
             dynamicQuery();
             if (todasLasTransacciones_Result_List.size() != 0) {
                 opcionActualCierre_XTv.setText(_3_opcionTransaccionesAlgunasCuentas_XRb.getText().toString());
-                _3dialogoCierreAutonomoAlgunasCuentas();
+                alertaUltimoCierre("cierre-algunas", "cierre de algunas cuentas", this::_3dialogoCierreAutonomoAlgunasCuentas);
             } else {
                 Toast.makeText(getActivity(), "No hay transacciones para hacer backup", Toast.LENGTH_LONG).show();
             }
@@ -346,6 +347,22 @@ public class F4_Cierres extends Fragment {
 
         }
 
+    }
+
+    // ⭐ NUEVO (18-nov, Jorge): control de cierres. Si hay un resumen de un cierre anterior del
+    // mismo tipo, se muestra primero como alerta; el usuario decide si continúa.
+    private void alertaUltimoCierre(String operacion, String nombre, Runnable continuar) {
+        String ultimo = A1BASES.A32_Respaldos.ultimoResumen(operacion);
+        if (ultimo == null) {
+            continuar.run();
+            return;
+        }
+        new AlertDialog.Builder(getActivity())
+                .setTitle("⚠ Último " + nombre)
+                .setMessage(ultimo + "\n¿Continuar con un nuevo " + nombre + "?")
+                .setPositiveButton("Continuar", (d, w) -> continuar.run())
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     public void _2dialogoCierreAutonomoMetodoEnF51() {

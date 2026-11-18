@@ -57,6 +57,7 @@ public class F7_Respaldos extends Fragment {
     private final Handler principal = new Handler(Looper.getMainLooper());
 
     private TextView estado_XTv, equipo_XTv, resultadoSelector_XTv;
+    private android.widget.TableLayout tablaUltimos_XTl;
     private AlertDialog espera;
 
     private final Locale es = new Locale("es", "CO");
@@ -86,6 +87,7 @@ public class F7_Respaldos extends Fragment {
         estado_XTv = v.findViewById(R.id.estadoRespaldos_XTv);
         equipo_XTv = v.findViewById(R.id.equipoRespaldos_XTv);
         resultadoSelector_XTv = v.findViewById(R.id.resultadoSelector_XTv);
+        tablaUltimos_XTl = v.findViewById(R.id.tablaUltimos_XTl);
         Button cambiarEquipo = v.findViewById(R.id.cambiarEquipo_XBt);
         Button respaldarAhora = v.findViewById(R.id.respaldarAhora_XBt);
         Button restaurarLocal = v.findViewById(R.id.restaurarLocal_XBt);
@@ -141,6 +143,43 @@ public class F7_Respaldos extends Fragment {
         String drive = A32_Respaldos.estadoDrive(requireContext());
         sb.append("\n\nDrive: ").append(drive == null ? "sin subidas todavía." : drive);
         estado_XTv.setText(sb.toString());
+        llenarTablaUltimos();
+    }
+
+    // ⭐ NUEVO (18-nov, Jorge): tabla Tipo · Nombre · Fecha y hora, el último de cada tipo.
+    private void llenarTablaUltimos() {
+        android.widget.TableLayout tabla = tablaUltimos_XTl;
+        if (tabla == null) return;
+        tabla.removeAllViews();
+        tabla.addView(filaTabla("Tipo", "Nombre", "Fecha y hora", true));
+        List<A32_Respaldos.Fila> filas = A32_Respaldos.ultimosPorTipo();
+        if (filas.isEmpty()) {
+            tabla.addView(filaTabla("—", "Sin respaldos todavía", "", false));
+        }
+        for (A32_Respaldos.Fila f : filas) {
+            tabla.addView(filaTabla(f.tipo, f.nombre,
+                    new SimpleDateFormat("d MMM HH:mm:ss", es).format(new Date(f.fecha)), false));
+        }
+    }
+
+    private android.widget.TableRow filaTabla(String a, String b, String c, boolean encabezado) {
+        android.widget.TableRow fila = new android.widget.TableRow(requireContext());
+        int pad = (int) (4 * getResources().getDisplayMetrics().density);
+        for (String texto : new String[]{a, b, c}) {
+            TextView t = new TextView(requireContext());
+            t.setText(texto);
+            t.setTextSize(12);
+            t.setPadding(pad, pad, pad, pad);
+            t.setTextColor(android.graphics.Color.parseColor(encabezado ? "#FFFFFF" : "#1F3FA6"));
+            if (encabezado) {
+                t.setBackgroundColor(android.graphics.Color.parseColor("#1F3FA6"));
+                t.setTypeface(null, android.graphics.Typeface.BOLD);
+            } else {
+                t.setBackgroundResource(R.drawable.bg_campo_registro);
+            }
+            fila.addView(t);
+        }
+        return fila;
     }
 
     // ─────────────────────────────────────────────────────────────
