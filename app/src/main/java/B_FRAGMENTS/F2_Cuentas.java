@@ -1438,6 +1438,9 @@ public class F2_Cuentas extends DialogFragment {
         // Opción 1: Usar LocalBroadcastManager (recomendado)
         Intent intent = new Intent("CUENTAS_ACTUALIZADAS");
         LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(intent);
+        // ⭐ NUEVO E3 respaldos (17-nov, Jorge): cada cambio de cuentas (nueva, modificada,
+        // borrada) deja una copia completa de la base en segundo plano.
+        A1BASES.A32_Respaldos.respaldoAutomatico(requireContext());
     }
 
     // ⭐ RETIRADO — tanda 2 v10: cargarCatalogoGrupoConEspacioInicial() (Grupo1/Grupo2 por
@@ -2491,7 +2494,7 @@ public class F2_Cuentas extends DialogFragment {
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName();
 
         // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se borra nada.
-        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String)) {
+        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String, "sheets-cuentas")) {
             return;
         }
 
@@ -2535,6 +2538,7 @@ public class F2_Cuentas extends DialogFragment {
         //nombreArchivoBackupCuentas_String = "222_2_BackupDespuesDeRestaurarCuentasDesdeSheets.csv";
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_CLOSING_RESTORING_SHEETS.getFileName();
         subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
+        cerrarOperacionCuentas("Importar cuentas desde Sheets");
         Toast.makeText(getActivity(), "Archivo 2 guardado localmente", Toast.LENGTH_SHORT).show();
         }
 
@@ -2590,7 +2594,7 @@ public class F2_Cuentas extends DialogFragment {
          //backup antes de restaurar
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL.getFileName();
         // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se ofrece restaurar.
-        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String)) {
+        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String, "restaurar-cuentas")) {
             return;
         }
         AlertDialog.Builder dialogo_AlertDialog = new AlertDialog.Builder(getActivity());
@@ -2656,11 +2660,49 @@ public class F2_Cuentas extends DialogFragment {
         return true;
     }
 
+    // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación de cuentas.
+    private void cerrarOperacionCuentas(String titulo) {
+        if (operacionCuentasEnCurso == null || getActivity() == null) return;
+        A1BASES.A32_Respaldos.Resultado despues =
+                A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionCuentasEnCurso);
+        String texto = A1BASES.A32_Respaldos.resumenOperacion(requireContext(), operacionCuentasEnCurso, titulo,
+                puntoAntesCuentas, despues, "Cuentas en la tabla ahora: " + verNumeroDeRegistrosCuentas());
+        operacionCuentasEnCurso = null;
+        puntoAntesCuentas = null;
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Resumen")
+                .setMessage(texto)
+                .setPositiveButton("Entendido", null)
+                .show();
+    }
+
     // ⭐ NUEVO E0 (17-nov): respaldo previo OBLIGATORIO antes de borrar cuentas. Si falla, se
     // avisa y el proceso no sigue.
     private boolean respaldoCuentasPrevioOk(String nombreArchivo) {
+        return respaldoCuentasPrevioOk(nombreArchivo, null);
+    }
+
+    // ⭐ CAMBIO E3 (17-nov): además del CSV, punto de restauración COMPLETO de la base.
+    private A1BASES.A32_Respaldos.Resultado puntoAntesCuentas;
+    private String operacionCuentasEnCurso;
+
+    private boolean respaldoCuentasPrevioOk(String nombreArchivo, String operacion) {
         if (subirCsvBackupCrud(nombreArchivo, 5)) {
-            return true;
+            if (operacion == null) {
+                return true;
+            }
+            puntoAntesCuentas = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
+            operacionCuentasEnCurso = operacion;
+            if (puntoAntesCuentas.ok) {
+                return true;
+            }
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("No se hizo ningún cambio")
+                    .setMessage("No se pudo hacer el punto de restauración completo:\n\n" + puntoAntesCuentas.mensaje +
+                            "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
+                    .setPositiveButton("Entendido", null)
+                    .show();
+            return false;
         }
         new AlertDialog.Builder(getActivity())
                 .setTitle("No se hizo ningún cambio")
@@ -2702,6 +2744,7 @@ public class F2_Cuentas extends DialogFragment {
 
                 nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName();
                 subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
+                cerrarOperacionCuentas("Restaurar cuentas (local)");
                 } catch (Exception e) {
                 Toast.makeText(getActivity(), "Hubo un error", Toast.LENGTH_SHORT).show();//f1
             }
@@ -3137,7 +3180,7 @@ public class F2_Cuentas extends DialogFragment {
 
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL.getFileName();
         // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se ofrece restaurar.
-        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String)) {
+        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String, "restaurar-cuentas")) {
             return;
         }
 
@@ -3185,6 +3228,7 @@ public class F2_Cuentas extends DialogFragment {
                                 _3_ejecutarRestauracionDesdeArchivoLocal(localPath);
                                 nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName();
                                 subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
+                                cerrarOperacionCuentas("Restaurar cuentas (Drive)");
 
                                 if (progressDialog.isShowing()) {
                                     progressDialog.dismiss();

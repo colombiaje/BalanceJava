@@ -1678,6 +1678,9 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
         String folderId = "1zQ55zDrNlyr3nmcK-toeBLUKKC4tMZjO";
         csvDriveUploader = new A6_3_CSVDriveUploader();
         A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(), nombreArchivo, folderId, 10);
+        // ⭐ NUEVO E3 respaldos (17-nov, Jorge): además, copia completa de la base en segundo
+        // plano (10 copias, local y Drive). El CSV 121 de arriba se retira en E4.
+        A1BASES.A32_Respaldos.respaldoAutomatico(requireContext());
     }
 
     public void realizarOperacionesPostSeleccion(Object selectedRadioButtonId) {

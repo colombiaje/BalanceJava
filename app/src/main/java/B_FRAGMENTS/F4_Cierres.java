@@ -298,11 +298,13 @@ public class F4_Cierres extends Fragment {
 
         // ⭐ CAMBIO E0 (17-nov): el 421 se hace YA y verificado; antes iba con retardo y el
         // cierre borraba a los 10 s aunque ese respaldo hubiera fallado.
-        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS.getFileName(), 6)) {
+        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS.getFileName(), 6, "cierre-total")) {
             return;
         }
 
-        new Handler().postDelayed(() -> {
+        // ⭐ CAMBIO E3 (17-nov): los pasos van en secuencia; ya no hay espera fija de 10 s
+        // (los respaldos previos ya quedaron escritos y verificados arriba).
+        {
 
             try {
 
@@ -326,22 +328,23 @@ public class F4_Cierres extends Fragment {
                 // 3. Reimportar saldos desde CSV
                 importarTransaccionesDesdeCSV(nombreArchivoResumen);
 
-                // 4. Subir archivos a Drive con delay (rotación automática)
-                subirArchivosADriveConDelay(new String[]{
-                        //"421 Backup antes de cerrar todas las cuentas.csv",
-                        //"422 Backup saldos de todas las cuentas.csv",
-                        CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS.getFileName(),
-                });
+                // 4. Subir a Drive (rotación automática), sin espera fija
+                A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(),
+                        CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS.getFileName(), FOLDER_ID_DRIVE, 5);
 
                 // 5. Actualizar vista
                 _7verNumeroDeTransacciones();
                 _7verTransaccionesAdaptadorColumnas();
+
+                // 6. ⭐ E3: punto "después" y resumen
+                cerrarOperacion("Cierre interno de todas las cuentas",
+                        "Saldos trasladados: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")");
             } catch (Exception e) {
                 Log.e(TAG, "Error en cierre autónomo: " + e.getMessage(), e);
                 Toast.makeText(getActivity(), "Error en el proceso de cierre", Toast.LENGTH_SHORT).show();
             }
 
-        }, 10000);
+        }
 
     }
 
@@ -507,11 +510,12 @@ public class F4_Cierres extends Fragment {
     public void _3iniciarCierreAutonomoTransaccionesAlgunasCuentas() {
 
         // ⭐ CAMBIO E0 (17-nov): el 431 se hace YA y verificado (antes, con retardo y sin revisar).
-        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS.getFileName(), 6)) {
+        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS.getFileName(), 6, "cierre-algunas")) {
             return;
         }
 
-        new Handler().postDelayed(() -> {
+        // ⭐ CAMBIO E3 (17-nov): pasos en secuencia, sin espera fija de 10 s.
+        {
 
             try {
                 // 1. Crear archivo resumen de algunas cuentas
@@ -535,22 +539,23 @@ public class F4_Cierres extends Fragment {
                 // 3. Reimportar saldos iniciales de algunas cuentas
                 importarTransaccionesDesdeCSV(nombreArchivoResumen);
 
-                // 4. Subir archivos a Drive con rotación automática
-                subirArchivosADriveConDelay(new String[]{
-                        //"432 Backup saldos de algunas cuentas.csv",
-                        CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS.getFileName(),
-                });
+                // 4. Subir a Drive (rotación automática), sin espera fija
+                A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(),
+                        CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS.getFileName(), FOLDER_ID_DRIVE, 5);
 
                 // 5. Actualizar vista
                 _7verNumeroDeTransacciones();
                 _7verTransaccionesAdaptadorColumnas();
+
+                // 6. ⭐ E3: punto "después" y resumen
+                cerrarOperacion("Cierre interno de algunas cuentas",
+                        "Saldos trasladados: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")");
             } catch (Exception e) {
                 Log.e(TAG, "Error en cierre algunas cuentas: " + e.getMessage(), e);
                 Toast.makeText(getActivity(), "Error en el proceso de cierre", Toast.LENGTH_SHORT).show();
             }
 
-
-        }, 10000);
+        }
 
     }
 
@@ -610,6 +615,7 @@ public class F4_Cierres extends Fragment {
                     FOLDER_ID_DRIVE,
                     5
             );
+            cerrarOperacion("Restaurar todas las transacciones (local)", "Archivo: " + nombreArchivo);
 
             Log.d(TAG, "Transacciones restauradas correctamente");
         } catch (Exception e) {
@@ -1030,8 +1036,30 @@ public class F4_Cierres extends Fragment {
     // ⭐ NUEVO E0 respaldos (17-nov, Jorge): respaldo previo OBLIGATORIO antes de borrar
     // transacciones. Si no queda escrito y verificado, se avisa y el proceso no sigue.
     private boolean respaldoPrevioOk(String nombreArchivo, int maxBackups) {
+        return respaldoPrevioOk(nombreArchivo, maxBackups, null);
+    }
+
+    // ⭐ CAMBIO E3 (17-nov): además del CSV, punto de restauración COMPLETO de la base
+    // ("antes-<operación>"). Si cualquiera de los dos falla, no se sigue.
+    private A1BASES.A32_Respaldos.Resultado puntoAntes;
+    private String operacionEnCurso;
+
+    private boolean respaldoPrevioOk(String nombreArchivo, int maxBackups, String operacion) {
         boolean ok = A6_3_CSVDriveUploader.guardarYSubirTransacciones(
                 requireContext(), nombreArchivo, FOLDER_ID_DRIVE, maxBackups);
+        if (ok && operacion != null) {
+            puntoAntes = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
+            operacionEnCurso = operacion;
+            if (!puntoAntes.ok) {
+                new AlertDialog.Builder(getActivity())
+                        .setTitle("No se hizo ningún cambio")
+                        .setMessage("No se pudo hacer el punto de restauración completo:\n\n" + puntoAntes.mensaje +
+                                "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+                return false;
+            }
+        }
         if (!ok) {
             new AlertDialog.Builder(getActivity())
                     .setTitle("No se hizo ningún cambio")
@@ -1041,6 +1069,33 @@ public class F4_Cierres extends Fragment {
                     .show();
         }
         return ok;
+    }
+
+    // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación (en la app y en archivo).
+    private void cerrarOperacion(String titulo, String detalle) {
+        if (operacionEnCurso == null || getActivity() == null) return;
+        A1BASES.A32_Respaldos.Resultado despues =
+                A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionEnCurso);
+        String texto = A1BASES.A32_Respaldos.resumenOperacion(requireContext(), operacionEnCurso, titulo,
+                puntoAntes, despues, detalle);
+        operacionEnCurso = null;
+        puntoAntes = null;
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Resumen")
+                .setMessage(texto)
+                .setPositiveButton("Entendido", null)
+                .show();
+    }
+
+    // ⭐ NUEVO E3 (17-nov): número de líneas de datos de un CSV de la carpeta Balance.
+    private int lineasDeDatos(String nombreArchivo) {
+        int n = 0;
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(archivoLocalBalance(nombreArchivo)))) {
+            while (br.readLine() != null) n++;
+        } catch (Exception e) {
+            return 0;
+        }
+        return Math.max(0, n - 1);
     }
 
     // ⭐ NUEVO E0 (17-nov): archivo en la carpeta local "Balance".
@@ -1110,7 +1165,7 @@ public class F4_Cierres extends Fragment {
             // Diálogo para elegir origen: Local o Drive
 
             // ⭐ CAMBIO E0 (17-nov): respaldo "antes" verificado; si falla, no se sigue.
-            if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName(), 5)) {
+            if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName(), 5, "sheets-transacciones")) {
                 return;
             }
             _4_2_dialogoElegirOrigenRestauracion();
@@ -1384,6 +1439,10 @@ public class F4_Cierres extends Fragment {
 
                                 mostrarMensajeExito("✓ Saldos iniciales restaurados desde Drive");
                                 Log.d(TAG, "=== RESTAURACIÓN COMPLETADA ===");
+                                // ⭐ E3 (17-nov): CSV "después", punto "después" y resumen.
+                                A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(),
+                                        CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS.getFileName(), FOLDER_ID_DRIVE, 5);
+                                cerrarOperacion("Importar Balance desde Sheets (Drive)", "Archivo: " + archivo.nombre);
 
                                 /*new Handler().postDelayed(() -> {
                                     A6_3_CSVDriveUploader.guardarYSubirTransacciones(
@@ -1491,6 +1550,7 @@ public class F4_Cierres extends Fragment {
                     FOLDER_ID_DRIVE,
                     5
             );
+            cerrarOperacion("Importar Balance desde Sheets (local)", "Archivo: " + nombreArchivo);
 
             Log.d(TAG, "Transacciones restauradas: " + _7verNumeroDeTransacciones());
 
@@ -1535,7 +1595,7 @@ public class F4_Cierres extends Fragment {
             if (selectedId == 1) {
                 // Restaurar desde local (método actual)
                 // ⭐ CAMBIO E0 (17-nov): respaldo "antes" verificado; si falla, no se sigue.
-                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(), 5)) {
+                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(), 5, "restaurar-transacciones")) {
                     return;
                 }
 
@@ -1543,7 +1603,7 @@ public class F4_Cierres extends Fragment {
             } else {
                 // Restaurar desde Drive (nuevo)
                 // ⭐ NUEVO E0 (17-nov): Drive no tenía respaldo "antes".
-                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(), 5)) {
+                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(), 5, "restaurar-transacciones")) {
                     return;
                 }
                 _5_2_dialogoRestaurarDesdeGoogleDrive();
@@ -1691,6 +1751,7 @@ public class F4_Cierres extends Fragment {
                                         FOLDER_ID_DRIVE,
                                         5
                                 );
+                                cerrarOperacion("Restaurar todas las transacciones (Drive)", "Archivo: " + archivo.nombre);
 
                                 // Cerrar diálogo
                                 if (progressDialog.isShowing()) {

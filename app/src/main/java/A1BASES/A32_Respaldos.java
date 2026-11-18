@@ -93,6 +93,7 @@ public class A32_Respaldos {
         public int version;
         public int tablas;
         public long filas;
+        public Map<String, Long> filasPorTabla = new LinkedHashMap<>();
     }
 
     public interface Escucha {
@@ -216,6 +217,7 @@ public class A32_Respaldos {
                     }
                 }
                 r.version = versionCopia;
+                r.filasPorTabla = filasCopia;
                 r.tablas = filasCopia.size();
                 long total = 0;
                 for (Long n : filasCopia.values()) total += n;
@@ -299,7 +301,11 @@ public class A32_Respaldos {
 
     /** Deja solo las 'max' copias más recientes de un equipo y tipo (el nombre ordena por fecha). */
     private static void rotarLocal(File carpeta, String prefijo, int max) {
-        File[] archivos = carpeta.listFiles((dir, n) -> n.startsWith(prefijo) && n.endsWith(".db"));
+        rotarLocal(carpeta, prefijo, ".db", max);
+    }
+
+    private static void rotarLocal(File carpeta, String prefijo, String extension, int max) {
+        File[] archivos = carpeta.listFiles((dir, n) -> n.startsWith(prefijo) && n.endsWith(extension));
         if (archivos == null || archivos.length <= max) {
             return;
         }
@@ -324,7 +330,8 @@ public class A32_Respaldos {
             meta.setName(archivo.getName());
             meta.setParents(Collections.singletonList(FOLDER_ID_RESPALDOS_COMPLETOS));
             com.google.api.services.drive.model.File subido = drive.files()
-                    .create(meta, new FileContent("application/x-sqlite3", archivo))
+                    .create(meta, new FileContent(archivo.getName().endsWith(".txt")
+                            ? "text/plain" : "application/x-sqlite3", archivo))
                     .setFields("id, name")
                     .execute();
             if (subido == null || subido.getId() == null) {
@@ -335,7 +342,8 @@ public class A32_Respaldos {
             String prefijo = equipo(context) + "_" + tipo + "_";
             FileList lista = drive.files().list()
                     .setQ("'" + FOLDER_ID_RESPALDOS_COMPLETOS + "' in parents and name contains '"
-                            + prefijo + "' and trashed=false")
+                            + prefijo + "' and name contains '" + (archivo.getName().endsWith(".txt") ? ".txt" : ".db")
+                            + "' and trashed=false")
                     .setSpaces("drive")
                     .setFields("files(id, name)")
                     .setOrderBy("name desc")
@@ -563,6 +571,120 @@ public class A32_Respaldos {
             int n;
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
         }
+    }
+
+
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO E3 (17-nov, Jorge): automático, puntos de restauración y resumen
+    // ═════════════════════════════════════════════════════════════
+
+    public static final String TIPO_RESUMEN = "resumen";
+
+    /**
+     * Respaldo automático tras un cambio (GUARDAR en F1, cambios de cuentas en F2): copia
+     * completa en segundo plano, 10 copias. Solo avisa si algo falla.
+     */
+    public static void respaldoAutomatico(Context context) {
+        final Context app = context.getApplicationContext();
+        respaldarEnSegundoPlano(app, TIPO_AUTOMATICO, 10, new Escucha() {
+            @Override
+            public void alTerminarLocal(Resultado r) {
+                if (!r.ok) {
+                    android.widget.Toast.makeText(app, "✗ Respaldo automático: " + r.mensaje,
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void alTerminarDrive(boolean ok, String mensaje) {
+                if (!ok) {
+                    android.widget.Toast.makeText(app, "✗ Respaldo automático: " + mensaje,
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+
+    /**
+     * Punto de restauración ANTES o DESPUÉS de una operación que borra datos. La copia local
+     * se hace aquí mismo (quien llama decide si seguir según r.ok); la subida a Drive va en
+     * segundo plano. 5 copias por equipo y tipo.
+     */
+    public static Resultado puntoDeRestauracion(Context context, String tipo) {
+        final Context app = context.getApplicationContext();
+        Resultado r = respaldarBaseCompleta(app, tipo, 5);
+        if (r.ok) {
+            final File archivo = r.archivo;
+            HILO.execute(() -> {
+                String[] drive = subirADrive(app, archivo, tipo, 5);
+                guardarEstadoDrive(app, "ok".equals(drive[0]), drive[1]);
+                if (!"ok".equals(drive[0])) {
+                    PRINCIPAL.post(() -> android.widget.Toast.makeText(app,
+                            "✗ Punto de restauración no subido a Drive: " + drive[1],
+                            android.widget.Toast.LENGTH_LONG).show());
+                }
+            });
+        }
+        return r;
+    }
+
+    private static void guardarEstadoDrive(Context app, boolean ok, String msg) {
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putBoolean(CLAVE_DRIVE_OK, ok)
+                .putString(CLAVE_DRIVE_MSG, msg)
+                .putLong(CLAVE_DRIVE_FECHA, System.currentTimeMillis())
+                .apply();
+    }
+
+    /**
+     * Resumen de una operación: filas por tabla antes y después, más un detalle libre. Se
+     * guarda como .txt junto a los respaldos (10 por operación), se sube a Drive y se devuelve
+     * el texto para mostrarlo en la app.
+     */
+    public static String resumenOperacion(Context context, String operacion, String titulo,
+                                          Resultado antes, Resultado despues, String detalle) {
+        final Context app = context.getApplicationContext();
+        String equipo = equipo(app);
+        String sello = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+        StringBuilder sb = new StringBuilder();
+        sb.append(titulo).append('\n')
+                .append("Fecha: ").append(new SimpleDateFormat("d MMM yyyy HH:mm:ss", new Locale("es", "CO")).format(new Date()))
+                .append(" · Equipo: ").append(equipo).append('\n');
+        if (antes != null && antes.ok) sb.append("Antes: ").append(antes.archivo.getName()).append('\n');
+        if (despues != null && despues.ok) sb.append("Después: ").append(despues.archivo.getName()).append('\n');
+        if (despues != null && !despues.ok) sb.append("⚠ Punto \"después\" no realizado: ").append(despues.mensaje).append('\n');
+
+        if (antes != null && antes.ok && despues != null && despues.ok) {
+            sb.append("\nCambios por tabla (antes → después):\n");
+            boolean hubo = false;
+            for (Map.Entry<String, Long> e : despues.filasPorTabla.entrySet()) {
+                Long previo = antes.filasPorTabla.get(e.getKey());
+                long a = previo == null ? 0 : previo;
+                if (a != e.getValue()) {
+                    sb.append("  ").append(e.getKey()).append(": ").append(a).append(" → ").append(e.getValue()).append('\n');
+                    hubo = true;
+                }
+            }
+            if (!hubo) sb.append("  (sin cambios en el número de filas)\n");
+        }
+        if (detalle != null && !detalle.isEmpty()) {
+            sb.append('\n').append(detalle).append('\n');
+        }
+        String texto = sb.toString();
+
+        File carpeta = carpetaLocal();
+        if (carpeta.exists() || carpeta.mkdirs()) {
+            String prefijo = equipo + "_" + TIPO_RESUMEN + "-" + operacion + "_";
+            File archivo = new File(carpeta, prefijo + sello + ".txt");
+            try (OutputStream out = new FileOutputStream(archivo)) {
+                out.write(texto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                rotarLocal(carpeta, prefijo, ".txt", 10);
+                HILO.execute(() -> subirADrive(app, archivo, TIPO_RESUMEN + "-" + operacion, 10));
+            } catch (Exception e) {
+                Log.e(TAG, "No se pudo guardar el resumen", e);
+            }
+        }
+        return texto;
     }
 
 }
