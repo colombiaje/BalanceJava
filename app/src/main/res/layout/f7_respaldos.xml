@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ⭐ NUEVO E2 respaldos (17-nov, Jorge): pantalla única de respaldos completos.
+     Nivel básico: estado, respaldar ahora, restaurar. Nivel avanzado: CSV/Sheets y pruebas. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F4D7F5"
+    android:paddingTop="60dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/holo_purple"
+            android:gravity="center"
+            android:padding="4dp"
+            android:text="Respaldos"
+            android:textColor="@android:color/white"
+            android:textSize="20dp" />
+
+        <TextView
+            android:id="@+id/estadoRespaldos_XTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#DCE8F5"
+            android:padding="10dp"
+            android:text="Revisando respaldos…"
+            android:textColor="#1F3FA6"
+            android:textSize="15dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/equipoRespaldos_XTv"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Equipo: —"
+                android:textColor="#1F3FA6"
+                android:textSize="16dp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/cambiarEquipo_XBt"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_boton_accion"
+                android:paddingHorizontal="14dp"
+                android:text="Cambiar"
+                android:textAllCaps="false"
+                android:textColor="#1F3FA6" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/respaldarAhora_XBt"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_boton_accion"
+            android:text="Respaldar ahora"
+            android:textAllCaps="false"
+            android:textColor="#1F3FA6"
+            android:textSize="17dp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/restaurarLocal_XBt"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_boton_accion"
+            android:text="Restaurar desde este equipo"
+            android:textAllCaps="false"
+            android:textColor="#1F3FA6"
+            android:textSize="17dp" />
+
+        <Button
+            android:id="@+id/restaurarDrive_XBt"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_boton_accion"
+            android:text="Restaurar desde Drive"
+            android:textAllCaps="false"
+            android:textColor="#1F3FA6"
+            android:textSize="17dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#DCE8F5"
+            android:padding="8dp"
+            android:text="Restaurar reemplaza TODA la base por el respaldo elegido. Antes se guarda un respaldo del estado actual, y luego la app se cierra para aplicar el cambio."
+            android:textColor="#1F3FA6"
+            android:textSize="13dp" />
+
+        <CheckBox
+            android:id="@+id/verAvanzado_XCb"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Mostrar opciones avanzadas"
+            android:textColor="#1F3FA6"
+            android:textSize="15dp" />
+
+        <LinearLayout
+            android:id="@+id/areaAvanzada_XLL"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_menu_opciones"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="CSV y Sheets (herramientas de trabajo)"
+                android:textColor="#1F3FA6"
+                android:textSize="14dp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/irCuentasBackups_XBt"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_boton_accion"
+                android:text="Cuentas: Backups y cierre (F2)"
+                android:textAllCaps="false"
+                android:textColor="#1F3FA6" />
+
+            <Button
+                android:id="@+id/irCierres_XBt"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_boton_accion"
+                android:text="Cierres y transacciones (F4)"
+                android:textAllCaps="false"
+                android:textColor="#1F3FA6" />
+
+            <Button
+                android:id="@+id/probarSelector_XBt"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_boton_accion"
+                android:text="Probar selector de carpetas (sin API de Drive)"
+                android:textAllCaps="false"
+                android:textColor="#1F3FA6" />
+
+            <TextView
+                android:id="@+id/resultadoSelector_XTv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text=""
+                android:textColor="#1F3FA6"
+                android:textSize="13dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

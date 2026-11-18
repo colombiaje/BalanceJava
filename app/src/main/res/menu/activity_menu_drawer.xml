@@ -27,5 +27,11 @@
             android:icon="@drawable/ic_cierre_cuentas"
             android:title="@string/menuf5" />
 
+        <!-- ⭐ NUEVO E2 respaldos (17-nov, Jorge) -->
+        <item
+            android:id="@+id/navf7"
+            android:icon="@drawable/ic_cierre_cuentas"
+            android:title="@string/menuf7" />
+
     </group>
 </menu>

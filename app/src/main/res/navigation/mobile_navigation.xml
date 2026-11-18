@@ -31,4 +31,11 @@
         android:label="@string/menuf5"
         tools:layout="@layout/f4_cierres" />
 
+    <!-- ⭐ NUEVO E2 respaldos (17-nov, Jorge) -->
+    <fragment
+        android:id="@+id/navf7"
+        android:name="B_FRAGMENTS.F7_Respaldos"
+        android:label="@string/menuf7"
+        tools:layout="@layout/f7_respaldos" />
+
 </navigation>

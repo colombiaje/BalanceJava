@@ -72,6 +72,13 @@ public class A32_Respaldos {
 
     private static final String PREFS = "respaldos";
     private static final String CLAVE_EQUIPO = "equipo";
+    private static final String CLAVE_DRIVE_OK = "drive_ok";
+    private static final String CLAVE_DRIVE_MSG = "drive_msg";
+    private static final String CLAVE_DRIVE_FECHA = "drive_fecha";
+    private static final String CLAVE_PENDIENTE_DESC = "restauracion_pendiente";
+    private static final String CLAVE_AVISO_RESTAURADA = "aviso_restaurada";
+
+    public static final String TIPO_ANTES_RESTAURAR = "antes-restaurar";
 
     private static final ExecutorService HILO = Executors.newSingleThreadExecutor();
     private static final Handler PRINCIPAL = new Handler(Looper.getMainLooper());
@@ -140,6 +147,11 @@ public class A32_Respaldos {
             }
             String[] drive = subirADrive(app, r.archivo, tipo, maxCopias);
             boolean okDrive = "ok".equals(drive[0]);
+            app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putBoolean(CLAVE_DRIVE_OK, okDrive)
+                    .putString(CLAVE_DRIVE_MSG, drive[1])
+                    .putLong(CLAVE_DRIVE_FECHA, System.currentTimeMillis())
+                    .apply();
             PRINCIPAL.post(() -> { if (escucha != null) escucha.alTerminarDrive(okDrive, drive[1]); });
         });
     }
@@ -306,13 +318,7 @@ public class A32_Respaldos {
     /** Sube la copia a "Respaldos completos" y rota por equipo y tipo. Devuelve {"ok"|"error", mensaje}. */
     private static String[] subirADrive(Context context, File archivo, String tipo, int maxCopias) {
         try {
-            GoogleAccountCredential credencial = GoogleAccountCredential.usingOAuth2(
-                    context, Collections.singleton(DriveScopes.DRIVE_FILE))
-                    .setSelectedAccountName(CUENTA_GOOGLE);
-            Drive drive = new Drive.Builder(AndroidHttp.newCompatibleTransport(),
-                    JacksonFactory.getDefaultInstance(), credencial)
-                    .setApplicationName("a4.balance")
-                    .build();
+            Drive drive = servicioDrive(context);
 
             com.google.api.services.drive.model.File meta = new com.google.api.services.drive.model.File();
             meta.setName(archivo.getName());
@@ -353,4 +359,210 @@ public class A32_Respaldos {
             return new String[]{"error", "No se pudo subir a Drive: " + e.getMessage()};
         }
     }
+
+    private static Drive servicioDrive(Context context) {
+        GoogleAccountCredential credencial = GoogleAccountCredential.usingOAuth2(
+                context, Collections.singleton(DriveScopes.DRIVE_FILE))
+                .setSelectedAccountName(CUENTA_GOOGLE);
+        return new Drive.Builder(AndroidHttp.newCompatibleTransport(),
+                JacksonFactory.getDefaultInstance(), credencial)
+                .setApplicationName("a4.balance")
+                .build();
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO E2 (17-nov, Jorge): estado, listas y restauración
+    // ═════════════════════════════════════════════════════════════
+
+    /** Texto del último resultado de Drive, o null si nunca se ha subido. */
+    public static String estadoDrive(Context context) {
+        SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        long fecha = sp.getLong(CLAVE_DRIVE_FECHA, 0);
+        if (fecha == 0) return null;
+        String cuando = new SimpleDateFormat("d MMM HH:mm", new Locale("es", "CO")).format(new Date(fecha));
+        return (sp.getBoolean(CLAVE_DRIVE_OK, false) ? "✓ " : "✗ ") + cuando + " · "
+                + sp.getString(CLAVE_DRIVE_MSG, "");
+    }
+
+    /** Respaldos completos en la carpeta local, del más nuevo al más viejo (todos los equipos). */
+    public static List<File> respaldosLocales() {
+        List<File> lista = new ArrayList<>();
+        File[] archivos = carpetaLocal().listFiles((dir, n) -> n.endsWith(".db"));
+        if (archivos != null) {
+            lista.addAll(Arrays.asList(archivos));
+            Collections.sort(lista, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+        }
+        return lista;
+    }
+
+    /** Respaldos completos en Drive: cada elemento = {id, nombre, tamaño en bytes}. Fuera del hilo principal. */
+    public static List<String[]> respaldosEnDrive(Context context) throws Exception {
+        List<String[]> lista = new ArrayList<>();
+        String token = null;
+        do {
+            FileList r = servicioDrive(context).files().list()
+                    .setQ("'" + FOLDER_ID_RESPALDOS_COMPLETOS + "' in parents and trashed=false")
+                    .setSpaces("drive")
+                    .setFields("nextPageToken, files(id, name, size)")
+                    .setOrderBy("createdTime desc")
+                    .setPageToken(token)
+                    .execute();
+            if (r.getFiles() != null) {
+                for (com.google.api.services.drive.model.File f : r.getFiles()) {
+                    if (f.getName() != null && f.getName().endsWith(".db")) {
+                        lista.add(new String[]{f.getId(), f.getName(),
+                                String.valueOf(f.getSize() == null ? 0 : f.getSize())});
+                    }
+                }
+            }
+            token = r.getNextPageToken();
+        } while (token != null);
+        return lista;
+    }
+
+    /** Descarga un respaldo de Drive a la caché de la app. Fuera del hilo principal. */
+    public static File descargarDeDrive(Context context, String id, String nombre) throws Exception {
+        File destino = new File(context.getCacheDir(), nombre);
+        try (OutputStream out = new FileOutputStream(destino)) {
+            servicioDrive(context).files().get(id).executeMediaAndDownloadTo(out);
+        }
+        return destino;
+    }
+
+    /** Revisión de un respaldo candidato antes de restaurarlo. */
+    public static class Revision {
+        public boolean ok;
+        public String mensaje = "";
+        public int version;
+        public int tablas;
+        public long filas;
+    }
+
+    /** Abre el respaldo en solo lectura: integridad, versión (no más nueva que la app) y filas. */
+    public static Revision revisarCandidato(File archivo) {
+        Revision rv = new Revision();
+        try {
+            SQLiteDatabase db = SQLiteDatabase.openDatabase(archivo.getAbsolutePath(), null,
+                    SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
+            try {
+                String integridad = primerTexto(db, "PRAGMA integrity_check");
+                if (!"ok".equalsIgnoreCase(integridad)) {
+                    rv.mensaje = "El respaldo está dañado (integridad: " + integridad + ").";
+                    return rv;
+                }
+                rv.version = (int) primerNumero(db, "PRAGMA user_version");
+                Map<String, Long> filas = contarFilas(db);
+                rv.tablas = filas.size();
+                for (Long n : filas.values()) rv.filas += n;
+            } finally {
+                db.close();
+            }
+        } catch (Exception e) {
+            rv.mensaje = "No se pudo abrir el respaldo: " + e.getMessage();
+            return rv;
+        }
+        int versionApp = A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
+        if (rv.version > versionApp) {
+            rv.mensaje = "El respaldo es de una versión de base más nueva (v" + rv.version
+                    + ") que la de esta app (v" + versionApp + "). Instala primero la app más reciente.";
+            return rv;
+        }
+        if (rv.version < 1) {
+            rv.mensaje = "El archivo no parece un respaldo de la app (sin versión de base).";
+            return rv;
+        }
+        rv.ok = true;
+        return rv;
+    }
+
+    private static File archivoPendiente(Context context) {
+        return new File(context.getFilesDir(), "restauracion_pendiente.db");
+    }
+
+    /**
+     * Deja el respaldo listo para reemplazar la base en el próximo arranque de la app (con la
+     * base cerrada). Fuera del hilo principal.
+     */
+    public static boolean prepararRestauracion(Context context, File candidato, String descripcion) {
+        File pendiente = archivoPendiente(context);
+        File tmp = new File(pendiente.getPath() + ".tmp");
+        try {
+            copiarArchivo(candidato, tmp);
+            if (tmp.length() != candidato.length()) {
+                tmp.delete();
+                return false;
+            }
+            if (pendiente.exists()) pendiente.delete();
+            if (!tmp.renameTo(pendiente)) {
+                tmp.delete();
+                return false;
+            }
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putString(CLAVE_PENDIENTE_DESC, descripcion).commit();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo preparar la restauración", e);
+            tmp.delete();
+            return false;
+        }
+    }
+
+    /**
+     * Se llama al arrancar la app, ANTES de abrir la base. Si hay una restauración pendiente,
+     * reemplaza balance.db por el respaldo. La copia nueva se escribe junto a la base y solo
+     * entonces se cambia por la actual, para no quedar nunca sin base.
+     */
+    public static void aplicarRestauracionPendiente(Context context) {
+        File pendiente = archivoPendiente(context);
+        if (!pendiente.exists() || pendiente.length() == 0) {
+            return;
+        }
+        SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String desc = sp.getString(CLAVE_PENDIENTE_DESC, pendiente.getName());
+        File base = context.getDatabasePath(A1_1_AyudanteBD.balanceSqlite_String_PSF);
+        File nueva = new File(base.getPath() + ".restaurando");
+        try {
+            copiarArchivo(pendiente, nueva);
+            if (nueva.length() != pendiente.length()) {
+                throw new IllegalStateException("copia incompleta");
+            }
+            for (String sufijo : new String[]{"-wal", "-shm", "-journal"}) {
+                File f = new File(base.getPath() + sufijo);
+                if (f.exists()) f.delete();
+            }
+            if (base.exists() && !base.delete()) {
+                throw new IllegalStateException("no se pudo retirar la base actual");
+            }
+            if (!nueva.renameTo(base)) {
+                throw new IllegalStateException("no se pudo poner la base restaurada");
+            }
+            pendiente.delete();
+            sp.edit().remove(CLAVE_PENDIENTE_DESC)
+                    .putString(CLAVE_AVISO_RESTAURADA, "✓ Base restaurada desde:\n" + desc).commit();
+        } catch (Exception e) {
+            Log.e(TAG, "Falló la restauración pendiente", e);
+            nueva.delete();
+            pendiente.delete();
+            sp.edit().remove(CLAVE_PENDIENTE_DESC)
+                    .putString(CLAVE_AVISO_RESTAURADA, "✗ No se pudo restaurar " + desc + ": "
+                            + e.getMessage() + "\nLa base anterior sigue en uso.").commit();
+        }
+    }
+
+    /** Aviso de la última restauración aplicada (se entrega una sola vez). */
+    public static String tomarAvisoRestauracion(Context context) {
+        SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String aviso = sp.getString(CLAVE_AVISO_RESTAURADA, null);
+        if (aviso != null) sp.edit().remove(CLAVE_AVISO_RESTAURADA).apply();
+        return aviso;
+    }
+
+    private static void copiarArchivo(File origen, File destino) throws Exception {
+        try (InputStream in = new FileInputStream(origen); OutputStream out = new FileOutputStream(destino)) {
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        }
+    }
+
 }

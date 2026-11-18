@@ -51,6 +51,9 @@ public class C2_ActivityMenu extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // ⭐ NUEVO E2 respaldos (17-nov, Jorge): si se dejó una restauración lista en la pantalla
+        // "Respaldos", se aplica AQUÍ, antes de que cualquier pantalla abra la base.
+        A1BASES.A32_Respaldos.aplicarRestauracionPendiente(getApplicationContext());
         super.onCreate(savedInstanceState);
         setContentView(R.layout.c2_1_activity_menu);
         Toolbar toolbar = findViewById(R.id.toolbar);
@@ -60,7 +63,7 @@ public class C2_ActivityMenu extends AppCompatActivity {
         NavigationView navigationView = findViewById(R.id.nav_view);
         mAppBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.navf1,
-                R.id.navf2, R.id.navf3, R.id.navf5)
+                R.id.navf2, R.id.navf3, R.id.navf5, R.id.navf7)
                 .setDrawerLayout(drawer)
                 .build();
         NavController navController = Navigation.findNavController(this, R.id.contenedor_fragments_f0_Xf);
@@ -118,6 +121,16 @@ public class C2_ActivityMenu extends AppCompatActivity {
         },10000);//empezara a ejecutarse
 
         cambiarElFragmentPredeterminado();
+
+        // ⭐ NUEVO E2 (17-nov): aviso del resultado de una restauración recién aplicada.
+        String avisoRestauracion = A1BASES.A32_Respaldos.tomarAvisoRestauracion(getApplicationContext());
+        if (avisoRestauracion != null) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Restauración")
+                    .setMessage(avisoRestauracion)
+                    .setPositiveButton("Entendido", null)
+                    .show();
+        }
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             //Toast.makeText(getApplicationContext(), "Autorizar el uso de la App en Drive", Toast.LENGTH_SHORT).show();
