@@ -124,6 +124,7 @@ public class A32_Respaldos {
     public static void cambiarEquipo(Context context, String equipo) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit().putString(CLAVE_EQUIPO, equipo.trim()).apply();
+        A9_2_BackupFile.prefijoEquipo = equipo.trim();
     }
 
     public static File carpetaLocal() {
@@ -580,6 +581,23 @@ public class A32_Respaldos {
 
     public static final String TIPO_RESUMEN = "resumen";
 
+    /** ⭐ NUEVO (18-nov): filas por tabla de la base actual, sin hacer copia (para resúmenes de
+     *  restauraciones, que ya no guardan un punto "después"). */
+    public static Resultado estadoActual(Context context) {
+        Resultado r = new Resultado();
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context.getApplicationContext(),
+                A1_1_AyudanteBD.balanceSqlite_String_PSF, null, A1_1_AyudanteBD.version1BalanceSqlite_int_PSF);
+        try {
+            r.filasPorTabla = contarFilas(ayudante.getReadableDatabase());
+            r.ok = true;
+        } catch (Exception e) {
+            r.mensaje = e.getMessage();
+        } finally {
+            ayudante.close();
+        }
+        return r;
+    }
+
     /**
      * Respaldo automático tras un cambio (GUARDAR en F1, cambios de cuentas en F2): copia
      * completa en segundo plano, 10 copias. Solo avisa si algo falla.
@@ -651,7 +669,7 @@ public class A32_Respaldos {
                 .append("Fecha: ").append(new SimpleDateFormat("d MMM yyyy HH:mm:ss", new Locale("es", "CO")).format(new Date()))
                 .append(" · Equipo: ").append(equipo).append('\n');
         if (antes != null && antes.ok) sb.append("Antes: ").append(antes.archivo.getName()).append('\n');
-        if (despues != null && despues.ok) sb.append("Después: ").append(despues.archivo.getName()).append('\n');
+        if (despues != null && despues.ok && despues.archivo != null) sb.append("Después: ").append(despues.archivo.getName()).append('\n');
         if (despues != null && !despues.ok) sb.append("⚠ Punto \"después\" no realizado: ").append(despues.mensaje).append('\n');
 
         if (antes != null && antes.ok && despues != null && despues.ok) {

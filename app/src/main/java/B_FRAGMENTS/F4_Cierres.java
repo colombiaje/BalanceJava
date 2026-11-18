@@ -463,7 +463,7 @@ public class F4_Cierres extends Fragment {
             db.close();
         }
         // Al cierre la foto aún no tiene depuración: el nombre lo dice.
-        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getBaseName() + "_sin_depurar"
+        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getBaseNameConEquipo() + "_sin_depurar"
                 + A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileType().getExtension();
         if (A5_1_BackupManager.backupFotoRentaCSV(getActivity(), nombreFoto)) {
             A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(requireContext(), nombreFoto, FOLDER_ID_DRIVE);
@@ -608,14 +608,9 @@ public class F4_Cierres extends Fragment {
             String nombreArchivo = CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getFileName();
             importarTransaccionesDesdeCSV(nombreArchivo);
 
-            // 3. Respaldo "después"
-            A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                    requireContext(),
-                    CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(),
-                    FOLDER_ID_DRIVE,
-                    5
-            );
-            cerrarOperacion("Restaurar todas las transacciones (local)", "Archivo: " + nombreArchivo);
+            // 3. ⭐ CAMBIO (18-nov, Jorge): sin respaldo "después" al restaurar (451_2 ni punto
+            // completo): repetiría lo que ya está en el archivo restaurado.
+            cerrarOperacion("Restaurar todas las transacciones (local)", "Archivo: " + nombreArchivo, false);
 
             Log.d(TAG, "Transacciones restauradas correctamente");
         } catch (Exception e) {
@@ -1073,9 +1068,16 @@ public class F4_Cierres extends Fragment {
 
     // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación (en la app y en archivo).
     private void cerrarOperacion(String titulo, String detalle) {
+        cerrarOperacion(titulo, detalle, true);
+    }
+
+    // conDespues = false en restauraciones (18-nov, Jorge): el resumen compara con el estado
+    // actual sin guardar otra copia.
+    private void cerrarOperacion(String titulo, String detalle, boolean conDespues) {
         if (operacionEnCurso == null || getActivity() == null) return;
-        A1BASES.A32_Respaldos.Resultado despues =
-                A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionEnCurso);
+        A1BASES.A32_Respaldos.Resultado despues = conDespues
+                ? A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionEnCurso)
+                : A1BASES.A32_Respaldos.estadoActual(requireContext());
         String texto = A1BASES.A32_Respaldos.resumenOperacion(requireContext(), operacionEnCurso, titulo,
                 puntoAntes, despues, detalle);
         operacionEnCurso = null;
@@ -1745,13 +1747,8 @@ public class F4_Cierres extends Fragment {
                                 // y luego el respaldo "después".
                                 _7borrarHistorialTransacciones("transacciones");
                                 _5_ejecutarRestauracionDesdeArchivoLocal(localPath);
-                                A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                                        requireContext(),
-                                        CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(),
-                                        FOLDER_ID_DRIVE,
-                                        5
-                                );
-                                cerrarOperacion("Restaurar todas las transacciones (Drive)", "Archivo: " + archivo.nombre);
+                                // ⭐ CAMBIO (18-nov): sin respaldo "después" al restaurar (452_2).
+                                cerrarOperacion("Restaurar todas las transacciones (Drive)", "Archivo: " + archivo.nombre, false);
 
                                 // Cerrar diálogo
                                 if (progressDialog.isShowing()) {

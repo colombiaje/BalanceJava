@@ -96,7 +96,39 @@ public class A6_1_GoogleDriveManager {
     }
 
     public void uploadFileToDrive() {
+        guardarEnHistorialLocal();
         new UploadTask().execute();
+    }
+
+    // ⭐ NUEVO (18-nov, Jorge): historial local. Antes en el equipo quedaba un solo archivo por
+    // nombre y cada respaldo sobrescribía el anterior. Ahora, cada vez que un archivo se sube a
+    // Drive, también se guarda una copia con fecha en Balance/Historial, con la misma rotación
+    // (maxBackups) que en Drive. El archivo de Balance sigue siendo "el último".
+    private void guardarEnHistorialLocal() {
+        try {
+            java.io.File origen = new java.io.File(filePath, fileName);
+            if (!origen.exists() || origen.length() == 0) return;
+            java.io.File carpeta = new java.io.File(android.os.Environment.getExternalStorageDirectory(), "Balance/Historial");
+            if (!carpeta.exists() && !carpeta.mkdirs()) return;
+            String extension = esPdf(fileName) ? ".pdf" : ".csv";
+            String base = fileName.replaceFirst("\\.(csv|pdf)$", "");
+            String sello = new SimpleDateFormat("_MMdd_HH-mm-ss", Locale.US).format(new Date());
+            java.io.File copia = new java.io.File(carpeta, base + sello + extension);
+            try (java.io.InputStream in = new java.io.FileInputStream(origen);
+                 java.io.OutputStream out = new java.io.FileOutputStream(copia)) {
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            }
+            final String patron = java.util.regex.Pattern.quote(base) + "_\\d{4}_\\d{2}-\\d{2}-\\d{2}" + java.util.regex.Pattern.quote(extension);
+            java.io.File[] copias = carpeta.listFiles((d, n) -> n.matches(patron));
+            if (copias != null && copias.length > maxBackups) {
+                java.util.Arrays.sort(copias, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+                for (int i = maxBackups; i < copias.length; i++) copias[i].delete();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo guardar en el historial local: " + fileName, e);
+        }
     }
 
     private class UploadTask extends AsyncTask<Void, Void, String> {

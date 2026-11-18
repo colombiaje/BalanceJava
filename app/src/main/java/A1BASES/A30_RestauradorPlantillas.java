@@ -126,7 +126,7 @@ public class A30_RestauradorPlantillas {
         File mejor = null;
         for (File carpeta : carpetas) {
             if (carpeta == null || !carpeta.isDirectory()) continue;
-            File[] archivos = carpeta.listFiles((dir, n) -> n.startsWith(A27_Plantillas.PREFIJO_CSV)
+            File[] archivos = carpeta.listFiles((dir, n) -> n.contains(A27_Plantillas.PREFIJO_CSV) /* ⭐ 18-nov: con o sin prefijo de equipo */
                     && n.toLowerCase().endsWith(".csv"));
             if (archivos == null) continue;
             for (File f : archivos) if (mejor == null || f.lastModified() > mejor.lastModified()) mejor = f;

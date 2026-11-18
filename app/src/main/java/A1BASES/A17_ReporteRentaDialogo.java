@@ -408,7 +408,7 @@ public class A17_ReporteRentaDialogo {
             db.close();
         }
         // El respaldo 423 (todas las fotos) se regenera y sube con las decisiones.
-        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getBaseName() + "_depurada"
+        String nombreFoto = A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getBaseNameConEquipo() + "_depurada"
                 + A9_2_BackupFile.CSV_FOTO_RENTA_ANUAL.getFileType().getExtension();
         if (A5_1_BackupManager.backupFotoRentaCSV(context, nombreFoto) && folderIdDrive != null) {
             A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(context, nombreFoto, folderIdDrive);

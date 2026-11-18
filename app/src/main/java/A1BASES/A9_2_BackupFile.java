@@ -64,8 +64,26 @@ public enum A9_2_BackupFile {
         this.fileType = a9_1_FileType;
     }
 
+    // ⭐ NUEVO (18-nov, Jorge): prefijo del equipo (13T, PAD5…) en todos los respaldos. Lo fija
+    // C2_ActivityMenu al arrancar (A32_Respaldos.equipo). Los dos CSV que llegan DESDE Sheets
+    // (221 y 441) no lo llevan: son copias de Sheets, no respaldos de un equipo.
+    public static String prefijoEquipo = "";
+
+    public static String prefijo() {
+        return prefijoEquipo == null || prefijoEquipo.isEmpty() ? "" : prefijoEquipo + "_";
+    }
+
     public String getFileName() {
-        return baseName + fileType.getExtension();
+        if (this == CSV_ACCOUNTS_SHEETS_SYNCHRONIZED || this == CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED) {
+            return baseName + fileType.getExtension();
+        }
+        return prefijo() + baseName + fileType.getExtension();
+    }
+
+    // ⭐ NUEVO (18-nov): nombre base con el prefijo del equipo (para los nombres que se arman
+    // agregando años o estados, como los de renta).
+    public String getBaseNameConEquipo() {
+        return prefijo() + baseName;
     }
 
     public A9_1_FileType getFileType() {

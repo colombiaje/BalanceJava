@@ -120,7 +120,7 @@ public class A24_RestauradorRenta {
         for (File carpeta : carpetas) {
             if (carpeta == null || !carpeta.isDirectory()) continue;
             File[] archivos = carpeta.listFiles((dir, nombre) ->
-                    nombre.startsWith(prefijo) && nombre.toLowerCase().endsWith(".csv"));
+                    nombre.contains(prefijo) /* ⭐ 18-nov: con o sin prefijo de equipo */ && nombre.toLowerCase().endsWith(".csv"));
             if (archivos == null) continue;
             for (File f : archivos) {
                 if (mejor == null || f.lastModified() > mejor.lastModified()) mejor = f;

@@ -464,7 +464,7 @@ public final class A27_Plantillas {
             return null;
         }
         java.io.File archivo = new java.io.File(android.os.Environment.getExternalStorageDirectory().getPath() +
-                "/Balance/" + PREFIJO_CSV + ".csv");
+                "/Balance/" + A9_2_BackupFile.prefijo() + PREFIJO_CSV + ".csv"); // ⭐ 18-nov: prefijo de equipo
         SQLiteDatabase db = abrir(ctx, false);
         try (Cursor c = db.rawQuery("SELECT p.nombre, p.periodicidad, p.activa, p.creada, p.ultimo_uso, p.usos, " +
                 "p.origen, i.orden, i.cuenta_id, cu.Cuenta, i.signo, i.valor, i.concepto " +

@@ -1441,6 +1441,9 @@ public class F2_Cuentas extends DialogFragment {
         // ⭐ NUEVO E3 respaldos (17-nov, Jorge): cada cambio de cuentas (nueva, modificada,
         // borrada) deja una copia completa de la base en segundo plano.
         A1BASES.A32_Respaldos.respaldoAutomatico(requireContext());
+        // ⭐ NUEVO (18-nov, Jorge, opción B "simetría"): igual que F1 con su 121, cada cambio
+        // de cuentas genera también el CSV de cuentas (211), local con historial y en Drive.
+        subirCsvBackupCrud(CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getFileName(), 5);
     }
 
     // ⭐ RETIRADO — tanda 2 v10: cargarCatalogoGrupoConEspacioInicial() (Grupo1/Grupo2 por
@@ -2538,7 +2541,7 @@ public class F2_Cuentas extends DialogFragment {
         //nombreArchivoBackupCuentas_String = "222_2_BackupDespuesDeRestaurarCuentasDesdeSheets.csv";
         nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_CLOSING_RESTORING_SHEETS.getFileName();
         subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
-        cerrarOperacionCuentas("Importar cuentas desde Sheets");
+        cerrarOperacionCuentas("Importar cuentas desde Sheets", true);
         Toast.makeText(getActivity(), "Archivo 2 guardado localmente", Toast.LENGTH_SHORT).show();
         }
 
@@ -2661,10 +2664,13 @@ public class F2_Cuentas extends DialogFragment {
     }
 
     // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación de cuentas.
-    private void cerrarOperacionCuentas(String titulo) {
+    // conDespues = false en restauraciones (18-nov): el resumen compara con el estado actual
+    // sin guardar otra copia.
+    private void cerrarOperacionCuentas(String titulo, boolean conDespues) {
         if (operacionCuentasEnCurso == null || getActivity() == null) return;
-        A1BASES.A32_Respaldos.Resultado despues =
-                A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionCuentasEnCurso);
+        A1BASES.A32_Respaldos.Resultado despues = conDespues
+                ? A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionCuentasEnCurso)
+                : A1BASES.A32_Respaldos.estadoActual(requireContext());
         String texto = A1BASES.A32_Respaldos.resumenOperacion(requireContext(), operacionCuentasEnCurso, titulo,
                 puntoAntesCuentas, despues, "Cuentas en la tabla ahora: " + verNumeroDeRegistrosCuentas());
         operacionCuentasEnCurso = null;
@@ -2742,9 +2748,9 @@ public class F2_Cuentas extends DialogFragment {
 
                 repararReferenciasCuentaIdTrasRestaurarCuentas("backup local");
 
-                nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName();
-                subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
-                cerrarOperacionCuentas("Restaurar cuentas (local)");
+                // ⭐ CAMBIO (18-nov, Jorge): al restaurar ya no se hace respaldo "después" (232 ni
+                // punto completo): repetiría lo que ya está en el archivo restaurado.
+                cerrarOperacionCuentas("Restaurar cuentas (local)", false);
                 } catch (Exception e) {
                 Toast.makeText(getActivity(), "Hubo un error", Toast.LENGTH_SHORT).show();//f1
             }
@@ -3226,9 +3232,8 @@ public class F2_Cuentas extends DialogFragment {
                                 // ⭐ E0 (17-nov): descarga bien → ahora sí se borra e importa.
                                 borrarHistorialCuentas("cuentas");
                                 _3_ejecutarRestauracionDesdeArchivoLocal(localPath);
-                                nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName();
-                                subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
-                                cerrarOperacionCuentas("Restaurar cuentas (Drive)");
+                                // ⭐ CAMBIO (18-nov): sin respaldo "después" al restaurar.
+                                cerrarOperacionCuentas("Restaurar cuentas (Drive)", false);
 
                                 if (progressDialog.isShowing()) {
                                     progressDialog.dismiss();

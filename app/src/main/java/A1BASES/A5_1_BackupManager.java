@@ -143,7 +143,7 @@ public class A5_1_BackupManager {
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getReadableDatabase();
         try {
-            StringBuilder nombre = new StringBuilder(A9_2_BackupFile.CSV_AJUSTES_RENTA.getBaseName());
+            StringBuilder nombre = new StringBuilder(A9_2_BackupFile.CSV_AJUSTES_RENTA.getBaseNameConEquipo());
             for (Integer anio : A1_1_AyudanteBD.aniosConAjusteRenta(db)) nombre.append("_").append(anio);
             nombre.append(A9_2_BackupFile.CSV_AJUSTES_RENTA.getFileType().getExtension());
             File archivo = new File(Environment.getExternalStorageDirectory().getPath() + "/Balance/" + nombre);
@@ -183,7 +183,7 @@ public class A5_1_BackupManager {
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getReadableDatabase();
         try {
-            StringBuilder nombre = new StringBuilder(A9_2_BackupFile.CSV_SOPORTES_RENTA.getBaseName());
+            StringBuilder nombre = new StringBuilder(A9_2_BackupFile.CSV_SOPORTES_RENTA.getBaseNameConEquipo());
             for (Integer anio : A1_1_AyudanteBD.aniosConSoportes(db)) nombre.append("_").append(anio);
             nombre.append(A9_2_BackupFile.CSV_SOPORTES_RENTA.getFileType().getExtension());
             File archivo = new File(Environment.getExternalStorageDirectory().getPath() + "/Balance/" + nombre);

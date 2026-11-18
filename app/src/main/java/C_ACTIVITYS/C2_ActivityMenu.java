@@ -54,6 +54,8 @@ public class C2_ActivityMenu extends AppCompatActivity {
         // ⭐ NUEVO E2 respaldos (17-nov, Jorge): si se dejó una restauración lista en la pantalla
         // "Respaldos", se aplica AQUÍ, antes de que cualquier pantalla abra la base.
         A1BASES.A32_Respaldos.aplicarRestauracionPendiente(getApplicationContext());
+        // ⭐ NUEVO (18-nov): prefijo del equipo para los nombres de todos los respaldos CSV.
+        A1BASES.A9_2_BackupFile.prefijoEquipo = A1BASES.A32_Respaldos.equipo(getApplicationContext());
         super.onCreate(savedInstanceState);
         setContentView(R.layout.c2_1_activity_menu);
         Toolbar toolbar = findViewById(R.id.toolbar);

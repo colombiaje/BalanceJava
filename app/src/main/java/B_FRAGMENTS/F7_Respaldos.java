@@ -101,7 +101,9 @@ public class F7_Respaldos extends Fragment {
                 areaAvanzada.setVisibility(marcado ? View.VISIBLE : View.GONE));
         v.findViewById(R.id.irCuentasBackups_XBt).setOnClickListener(x -> irA(R.id.navf2));
         v.findViewById(R.id.irCierres_XBt).setOnClickListener(x -> irA(R.id.navf5));
-        v.findViewById(R.id.probarSelector_XBt).setOnClickListener(x -> selectorCarpeta.launch(null));
+        v.findViewById(R.id.probarSelector_XBt).setOnClickListener(x -> selectorCarpeta.launch(
+                // ⭐ (18-nov, Jorge): abre directamente en la carpeta Balance del equipo.
+                Uri.parse("content://com.android.externalstorage.documents/document/primary%3ABalance")));
 
         refrescarEstado();
         return v;
@@ -358,10 +360,14 @@ public class F7_Respaldos extends Fragment {
                 .show();
     }
 
+    // ⭐ CAMBIO (18-nov): se abre por el MISMO camino que tocar el menú lateral. Antes iba
+    // directo por la navegación y el menú quedaba desincronizado: luego no dejaba volver a
+    // "Respaldos".
     private void irA(int destino) {
         try {
-            NavController nav = Navigation.findNavController(requireActivity(), R.id.contenedor_fragments_f0_Xf);
-            nav.navigate(destino);
+            com.google.android.material.navigation.NavigationView menu =
+                    requireActivity().findViewById(R.id.nav_view);
+            menu.getMenu().performIdentifierAction(destino, 0);
         } catch (Exception e) {
             Toast.makeText(requireContext(), "No se pudo abrir la pantalla.", Toast.LENGTH_SHORT).show();
         }
