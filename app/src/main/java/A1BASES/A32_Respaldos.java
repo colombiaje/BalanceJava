@@ -331,8 +331,8 @@ public class A32_Respaldos {
             meta.setName(archivo.getName());
             meta.setParents(Collections.singletonList(FOLDER_ID_RESPALDOS_COMPLETOS));
             com.google.api.services.drive.model.File subido = drive.files()
-                    .create(meta, new FileContent(archivo.getName().endsWith(".txt")
-                            ? "text/plain" : "application/x-sqlite3", archivo))
+                    .create(meta, new FileContent(archivo.getName().endsWith(".txt") ? "text/plain"
+                            : archivo.getName().endsWith(".csv") ? "text/csv" : "application/x-sqlite3", archivo))
                     .setFields("id, name")
                     .execute();
             if (subido == null || subido.getId() == null) {
@@ -343,7 +343,8 @@ public class A32_Respaldos {
             String prefijo = equipo(context) + "_" + tipo + "_";
             FileList lista = drive.files().list()
                     .setQ("'" + FOLDER_ID_RESPALDOS_COMPLETOS + "' in parents and name contains '"
-                            + prefijo + "' and name contains '" + (archivo.getName().endsWith(".txt") ? ".txt" : ".db")
+                            + prefijo + "' and name contains '" + (archivo.getName().endsWith(".txt") ? ".txt"
+                            : archivo.getName().endsWith(".csv") ? ".csv" : ".db")
                             + "' and trashed=false")
                     .setSpaces("drive")
                     .setFields("files(id, name)")
@@ -807,6 +808,98 @@ public class A32_Respaldos {
             case "452": return "452 antes de restaurar desde Drive";
             default: return numero.isEmpty() ? nombre : numero;
         }
+    }
+
+
+    /**
+     * ⭐ NUEVO (18-nov, Jorge): CSV locales de un tipo (por su nombre base, con o sin prefijo de
+     * equipo), del más nuevo al más viejo: el "último" de Balance y las copias con fecha de
+     * Balance/Historial. Para restaurar eligiendo la fecha, como en Drive.
+     */
+    public static List<File> csvLocalesPorBase(String base) {
+        List<File> lista = new ArrayList<>();
+        File raiz = new File(Environment.getExternalStorageDirectory(), "Balance");
+        for (File carpeta : new File[]{raiz, new File(raiz, "Historial")}) {
+            File[] archivos = carpeta.listFiles((d, n) -> n.contains(base) && n.endsWith(".csv"));
+            if (archivos != null) lista.addAll(Arrays.asList(archivos));
+        }
+        Collections.sort(lista, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+        return lista;
+    }
+
+    /** Texto para una lista de elección: nombre, fecha y si es el "último" de Balance. */
+    public static String etiquetaArchivo(File f) {
+        String fecha = new SimpleDateFormat("d MMM yyyy HH:mm:ss", new Locale("es", "CO")).format(new Date(f.lastModified()));
+        boolean ultimo = !"Historial".equals(f.getParentFile() == null ? "" : f.getParentFile().getName());
+        return f.getName() + "\n   " + fecha + (ultimo ? " · último (carpeta Balance)" : " · historial");
+    }
+
+
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (18-nov, Jorge): exportar una tabla de un respaldo .db a CSV (solo lectura)
+    // ═════════════════════════════════════════════════════════════
+
+    /** Tablas de un respaldo con su número de filas: {nombre, filas}. */
+    public static List<String[]> tablasDeRespaldo(File db) {
+        List<String[]> lista = new ArrayList<>();
+        SQLiteDatabase base = SQLiteDatabase.openDatabase(db.getAbsolutePath(), null,
+                SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
+        try {
+            for (Map.Entry<String, Long> e : contarFilas(base).entrySet()) {
+                lista.add(new String[]{e.getKey(), String.valueOf(e.getValue())});
+            }
+        } finally {
+            base.close();
+        }
+        return lista;
+    }
+
+    /**
+     * Exporta una tabla del respaldo a Balance/<equipo>_export-<tabla>_<fecha>.csv (con
+     * encabezado y comillas cuando hace falta) y lo sube a Drive en segundo plano. Devuelve el
+     * archivo o null. Fuera del hilo principal.
+     */
+    public static File exportarTablaCsv(Context context, File db, String tabla) {
+        final Context app = context.getApplicationContext();
+        File carpeta = new File(Environment.getExternalStorageDirectory(), "Balance");
+        String tipo = "export-" + tabla.replaceAll("[^A-Za-z0-9]", "");
+        String sello = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+        File destino = new File(carpeta, equipo(app) + "_" + tipo + "_" + sello + ".csv");
+        SQLiteDatabase base = SQLiteDatabase.openDatabase(db.getAbsolutePath(), null,
+                SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
+        try (Cursor c = base.rawQuery("SELECT * FROM \"" + tabla.replace("\"", "\"\"") + "\"", null);
+             java.io.Writer w = new java.io.OutputStreamWriter(new FileOutputStream(destino),
+                     java.nio.charset.StandardCharsets.UTF_8)) {
+            String[] columnas = c.getColumnNames();
+            for (int i = 0; i < columnas.length; i++) {
+                if (i > 0) w.write(',');
+                w.write(celdaCsv(columnas[i]));
+            }
+            w.write('\n');
+            while (c.moveToNext()) {
+                for (int i = 0; i < columnas.length; i++) {
+                    if (i > 0) w.write(',');
+                    w.write(c.isNull(i) ? "" : celdaCsv(c.getString(i)));
+                }
+                w.write('\n');
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo exportar " + tabla, e);
+            destino.delete();
+            return null;
+        } finally {
+            base.close();
+        }
+        HILO.execute(() -> subirADrive(app, destino, tipo, 5));
+        return destino;
+    }
+
+    private static String celdaCsv(String v) {
+        if (v == null) return "";
+        if (v.contains(",") || v.contains("\"") || v.contains("\n") || v.contains("\r")) {
+            return "\"" + v.replace("\"", "\"\"") + "\"";
+        }
+        return v;
     }
 
 }

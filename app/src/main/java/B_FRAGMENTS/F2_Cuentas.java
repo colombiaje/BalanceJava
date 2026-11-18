@@ -2600,9 +2600,33 @@ public class F2_Cuentas extends DialogFragment {
         if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String, "restaurar-cuentas")) {
             return;
         }
+        // ⭐ CAMBIO (18-nov, Jorge): se elige el 211 por fecha (último o historial), como en Drive.
+        java.util.List<File> candidatos = A1BASES.A32_Respaldos.csvLocalesPorBase(
+                CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getBaseName());
+        if (candidatos.isEmpty()) {
+            Toast.makeText(getActivity(), "No hay respaldos 211 de cuentas en este equipo.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String[] items = new String[candidatos.size()];
+        for (int i = 0; i < candidatos.size(); i++) {
+            items[i] = (i == 0 ? "★ " : "") + A1BASES.A32_Respaldos.etiquetaArchivo(candidatos.get(i));
+        }
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Elige el respaldo 211 (más nuevo arriba)")
+                .setItems(items, (d, i) -> {
+                    archivo211Elegido = candidatos.get(i);
+                    _3_confirmarRestauracionLocalCuentas();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private File archivo211Elegido;
+
+    private void _3_confirmarRestauracionLocalCuentas() {
         AlertDialog.Builder dialogo_AlertDialog = new AlertDialog.Builder(getActivity());
         dialogo_AlertDialog.setTitle("Advertencia");
-        dialogo_AlertDialog.setMessage("¿Hay: "+verNumeroDeRegistrosCuentas()+" Cuentas"+" " +
+        dialogo_AlertDialog.setMessage("Archivo: " + archivo211Elegido.getName() + "\n\n¿Hay: "+verNumeroDeRegistrosCuentas()+" Cuentas"+" " +
                 "¿sustituirlas por las del Backup: de todas las Cuentas csv?");
         dialogo_AlertDialog.setCancelable(false);
         dialogo_AlertDialog.setPositiveButton("Si", new DialogInterface.OnClickListener() {
@@ -2612,7 +2636,8 @@ public class F2_Cuentas extends DialogFragment {
 
                 //Ruta y archivo base de restauracion
                 String rutaDestino_String = Environment.getExternalStorageDirectory().getPath() + "/Balance/";
-                String rutaDestinoYNombreArchivo_String = rutaDestino_String+nombreArchivo_String;//f1
+                String rutaDestinoYNombreArchivo_String = archivo211Elegido != null
+                        ? archivo211Elegido.getAbsolutePath() : rutaDestino_String+nombreArchivo_String;//f1
                 File archivo_File = new File(rutaDestinoYNombreArchivo_String);
 
                 if (archivo_File.exists()) {
@@ -2621,6 +2646,7 @@ public class F2_Cuentas extends DialogFragment {
 
                     //backup despues de restaurar
                     _3_starBackupAndRestore();
+                    archivo211Elegido = null;
 
                     verNumeroDeRegistrosCuentas();
                     opcionActualCierre_XTv.setText(_31_opcionRestaurarCuentasBackup_XRb.getText().toString());
@@ -2727,6 +2753,10 @@ public class F2_Cuentas extends DialogFragment {
 
         File carpeta_File = new File(Environment.getExternalStorageDirectory() + "/Balance/");
         String nombreArchivo_String = carpeta_File.toString() + "/" + CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getFileName();
+        // ⭐ (18-nov): el 211 que eligió el usuario (último o del historial).
+        if (archivo211Elegido != null && archivo211Elegido.exists()) {
+            nombreArchivo_String = archivo211Elegido.getAbsolutePath();
+        }
 
         if(!carpeta_File.exists()) {
             Toast.makeText(getActivity(), "Error en carpeta o archivo", Toast.LENGTH_SHORT).show();

@@ -578,17 +578,39 @@ public class F4_Cierres extends Fragment {
 
     // ==================== MÉTODOS DE RESTAURACIÓN ====================
 
+    // ⭐ CAMBIO (18-nov, Jorge): se elige el 411 por fecha (el último de Balance o una copia del
+    // historial), como en Drive. Antes solo existía un archivo que se sobrescribía.
+    private File archivo411Elegido;
+
     public void _5_1_dialogoRestaurarDesdeLocalTransacciones() {
+        java.util.List<File> candidatos = A1BASES.A32_Respaldos.csvLocalesPorBase(
+                CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getBaseName());
+        if (candidatos.isEmpty()) {
+            Toast.makeText(getActivity(), "No hay respaldos 411 en este equipo. Haz primero F4 › 1. Backup de reserva.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        String[] items = new String[candidatos.size()];
+        for (int i = 0; i < candidatos.size(); i++) {
+            items[i] = (i == 0 ? "★ " : "") + A1BASES.A32_Respaldos.etiquetaArchivo(candidatos.get(i));
+        }
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Elige el respaldo 411 (más nuevo arriba)")
+                .setItems(items, (d, i) -> _5_1_confirmarRestauracionLocal(candidatos.get(i)))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void _5_1_confirmarRestauracionLocal(File elegido) {
         new AlertDialog.Builder(getActivity())
                 .setTitle("Advertencia")
-                .setMessage("Actualmente hay: " + _7verNumeroDeTransacciones() + " Transacciones. " +
+                .setMessage("Archivo: " + elegido.getName() + "\n\nActualmente hay: " + _7verNumeroDeTransacciones() + " Transacciones. " +
                         "¿Se eliminarán y se restablecerán las del backup?")
                 .setCancelable(false)
                 .setPositiveButton("Si", (dialog, id) -> {
 
-                    //String nombreArchivo = "411 Backup antes de cierres.csv";
-                    String nombreArchivo = CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getFileName();
-                    File archivo = new File(Environment.getExternalStorageDirectory() + "/Balance/" + nombreArchivo);
+                    File archivo = elegido;
+                    archivo411Elegido = elegido;
 
                     if (archivo.exists()) {
                         _5_1_iniciarCierreConImportacionDeCSVExternoTransaccionesBackup();
@@ -623,7 +645,14 @@ public class F4_Cierres extends Fragment {
             // 2. Restaurar desde backup
             //String nombreArchivo = "411 Backup antes de cierres.csv";
             String nombreArchivo = CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getFileName();
-            importarTransaccionesDesdeCSV(nombreArchivo);
+            if (archivo411Elegido != null && archivo411Elegido.exists()) {
+                // ⭐ (18-nov): el archivo que eligió el usuario (último o del historial).
+                nombreArchivo = archivo411Elegido.getName();
+                importarTransaccionesDesdeArchivo(archivo411Elegido);
+                archivo411Elegido = null;
+            } else {
+                importarTransaccionesDesdeCSV(nombreArchivo);
+            }
 
             // 3. ⭐ CAMBIO (18-nov, Jorge): sin respaldo "después" al restaurar (451_2 ni punto
             // completo): repetiría lo que ya está en el archivo restaurado.

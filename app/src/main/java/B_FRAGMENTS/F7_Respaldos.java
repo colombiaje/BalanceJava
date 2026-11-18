@@ -58,6 +58,7 @@ public class F7_Respaldos extends Fragment {
 
     private TextView estado_XTv, equipo_XTv, resultadoSelector_XTv;
     private android.widget.TableLayout tablaUltimos_XTl;
+    private TextView estadoDrive_XTv;
     private AlertDialog espera;
 
     private final Locale es = new Locale("es", "CO");
@@ -88,6 +89,8 @@ public class F7_Respaldos extends Fragment {
         equipo_XTv = v.findViewById(R.id.equipoRespaldos_XTv);
         resultadoSelector_XTv = v.findViewById(R.id.resultadoSelector_XTv);
         tablaUltimos_XTl = v.findViewById(R.id.tablaUltimos_XTl);
+        estadoDrive_XTv = v.findViewById(R.id.estadoDrive_XTv);
+        v.findViewById(R.id.exportarTabla_XBt).setOnClickListener(x -> elegirRespaldoParaExportar());
         Button cambiarEquipo = v.findViewById(R.id.cambiarEquipo_XBt);
         Button respaldarAhora = v.findViewById(R.id.respaldarAhora_XBt);
         Button restaurarLocal = v.findViewById(R.id.restaurarLocal_XBt);
@@ -143,6 +146,8 @@ public class F7_Respaldos extends Fragment {
         String drive = A32_Respaldos.estadoDrive(requireContext());
         sb.append("\n\nDrive: ").append(drive == null ? "sin subidas todavía." : drive);
         estado_XTv.setText(sb.toString());
+        // ⭐ (18-nov): debajo de la tabla, solo el resultado de la última subida a Drive.
+        estadoDrive_XTv.setText("Última subida a Drive: " + (drive == null ? "ninguna todavía." : drive));
         llenarTablaUltimos();
     }
 
@@ -156,9 +161,13 @@ public class F7_Respaldos extends Fragment {
         if (filas.isEmpty()) {
             tabla.addView(filaTabla("—", "Sin respaldos todavía", "", false));
         }
+        int n = 0;
         for (A32_Respaldos.Fila f : filas) {
-            tabla.addView(filaTabla(f.tipo, f.nombre,
-                    new SimpleDateFormat("d MMM HH:mm:ss", es).format(new Date(f.fecha)), false));
+            android.widget.TableRow fila = filaTabla(f.tipo, f.nombre,
+                    new SimpleDateFormat("d MMM HH:mm:ss", es).format(new Date(f.fecha)), false);
+            // ⭐ (18-nov): sin bordes; filas alternas para leer fácil.
+            fila.setBackgroundColor(android.graphics.Color.parseColor(n++ % 2 == 0 ? "#FFFFFF" : "#EEF3FB"));
+            tabla.addView(fila);
         }
     }
 
@@ -174,8 +183,6 @@ public class F7_Respaldos extends Fragment {
             if (encabezado) {
                 t.setBackgroundColor(android.graphics.Color.parseColor("#1F3FA6"));
                 t.setTypeface(null, android.graphics.Typeface.BOLD);
-            } else {
-                t.setBackgroundResource(R.drawable.bg_campo_registro);
             }
             fila.addView(t);
         }
@@ -373,6 +380,62 @@ public class F7_Respaldos extends Fragment {
         Activity a = getActivity();
         if (a != null) a.finishAffinity();
         principal.postDelayed(() -> Runtime.getRuntime().exit(0), 300);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ⭐ NUEVO (18-nov, Jorge): exportar una tabla de un respaldo .db a CSV (solo lectura)
+    // ─────────────────────────────────────────────────────────────
+    private void elegirRespaldoParaExportar() {
+        List<File> locales = A32_Respaldos.respaldosLocales();
+        if (locales.isEmpty()) {
+            Toast.makeText(requireContext(), "No hay respaldos .db en este equipo.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String[] items = new String[locales.size()];
+        for (int i = 0; i < locales.size(); i++) {
+            items[i] = (i == 0 ? "★ " : "") + locales.get(i).getName() + "\n   " + fecha(locales.get(i).lastModified());
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Elige el respaldo .db")
+                .setItems(items, (d, i) -> elegirTablaParaExportar(locales.get(i)))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void elegirTablaParaExportar(File db) {
+        List<String[]> tablas;
+        try {
+            tablas = A32_Respaldos.tablasDeRespaldo(db);
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "No se pudo abrir el respaldo: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        String[] items = new String[tablas.size()];
+        for (int i = 0; i < tablas.size(); i++) items[i] = tablas.get(i)[0] + "  (" + tablas.get(i)[1] + " filas)";
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Tabla a exportar")
+                .setItems(items, (d, i) -> exportarTabla(db, tablas.get(i)[0]))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void exportarTabla(File db, String tabla) {
+        mostrarEspera("Exportando " + tabla + "…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            File csv = A32_Respaldos.exportarTablaCsv(app, db, tabla);
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(csv != null ? "✓ Tabla exportada" : "✗ No se pudo exportar")
+                        .setMessage(csv != null
+                                ? csv.getName() + "\n\nCarpeta: Balance\nTambién se sube a Drive › Respaldos completos.\nSe abre en Sheets o Excel."
+                                : "Revisa que el respaldo no esté dañado.")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+            });
+        });
     }
 
     // ─────────────────────────────────────────────────────────────

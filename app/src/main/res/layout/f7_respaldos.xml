@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F4D7F5"
-    android:paddingTop="60dp">
+    android:paddingTop="4dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -23,16 +23,12 @@
             android:textColor="@android:color/white"
             android:textSize="20dp" />
 
+        <!-- ⭐ (18-nov, Jorge): el estado va dentro de la tabla; este texto queda oculto. -->
         <TextView
             android:id="@+id/estadoRespaldos_XTv"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="#DCE8F5"
-            android:padding="10dp"
-            android:text="Revisando respaldos…"
-            android:textColor="#1F3FA6"
-            android:textSize="15dp" />
+            android:visibility="gone" />
 
         <!-- ⭐ NUEVO (18-nov, Jorge): el último respaldo de cada tipo, en tabla. -->
         <TextView
@@ -52,6 +48,15 @@
             android:background="#FFFFFF"
             android:shrinkColumns="0,1"
             android:stretchColumns="1" />
+
+        <TextView
+            android:id="@+id/estadoDrive_XTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text=""
+            android:textColor="#1F3FA6"
+            android:textSize="12dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -168,6 +173,16 @@
                 android:layout_marginTop="6dp"
                 android:background="@drawable/bg_boton_accion"
                 android:text="Cierres y transacciones (F4)"
+                android:textAllCaps="false"
+                android:textColor="#1F3FA6" />
+
+            <Button
+                android:id="@+id/exportarTabla_XBt"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_boton_accion"
+                android:text="Exportar una tabla de un respaldo .db a CSV"
                 android:textAllCaps="false"
                 android:textColor="#1F3FA6" />
 
