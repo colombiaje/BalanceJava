@@ -11,7 +11,7 @@
     <string name="menuf3">Informes</string>
     <string name="menuf32">Modificaciones</string>
     <string name="menuf5">Cierres</string>
-    <string name="menuf7">Respaldos</string>
+    <string name="menuRespaldos">Respaldos</string>
     <string name="menuf6">Indicadores</string>
     <string name="menuf7">SubirArchivoADrive</string>
     <string name="menuf9">Calculadora</string>

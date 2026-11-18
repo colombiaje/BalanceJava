@@ -31,7 +31,7 @@
         <item
             android:id="@+id/navf7"
             android:icon="@drawable/ic_cierre_cuentas"
-            android:title="@string/menuf7" />
+            android:title="@string/menuRespaldos" />
 
     </group>
 </menu>

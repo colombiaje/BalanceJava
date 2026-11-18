@@ -35,7 +35,7 @@
     <fragment
         android:id="@+id/navf7"
         android:name="B_FRAGMENTS.F7_Respaldos"
-        android:label="@string/menuf7"
+        android:label="@string/menuRespaldos"
         tools:layout="@layout/f7_respaldos" />
 
 </navigation>
