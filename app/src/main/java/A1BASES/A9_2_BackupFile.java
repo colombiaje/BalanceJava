@@ -1,15 +1,10 @@
 package A1BASES;
 
 public enum A9_2_BackupFile {
+    // ⭐ RETIRADOS E4 (18-nov, Jorge): 111–116, CSV del sistema anterior de borradores de F1.
 
     /* ─────────── DOCUMENTS ─────────── */
     CSV_DOCUMENT_TRANSACTIONS("121_BackupTodasLasTransaccionesCrud",A9_1_FileType.CSV),
-    CSV_CREATE_HEADER("111_backupOfTheCreateNewDocumentHeader", A9_1_FileType.CSV),
-    CSV_CREATE_RECORDS("112_backupOfTheCreateNewDocumentRecords", A9_1_FileType.CSV),
-    CSV_TEMPLATE_HEADER("113_backupOfTheTe1mplateDocumentHeader", A9_1_FileType.CSV),
-    CSV_TEMPLATE_RECORDS("114_backupOfTheTemplateDocumentRecords", A9_1_FileType.CSV),
-    CSV_UPDATE_HEADER("115_backup_update_header", A9_1_FileType.CSV),
-    CSV_UPDATE_RECORDS("116_backup_update_records", A9_1_FileType.CSV),
 
     /* ─────────── ACCOUNTS ─────────── */
     CSV_ACCOUNTS_BEFORE_STARTING_CLOSING("211_BackupInicialDeTodasLasCuentas", A9_1_FileType.CSV),

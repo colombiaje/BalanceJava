@@ -79,7 +79,6 @@ import A1BASES.A11_AuditoriaClasificacionDialogo;
 import A1BASES.A1_1_AyudanteBD;
 import A1BASES.A1_2_OperacionesBD;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
-import A1BASES.A5_4_CSVRestoreRecordsDocument;
 import A1BASES.A5_CacheManager;
 import A1BASES.A6_3_CSVDriveUploader;
 import A1BASES.A8_CalculadoraCallback;
@@ -166,7 +165,6 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     public A1_1_AyudanteBD                ayudante_Class;
     public A99_MetodosVarios              metodosVarios_Class;
     public A1_2_OperacionesBD             a2operacionesBD;
-    private A5_4_CSVRestoreRecordsDocument a11_csvRestoreRecordsDocument;
     private A6_3_CSVDriveUploader          csvDriveUploader;
     private F6_Calculadora                 calculadora_Fragment;
     public A22_QueryManager a22QueryManager;

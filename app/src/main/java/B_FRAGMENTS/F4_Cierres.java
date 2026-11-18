@@ -1157,19 +1157,6 @@ public class F4_Cierres extends Fragment {
         return f.exists() && f.length() > 0;
     }
 
-    private void subirArchivosADriveConDelay(String[] nombresArchivos) {
-        new Handler().postDelayed(() -> {
-            for (String nombreArchivo : nombresArchivos) {
-                A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                        requireContext(),
-                        nombreArchivo,
-                        FOLDER_ID_DRIVE,
-                        6
-                );
-            }
-            Log.d(TAG, "Archivos subidos a Drive con rotación automática");
-        }, DELAY_SUBIDA_DRIVE);
-    }
 
     /**
      * Muestra un Toast con delay

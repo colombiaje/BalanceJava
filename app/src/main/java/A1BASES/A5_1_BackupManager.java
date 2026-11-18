@@ -773,54 +773,7 @@ public class A5_1_BackupManager {
         }
     }
 
-    //......................
+    // ⭐ RETIRADO E4 (18-nov, Jorge): origenBackupCsvCRUDListaDocumento (CSV de borradores 111–116;
+    // los borradores viven en la caché de la base, A5_CacheManager).
 
-        public static void origenBackupCsvCRUDListaDocumento(String nombreArchivo, ArrayList<A3_2_TipoTransaccionesGetsYSets> dataList) {
-            if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-                try {
-                    String rutaDestino = Environment.getExternalStorageDirectory().getPath() + "/Balance/";
-                    String rutaDestinoYNombreArchivo = rutaDestino + nombreArchivo;
-                    File archivo = new File(rutaDestinoYNombreArchivo);
-
-                    if (dataList.size() == 0) {
-                        if (archivo.exists()) {
-                            archivo.delete();
-                        }
-                        return;
-                    } else {
-
-                        if (archivo.exists()) {
-                            archivo.delete();
-                        }
-
-                        OutputStreamWriter salidaArchivo = new OutputStreamWriter(new FileOutputStream(archivo));
-
-                        for (int i = 0; i < dataList.size(); i++) {
-                            A3_2_TipoTransaccionesGetsYSets TransaccionX = dataList.get(i);
-                            salidaArchivo.write(
-                                    TransaccionX.tipoTget_1DocumentoMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_2ItemDocMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_3CuentaMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_4MasMenosMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_5ValorMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_6DescripcionMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_7FechaYHoraMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_8FechaInicialMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_9FechaModificacionMetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_10Grupo1MetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_11Grupo2MetodoEnA5() + "," +
-                                            TransaccionX.tipoTget_12ColumnaDisponibleMetodoEnA5() + "," +
-                                            "n a" + "," /* c13: columna retirada de la BD (v19); el CSV conserva el formato */ +
-                                            "\n");
-                        }
-                        salidaArchivo.close();
-                        // Puedes mostrar un mensaje de éxito aquí si deseas.
-                    }
-                } catch (Exception ex) {
-                    // Puedes mostrar un mensaje de error aquí si deseas.
-                }
-            } else {
-                // Puedes mostrar un mensaje de que no se encuentra la micro SD aquí si deseas.
-            }
-        }
 }
