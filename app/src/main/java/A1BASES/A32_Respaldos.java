@@ -524,6 +524,27 @@ public class A32_Respaldos {
         public int version;
         public int tablas;
         public long filas;
+        // ⭐ NUEVO (21-nov, Jorge): filas por tabla, para comparar con la base actual.
+        public Map<String, Long> filasPorTabla = new LinkedHashMap<>();
+    }
+
+    // ⭐ NUEVO (21-nov, Jorge): {cuentas, transacciones} de un respaldo, para la lista de
+    // restauración (una copia sin transacciones se ve antes de elegirla). -1 si no se pudo leer.
+    public static long[] cuentasYTransacciones(File archivo) {
+        long[] r = {-1, -1};
+        try {
+            SQLiteDatabase db = SQLiteDatabase.openDatabase(archivo.getAbsolutePath(), null,
+                    SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
+            try {
+                r[0] = primerNumero(db, "SELECT COUNT(*) FROM cuentas");
+                r[1] = primerNumero(db, "SELECT COUNT(*) FROM transacciones");
+            } finally {
+                db.close();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo contar " + archivo.getName(), e);
+        }
+        return r;
     }
 
     /** Abre el respaldo en solo lectura: integridad, versión (no más nueva que la app) y filas. */
@@ -540,6 +561,7 @@ public class A32_Respaldos {
                 }
                 rv.version = (int) primerNumero(db, "PRAGMA user_version");
                 Map<String, Long> filas = contarFilas(db);
+                rv.filasPorTabla = filas;
                 rv.tablas = filas.size();
                 for (Long n : filas.values()) rv.filas += n;
             } finally {

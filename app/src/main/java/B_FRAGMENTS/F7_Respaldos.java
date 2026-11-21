@@ -303,17 +303,38 @@ public class F7_Respaldos extends Fragment {
             Toast.makeText(requireContext(), "No hay respaldos completos en este equipo.", Toast.LENGTH_LONG).show();
             return;
         }
-        String[] items = new String[locales.size()];
-        for (int i = 0; i < locales.size(); i++) {
-            File f = locales.get(i);
-            // ⭐ (21-nov, build B): etiqueta legible en lugar del nombre técnico.
-            items[i] = (i == 0 ? "★ " : "") + A32_Respaldos.etiquetaRespaldo(f.getName()) + "\n   " + tamano(f.length());
-        }
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Respaldos en este equipo")
-                .setItems(items, (d, i) -> revisarYConfirmar(locales.get(i), locales.get(i).getName(), "este equipo"))
-                .setNegativeButton("Cancelar", null)
-                .show();
+        // ⭐ CAMBIO (21-nov, Jorge): cada copia muestra cuántas cuentas y transacciones tiene
+        // (se cuentan fuera del hilo principal), para no elegir por error una copia vacía.
+        mostrarEspera("Leyendo los respaldos…");
+        hilo.execute(() -> {
+            String[] items = new String[locales.size()];
+            for (int i = 0; i < locales.size(); i++) {
+                File f = locales.get(i);
+                long[] ct = A32_Respaldos.cuentasYTransacciones(f);
+                String contenido = ct[1] < 0 ? "no se pudo leer"
+                        : (ct[1] == 0 ? "⚠ " : "") + miles(ct[0]) + " cuentas · " + miles(ct[1]) + " transacciones";
+                items[i] = (i == 0 ? "★ " : "") + A32_Respaldos.etiquetaRespaldo(f.getName())
+                        + "\n   " + tamano(f.length()) + " · " + contenido;
+            }
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Respaldos en este equipo")
+                        .setItems(items, (d, i) -> revisarYConfirmar(locales.get(i), locales.get(i).getName(), "este equipo"))
+                        .setNegativeButton("Cancelar", null)
+                        .show();
+            });
+        });
+    }
+
+    private static long valor(java.util.Map<String, Long> m, String tabla) {
+        Long n = m == null ? null : m.get(tabla);
+        return n == null ? 0 : n;
+    }
+
+    private String miles(long n) {
+        return String.format(es, "%,d", n);
     }
 
     private void elegirRespaldoDrive() {
@@ -385,8 +406,11 @@ public class F7_Respaldos extends Fragment {
     // ─────────────────────────────────────────────────────────────
     private void revisarYConfirmar(File archivo, String nombre, String origen) {
         mostrarEspera("Revisando el respaldo…");
+        final android.content.Context app = requireContext().getApplicationContext();
         hilo.execute(() -> {
             A32_Respaldos.Revision rv = A32_Respaldos.revisarCandidato(archivo);
+            // ⭐ NUEVO (21-nov, Jorge): comparar la copia con la base actual antes de confirmar.
+            A32_Respaldos.Resultado actual = A32_Respaldos.estadoActual(app);
             principal.post(() -> {
                 cerrarEspera();
                 if (!isAdded()) return;
@@ -398,9 +422,16 @@ public class F7_Respaldos extends Fragment {
                             .show();
                     return;
                 }
+                long cCopia = valor(rv.filasPorTabla, "cuentas"), tCopia = valor(rv.filasPorTabla, "transacciones");
+                long cActual = actual.ok ? valor(actual.filasPorTabla, "cuentas") : -1;
+                long tActual = actual.ok ? valor(actual.filasPorTabla, "transacciones") : -1;
+                boolean alerta = (tActual > 0 && tCopia < tActual / 2) || (cActual > 0 && cCopia < cActual / 2);
                 new AlertDialog.Builder(requireContext())
-                        .setTitle("Confirmar restauración")
-                        .setMessage("Respaldo: " + A32_Respaldos.etiquetaRespaldo(nombre) + "\n" + nombre
+                        .setTitle(alerta ? "⚠ Revisa antes de restaurar" : "Confirmar restauración")
+                        .setMessage((alerta ? "⚠ La copia tiene muchas menos cuentas o transacciones que la base actual.\n\n" : "")
+                                + "Cuentas: copia " + miles(cCopia) + " · actual " + (cActual < 0 ? "?" : miles(cActual))
+                                + "\nTransacciones: copia " + miles(tCopia) + " · actual " + (tActual < 0 ? "?" : miles(tActual))
+                                + "\n\nRespaldo: " + A32_Respaldos.etiquetaRespaldo(nombre) + "\n" + nombre
                                 + "\nOrigen: " + origen
                                 + "\nVersión de base: v" + rv.version
                                 + "\nContenido: " + rv.tablas + " tablas · " + rv.filas + " filas"
