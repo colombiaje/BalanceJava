@@ -58,6 +58,15 @@ public class F7_Respaldos extends Fragment {
 
     private TextView estado_XTv, equipo_XTv, resultadoSelector_XTv;
     private android.widget.TableLayout tablaUltimos_XTl;
+    private TextView tituloTablaUltimos_XTv;
+    private boolean tablaAbierta = false;
+    private int filasEnTabla = 0;
+
+    private void actualizarTituloTabla() {
+        if (tituloTablaUltimos_XTv == null) return;
+        tituloTablaUltimos_XTv.setText("Últimos respaldos por tipo (" + filasEnTabla + ") "
+                + (tablaAbierta ? "▾  tocar para cerrar" : "▸  tocar para ver"));
+    }
     private TextView estadoDrive_XTv;
     private AlertDialog espera;
 
@@ -89,6 +98,13 @@ public class F7_Respaldos extends Fragment {
         equipo_XTv = v.findViewById(R.id.equipoRespaldos_XTv);
         resultadoSelector_XTv = v.findViewById(R.id.resultadoSelector_XTv);
         tablaUltimos_XTl = v.findViewById(R.id.tablaUltimos_XTl);
+        tituloTablaUltimos_XTv = v.findViewById(R.id.tituloTablaUltimos_XTv);
+        // ⭐ (21-nov, Jorge): la tabla se abre y se cierra al tocar su título (cerrada al entrar).
+        tituloTablaUltimos_XTv.setOnClickListener(x -> {
+            tablaAbierta = !tablaAbierta;
+            tablaUltimos_XTl.setVisibility(tablaAbierta ? View.VISIBLE : View.GONE);
+            actualizarTituloTabla();
+        });
         estadoDrive_XTv = v.findViewById(R.id.estadoDrive_XTv);
         v.findViewById(R.id.exportarTabla_XBt).setOnClickListener(x -> elegirRespaldoParaExportar());
         Button cambiarEquipo = v.findViewById(R.id.cambiarEquipo_XBt);
@@ -158,6 +174,8 @@ public class F7_Respaldos extends Fragment {
         tabla.removeAllViews();
         tabla.addView(filaTabla("Tipo", "Nombre", "Fecha y hora", true));
         List<A32_Respaldos.Fila> filas = A32_Respaldos.ultimosPorTipo();
+        filasEnTabla = filas.size();
+        actualizarTituloTabla();
         if (filas.isEmpty()) {
             tabla.addView(filaTabla("—", "Sin respaldos todavía", "", false));
         }

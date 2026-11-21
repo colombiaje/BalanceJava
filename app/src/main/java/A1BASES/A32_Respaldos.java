@@ -239,7 +239,7 @@ public class A32_Respaldos {
             return r;
         }
 
-        rotarLocal(carpeta, equipo + "_" + tipo + "_", maxCopias);
+        rotarLocalPorTipo(carpeta, equipo + "_" + tipo + "_", tipo, maxCopias);
 
         r.ok = true;
         r.archivo = definitivo;
@@ -301,6 +301,73 @@ public class A32_Respaldos {
     }
 
     /** Deja solo las 'max' copias más recientes de un equipo y tipo (el nombre ordena por fecha). */
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (21-nov, Jorge): retención por generaciones del respaldo AUTOMÁTICO
+    //   - las últimas 'max' (10);
+    //   - una por semana de las últimas 8 semanas (la MÁS RECIENTE de cada semana);
+    //   - una por mes de los últimos 12 meses (la MÁS ANTIGUA de cada mes, para que no quede
+    //     cerca de la semanal y amplíe las fechas disponibles).
+    // Los demás tipos conservan solo las últimas 'max'.
+    // ═════════════════════════════════════════════════════════════
+    public static final int SEMANAS_AUTOMATICO = 8;
+    public static final int MESES_AUTOMATICO = 12;
+
+    /** Nombres a conservar. 'nombres' en cualquier orden; la fecha sale del nombre (aaaammdd-hhmmss). */
+    static java.util.Set<String> aConservar(List<String> nombres, String tipo, int max) {
+        List<String> orden = new ArrayList<>(nombres);
+        Collections.sort(orden, Collections.reverseOrder()); // más nuevo primero
+        java.util.Set<String> conservar = new java.util.HashSet<>();
+        for (int i = 0; i < orden.size() && i < max; i++) conservar.add(orden.get(i));
+        if (!TIPO_AUTOMATICO.equals(tipo)) {
+            return conservar;
+        }
+        java.util.Calendar ahora = java.util.Calendar.getInstance();
+        java.util.Calendar limiteSemanas = (java.util.Calendar) ahora.clone();
+        limiteSemanas.add(java.util.Calendar.WEEK_OF_YEAR, -SEMANAS_AUTOMATICO);
+        java.util.Calendar limiteMeses = (java.util.Calendar) ahora.clone();
+        limiteMeses.add(java.util.Calendar.MONTH, -MESES_AUTOMATICO);
+
+        Map<String, String> porSemana = new LinkedHashMap<>(); // semana → más reciente
+        Map<String, String> porMes = new LinkedHashMap<>();    // mes → más antigua
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("_(\\d{8})-(\\d{6})\\.");
+        for (String n : orden) {
+            java.util.regex.Matcher m = p.matcher(n);
+            if (!m.find()) continue;
+            Date fecha;
+            try {
+                fecha = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US).parse(m.group(1) + m.group(2));
+            } catch (Exception e) {
+                continue;
+            }
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            c.setTime(fecha);
+            if (c.after(limiteSemanas)) {
+                String semana = c.get(java.util.Calendar.YEAR) + "-" + c.get(java.util.Calendar.WEEK_OF_YEAR);
+                if (!porSemana.containsKey(semana)) porSemana.put(semana, n); // 'orden' va de nuevo a viejo
+            }
+            if (c.after(limiteMeses)) {
+                String mes = m.group(1).substring(0, 6);
+                porMes.put(mes, n); // se queda con el último visto = el más antiguo del mes
+            }
+        }
+        conservar.addAll(porSemana.values());
+        conservar.addAll(porMes.values());
+        return conservar;
+    }
+
+    private static void rotarLocalPorTipo(File carpeta, String prefijo, String tipo, int max) {
+        File[] archivos = carpeta.listFiles((dir, n) -> n.startsWith(prefijo) && n.endsWith(".db"));
+        if (archivos == null) return;
+        List<String> nombres = new ArrayList<>();
+        for (File f : archivos) nombres.add(f.getName());
+        java.util.Set<String> conservar = aConservar(nombres, tipo, max);
+        for (File f : archivos) {
+            if (!conservar.contains(f.getName()) && f.delete()) {
+                Log.d(TAG, "Rotación local: borrado " + f.getName());
+            }
+        }
+    }
+
     private static void rotarLocal(File carpeta, String prefijo, int max) {
         rotarLocal(carpeta, prefijo, ".db", max);
     }
@@ -348,12 +415,18 @@ public class A32_Respaldos {
                             + "' and trashed=false")
                     .setSpaces("drive")
                     .setFields("files(id, name)")
+                    .setPageSize(500)
                     .setOrderBy("name desc")
                     .execute();
             List<com.google.api.services.drive.model.File> archivos = lista.getFiles();
             int borrados = 0;
             if (archivos != null) {
-                for (int i = maxCopias; i < archivos.size(); i++) {
+                // ⭐ (21-nov, Jorge): el automático conserva además una por semana y una por mes.
+                List<String> nombres = new ArrayList<>();
+                for (com.google.api.services.drive.model.File f : archivos) nombres.add(f.getName());
+                java.util.Set<String> conservar = aConservar(nombres, tipo, maxCopias);
+                for (int i = 0; i < archivos.size(); i++) {
+                    if (conservar.contains(archivos.get(i).getName())) continue;
                     try {
                         drive.files().delete(archivos.get(i).getId()).execute();
                         borrados++;

@@ -32,10 +32,13 @@
 
         <!-- ⭐ NUEVO (18-nov, Jorge): el último respaldo de cada tipo, en tabla. -->
         <TextView
+            android:id="@+id/tituloTablaUltimos_XTv"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:text="Últimos respaldos por tipo (en este equipo)"
+            android:background="#DCE8F5"
+            android:padding="8dp"
+            android:text="Últimos respaldos por tipo ▸"
             android:textColor="#1F3FA6"
             android:textSize="14dp"
             android:textStyle="bold" />
@@ -44,6 +47,7 @@
             android:id="@+id/tablaUltimos_XTl"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:visibility="gone"
             android:layout_marginTop="4dp"
             android:background="#FFFFFF"
             android:shrinkColumns="0,1"
