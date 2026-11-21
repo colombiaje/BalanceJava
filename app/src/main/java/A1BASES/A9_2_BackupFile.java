@@ -2,28 +2,20 @@ package A1BASES;
 
 public enum A9_2_BackupFile {
     // ⭐ RETIRADOS E4 (18-nov, Jorge): 111–116, CSV del sistema anterior de borradores de F1.
-
-    /* ─────────── DOCUMENTS ─────────── */
-    CSV_DOCUMENT_TRANSACTIONS("121_BackupTodasLasTransaccionesCrud",A9_1_FileType.CSV),
+    // ⭐ RETIRADOS (21-nov, Jorge, paso 3 respaldos): 121, 211, 222_1/222_2, 231/232, 411, 421,
+    // 431, 442_1/442_2, 451_1/451_2 y 452_1/452_2 — eran copias CSV de tablas para respaldar o
+    // restaurar. Los respaldos son la copia completa .db (A32_Respaldos).
 
     /* ─────────── ACCOUNTS ─────────── */
-    CSV_ACCOUNTS_BEFORE_STARTING_CLOSING("211_BackupInicialDeTodasLasCuentas", A9_1_FileType.CSV),
     CSV_ACCOUNTS_SHEETS_SYNCHRONIZED("221_BackupSheetsCuentasSincronizadas", A9_1_FileType.CSV),
-    CSV_ACCOUNTS_BEFORE_CLOSING_RESTORING_SHEETS("222_1_BackupAntesDeRestaurarCuentasDesdeSheets", A9_1_FileType.CSV),
-    CSV_ACCOUNTS_AFTER_CLOSING_RESTORING_SHEETS("222_2_BackupDespuesDeRestaurarCuentasDesdeSheets", A9_1_FileType.CSV),
-    CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL("231_BackupAntesDeRestaurarCuentasDesdeBackupInicial", A9_1_FileType.CSV),
-    CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL("232_BackuPDespuesDeRestaurarCuentasDesdeBackupInicial", A9_1_FileType.CSV),
     // ⭐ NUEVO (3-nov, BD v24, renta R1): catálogo de renglones de renta, sube con las cuentas.
     CSV_RENGLONES_RENTA("213_CatalogoRenglonesRenta", A9_1_FileType.CSV),
 
     /* ─────────── CLOSURES ─────────── */
-    CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES("411_AntesDeIniciarCierres", A9_1_FileType.CSV),
-    //"411 Backup antes de cierres.csv"
-    CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS("421_BackupAntesDeCerrarTodasLasCuentas", A9_1_FileType.CSV),
-    //"421 Backup antes de cerrar todas las cuentas.csv"
+    // 422 y 432: saldos al cerrar; el cierre los usa como paso intermedio (se conservan).
     CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS("422_saldos_al_cerrar_todas_las_cuentas.csv", A9_1_FileType.CSV),
     // ⭐ NUEVO (3-nov, BD v25, renta R3): todas las fotos anuales de renta; se genera y sube a
-    // la carpeta de cierres de Drive en cada cierre total 421.
+    // la carpeta de cierres de Drive en cada cierre total.
     CSV_FOTO_RENTA_ANUAL("423_FotoRentaCierre", A9_1_FileType.CSV),
     // ⭐ NUEVO (7-nov, renta R6): ajustes a años cerrados; el nombre lleva los años afectados.
     CSV_AJUSTES_RENTA("425_AjustesRentaCierre", A9_1_FileType.CSV),
@@ -31,23 +23,8 @@ public enum A9_2_BackupFile {
     CSV_SOPORTES_RENTA("426_SoportesRenta", A9_1_FileType.CSV),
     // (4-nov) El reporte de renta (424) ya no usa un nombre fijo: A17_ReporteRentaDialogo lo arma
     // con el año y la vista, ej. "424_Renta_2026_cierre_depurada".
-    //"422 Backup saldos de todas las cuentas.csv"
-    CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS("431_BackupAntesDeCerrarAlgunasCuentas", A9_1_FileType.CSV),
-    //"431 Backup antes de cerrar algunas cuentas.csv"    CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS("441_BackupAntesDeBalanceDesdeSheets", A9_1_FileType.CSV),
-
     CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS("432_saldos_al_cerrar_algunas cuentas.csv", A9_1_FileType.CSV),
-    // "432 Backup saldos de algunas cuentas.csv"
-
-    CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED("441_transacciones_sheets.csv", A9_1_FileType.CSV),
-    //"440 Backup Balance_desde_Sheets.csv"
-
-    CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS("442_1_BackupAntesDeRestaurarSaldosInicialesSheetsTransacciones", A9_1_FileType.CSV),
-    //"441 Backup antes de Balance_desde_Sheets.csv"
-    CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS("442_2_BackupDespuesDeRestaurarSaldosInicialesSheetsTransacciones", A9_1_FileType.CSV),
-    CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL("451_1_BackupAntesDeRestaurarTransacciones", A9_1_FileType.CSV),
-    CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL("451_2_BackupDespuesDeRestaurarTransacciones", A9_1_FileType.CSV),
-    CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE("452_1_BackupAntesDeRestaurarTransaccionesDesdeDrive", A9_1_FileType.CSV),
-    CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE("452_2_BackupDespuesDeRestaurarTransaccionesDesdeDrive", A9_1_FileType.CSV);
+    CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED("441_transacciones_sheets.csv", A9_1_FileType.CSV);
 
     // ─────────── IMPLEMENTACIÓN ───────────
     public static final String BALANCE_FOLDER = "Balance";

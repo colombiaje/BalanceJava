@@ -2,17 +2,8 @@ package B_FRAGMENTS;
 
 import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
 import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED;
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -76,10 +67,8 @@ public class F4_Cierres extends Fragment {
     private static final int DELAY_SUBIDA_DRIVE = 2500;
 
     // Views
-    private RadioButton _1_opcionBackupDeReservaTransacciones_XRb;
     private RadioButton _2_opcionAutonomoTransacciones_XRb;
     private RadioButton _4_2_opcion_Importar_Balance_desde_Sheets_XRb;
-    private RadioButton _5_opcionRecuperarBackupTransacciones_XRb;
     private RadioButton _3_opcionTransaccionesAlgunasCuentas_XRb;
     private RadioButton opcionSaleDeLaApp_XRb;
     private ListView todasLasTransacciones_XLv;
@@ -166,10 +155,8 @@ public class F4_Cierres extends Fragment {
      * Inicializa todas las vistas
      */
     private void inicializarViews(View view) {
-        _1_opcionBackupDeReservaTransacciones_XRb = view.findViewById(R.id._1_opcionBackupDeReservaTransacciones_XRb);
         _2_opcionAutonomoTransacciones_XRb = view.findViewById(R.id._2_opcionAutonomoTransacciones_XRb);
         _4_2_opcion_Importar_Balance_desde_Sheets_XRb = view.findViewById(R.id._4_2_opcion_Importar_Balance_desde_Sheets_XRb);
-        _5_opcionRecuperarBackupTransacciones_XRb = view.findViewById(R.id._5_opcionRecuperarBackupTransacciones_XRb);
         // ⭐ NUEVO (3-nov, renta R4, pedido de Jorge): "6. Reporte renta fiscal".
         RadioButton _6_opcionReporteRentaFiscal_XRb = view.findViewById(R.id._6_opcionReporteRentaFiscal_XRb);
         _6_opcionReporteRentaFiscal_XRb.setOnClickListener(v -> {
@@ -199,11 +186,9 @@ public class F4_Cierres extends Fragment {
      * Configura todos los listeners de los botones
      */
     private void configurarListeners() {
-        _1_configurarListener_OpcionBackupReserva();
         _2_configurarListener_OpcionAutonomo();
         _3_configurarListener_OpcionAlgunasCuentas();
         _4_2_configurarListener_OpcionSaldosIniciales();
-        _5_configurarListener_OpcionRecuperarBackup();
         configurarListener_SpinnerCuentas();
         configurarListener_SalirApp();
         _4_1_configurarListener_SincronizarSheets();
@@ -212,28 +197,8 @@ public class F4_Cierres extends Fragment {
 
     // ==================== LISTENERS ====================
 
-    private void _1_configurarListener_OpcionBackupReserva() {
-        _1_opcionBackupDeReservaTransacciones_XRb.setOnClickListener(v -> {
-            _7_limpiarLista();
-            mensajeInformativo_XTv.setText("0");
-            opcionActualCierre_XTv.setText("");
-
-            dynamicQuery();
-            if (todasLasTransacciones_Result_List.size() != 0) {
-                opcionActualCierre_XTv.setText(_1_opcionBackupDeReservaTransacciones_XRb.getText().toString());
-
-                // Guardar y subir con rotación automática
-                //String nombreArchivo = "411 Backup antes de cierres.csv";
-                String nombreArchivo = CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getFileName();
-                A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(), nombreArchivo, FOLDER_ID_DRIVE,10);
-
-                mostrarToastConDelay("Archivo local y en Drive", DELAY_TOAST_CORTO);
-                _7verTransaccionesAdaptadorColumnas();
-            } else {
-                Toast.makeText(getActivity(), "No hay transacciones para hacer backup", Toast.LENGTH_LONG).show();
-            }
-        });
-    }
+    // ⭐ RETIRADA (21-nov, Jorge): la antigua opción 1 (backup de reserva 411). Los respaldos
+    // manuales quedan centralizados en la pantalla Respaldos (copia completa .db).
 
     private void _2_configurarListener_OpcionAutonomo() {
 
@@ -271,19 +236,6 @@ public class F4_Cierres extends Fragment {
         });
     }
 
-    private void _5_configurarListener_OpcionRecuperarBackup() {
-        _5_opcionRecuperarBackupTransacciones_XRb.setOnClickListener(view -> {
-            _7_limpiarLista();
-            mensajeInformativo_XTv.setText("0");
-            opcionActualCierre_XTv.setText("");
-            opcionActualCierre_XTv.setText(_5_opcionRecuperarBackupTransacciones_XRb.getText().toString());
-
-            // Diálogo para elegir origen: Local o Drive
-            _5_dialogoElegirOrigenRestauracion();
-        });
-    }
-
-    
 // Continúa en parte 2...
 // ==================== MÉTODOS DE CIERRE AUTÓNOMO ====================
 
@@ -299,7 +251,7 @@ public class F4_Cierres extends Fragment {
 
         // ⭐ CAMBIO E0 (17-nov): el 421 se hace YA y verificado; antes iba con retardo y el
         // cierre borraba a los 10 s aunque ese respaldo hubiera fallado.
-        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS.getFileName(), 6, "cierre-total")) {
+        if (!respaldoPrevioOk("cierre-total")) {
             return;
         }
 
@@ -489,7 +441,7 @@ public class F4_Cierres extends Fragment {
                 .setTitle("Foto de " + anio + " tomada")
                 .setMessage(cuentas + " cuentas con saldo o movimiento.\n\n" + resumen.toString().trim() +
                         "\n\nLos saldos contrarios (ej.: bancos sobregirados) se depuran después en la " +
-                        "opción 6 (Reporte renta fiscal).\n\nAl aceptar se hace el cierre de todas las cuentas.")
+                        "opción 4 (Reporte renta fiscal).\n\nAl aceptar se hace el cierre de todas las cuentas.")
                 .setCancelable(false)
                 .setPositiveButton("Aceptar y cerrar", (d, w) -> _2iniciarCierreAutonomoTransaccionesTodasLasCuentas())
                 .show();
@@ -527,7 +479,7 @@ public class F4_Cierres extends Fragment {
     public void _3iniciarCierreAutonomoTransaccionesAlgunasCuentas() {
 
         // ⭐ CAMBIO E0 (17-nov): el 431 se hace YA y verificado (antes, con retardo y sin revisar).
-        if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS.getFileName(), 6, "cierre-algunas")) {
+        if (!respaldoPrevioOk("cierre-algunas")) {
             return;
         }
 
@@ -578,92 +530,8 @@ public class F4_Cierres extends Fragment {
 
     // ==================== MÉTODOS DE RESTAURACIÓN ====================
 
-    // ⭐ CAMBIO (18-nov, Jorge): se elige el 411 por fecha (el último de Balance o una copia del
-    // historial), como en Drive. Antes solo existía un archivo que se sobrescribía.
-    private File archivo411Elegido;
-
-    public void _5_1_dialogoRestaurarDesdeLocalTransacciones() {
-        java.util.List<File> candidatos = A1BASES.A32_Respaldos.csvLocalesPorBase(
-                CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getBaseName());
-        if (candidatos.isEmpty()) {
-            Toast.makeText(getActivity(), "No hay respaldos 411 en este equipo. Haz primero F4 › 1. Backup de reserva.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-        String[] items = new String[candidatos.size()];
-        for (int i = 0; i < candidatos.size(); i++) {
-            items[i] = (i == 0 ? "★ " : "") + A1BASES.A32_Respaldos.etiquetaArchivo(candidatos.get(i));
-        }
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Elige el respaldo 411 (más nuevo arriba)")
-                .setItems(items, (d, i) -> _5_1_confirmarRestauracionLocal(candidatos.get(i)))
-                .setNegativeButton("Cancelar", null)
-                .show();
-    }
-
-    private void _5_1_confirmarRestauracionLocal(File elegido) {
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Advertencia")
-                .setMessage("Archivo: " + elegido.getName() + "\n\nActualmente hay: " + _7verNumeroDeTransacciones() + " Transacciones. " +
-                        "¿Se eliminarán y se restablecerán las del backup?")
-                .setCancelable(false)
-                .setPositiveButton("Si", (dialog, id) -> {
-
-                    File archivo = elegido;
-                    archivo411Elegido = elegido;
-
-                    if (archivo.exists()) {
-                        _5_1_iniciarCierreConImportacionDeCSVExternoTransaccionesBackup();
-                        _7verNumeroDeTransacciones();
-                        _7verTransaccionesAdaptadorColumnas();
-                        Log.d(TAG, "Backup restaurado correctamente");
-                    } else {
-                        Toast.makeText(getActivity(),
-                                "No está el archivo del último backup: " + archivo,
-                                Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("No", (dialog, id) -> {
-                    _7verNumeroDeTransacciones();
-                    _7verTransaccionesAdaptadorColumnas();
-                    Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show();
-                })
-                .show();
-    }
-
-    public void _5_1_iniciarCierreConImportacionDeCSVExternoTransaccionesBackup() {
-        try {
-            dynamicQuery();
-
-            // ⭐ CAMBIO E0 (17-nov): el respaldo "antes" (451_1) ya se hizo y verificó en
-            // _5_dialogoElegirOrigenRestauracion(). Aquí: borrar, importar y DESPUÉS el 451_2
-            // (antes iba con 15 s de retardo, cruzado con la importación).
-            if (todasLasTransacciones_Result_List.size() != 0) {
-                _7borrarHistorialTransacciones("transacciones");
-            }
-
-            // 2. Restaurar desde backup
-            //String nombreArchivo = "411 Backup antes de cierres.csv";
-            String nombreArchivo = CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getFileName();
-            if (archivo411Elegido != null && archivo411Elegido.exists()) {
-                // ⭐ (18-nov): el archivo que eligió el usuario (último o del historial).
-                nombreArchivo = archivo411Elegido.getName();
-                importarTransaccionesDesdeArchivo(archivo411Elegido);
-                archivo411Elegido = null;
-            } else {
-                importarTransaccionesDesdeCSV(nombreArchivo);
-            }
-
-            // 3. ⭐ CAMBIO (18-nov, Jorge): sin respaldo "después" al restaurar (451_2 ni punto
-            // completo): repetiría lo que ya está en el archivo restaurado.
-            cerrarOperacion("Restaurar todas las transacciones (local)", "Archivo: " + nombreArchivo, false);
-
-            Log.d(TAG, "Transacciones restauradas correctamente");
-        } catch (Exception e) {
-            Log.e(TAG, "Error al restaurar backup: " + e.getMessage(), e);
-            Toast.makeText(getActivity(), "No se han podido recuperar transacciones del backup", Toast.LENGTH_SHORT).show();
-        }
-    }
+    // ⭐ RETIRADA (21-nov, Jorge): la antigua opción 5 (restaurar transacciones desde un CSV 411)
+    // salió: se restaura siempre la copia completa .db desde la pantalla Respaldos.
 
     // ==================== MÉTODOS AUXILIARES ====================
 
@@ -1076,40 +944,26 @@ public class F4_Cierres extends Fragment {
      */
     // ⭐ NUEVO E0 respaldos (17-nov, Jorge): respaldo previo OBLIGATORIO antes de borrar
     // transacciones. Si no queda escrito y verificado, se avisa y el proceso no sigue.
-    private boolean respaldoPrevioOk(String nombreArchivo, int maxBackups) {
-        return respaldoPrevioOk(nombreArchivo, maxBackups, null);
-    }
-
-    // ⭐ CAMBIO E3 (17-nov): además del CSV, punto de restauración COMPLETO de la base
-    // ("antes-<operación>"). Si cualquiera de los dos falla, no se sigue.
+    // ⭐ CAMBIO (21-nov, Jorge, paso 3 respaldos): el respaldo previo es SOLO el punto de
+    // restauración completo .db ("antes-<operación>"); se retiraron los CSV 421, 431 y 442_1.
+    // Si no queda escrito y verificado, se avisa y el proceso no sigue.
     private A1BASES.A32_Respaldos.Resultado puntoAntes;
     private String operacionEnCurso;
 
-    private boolean respaldoPrevioOk(String nombreArchivo, int maxBackups, String operacion) {
-        boolean ok = A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                requireContext(), nombreArchivo, FOLDER_ID_DRIVE, maxBackups);
-        if (ok && operacion != null) {
-            puntoAntes = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
-            operacionEnCurso = operacion;
-            if (!puntoAntes.ok) {
-                new AlertDialog.Builder(getActivity())
-                        .setTitle("No se hizo ningún cambio")
-                        .setMessage("No se pudo hacer el punto de restauración completo:\n\n" + puntoAntes.mensaje +
-                                "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
-                        .setPositiveButton("Entendido", null)
-                        .show();
-                return false;
-            }
-        }
-        if (!ok) {
+    private boolean respaldoPrevioOk(String operacion) {
+        puntoAntes = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
+        operacionEnCurso = operacion;
+        if (!puntoAntes.ok) {
+            operacionEnCurso = null;
             new AlertDialog.Builder(getActivity())
                     .setTitle("No se hizo ningún cambio")
-                    .setMessage("No se pudo guardar el respaldo previo:\n\n" + nombreArchivo +
+                    .setMessage("No se pudo hacer el punto de restauración completo:\n\n" + puntoAntes.mensaje +
                             "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
                     .setPositiveButton("Entendido", null)
                     .show();
+            return false;
         }
-        return ok;
+        return true;
     }
 
     // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación (en la app y en archivo).
@@ -1200,7 +1054,7 @@ public class F4_Cierres extends Fragment {
             // Diálogo para elegir origen: Local o Drive
 
             // ⭐ CAMBIO E0 (17-nov): respaldo "antes" verificado; si falla, no se sigue.
-            if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName(), 5, "sheets-transacciones")) {
+            if (!respaldoPrevioOk("sheets-transacciones")) {
                 return;
             }
             _4_2_dialogoElegirOrigenRestauracion();
@@ -1474,28 +1328,8 @@ public class F4_Cierres extends Fragment {
 
                                 mostrarMensajeExito("✓ Saldos iniciales restaurados desde Drive");
                                 Log.d(TAG, "=== RESTAURACIÓN COMPLETADA ===");
-                                // ⭐ E3 (17-nov): CSV "después", punto "después" y resumen.
-                                A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(),
-                                        CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS.getFileName(), FOLDER_ID_DRIVE, 5);
+                                // ⭐ E3 (17-nov): punto "después" y resumen (el CSV 442_2 se retiró el 21-nov).
                                 cerrarOperacion("Importar Balance desde Sheets (Drive)", "Archivo: " + archivo.nombre);
-
-                                /*new Handler().postDelayed(() -> {
-                                    A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                                            requireContext(),
-                                            //"441 Backup antes de Balance_desde_Sheets.csv",
-                                            CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS.getFileName(),
-                                            FOLDER_ID_DRIVE,
-                                            5
-                                    );
-                                }, 20000);*/
-
-                                A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                                        requireContext(),
-                                        //"441 Backup antes de Balance_desde_Sheets.csv",
-                                        CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS.getFileName(),
-                                        FOLDER_ID_DRIVE,
-                                        5
-                                );
 
                             } catch (Exception e) {
                                 if (progressDialog.isShowing()) {
@@ -1579,12 +1413,6 @@ public class F4_Cierres extends Fragment {
             Log.d(TAG, "Importando: " + nombreArchivo);
             importarTransaccionesDesdeCSV(nombreArchivo);
 
-            A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                    requireContext(),
-                    CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS.getFileName(),
-                    FOLDER_ID_DRIVE,
-                    5
-            );
             cerrarOperacion("Importar Balance desde Sheets (local)", "Archivo: " + nombreArchivo);
 
             Log.d(TAG, "Transacciones restauradas: " + _7verNumeroDeTransacciones());
@@ -1597,268 +1425,6 @@ public class F4_Cierres extends Fragment {
 
 //FIN MÉTODOS OPCIÓN 4
 
-//INIIO MÉTODOS OPCIÓN 5
-
-    /**
-     * Diálogo para elegir entre restaurar desde Local o Drive
-     */
-    private void _5_dialogoElegirOrigenRestauracion() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Elegir origen de restauración");
-
-        // Crear RadioGroup
-        final RadioGroup radioGroup = new RadioGroup(getActivity());
-        radioGroup.setOrientation(RadioGroup.VERTICAL);
-        radioGroup.setPadding(50, 40, 50, 40);
-
-        final RadioButton rbLocal = new RadioButton(getActivity());
-        rbLocal.setText("Almacenamiento Local");
-        rbLocal.setId(1);
-        rbLocal.setChecked(true);
-
-        final RadioButton rbDrive = new RadioButton(getActivity());
-        rbDrive.setText("Google Drive");
-        rbDrive.setId(2);
-
-        radioGroup.addView(rbLocal);
-        radioGroup.addView(rbDrive);
-
-        builder.setView(radioGroup);
-
-        builder.setPositiveButton("Continuar", (dialog, which) -> {
-            int selectedId = radioGroup.getCheckedRadioButtonId();
-            if (selectedId == 1) {
-                // Restaurar desde local (método actual)
-                // ⭐ CAMBIO E0 (17-nov): respaldo "antes" verificado; si falla, no se sigue.
-                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(), 5, "restaurar-transacciones")) {
-                    return;
-                }
-
-                _5_1_dialogoRestaurarDesdeLocalTransacciones();
-            } else {
-                // Restaurar desde Drive (nuevo)
-                // ⭐ NUEVO E0 (17-nov): Drive no tenía respaldo "antes".
-                if (!respaldoPrevioOk(CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(), 5, "restaurar-transacciones")) {
-                    return;
-                }
-                _5_2_dialogoRestaurarDesdeGoogleDrive();
-            }
-        });
-
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-
-        builder.show();
-    }
-
-    /**
-     * Diálogo para listar y elegir archivo desde Drive
-     */
-    private void _5_2_dialogoRestaurarDesdeGoogleDrive() {
-        // Inicializar downloader
-        driveDownloader = new A6_2_GoogleDriveDownloader(getActivity(), FOLDER_ID_DRIVE);
-
-        // Prefijo de archivos a buscar (serie 411)
-        String prefijo = "411_Antes";
-
-        // Mostrar diálogo de carga
-        AlertDialog loadingDialog = new AlertDialog.Builder(getActivity())
-                .setTitle("Cargando...")
-                .setMessage("Buscando archivos en Drive...")
-                .setCancelable(false)
-                .create();
-        loadingDialog.show();
-
-        // Listar archivos
-        driveDownloader.listarArchivos(prefijo, new A6_2_GoogleDriveDownloader.OnFilesListedListener() {
-            @Override
-            public void onFilesListed(List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
-                loadingDialog.dismiss();
-
-                if (archivos == null || archivos.isEmpty()) {
-                    Toast.makeText(getActivity(),
-                            "No se encontraron archivos de backup en Drive",
-                            Toast.LENGTH_LONG).show();
-                    return;
-                }
-
-                // Mostrar lista de archivos
-                _5_2_mostrarListaArchivosParaRestaurar(archivos);
-            }
-
-            @Override
-            public void onError(String error) {
-                loadingDialog.dismiss();
-                Toast.makeText(getActivity(),
-                        "Error al buscar archivos: " + error,
-                        Toast.LENGTH_LONG).show();
-                Log.e(TAG, "Error al listar archivos: " + error);
-            }
-        });
-    }
-
-    /**
-     * Muestra lista de archivos disponibles para restaurar
-     */
-    private void _5_2_mostrarListaArchivosParaRestaurar(List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
-        // Convertir a array de strings para el diálogo
-        String[] nombresArchivos = new String[archivos.size()];
-        for (int i = 0; i < archivos.size(); i++) {
-            nombresArchivos[i] = archivos.get(i).nombre;
-        }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Seleccionar archivo de backup en Drive");
-        builder.setItems(nombresArchivos, (dialog, position) -> {
-            A6_2_GoogleDriveDownloader.DriveFileInfo archivoSeleccionado = archivos.get(position);
-            _5_2_confirmarYDescargarArchivo(archivoSeleccionado);
-        });
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-        builder.show();
-    }
-
-    /**
-     * Confirma y descarga el archivo seleccionado
-     */
-    private void _5_2_confirmarYDescargarArchivo(A6_2_GoogleDriveDownloader.DriveFileInfo archivo) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Confirmar restauración");
-        builder.setMessage("¿Restaurar desde este archivo?\n\n" +
-                "Archivo: " + archivo.nombre + "\n\n" +
-                "Actualmente hay: " + _7verNumeroDeTransacciones() + " transacciones.\n" +
-                "Se eliminarán y restaurarán desde el backup.");
-
-        builder.setPositiveButton("Sí, restaurar", (dialog, which) -> {
-            // ⭐ CAMBIO E0 (17-nov): el "antes" se hizo al elegir Drive; el "después" se hace
-            // al terminar la importación (antes iba a los 20 s, aunque la descarga no hubiera
-            // terminado).
-            _5_descargarYRestaurarDesdeGoogleDrive(archivo);
-
-        });
-
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-
-        builder.show();
-    }
-
-    /**
-     * Descarga archivo de Drive y ejecuta restauración
-     */
-    // ==================== EN F51_CierresPrincipal.java ====================
-// REEMPLAZAR el método _5_descargarYRestaurarDesdeGoogleDrive() COMPLETO por este:
-
-    /**
-     * Descarga archivo de Drive y ejecuta restauración
-     */
-    private void _5_descargarYRestaurarDesdeGoogleDrive(A6_2_GoogleDriveDownloader.DriveFileInfo archivo) {
-        // ProgressDialog más visible y robusto
-        final android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(getActivity());
-        progressDialog.setMessage("Descargando desde Drive...\n\nPor favor espere, no cierre la app");
-        progressDialog.setProgressStyle(android.app.ProgressDialog.STYLE_SPINNER);
-        progressDialog.setCancelable(false);
-        progressDialog.show();
-
-        // ⭐ CAMBIO E0 (17-nov): ya NO se borra antes de descargar (ver onFileDownloaded).
-
-        // Descargar archivo
-        driveDownloader.descargarArchivo(archivo.id, archivo.nombre,
-                new A6_2_GoogleDriveDownloader.OnFileDownloadedListener() {
-                    @Override
-                    public void onFileDownloaded(String localPath) {
-                        // Actualizar mensaje
-                        progressDialog.setMessage("Restaurando transacciones...\n\nÚltimo paso");
-
-                        // Delay para que el usuario vea el mensaje de restauración
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            try {
-                                // ⭐ E0 (17-nov): descarga bien → ahora sí se borra e importa,
-                                // y luego el respaldo "después".
-                                _7borrarHistorialTransacciones("transacciones");
-                                _5_ejecutarRestauracionDesdeArchivoLocal(localPath);
-                                // ⭐ CAMBIO (18-nov): sin respaldo "después" al restaurar (452_2).
-                                cerrarOperacion("Restaurar todas las transacciones (Drive)", "Archivo: " + archivo.nombre, false);
-
-                                // Cerrar diálogo
-                                if (progressDialog.isShowing()) {
-                                    progressDialog.dismiss();
-                                }
-
-                                // Mensaje de éxito (verde)
-                                mostrarMensajeExito("✓ Backup restaurado exitosamente desde Drive");
-
-                            } catch (Exception e) {
-                                if (progressDialog.isShowing()) {
-                                    progressDialog.dismiss();
-                                }
-                                Toast.makeText(getActivity(),
-                                        "Error en restauración: " + e.getMessage(),
-                                        Toast.LENGTH_LONG).show();
-                                Log.e(TAG, "Error en restauración: " + e.getMessage(), e);
-                            }
-                        }, 800); // Pequeño delay para mostrar mensaje de restauración
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        if (progressDialog.isShowing()) {
-                            progressDialog.dismiss();
-                        }
-                        Toast.makeText(getActivity(),
-                                "Error al descargar: " + error,
-                                Toast.LENGTH_LONG).show();
-                        Log.e(TAG, "Error en descarga: " + error);
-                    }
-                });
-    }
-
-    /**
-     * Ejecuta restauración desde archivo local (reutiliza lógica existente)
-     */
-    private void _5_ejecutarRestauracionDesdeArchivoLocal(String rutaArchivo) {
-        try {
-            dynamicQuery();
-
-            // Si hay transacciones, hacer backup antes de restaurar
-            /*if (todasLasTransacciones_Result_List.size() != 0) {
-                _7borrarHistorialTransacciones("transacciones");
-
-                new Handler().postDelayed(() -> {
-                    A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                            requireContext(),
-                            //"451 Backup antes de restaurar transacciones.csv",
-                            CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getBaseName(),
-                            FOLDER_ID_DRIVE,
-                            5
-                    );
-                    Log.d(TAG, "Backup pre-restauración guardado");
-                }, 5000);
-            }*/
-
-            // Importar desde archivo descargado
-            // ⭐ E0 (17-nov): se importa EXACTAMENTE el archivo descargado.
-            File archivo = new File(rutaArchivo);
-            importarTransaccionesDesdeArchivo(archivo);
-
-            // Actualizar vista
-            _7verNumeroDeTransacciones();
-            _7verTransaccionesAdaptadorColumnas();
-
-            Log.d(TAG, "Restauración desde Drive completada");
-        } catch (Exception e) {
-            Log.e(TAG, "Error al restaurar desde Drive: " + e.getMessage(), e);
-            Toast.makeText(getActivity(),
-                    "Error al restaurar: " + e.getMessage(),
-                    Toast.LENGTH_SHORT).show();
-        }
-    }
-    
-
-//FIN MÉTODOS OPCIÓN 5
 
 // INICIO PROCESO CON SHEETS
 // ==================== MÉTODOS OPCIÓN 6: SINCRONIZAR DESDE SHEETS ====================
@@ -1874,7 +1440,7 @@ public class F4_Cierres extends Fragment {
                 .setMessage("Esta operación:\n\n" +
                         "1. Descargará el Balance actualizado desde Sheets\n" +
                         "2. Lo subirá a Drive como backup\n" +
-                        "3. Estará disponible para restaurar en Opción 4\n\n" +
+                        "3. Estará disponible para importar en la opción 3.2\n\n" +
                         "Transacciones actuales en app: " + transaccionesActuales + "\n\n" +
                         "¿Continuar?")
                 .setPositiveButton("Sí, sincronizar", (dialog, which) -> {
@@ -1986,7 +1552,7 @@ public class F4_Cierres extends Fragment {
                                 "• " + infoArchivo + "\n" +
                                 "• Ubicación local: /Balance/\n" +
                                 "• Subido a Drive: ✓\n\n" +
-                                "Ahora puedes usar la Opción 4 para restaurar estos saldos iniciales."
+                                "Ahora puedes usar la opción 3.2 (Importar Balance desde Sheets) para cargar estos saldos iniciales."
                 )
                 .setPositiveButton("Entendido", (dialog, which) -> {
                     // Mensaje visual de éxito

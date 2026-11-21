@@ -115,16 +115,7 @@ public class A6_3_CSVDriveUploader {
 
                 Log.d(TAG, "Proceso de subida iniciado para cuentas: " + nombreArchivo);
 
-                // ⭐ NUEVO (3-nov, BD v24, renta R1 — decisión de Jorge): el catálogo de renglones
-                // de renta viaja con el backup de cuentas a la misma carpeta de Drive.
-                String nombreRenglones = A9_2_BackupFile.CSV_RENGLONES_RENTA.getFileName();
-                if (A5_1_BackupManager.backupRenglonesRentaCSV(context, nombreRenglones)) {
-                    new A6_1_GoogleDriveManager(context, filePath, nombreRenglones, folderId)
-                            .uploadFileToDrive();
-                    Log.d(TAG, "Proceso de subida iniciado para renglones de renta: " + nombreRenglones);
-                }
-                // ⭐ NUEVO (15-nov, plantillas P3): las plantillas también viajan con las cuentas.
-                A27_Plantillas.respaldar(context);
+                subirRentaYPlantillas(context, folderId);
             } else {
                 String mensaje = "El archivo no existe: " + nombreArchivo;
                 Log.e(TAG, mensaje);
@@ -133,6 +124,25 @@ public class A6_3_CSVDriveUploader {
         } catch (Exception e) {
             Log.e(TAG, "Error en guardarYSubirCuentas: " + e.getMessage(), e);
             Toast.makeText(context, "Error al procesar backup de cuentas: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // ⭐ NUEVO (21-nov, Jorge, paso 3 respaldos): extraído de guardarYSubirCuentas. Al retirar
+    // el CSV de cuentas 211, F2 sigue llamando esto en cada cambio de cuentas.
+    //  - (3-nov, BD v24, renta R1) el catálogo de renglones de renta (213) a Drive;
+    //  - (15-nov, plantillas P3) las plantillas.
+    public static void subirRentaYPlantillas(Context context, String folderId) {
+        try {
+            String filePath = Environment.getExternalStorageDirectory().getPath() + CARPETA_BALANCE;
+            String nombreRenglones = A9_2_BackupFile.CSV_RENGLONES_RENTA.getFileName();
+            if (A5_1_BackupManager.backupRenglonesRentaCSV(context, nombreRenglones)) {
+                new A6_1_GoogleDriveManager(context, filePath, nombreRenglones, folderId)
+                        .uploadFileToDrive();
+                Log.d(TAG, "Proceso de subida iniciado para renglones de renta: " + nombreRenglones);
+            }
+            A27_Plantillas.respaldar(context);
+        } catch (Exception e) {
+            Log.e(TAG, "Error en subirRentaYPlantillas: " + e.getMessage(), e);
         }
     }
 

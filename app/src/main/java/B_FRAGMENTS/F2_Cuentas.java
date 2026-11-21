@@ -4,11 +4,6 @@ import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
 import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
 import static A1BASES.A1_1_AyudanteBD.TABLE_CATALOGO_GRUPO1;
 import static A1BASES.A1_1_AyudanteBD.TABLE_CATALOGO_GRUPO2;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_AFTER_CLOSING_RESTORING_SHEETS;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_BEFORE_CLOSING_RESTORING_SHEETS;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_BEFORE_STARTING_CLOSING;
 import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_SHEETS_SYNCHRONIZED;
 
 import android.Manifest;
@@ -211,9 +206,7 @@ public class F2_Cuentas extends DialogFragment {
     CheckBox verCuentas_XChb;
     CheckBox verBackupsYCierres_XChb;
     RadioGroup OpcionesCierre_XRg;
-    RadioButton _11_opcionBackupDeReservaCuentas_XRb;
     RadioButton _2_2_opcionImportarCuentasGoogleSheets_XRb;
-    RadioButton _31_opcionRestaurarCuentasBackup_XRb;
     TextView mensajeInformativo_XTv;
     TextView opcionActualCierre_XTv;
     String nombreArchivo_String;
@@ -578,9 +571,7 @@ public class F2_Cuentas extends DialogFragment {
         areaTituloBackupsYCierreXTv = (TextView) inflarViews_View.findViewById(R.id.areaTituloBackupsYCierreXTv);
         verCuentas_XChb = (CheckBox) inflarViews_View.findViewById(R.id.verCuentas_XChb);
         OpcionesCierre_XRg = (RadioGroup) inflarViews_View.findViewById(R.id.OpcionesCierre_XRg);
-        _11_opcionBackupDeReservaCuentas_XRb = (RadioButton) inflarViews_View.findViewById(R.id._11_opcionBackupDeReservaCuentas_XRb);
         _2_2_opcionImportarCuentasGoogleSheets_XRb = (RadioButton) inflarViews_View.findViewById(R.id._2_2_opcionImportarCuentasGoogleSheets_XRb);
-        _31_opcionRestaurarCuentasBackup_XRb = (RadioButton) inflarViews_View.findViewById(R.id._31_opcionRestaurarCuentasBackup_XRb);
         //areaDocumento_XGl = (GridLayout) inflarViews_View.findViewById(R.id.areaDocumento_XGl);
         mensajeInformativo_XTv= (TextView)inflarViews_View.findViewById(R.id.mensajeInformativo_XTv);
         opcionActualCierre_XTv= (TextView)inflarViews_View.findViewById(R.id.opcionActualCierre_XTv);
@@ -785,26 +776,9 @@ public class F2_Cuentas extends DialogFragment {
 
         a99_metodosVarios = new A99_MetodosVarios();
 
-        _11_opcionBackupDeReservaCuentas_XRb.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mensajeInformativo_XTv.setText("0");
-                opcionActualCierre_XTv.setText(_11_opcionBackupDeReservaCuentas_XRb.getText().toString());
-
-                //nombreArchivoBackupCuentas_String = "211_BackupInicialDeTodasLasCuentas.csv";
-                nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getFileName();
-
-                        subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5); // CAMBIO: agregado parámetro
-
-                populateList();
-
-                _2_2_opcionImportarCuentasGoogleSheets_XRb.setChecked(false);
-                _31_opcionRestaurarCuentasBackup_XRb.setChecked(false);
-                _2_1_opcionSincronizarCuentasDesdeSheets_XRb.setChecked(false); // NUEVO
-
-                mostrarToastConDelay("Backup local y a Drive", DELAY_TOAST_CORTO);
-            }
-        });
+        // ⭐ RETIRADAS (21-nov, Jorge): las antiguas opciones 1. Backup (CSV 211) y 3. Restaurar
+        // backup (CSV 211). Respaldar y restaurar se hacen solo en la pantalla Respaldos, siempre
+        // con la copia completa .db. Se renumeró: 1 y 2 Sheets, 3 renta.
 
         _2_2_opcionImportarCuentasGoogleSheets_XRb.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -817,8 +791,6 @@ public class F2_Cuentas extends DialogFragment {
                 opcionActualCierre_XTv.setText(""+_2_2_opcionImportarCuentasGoogleSheets_XRb.getText());
                 //mensajeInformativo_XTv.setText(""+queryAzAllAccounts_Result_ArrayList.size());//? Revisar
 
-                _11_opcionBackupDeReservaCuentas_XRb.setChecked(false);
-                _31_opcionRestaurarCuentasBackup_XRb.setChecked(false);
 
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     Toast.makeText(getActivity(), "Backup local, en Drive y Cuentas restauradas de Sheets", Toast.LENGTH_SHORT).show();
@@ -833,23 +805,6 @@ public class F2_Cuentas extends DialogFragment {
             _4_opcionConfiguracionRentaFiscal_XRb.setChecked(false);
             new A1BASES.A16_ConfiguracionRentaDialogo().mostrar(getActivity(), this::cargarListasRenta);
         });
-
-        _31_opcionRestaurarCuentasBackup_XRb.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mensajeInformativo_XTv.setText("0");
-                opcionActualCierre_XTv.setText("");
-
-                // NUEVO: Diálogo para elegir origen (Local o Drive)
-                _3_dialogoElegirOrigenRestauracion();
-
-                _11_opcionBackupDeReservaCuentas_XRb.setChecked(false);
-                _2_2_opcionImportarCuentasGoogleSheets_XRb.setChecked(false);
-                _2_1_opcionSincronizarCuentasDesdeSheets_XRb.setChecked(false);
-
-                mostrarToastConDelay("Backup local, en Drive y cuentas restauradas", DELAY_TOAST_LARGO);
-            }
-        });;
 
         todasLasCuentas_XLv = (ListView) inflarViews_View.findViewById(R.id.todasLasCuentas_XLv);
 
@@ -976,9 +931,7 @@ public class F2_Cuentas extends DialogFragment {
 
                 _2_1_dialogoConfirmarSincronizacion();
 
-                _11_opcionBackupDeReservaCuentas_XRb.setChecked(false);
                 _2_2_opcionImportarCuentasGoogleSheets_XRb.setChecked(false);
-                _31_opcionRestaurarCuentasBackup_XRb.setChecked(false);
             }
         });
 
@@ -1441,9 +1394,9 @@ public class F2_Cuentas extends DialogFragment {
         // ⭐ NUEVO E3 respaldos (17-nov, Jorge): cada cambio de cuentas (nueva, modificada,
         // borrada) deja una copia completa de la base en segundo plano.
         A1BASES.A32_Respaldos.respaldoAutomatico(requireContext());
-        // ⭐ NUEVO (18-nov, Jorge, opción B "simetría"): igual que F1 con su 121, cada cambio
-        // de cuentas genera también el CSV de cuentas (211), local con historial y en Drive.
-        subirCsvBackupCrud(CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getFileName(), 5);
+        // ⭐ CAMBIO (21-nov, Jorge, paso 3 respaldos): se retiró el CSV 211; siguen subiendo a
+        // Drive el catálogo de renglones de renta (213) y las plantillas, que viajaban con él.
+        A6_3_CSVDriveUploader.subirRentaYPlantillas(requireContext(), FOLDER_ID_DRIVE);
     }
 
     // ⭐ RETIRADO — tanda 2 v10: cargarCatalogoGrupoConEspacioInicial() (Grupo1/Grupo2 por
@@ -2492,12 +2445,9 @@ public class F2_Cuentas extends DialogFragment {
 
         pedirPermisoAlDispositivo();
 
-        // En iniciarCierreConCSVCuentasDeGoogleSheets(), cambiar nombres de archivos:
-        //nombreArchivoBackupCuentas_String = "222_1_BackupAntesDeRestaurarCuentasDesdeSheets.csv";
-        nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName();
-
-        // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se borra nada.
-        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String, "sheets-cuentas")) {
+        // ⭐ CAMBIO (21-nov, Jorge): el respaldo "antes" es solo la copia completa .db (se
+        // retiraron los CSV 222_1 y 222_2). Si falla, no se borra nada.
+        if (!respaldoCuentasPrevioOk("sheets-cuentas")) {
             return;
         }
 
@@ -2537,12 +2487,7 @@ public class F2_Cuentas extends DialogFragment {
                 Toast.makeText(getActivity(), "Hubo un error", Toast.LENGTH_SHORT).show();
                 }
         }
-        // Y al final:
-        //nombreArchivoBackupCuentas_String = "222_2_BackupDespuesDeRestaurarCuentasDesdeSheets.csv";
-        nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_AFTER_CLOSING_RESTORING_SHEETS.getFileName();
-        subirCsvBackupCrud(nombreArchivoBackupCuentas_String, 5);
         cerrarOperacionCuentas("Importar cuentas desde Sheets", true);
-        Toast.makeText(getActivity(), "Archivo 2 guardado localmente", Toast.LENGTH_SHORT).show();
         }
 
     public void dialogoCierreCuentas () {
@@ -2593,101 +2538,8 @@ public class F2_Cuentas extends DialogFragment {
         dialogo_AlertDialog.show();
     }
 
-    public void _3_backupAndRestoreDialog () {
-         //backup antes de restaurar
-        nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL.getFileName();
-        // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se ofrece restaurar.
-        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String, "restaurar-cuentas")) {
-            return;
-        }
-        // ⭐ CAMBIO (18-nov, Jorge): se elige el 211 por fecha (último o historial), como en Drive.
-        java.util.List<File> candidatos = A1BASES.A32_Respaldos.csvLocalesPorBase(
-                CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getBaseName());
-        if (candidatos.isEmpty()) {
-            Toast.makeText(getActivity(), "No hay respaldos 211 de cuentas en este equipo.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        String[] items = new String[candidatos.size()];
-        for (int i = 0; i < candidatos.size(); i++) {
-            items[i] = (i == 0 ? "★ " : "") + A1BASES.A32_Respaldos.etiquetaArchivo(candidatos.get(i));
-        }
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Elige el respaldo 211 (más nuevo arriba)")
-                .setItems(items, (d, i) -> {
-                    archivo211Elegido = candidatos.get(i);
-                    _3_confirmarRestauracionLocalCuentas();
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
-    }
-
-    private File archivo211Elegido;
-
-    private void _3_confirmarRestauracionLocalCuentas() {
-        AlertDialog.Builder dialogo_AlertDialog = new AlertDialog.Builder(getActivity());
-        dialogo_AlertDialog.setTitle("Advertencia");
-        dialogo_AlertDialog.setMessage("Archivo: " + archivo211Elegido.getName() + "\n\n¿Hay: "+verNumeroDeRegistrosCuentas()+" Cuentas"+" " +
-                "¿sustituirlas por las del Backup: de todas las Cuentas csv?");
-        dialogo_AlertDialog.setCancelable(false);
-        dialogo_AlertDialog.setPositiveButton("Si", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialogo_AlertDialog, int id) {
-
-                nombreArchivo_String = CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getFileName();
-
-                //Ruta y archivo base de restauracion
-                String rutaDestino_String = Environment.getExternalStorageDirectory().getPath() + "/Balance/";
-                String rutaDestinoYNombreArchivo_String = archivo211Elegido != null
-                        ? archivo211Elegido.getAbsolutePath() : rutaDestino_String+nombreArchivo_String;//f1
-                File archivo_File = new File(rutaDestinoYNombreArchivo_String);
-
-                if (archivo_File.exists()) {
-
-                    archivo_File = new File(rutaDestinoYNombreArchivo_String);
-
-                    //backup despues de restaurar
-                    _3_starBackupAndRestore();
-                    archivo211Elegido = null;
-
-                    verNumeroDeRegistrosCuentas();
-                    opcionActualCierre_XTv.setText(_31_opcionRestaurarCuentasBackup_XRb.getText().toString());
-                    populateList();
-                }
-
-                else {
-
-                    Toast.makeText(getActivity(), "No esta el archivo_File: "+archivo_File, Toast.LENGTH_SHORT).show();
-
-                    return;
-                }
-
-            }
-        });
-        dialogo_AlertDialog.setNegativeButton("No", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialogo_AlertDialog, int id) {
-                Toast.makeText(getActivity(), "No se realizo el proceso", Toast.LENGTH_LONG).show();
-            }
-        });
-        dialogo_AlertDialog.show();
-    }
-
-    /**
-     * Método mejorado para subir CSV con rotación automática
-     */
-    // ⭐ CAMBIO E0 respaldos (17-nov, Jorge): devuelve true si el CSV de cuentas quedó escrito.
-    public boolean subirCsvBackupCrud(String nombreArchivoBackupCuentas_String, int maxBackups){
-        a6_backupManager = new A5_1_BackupManager();
-        boolean ok = a6_backupManager.backupCuentasArchivoCSV(nombreArchivoBackupCuentas_String, a22QueryManager);
-        if (!ok) {
-            return false;
-        }
-
-        A6_3_CSVDriveUploader.guardarYSubirCuentas(
-                requireContext(),
-                nombreArchivoBackupCuentas_String,
-                FOLDER_ID_DRIVE
-        );
-        return true;
-    }
+    // ⭐ RETIRADO (21-nov, Jorge): restaurar cuentas desde un CSV 211 (local o Drive) y el
+    // respaldo CSV de cuentas (subirCsvBackupCrud). Se restaura la copia completa .db.
 
     // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación de cuentas.
     // conDespues = false en restauraciones (18-nov): el resumen compara con el estado actual
@@ -2708,83 +2560,26 @@ public class F2_Cuentas extends DialogFragment {
                 .show();
     }
 
-    // ⭐ NUEVO E0 (17-nov): respaldo previo OBLIGATORIO antes de borrar cuentas. Si falla, se
+    // ⭐ CAMBIO (21-nov, Jorge, paso 3 respaldos): respaldo previo OBLIGATORIO antes de borrar
+    // cuentas = SOLO el punto de restauración completo .db ("antes-<operación>"). Si falla, se
     // avisa y el proceso no sigue.
-    private boolean respaldoCuentasPrevioOk(String nombreArchivo) {
-        return respaldoCuentasPrevioOk(nombreArchivo, null);
-    }
-
-    // ⭐ CAMBIO E3 (17-nov): además del CSV, punto de restauración COMPLETO de la base.
     private A1BASES.A32_Respaldos.Resultado puntoAntesCuentas;
     private String operacionCuentasEnCurso;
 
-    private boolean respaldoCuentasPrevioOk(String nombreArchivo, String operacion) {
-        if (subirCsvBackupCrud(nombreArchivo, 5)) {
-            if (operacion == null) {
-                return true;
-            }
-            puntoAntesCuentas = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
-            operacionCuentasEnCurso = operacion;
-            if (puntoAntesCuentas.ok) {
-                return true;
-            }
-            new AlertDialog.Builder(getActivity())
-                    .setTitle("No se hizo ningún cambio")
-                    .setMessage("No se pudo hacer el punto de restauración completo:\n\n" + puntoAntesCuentas.mensaje +
-                            "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
-                    .setPositiveButton("Entendido", null)
-                    .show();
-            return false;
+    private boolean respaldoCuentasPrevioOk(String operacion) {
+        puntoAntesCuentas = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
+        operacionCuentasEnCurso = operacion;
+        if (puntoAntesCuentas.ok) {
+            return true;
         }
+        operacionCuentasEnCurso = null;
         new AlertDialog.Builder(getActivity())
                 .setTitle("No se hizo ningún cambio")
-                .setMessage("No se pudo guardar el respaldo previo de cuentas:\n\n" + nombreArchivo +
+                .setMessage("No se pudo hacer el punto de restauración completo:\n\n" + puntoAntesCuentas.mensaje +
                         "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
                 .setPositiveButton("Entendido", null)
                 .show();
         return false;
-    }
-
-    public void _3_starBackupAndRestore () {
-
-        pedirPermisoAlDispositivo();
-
-        borrarHistorialCuentas("cuentas");
-
-        File carpeta_File = new File(Environment.getExternalStorageDirectory() + "/Balance/");
-        String nombreArchivo_String = carpeta_File.toString() + "/" + CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getFileName();
-        // ⭐ (18-nov): el 211 que eligió el usuario (último o del historial).
-        if (archivo211Elegido != null && archivo211Elegido.exists()) {
-            nombreArchivo_String = archivo211Elegido.getAbsolutePath();
-        }
-
-        if(!carpeta_File.exists()) {
-            Toast.makeText(getActivity(), "Error en carpeta o archivo", Toast.LENGTH_SHORT).show();
-
-        } else {
-            String lecturaDeCadaLineaDelArchivo_String;
-            String[] lineasLeidasDelArchivo_ArrayString;
-            try {
-
-                FileReader leerArchivo_FileReader = new FileReader(nombreArchivo_String);
-                BufferedReader lecturaDeCadaLineaDelArchivo_BufferedReader = new BufferedReader(leerArchivo_FileReader);
-
-                // ⭐ CAMBIO — tanda 2 v10: mismo cambio que en
-                // iniciarCierreConCSVCuentasDeGoogleSheets() — se unifica con insertarCuenta(String[]).
-                while ((lecturaDeCadaLineaDelArchivo_String = lecturaDeCadaLineaDelArchivo_BufferedReader.readLine()) != null) {
-                    lineasLeidasDelArchivo_ArrayString = lecturaDeCadaLineaDelArchivo_String.split(",");
-                    insertarCuenta(lineasLeidasDelArchivo_ArrayString);
-                }
-
-                repararReferenciasCuentaIdTrasRestaurarCuentas("backup local");
-
-                // ⭐ CAMBIO (18-nov, Jorge): al restaurar ya no se hace respaldo "después" (232 ni
-                // punto completo): repetiría lo que ya está en el archivo restaurado.
-                cerrarOperacionCuentas("Restaurar cuentas (local)", false);
-                } catch (Exception e) {
-                Toast.makeText(getActivity(), "Hubo un error", Toast.LENGTH_SHORT).show();//f1
-            }
-        }
     }
 
 //See accounts
@@ -3096,309 +2891,6 @@ public class F2_Cuentas extends DialogFragment {
     }
 
     /**
-     * NUEVO: Diálogo para elegir origen de restauración
-     */
-    private void _3_dialogoElegirOrigenRestauracion() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Elegir origen de restauración");
-        builder.setMessage("¿Desde dónde deseas restaurar las cuentas?");
-
-        LinearLayout layout = new LinearLayout(getActivity());
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(50, 40, 50, 40);
-
-        final RadioGroup radioGroup = new RadioGroup(getActivity());
-        radioGroup.setOrientation(RadioGroup.VERTICAL);
-
-        final RadioButton rbLocal = new RadioButton(getActivity());
-        rbLocal.setText("Almacenamiento Local");
-        rbLocal.setId(1);
-        rbLocal.setChecked(true);
-        rbLocal.setTextSize(16);
-        rbLocal.setPadding(10, 20, 10, 20);
-
-        final RadioButton rbDrive = new RadioButton(getActivity());
-        rbDrive.setText("Google Drive");
-        rbDrive.setId(2);
-        rbDrive.setTextSize(16);
-        rbDrive.setPadding(10, 20, 10, 20);
-
-        radioGroup.addView(rbLocal);
-        radioGroup.addView(rbDrive);
-        layout.addView(radioGroup);
-
-        builder.setView(layout);
-
-        builder.setPositiveButton("Continuar", (dialog, which) -> {
-            int selectedId = radioGroup.getCheckedRadioButtonId();
-            if (selectedId == 1) {
-                _3_backupAndRestoreDialog();
-            } else {
-                _3_dialogoRestaurarDesdeGoogleDrive();
-            }
-        });
-
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-
-        builder.setCancelable(false);
-        builder.show();
-    }
-
-    /**
-     * NUEVO: Restaurar desde Google Drive
-     */
-    private void _3_dialogoRestaurarDesdeGoogleDrive() {
-        String prefijo = "211 Backup";
-        AlertDialog loadingDialog = new AlertDialog.Builder(getActivity())
-                .setTitle("Cargando...")
-                .setMessage("Buscando archivos en Drive...")
-                .setCancelable(false)
-                .create();
-        loadingDialog.show();
-
-        driveDownloader.listarArchivos(prefijo, new A6_2_GoogleDriveDownloader.OnFilesListedListener() {
-            @Override
-            public void onFilesListed(List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
-                loadingDialog.dismiss();
-
-                if (archivos == null || archivos.isEmpty()) {
-                    new AlertDialog.Builder(getActivity())
-                            .setTitle("Sin archivos")
-                            .setMessage("No se encontraron backups de cuentas en Drive.\n\n" +
-                                    "Usa primero la Opción 1 para crear un backup.")
-                            .setPositiveButton("Entendido", null)
-                            .show();
-                    return;
-                }
-
-                _3_mostrarListaArchivosParaRestaurar(archivos);
-            }
-
-            @Override
-            public void onError(String error) {
-                loadingDialog.dismiss();
-                Log.e(TAG, "Error al buscar en Drive: " + error);
-                Toast.makeText(getActivity(),
-                        "Error al buscar archivos: " + error,
-                        Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-
-    /**
-     * NUEVO: Mostrar lista de archivos disponibles
-     */
-    private void _3_mostrarListaArchivosParaRestaurar(List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
-        String[] nombresArchivos = new String[archivos.size()];
-        for (int i = 0; i < archivos.size(); i++) {
-            nombresArchivos[i] = archivos.get(i).nombre;
-            }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Seleccionar archivo de backup");
-        builder.setItems(nombresArchivos, (dialog, position) -> {
-            A6_2_GoogleDriveDownloader.DriveFileInfo archivoSeleccionado = archivos.get(position);
-            _3_confirmarYDescargarArchivo(archivoSeleccionado);
-        });
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-        builder.show();
-    }
-
-    /**
-     * NUEVO: Confirmar y descargar archivo
-     */
-    private void _3_confirmarYDescargarArchivo(A6_2_GoogleDriveDownloader.DriveFileInfo archivo) {
-        long cuentasActuales = verNumeroDeRegistrosCuentas();
-
-        nombreArchivoBackupCuentas_String = CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL.getFileName();
-        // ⭐ CAMBIO E0 (17-nov): si el respaldo "antes" falla, no se ofrece restaurar.
-        if (!respaldoCuentasPrevioOk(nombreArchivoBackupCuentas_String, "restaurar-cuentas")) {
-            return;
-        }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Confirmar restauración");
-        builder.setMessage("¿Restaurar desde este archivo?\n\n" +
-                "Archivo: " + archivo.nombre + "\n\n" +
-                "Cuentas actuales: " + cuentasActuales + "\n" +
-                "Se eliminarán y restaurarán desde el backup.");
-
-        builder.setPositiveButton("Sí, restaurar", (dialog, which) -> {
-            // ⭐ CAMBIO E0 (17-nov): ya NO se borra antes de descargar; se borra cuando la
-            // descarga terminó bien, y el respaldo "después" va al final de la importación
-            // (antes iba a los 3 s, aunque la descarga no hubiera terminado).
-            _3_descargarYRestaurarDesdeGoogleDrive(archivo);
-        });
-
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-
-        builder.show();
-    }
-
-    /**
-     * NUEVO: Descargar y restaurar desde Drive
-     */
-    private void _3_descargarYRestaurarDesdeGoogleDrive(A6_2_GoogleDriveDownloader.DriveFileInfo archivo) {
-        final android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(getActivity());
-        progressDialog.setMessage("Descargando desde Drive...\n\nPor favor espere");
-        progressDialog.setProgressStyle(android.app.ProgressDialog.STYLE_SPINNER);
-        progressDialog.setCancelable(false);
-        progressDialog.show();
-
-        driveDownloader.descargarArchivo(archivo.id, archivo.nombre,
-                new A6_2_GoogleDriveDownloader.OnFileDownloadedListener() {
-                    @Override
-                    public void onFileDownloaded(String localPath) {
-                        progressDialog.setMessage("Restaurando cuentas...\n\nÚltimo paso");
-
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            try {
-                                // ⭐ E0 (17-nov): descarga bien → ahora sí se borra e importa.
-                                borrarHistorialCuentas("cuentas");
-                                _3_ejecutarRestauracionDesdeArchivoLocal(localPath);
-                                // ⭐ CAMBIO (18-nov): sin respaldo "después" al restaurar.
-                                cerrarOperacionCuentas("Restaurar cuentas (Drive)", false);
-
-                                if (progressDialog.isShowing()) {
-                                    progressDialog.dismiss();
-                                }
-
-                                mostrarMensajeExito("✓ Cuentas restauradas desde Drive");
-
-                                } catch (Exception e) {
-                                if (progressDialog.isShowing()) {
-                                    progressDialog.dismiss();
-                                }
-                                Log.e(TAG, "Error en restauración: " + e.getMessage(), e);
-                                Toast.makeText(getActivity(),
-                                        "Error en restauración: " + e.getMessage(),
-                                        Toast.LENGTH_LONG).show();
-                            }
-                        }, 800);
-
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        if (progressDialog.isShowing()) {
-                            progressDialog.dismiss();
-                        }
-                        Log.e(TAG, "Error al descargar: " + error);
-                        Toast.makeText(getActivity(),
-                                "Error al descargar: " + error,
-                                Toast.LENGTH_LONG).show();
-                    }
-                });
-    }
-
-    /**
-     * NUEVO: Ejecutar restauración desde archivo local
-     */
-    private void _3_ejecutarRestauracionDesdeArchivoLocal(String rutaArchivo) {
-        try {
-            // ⭐ E0 (17-nov): se importa EXACTAMENTE el archivo descargado.
-            importarCuentasDesdeCSV(rutaArchivo);
-            repararReferenciasCuentaIdTrasRestaurarCuentas("Drive");
-
-            long cuentasRestauradas = verNumeroDeRegistrosCuentas();
-            mensajeInformativo_XTv.setText(String.valueOf(cuentasRestauradas));
-            populateList();
-
-            } catch (Exception e) {
-            Log.e(TAG, "Error al restaurar: " + e.getMessage(), e);
-            Toast.makeText(getActivity(),
-                    "Error al restaurar: " + e.getMessage(),
-                    Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    /**
-     * NUEVO: Importar cuentas desde CSV (busca en ambas ubicaciones)
-     */
-    // ⭐ CAMBIO E0 respaldos (17-nov, Jorge): recibe la RUTA exacta del archivo descargado.
-    // Antes buscaba por nombre y prefería la carpeta interna de la app, donde podía quedar
-    // una descarga vieja con el mismo nombre.
-    private void importarCuentasDesdeCSV(String rutaArchivo) {
-        File archivoAUsar = new File(rutaArchivo);
-        String rutaFinal = rutaArchivo;
-        if (!archivoAUsar.exists()) {
-            Log.e(TAG, "Archivo no encontrado: " + rutaArchivo);
-            Toast.makeText(getActivity(),
-                    "Archivo no encontrado: " + archivoAUsar.getName(),
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        int lineasImportadas = 0;
-        // ⭐ NUEVO — diagnóstico (30-oct), igual al de F4_Cierres: cuenta qué pasó con cada
-        // línea y muestra el mensaje real de SQLite del primer fallo. No cambia qué se inserta.
-        int insertadasOk = 0;
-        int fallidas = 0;
-        int omitidas = 0;
-        primerErrorInsercionCuenta = null;
-        try (FileReader fileReader = new FileReader(rutaFinal);
-             BufferedReader bufferedReader = new BufferedReader(fileReader)) {
-
-            String linea;
-            while ((linea = bufferedReader.readLine()) != null) {
-                String[] datos = linea.split(",");
-                long resultado = insertarCuenta(datos);
-                lineasImportadas++;
-                if (resultado >= 0) {
-                    insertadasOk++;
-                } else if (resultado == -1L) {
-                    fallidas++;
-                } else {
-                    omitidas++;
-                }
-            }
-
-            long cuentasDespues = -1;
-            long filasTipoCuenta = -1;
-            try {
-                A1_1_AyudanteBD ayudanteDiag = new A1_1_AyudanteBD(getActivity(),
-                        balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
-                SQLiteDatabase dbDiag = ayudanteDiag.getReadableDatabase();
-                cuentasDespues = DatabaseUtils.queryNumEntries(dbDiag, "cuentas");
-                filasTipoCuenta = DatabaseUtils.queryNumEntries(dbDiag, "tipo_cuenta");
-                dbDiag.close();
-            } catch (Exception eDiag) {
-                Log.e(TAG, "Diagnóstico: no se pudo contar cuentas/tipo_cuenta: " + eDiag.getMessage());
-            }
-
-            String resumen = "Diagnóstico de importación de cuentas\n\n"
-                    + "Archivo: " + archivoAUsar.getName() + "\n"
-                    + "Ruta: " + rutaFinal + "\n\n"
-                    + "Líneas leídas: " + lineasImportadas + "\n"
-                    + "Insertadas correctamente: " + insertadasOk + "\n"
-                    + "Fallidas al insertar: " + fallidas + "\n"
-                    + "Omitidas (encabezado/datos incompletos/otro): " + omitidas + "\n\n"
-                    + "Cuentas en la tabla ahora: " + cuentasDespues + "\n"
-                    + "Filas en tipo_cuenta: " + filasTipoCuenta + "\n\n"
-                    + "Primer error SQLite: "
-                    + (primerErrorInsercionCuenta != null ? primerErrorInsercionCuenta : "ninguno");
-            Log.d(TAG, resumen);
-            new AlertDialog.Builder(getActivity())
-                    .setTitle("Diagnóstico de importación")
-                    .setMessage(resumen)
-                    .setPositiveButton("OK", null)
-                    .show();
-
-            } catch (Exception e) {
-            Log.e(TAG, "Error al importar CSV: " + e.getMessage(), e);
-            Toast.makeText(getActivity(),
-                    "Error al importar: " + e.getMessage(),
-                    Toast.LENGTH_LONG).show();
-        }
-    }
-
-    /**
      * NUEVO: Insertar una cuenta en la base de datos
      */
     // ⭐ NUEVO — diagnóstico (30-oct): primer mensaje de error de SQLite al insertar cuentas.
@@ -3614,7 +3106,7 @@ public class F2_Cuentas extends DialogFragment {
                 .setMessage("Esta operación:\n\n" +
                         "1. Descargará las Cuentas actualizadas desde Sheets\n" +
                         "2. Las subirá a Drive como backup\n" +
-                        "3. Estarán disponibles para restaurar en Opción 3\n\n" +
+                        "3. Estarán disponibles para importar en la opción 2\n\n" +
                         "Cuentas actuales en app: " + cuentasActuales + "\n\n" +
                         "¿Continuar?")
                 .setPositiveButton("Sí, sincronizar", (dialog, which) -> {
@@ -3715,7 +3207,7 @@ public class F2_Cuentas extends DialogFragment {
                                 "• " + infoArchivo + "\n" +
                                 "• Ubicación local: /Balance/\n" +
                                 "• Subido a Drive: ✓\n\n" +
-                                "Ahora puedes usar la Opción 3 para restaurar estas cuentas."
+                                "Ahora puedes usar la opción 2 (Importar de Sheets) para cargar estas cuentas."
                 )
                 .setPositiveButton("Entendido", (dialog, which) -> {
                     mostrarMensajeExito("✓ Cuentas sincronizadas y listas para usar");

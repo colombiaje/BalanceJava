@@ -162,7 +162,7 @@ public class A24_RestauradorRenta {
         new AlertDialog.Builder(context)
                 .setTitle("Renta restaurada")
                 .setView(A20_Informacion.vista(context, resumen.toString()
-                        + "\nAbre F4 › 6 para revisarla."))
+                        + "\nAbre F4 › 4 para revisarla."))
                 .setPositiveButton("Entendido", (d, w) -> {
                     if (alTerminar != null) alTerminar.run();
                 })

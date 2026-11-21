@@ -106,23 +106,11 @@
             app:layout_row="0"
             app:layout_column="0"
             >
+            <!-- ⭐ (21-nov, Jorge): salieron 1. Backup de reserva y 5. Restaurar transacciones
+                 (centralizados en Respaldos, copia completa .db); se renumeró. -->
             <!-- ⭐ (16-nov, Jorge): el grupo ocupa todo el ancho del marco y centra los botones. -->
             <!-- ⭐ (16-nov, Jorge): cada opción se ve como botón verde de acción (ejecuta el
                  proceso al tocarla), todas del mismo ancho. -->
-
-            <RadioButton
-                android:id="@+id/_1_opcionBackupDeReservaTransacciones_XRb"
-                android:layout_width="320dp"
-                android:layout_height="32dp"
-                android:layout_marginTop="3dp"
-                android:button="@null"
-                android:gravity="center"
-                android:background="@drawable/bg_opcion_accion"
-                android:text="1. Backup de reserva"
-                android:textColor="#1F3FA6"
-                android:textSize="15dp"
-                android:textStyle="bold"
-                />
 
             <RadioButton
                 android:id="@+id/_2_opcionAutonomoTransacciones_XRb"
@@ -135,7 +123,7 @@
                 android:textSize="15dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="2. Interno todas las cuentas"
+                android:text="1. Interno todas las cuentas"
                 />
 
             <RadioButton
@@ -149,13 +137,13 @@
                 android:textSize="14dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="3. Interno de algunas cuentas"
+                android:text="2. Interno de algunas cuentas"
 
                 />
 
             <RadioButton
                 android:id="@+id/_4_1_opcionSincronizarBalance_desde_Sheets_XRb"
-                android:text="4.1 Sincronizar Balance desde Sheets"
+                android:text="3.1 Sincronizar Balance desde Sheets"
                 android:layout_width="320dp"
                 android:layout_height="32dp"
                 android:layout_marginTop="3dp"
@@ -179,22 +167,7 @@
                 android:textSize="15dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="4.2 Importar Balance desde Sheets"
-                />
-
-            <RadioButton
-                android:id="@+id/_5_opcionRecuperarBackupTransacciones_XRb"
-                android:layout_width="320dp"
-                android:layout_height="32dp"
-                android:layout_marginTop="3dp"
-                android:button="@null"
-                android:gravity="center"
-                android:background="@drawable/bg_opcion_accion"
-                android:textSize="15dp"
-                android:textStyle="bold"
-                android:textColor="#1F3FA6"
-                android:text="5. Restaurar todas las transacciones"
-               
+                android:text="3.2 Importar Balance desde Sheets"
                 />
 
             <!-- ⭐ NUEVO (3-nov, renta R4, pedido de Jorge): reporte de renta fiscal. -->
@@ -209,11 +182,10 @@
                 android:textSize="15dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="6. Reporte renta fiscal"
+                android:text="4. Reporte renta fiscal"
                 />
 
         </RadioGroup>
-
 
     </androidx.gridlayout.widget.GridLayout>
 
@@ -288,7 +260,6 @@
                 android:layout_marginTop="12dp"
                 />
 
-
             <TextView
                 android:id="@+id/mensajeInformativo_XTv"
                 android:layout_width="60dp"
@@ -300,7 +271,6 @@
                 android:textStyle="bold"
                 app:layout_column="1"
                 app:layout_row="0" />
-
 
         </androidx.gridlayout.widget.GridLayout>
     </androidx.gridlayout.widget.GridLayout>
@@ -355,7 +325,6 @@
                 android:singleLine="true"
                 android:text="Item" />
 
-
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
@@ -389,7 +358,6 @@
             android:visibility="visible"
             app:layout_gravity="center_horizontal"
             >
-
 
             <ListView
                 android:id="@+id/todasLasTransacciones_XLv"
@@ -446,7 +414,6 @@
                     app:fab_icon="@drawable/ic_save"
                     app:fab_size="mini" />
 
-
                 <com.getbase.floatingactionbutton.FloatingActionButton
                     android:id="@+id/comparteArchivoCSVTransacciones_XFaB"
                     android:layout_width="wrap_content"
@@ -456,7 +423,6 @@
                     app:fab_size="mini" />
 
             </com.getbase.floatingactionbutton.FloatingActionsMenu>
-
 
         </LinearLayout>
 

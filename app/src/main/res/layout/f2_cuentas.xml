@@ -962,19 +962,6 @@
             android:layout_marginTop="5dp"
             android:layout_gravity="center_horizontal"
             >
-                <RadioButton
-                android:id="@+id/_11_opcionBackupDeReservaCuentas_XRb"
-                android:layout_width="300dp"
-                android:layout_height="36dp"
-                android:layout_marginTop="4dp"
-                android:background="@drawable/bg_opcion_accion"
-                android:button="@null"
-                android:gravity="center"
-                android:textSize="15dp"
-                android:textStyle="bold"
-                android:textColor="#1F3FA6"
-                android:text="1. Backup"
-                 />
 
                 <RadioButton
                 android:id="@+id/_2_1_opcionSincronizarCuentasDesdeSheets_XRb"
@@ -987,7 +974,7 @@
                 android:textSize="15dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="2.1 Sincronizar Cuentas con Sheets"
+                android:text="1. Sincronizar Cuentas con Sheets"
                     />
 
 
@@ -1002,23 +989,12 @@
                 android:textSize="15dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="2.2 Importar de Sheets"
+                android:text="2. Importar de Sheets"
                   />
 
-            <RadioButton
-                android:id="@+id/_31_opcionRestaurarCuentasBackup_XRb"
-                android:layout_width="300dp"
-                android:layout_height="36dp"
-                android:layout_marginTop="4dp"
-                android:background="@drawable/bg_opcion_accion"
-                android:button="@null"
-                android:gravity="center"
-                android:textSize="15dp"
-                android:textStyle="bold"
-                android:textColor="#1F3FA6"
-                android:text="3. Restaurar backup"
-                 />
 
+            <!-- ⭐ (21-nov, Jorge): salieron 1. Backup y 3. Restaurar backup (centralizados en
+                 Respaldos, copia completa .db); se renumeró. -->
             <!-- ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): país, moneda, año fiscal y catálogo
                  de renglones de renta (importar plantilla). -->
             <RadioButton
@@ -1032,7 +1008,7 @@
                 android:textSize="15dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="4. Configuración renta fiscal"
+                android:text="3. Configuración renta fiscal"
                  />
 
                 </RadioGroup>

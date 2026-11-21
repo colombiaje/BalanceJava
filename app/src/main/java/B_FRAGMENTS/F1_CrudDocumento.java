@@ -3,7 +3,6 @@ package B_FRAGMENTS;
 import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
 import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
 import static A1BASES.A9_2_BackupFile.BALANCE_FOLDER;
-import static A1BASES.A9_2_BackupFile.CSV_DOCUMENT_TRANSACTIONS;
 
 import android.Manifest;
 import android.animation.ArgbEvaluator;
@@ -1672,12 +1671,8 @@ public class F1_CrudDocumento extends DialogFragment implements A8_CalculadoraCa
     // actualiza realizarOperacionesPostSeleccion() más abajo — el botón de eliminar no usa ese
     // TextView y ya hace su propio refresco de pantalla).
     public void generarBackupCsvTransaccionesCrud() {
-        String nombreArchivo = CSV_DOCUMENT_TRANSACTIONS.getFileName();
-        String folderId = "1zQ55zDrNlyr3nmcK-toeBLUKKC4tMZjO";
-        csvDriveUploader = new A6_3_CSVDriveUploader();
-        A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(), nombreArchivo, folderId, 10);
-        // ⭐ NUEVO E3 respaldos (17-nov, Jorge): además, copia completa de la base en segundo
-        // plano (10 copias, local y Drive). El CSV 121 de arriba se retira en E4.
+        // ⭐ CAMBIO (21-nov, Jorge, paso 3 respaldos): se retiró el CSV 121; queda solo la copia
+        // completa de la base en segundo plano (retención por generaciones, local y Drive).
         A1BASES.A32_Respaldos.respaldoAutomatico(requireContext());
     }
 

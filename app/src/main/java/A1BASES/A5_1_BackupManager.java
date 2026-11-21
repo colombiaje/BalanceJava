@@ -3,19 +3,6 @@ package A1BASES;
 import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
 import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
 import static A1BASES.A99_MetodosVarios.stringFechaYHora;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_BEFORE_STARTING_CLOSING;
-import static A1BASES.A9_2_BackupFile.CSV_DOCUMENT_TRANSACTIONS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -317,30 +304,13 @@ public class A5_1_BackupManager {
     }
 
 
+    // ⭐ CAMBIO (21-nov, Jorge, paso 3 respaldos): se retiraron de la lista los CSV de respaldo
+    // de tablas (121, 211, 231/232, 411, 421, 431, 442, 451, 452); los respaldos son la copia
+    // completa .db. Quedan los nombres que se siguen generando con este método (422 y 432,
+    // saldos al cerrar, que el cierre usa como paso intermedio).
     private static final String[] archivoTransaccionesADrive = {
-
-                //CSV_CREATE_HEADER Se ejecuta en otro tipo de metodo ??? unificar
-                //CSV_CREATE_RECORDS Se ejecuta en otro tipo de metodo ??? unificar
-                //CSV_TEMPLATE_HEADER Se ejecuta en otro tipo de metodo ??? unificar
-                //CSV_TEMPLATE_RECORDS Se ejecuta en otro tipo de metodo ??? unificar
-                //CSV_UPDATE_HEADER Se ejecuta en otro tipo de metodo ??? unificar
-                //CSV_UPDATE_RECORDS Se ejecuta en otro tipo de metodo ??? unificar
-                CSV_DOCUMENT_TRANSACTIONS.getFileName(),
-                CSV_ACCOUNTS_BEFORE_STARTING_CLOSING.getFileName(),
-                CSV_ACCOUNTS_BEFORE_RESTORING_BACKUP_INITIAL.getFileName(),
-                CSV_ACCOUNTS_AFTER_RESTORING_BACKUP_INITIAL.getFileName(),
-                //CUENTAS_SHEETS_BALANCE.getFileName() //Se ejecuta en otro proceso
-                CSV_TRANSACTIONS_BEFORE_STARTING_CLOSURES.getFileName(),
-                CSV_TRANSACTIONS_BEFORE_CLOSING_ALL_ACCOUNTS.getFileName(),
-                CSV_TRANSACTIONS_BEFORE_CLOSING_SOME_ACCOUNTS.getFileName(),
-                //CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName(),//No debe generarse aqui se descarga desde drive-sheets
-                CSV_TRANSACTIONS_BEFORE_CLOSING_RESTORING_SHEETS.getFileName(),
-                CSV_TRANSACTIONS_AFTER_CLOSING_RESTORING_SHEETS.getFileName(),
-                CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(),
-                CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL.getFileName(),
-                CSV_TRANSACTIONS_BEFORE_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName(),
-                CSV_TRANSACTIONS_AFTER_RESTORING_BACKUP_INITIAL_CLOSURES_FROM_LOCAL_FROM_DRIVE.getFileName()
-
+                A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS.getFileName(),
+                A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS.getFileName()
         };
 
         // ⭐ CAMBIO E0 respaldos (17-nov, Jorge): devuelve true solo si el archivo quedó escrito y
