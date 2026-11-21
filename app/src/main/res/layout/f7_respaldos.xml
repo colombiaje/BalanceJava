@@ -53,6 +53,29 @@
             android:shrinkColumns="0,1"
             android:stretchColumns="1" />
 
+        <!-- ⭐ NUEVO (21-nov, Jorge, build B): últimas restauraciones, plegable. -->
+        <TextView
+            android:id="@+id/tituloRestauraciones_XTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="#DCE8F5"
+            android:padding="8dp"
+            android:text="Últimas restauraciones ▸"
+            android:textColor="#1F3FA6"
+            android:textSize="14dp"
+            android:textStyle="bold" />
+
+        <TableLayout
+            android:id="@+id/tablaRestauraciones_XTl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:layout_marginTop="4dp"
+            android:background="#FFFFFF"
+            android:shrinkColumns="1"
+            android:stretchColumns="1" />
+
         <TextView
             android:id="@+id/estadoDrive_XTv"
             android:layout_width="match_parent"
@@ -130,7 +153,7 @@
             android:layout_marginTop="8dp"
             android:background="#DCE8F5"
             android:padding="8dp"
-            android:text="Restaurar reemplaza TODA la base por el respaldo elegido. Antes se guarda un respaldo del estado actual, y luego la app se cierra para aplicar el cambio."
+            android:text="Restaurar reemplaza TODA la base por el respaldo elegido. Antes se guarda un respaldo del estado actual, y luego la app se reinicia sola para aplicar el cambio."
             android:textColor="#1F3FA6"
             android:textSize="13dp" />
 
@@ -187,6 +210,17 @@
                 android:layout_marginTop="6dp"
                 android:background="@drawable/bg_boton_accion"
                 android:text="Exportar una tabla de un respaldo .db a CSV"
+                android:textAllCaps="false"
+                android:textColor="#1F3FA6" />
+
+            <!-- ⭐ NUEVO (21-nov, Jorge, build B). -->
+            <Button
+                android:id="@+id/exportarTodas_XBt"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_boton_accion"
+                android:text="Exportar todas las tablas de un .db a una carpeta"
                 android:textAllCaps="false"
                 android:textColor="#1F3FA6" />
 

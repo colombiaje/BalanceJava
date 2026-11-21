@@ -77,6 +77,11 @@ public class A32_Respaldos {
     private static final String CLAVE_DRIVE_FECHA = "drive_fecha";
     private static final String CLAVE_PENDIENTE_DESC = "restauracion_pendiente";
     private static final String CLAVE_AVISO_RESTAURADA = "aviso_restaurada";
+    // ⭐ NUEVO (21-nov, Jorge, build B): origen, estado anterior e historial de restauraciones.
+    private static final String CLAVE_PENDIENTE_ORIGEN = "restauracion_pendiente_origen";
+    private static final String CLAVE_PENDIENTE_ANTERIOR = "restauracion_pendiente_anterior";
+    private static final String CLAVE_HISTORIAL_RESTAURACIONES = "historial_restauraciones";
+    public static final int MAX_HISTORIAL_RESTAURACIONES = 10;
 
     public static final String TIPO_ANTES_RESTAURAR = "antes-restaurar";
 
@@ -567,6 +572,13 @@ public class A32_Respaldos {
      * base cerrada). Fuera del hilo principal.
      */
     public static boolean prepararRestauracion(Context context, File candidato, String descripcion) {
+        return prepararRestauracion(context, candidato, descripcion, "", "");
+    }
+
+    // ⭐ NUEVO (21-nov, Jorge, build B): guarda también el origen (este equipo / Drive) y el
+    // nombre del respaldo del estado anterior, para el aviso y la lista "Últimas restauraciones".
+    public static boolean prepararRestauracion(Context context, File candidato, String descripcion,
+                                               String origen, String estadoAnterior) {
         File pendiente = archivoPendiente(context);
         File tmp = new File(pendiente.getPath() + ".tmp");
         try {
@@ -581,7 +593,10 @@ public class A32_Respaldos {
                 return false;
             }
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                    .putString(CLAVE_PENDIENTE_DESC, descripcion).commit();
+                    .putString(CLAVE_PENDIENTE_DESC, descripcion)
+                    .putString(CLAVE_PENDIENTE_ORIGEN, origen == null ? "" : origen)
+                    .putString(CLAVE_PENDIENTE_ANTERIOR, estadoAnterior == null ? "" : estadoAnterior)
+                    .commit();
             return true;
         } catch (Exception e) {
             Log.e(TAG, "No se pudo preparar la restauración", e);
@@ -602,6 +617,8 @@ public class A32_Respaldos {
         }
         SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String desc = sp.getString(CLAVE_PENDIENTE_DESC, pendiente.getName());
+        String origen = sp.getString(CLAVE_PENDIENTE_ORIGEN, "");
+        String anterior = sp.getString(CLAVE_PENDIENTE_ANTERIOR, "");
         File base = context.getDatabasePath(A1_1_AyudanteBD.balanceSqlite_String_PSF);
         File nueva = new File(base.getPath() + ".restaurando");
         try {
@@ -620,16 +637,125 @@ public class A32_Respaldos {
                 throw new IllegalStateException("no se pudo poner la base restaurada");
             }
             pendiente.delete();
-            sp.edit().remove(CLAVE_PENDIENTE_DESC)
-                    .putString(CLAVE_AVISO_RESTAURADA, "✓ Base restaurada desde:\n" + desc).commit();
+            sp.edit().remove(CLAVE_PENDIENTE_DESC).remove(CLAVE_PENDIENTE_ORIGEN).remove(CLAVE_PENDIENTE_ANTERIOR)
+                    .putString(CLAVE_AVISO_RESTAURADA, "✓ Base restaurada desde:\n" + etiquetaRespaldo(desc)
+                            + (origen.isEmpty() ? "" : " (" + origen + ")") + "\n" + desc
+                            + (anterior.isEmpty() ? "" : "\n\nEl estado anterior quedó respaldado en:\n"
+                                    + etiquetaRespaldo(anterior) + "\n" + anterior))
+                    .commit();
+            anotarRestauracion(sp, true, desc, origen);
         } catch (Exception e) {
             Log.e(TAG, "Falló la restauración pendiente", e);
             nueva.delete();
             pendiente.delete();
-            sp.edit().remove(CLAVE_PENDIENTE_DESC)
+            sp.edit().remove(CLAVE_PENDIENTE_DESC).remove(CLAVE_PENDIENTE_ORIGEN).remove(CLAVE_PENDIENTE_ANTERIOR)
                     .putString(CLAVE_AVISO_RESTAURADA, "✗ No se pudo restaurar " + desc + ": "
                             + e.getMessage() + "\nLa base anterior sigue en uso.").commit();
+            anotarRestauracion(sp, false, desc, origen);
         }
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (21-nov, Jorge, build B): historial de restauraciones, etiquetas legibles y
+    // reinicio automático de la app
+    // ═════════════════════════════════════════════════════════════
+
+    /** Restauración aplicada o fallida: fecha en ms, ok, respaldo y origen. */
+    public static class Restauracion {
+        public long fecha;
+        public boolean ok;
+        public String nombre = "";
+        public String origen = "";
+    }
+
+    // Se guarda en las preferencias de la app (fuera de la base), así sobrevive a la propia
+    // restauración. Una línea por restauración: fecha|ok|nombre|origen, la más nueva primero.
+    private static void anotarRestauracion(SharedPreferences sp, boolean ok, String nombre, String origen) {
+        String linea = System.currentTimeMillis() + "|" + (ok ? "1" : "0") + "|"
+                + nombre.replace("|", " ").replace("\n", " ") + "|" + origen.replace("|", " ");
+        String previo = sp.getString(CLAVE_HISTORIAL_RESTAURACIONES, "");
+        StringBuilder sb = new StringBuilder(linea);
+        int n = 1;
+        for (String l : previo.split("\n")) {
+            if (l.trim().isEmpty() || n >= MAX_HISTORIAL_RESTAURACIONES) continue;
+            sb.append('\n').append(l);
+            n++;
+        }
+        sp.edit().putString(CLAVE_HISTORIAL_RESTAURACIONES, sb.toString()).commit();
+    }
+
+    /** Últimas restauraciones, de la más nueva a la más vieja. */
+    public static List<Restauracion> ultimasRestauraciones(Context context) {
+        List<Restauracion> lista = new ArrayList<>();
+        String texto = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(CLAVE_HISTORIAL_RESTAURACIONES, "");
+        for (String l : texto.split("\n")) {
+            String[] p = l.split("\\|", -1);
+            if (p.length < 4) continue;
+            try {
+                Restauracion r = new Restauracion();
+                r.fecha = Long.parseLong(p[0]);
+                r.ok = "1".equals(p[1]);
+                r.nombre = p[2];
+                r.origen = p[3];
+                lista.add(r);
+            } catch (Exception ignorado) { }
+        }
+        return lista;
+    }
+
+    /**
+     * Nombre legible de un respaldo .db: "PAD5_antes-cierre-total_v31_20261121-101500.db" →
+     * "Antes de cierre total – 21 nov 10:15 · PAD5". Si el nombre no sigue el formato, lo devuelve igual.
+     */
+    public static String etiquetaRespaldo(String nombre) {
+        if (nombre == null) return "";
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("^([^_]+)_(.+?)_v\\d+_(\\d{8})-(\\d{6})\\.db$").matcher(nombre);
+        if (!m.matches()) return nombre;
+        String texto = tipoLegible(m.group(2));
+        try {
+            Date d = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US).parse(m.group(3) + m.group(4));
+            texto += " – " + new SimpleDateFormat("d MMM yyyy HH:mm", new Locale("es", "CO")).format(d);
+        } catch (Exception ignorado) { }
+        return texto + " · " + m.group(1);
+    }
+
+    /** "antes-cierre-total" → "Antes de cierre total"; "auto" → "Automático". */
+    public static String tipoLegible(String tipo) {
+        if (TIPO_MANUAL.equals(tipo)) return "Manual";
+        if (TIPO_AUTOMATICO.equals(tipo)) return "Automático";
+        String prefijo = "";
+        String op = tipo;
+        if (tipo.startsWith("antes-")) { prefijo = "Antes de "; op = tipo.substring(6); }
+        else if (tipo.startsWith("despues-")) { prefijo = "Después de "; op = tipo.substring(8); }
+        String nombreOp;
+        switch (op) {
+            case "restaurar": nombreOp = "restaurar"; break;
+            case "cierre-total": nombreOp = "cierre total"; break;
+            case "cierre-algunas": nombreOp = "cierre de algunas cuentas"; break;
+            case "sheets-transacciones": nombreOp = "importar Balance de Sheets"; break;
+            case "sheets-cuentas": nombreOp = "importar cuentas de Sheets"; break;
+            default: nombreOp = op.replace('-', ' ');
+        }
+        String texto = prefijo + nombreOp;
+        return texto.isEmpty() ? tipo : Character.toUpperCase(texto.charAt(0)) + texto.substring(1);
+    }
+
+    /**
+     * Cierra la app y la vuelve a abrir sola. Al arrancar, C2 aplica la restauración pendiente
+     * antes de abrir la base y muestra el aviso. Se reinicia el proceso completo para que no
+     * quede ninguna conexión abierta a la base anterior.
+     */
+    public static void reiniciarApp(android.app.Activity actividad) {
+        Context app = actividad.getApplicationContext();
+        android.content.Intent arranque = app.getPackageManager().getLaunchIntentForPackage(app.getPackageName());
+        if (arranque != null && arranque.getComponent() != null) {
+            android.content.Intent reinicio = android.content.Intent.makeRestartActivityTask(arranque.getComponent());
+            app.startActivity(reinicio);
+        }
+        actividad.finishAffinity();
+        Runtime.getRuntime().exit(0);
     }
 
     /** Aviso de la última restauración aplicada (se entrega una sola vez). */
@@ -958,6 +1084,18 @@ public class A32_Respaldos {
         File destino = new File(carpeta, equipo(app) + "_" + tipo + "_" + sello + ".csv");
         SQLiteDatabase base = SQLiteDatabase.openDatabase(db.getAbsolutePath(), null,
                 SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
+        try {
+            if (escribirTablaCsv(base, tabla, destino) < 0) return null;
+        } finally {
+            base.close();
+        }
+        HILO.execute(() -> subirADrive(app, destino, tipo, 5));
+        return destino;
+    }
+
+    /** ⭐ (21-nov): extraído de exportarTablaCsv. Escribe la tabla en CSV; devuelve las filas o -1. */
+    private static long escribirTablaCsv(SQLiteDatabase base, String tabla, File destino) {
+        long filas = 0;
         try (Cursor c = base.rawQuery("SELECT * FROM \"" + tabla.replace("\"", "\"\"") + "\"", null);
              java.io.Writer w = new java.io.OutputStreamWriter(new FileOutputStream(destino),
                      java.nio.charset.StandardCharsets.UTF_8)) {
@@ -973,16 +1111,128 @@ public class A32_Respaldos {
                     w.write(c.isNull(i) ? "" : celdaCsv(c.getString(i)));
                 }
                 w.write('\n');
+                filas++;
             }
+            return filas;
         } catch (Exception e) {
             Log.e(TAG, "No se pudo exportar " + tabla, e);
             destino.delete();
-            return null;
+            return -1;
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (21-nov, Jorge, build B): exportar TODAS las tablas de un respaldo .db a una
+    // carpeta con fecha: Balance/Exportaciones/<equipo>_export-todas_<fecha>/<tabla>.csv, y la
+    // misma carpeta en Drive como hija de Backups. Se conservan las 5 más recientes por equipo.
+    // ═════════════════════════════════════════════════════════════
+    public static final String CARPETA_EXPORTACIONES = "Balance/Exportaciones";
+    public static final String TIPO_EXPORT_TODAS = "export-todas";
+    private static final int MAX_EXPORT_TODAS = 5;
+
+    public static class Exportacion {
+        public boolean ok;
+        public String mensaje = "";
+        public File carpeta;
+        public int tablas;
+        public long filas;
+    }
+
+    /** Fuera del hilo principal. La subida a Drive sigue en segundo plano y avisa con 'alTerminarDrive'. */
+    public static Exportacion exportarTodasLasTablas(Context context, File db, Escucha escucha) {
+        final Context app = context.getApplicationContext();
+        Exportacion r = new Exportacion();
+        File raiz = new File(Environment.getExternalStorageDirectory(), CARPETA_EXPORTACIONES);
+        String prefijo = equipo(app) + "_" + TIPO_EXPORT_TODAS + "_";
+        String sello = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+        File carpeta = new File(raiz, prefijo + sello);
+        if (!carpeta.exists() && !carpeta.mkdirs()) {
+            r.mensaje = "No se pudo crear la carpeta " + carpeta.getPath();
+            return r;
+        }
+        SQLiteDatabase base = SQLiteDatabase.openDatabase(db.getAbsolutePath(), null,
+                SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
+        try {
+            for (String tabla : contarFilas(base).keySet()) {
+                File destino = new File(carpeta, tabla.replaceAll("[^A-Za-z0-9_]", "") + ".csv");
+                long n = escribirTablaCsv(base, tabla, destino);
+                if (n < 0) {
+                    r.mensaje = "No se pudo exportar la tabla " + tabla;
+                    borrarCarpeta(carpeta);
+                    return r;
+                }
+                r.tablas++;
+                r.filas += n;
+            }
         } finally {
             base.close();
         }
-        HILO.execute(() -> subirADrive(app, destino, tipo, 5));
-        return destino;
+        // Rotación local: las 5 carpetas más recientes de este equipo.
+        File[] previas = raiz.listFiles(f -> f.isDirectory() && f.getName().startsWith(prefijo));
+        if (previas != null && previas.length > MAX_EXPORT_TODAS) {
+            java.util.Arrays.sort(previas, (a, b) -> b.getName().compareTo(a.getName()));
+            for (int i = MAX_EXPORT_TODAS; i < previas.length; i++) borrarCarpeta(previas[i]);
+        }
+        r.ok = true;
+        r.carpeta = carpeta;
+        r.mensaje = r.tablas + " tablas · " + r.filas + " filas";
+        HILO.execute(() -> {
+            String[] drive = subirCarpetaADrive(app, carpeta, prefijo);
+            if (escucha != null) {
+                PRINCIPAL.post(() -> escucha.alTerminarDrive("ok".equals(drive[0]), drive[1]));
+            }
+        });
+        return r;
+    }
+
+    private static void borrarCarpeta(File carpeta) {
+        File[] hijos = carpeta.listFiles();
+        if (hijos != null) for (File h : hijos) h.delete();
+        carpeta.delete();
+    }
+
+    /** Crea la carpeta en Drive (hija de Backups), sube cada CSV y rota a 5 por equipo. */
+    private static String[] subirCarpetaADrive(Context context, File carpeta, String prefijo) {
+        try {
+            Drive drive = servicioDrive(context);
+            com.google.api.services.drive.model.File meta = new com.google.api.services.drive.model.File();
+            meta.setName(carpeta.getName());
+            meta.setMimeType("application/vnd.google-apps.folder");
+            meta.setParents(Collections.singletonList(FOLDER_ID_BACKUPS));
+            com.google.api.services.drive.model.File nueva = drive.files().create(meta).setFields("id").execute();
+            File[] csvs = carpeta.listFiles();
+            int subidos = 0;
+            if (csvs != null) {
+                for (File csv : csvs) {
+                    com.google.api.services.drive.model.File m = new com.google.api.services.drive.model.File();
+                    m.setName(csv.getName());
+                    m.setParents(Collections.singletonList(nueva.getId()));
+                    drive.files().create(m, new FileContent("text/csv", csv)).setFields("id").execute();
+                    subidos++;
+                }
+            }
+            FileList lista = drive.files().list()
+                    .setQ("'" + FOLDER_ID_BACKUPS + "' in parents and mimeType='application/vnd.google-apps.folder'"
+                            + " and name contains '" + prefijo + "' and trashed=false")
+                    .setSpaces("drive")
+                    .setFields("files(id, name)")
+                    .setPageSize(200)
+                    .setOrderBy("name desc")
+                    .execute();
+            if (lista.getFiles() != null) {
+                for (int i = MAX_EXPORT_TODAS; i < lista.getFiles().size(); i++) {
+                    try {
+                        drive.files().delete(lista.getFiles().get(i).getId()).execute();
+                    } catch (Exception e) {
+                        Log.e(TAG, "No se pudo borrar en Drive: " + lista.getFiles().get(i).getName(), e);
+                    }
+                }
+            }
+            return new String[]{"ok", "Carpeta subida a Drive › Backups: " + carpeta.getName() + " (" + subidos + " CSV)"};
+        } catch (Exception e) {
+            Log.e(TAG, "Error al subir la carpeta a Drive", e);
+            return new String[]{"error", "No se pudo subir la carpeta a Drive: " + e.getMessage()};
+        }
     }
 
     private static String celdaCsv(String v) {

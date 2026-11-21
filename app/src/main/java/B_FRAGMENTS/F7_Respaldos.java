@@ -48,8 +48,9 @@ import A1BASES.A32_Respaldos;
  *     Android (para la versión sin API de Drive).
  *
  * Restaurar: se revisa el respaldo (integridad y versión), se respalda el estado actual
- * ("antes-restaurar"), se deja la base lista para reemplazarse y la app se cierra; al abrirla
- * de nuevo se aplica el cambio (C2_ActivityMenu.onCreate, antes de abrir la base).
+ * ("antes-restaurar"), se deja la base lista para reemplazarse y la app se reinicia sola
+ * (⭐ 21-nov, build B); al arrancar se aplica el cambio (C2_ActivityMenu.onCreate, antes de
+ * abrir la base).
  */
 public class F7_Respaldos extends Fragment {
 
@@ -68,6 +69,17 @@ public class F7_Respaldos extends Fragment {
                 + (tablaAbierta ? "▾  tocar para cerrar" : "▸  tocar para ver"));
     }
     private TextView estadoDrive_XTv;
+    // ⭐ NUEVO (21-nov, Jorge, build B): lista plegable de últimas restauraciones.
+    private android.widget.TableLayout tablaRestauraciones_XTl;
+    private TextView tituloRestauraciones_XTv;
+    private boolean restauracionesAbierta = false;
+    private int filasRestauraciones = 0;
+
+    private void actualizarTituloRestauraciones() {
+        if (tituloRestauraciones_XTv == null) return;
+        tituloRestauraciones_XTv.setText("Últimas restauraciones (" + filasRestauraciones + ") "
+                + (restauracionesAbierta ? "▾  tocar para cerrar" : "▸  tocar para ver"));
+    }
     private AlertDialog espera;
 
     private final Locale es = new Locale("es", "CO");
@@ -106,7 +118,16 @@ public class F7_Respaldos extends Fragment {
             actualizarTituloTabla();
         });
         estadoDrive_XTv = v.findViewById(R.id.estadoDrive_XTv);
-        v.findViewById(R.id.exportarTabla_XBt).setOnClickListener(x -> elegirRespaldoParaExportar());
+        tablaRestauraciones_XTl = v.findViewById(R.id.tablaRestauraciones_XTl);
+        tituloRestauraciones_XTv = v.findViewById(R.id.tituloRestauraciones_XTv);
+        tituloRestauraciones_XTv.setOnClickListener(x -> {
+            restauracionesAbierta = !restauracionesAbierta;
+            tablaRestauraciones_XTl.setVisibility(restauracionesAbierta ? View.VISIBLE : View.GONE);
+            actualizarTituloRestauraciones();
+        });
+        // ⭐ (21-nov, build B): dos formas de exportar: una tabla, o todas a una carpeta.
+        v.findViewById(R.id.exportarTabla_XBt).setOnClickListener(x -> elegirRespaldoParaExportar(false));
+        v.findViewById(R.id.exportarTodas_XBt).setOnClickListener(x -> elegirRespaldoParaExportar(true));
         Button cambiarEquipo = v.findViewById(R.id.cambiarEquipo_XBt);
         Button respaldarAhora = v.findViewById(R.id.respaldarAhora_XBt);
         Button restaurarLocal = v.findViewById(R.id.restaurarLocal_XBt);
@@ -118,8 +139,18 @@ public class F7_Respaldos extends Fragment {
         respaldarAhora.setOnClickListener(x -> respaldarAhora());
         restaurarLocal.setOnClickListener(x -> elegirRespaldoLocal());
         restaurarDrive.setOnClickListener(x -> elegirRespaldoDrive());
-        verAvanzado.setOnCheckedChangeListener((b, marcado) ->
-                areaAvanzada.setVisibility(marcado ? View.VISIBLE : View.GONE));
+        verAvanzado.setOnCheckedChangeListener((b, marcado) -> {
+            areaAvanzada.setVisibility(marcado ? View.VISIBLE : View.GONE);
+            // ⭐ (21-nov, Jorge, build B): al abrir las opciones avanzadas se cierran las listas.
+            if (marcado) {
+                tablaAbierta = false;
+                tablaUltimos_XTl.setVisibility(View.GONE);
+                actualizarTituloTabla();
+                restauracionesAbierta = false;
+                tablaRestauraciones_XTl.setVisibility(View.GONE);
+                actualizarTituloRestauraciones();
+            }
+        });
         v.findViewById(R.id.irCuentasBackups_XBt).setOnClickListener(x -> irA(R.id.navf2));
         v.findViewById(R.id.irCierres_XBt).setOnClickListener(x -> irA(R.id.navf5));
         v.findViewById(R.id.probarSelector_XBt).setOnClickListener(x -> selectorCarpeta.launch(
@@ -165,6 +196,30 @@ public class F7_Respaldos extends Fragment {
         // ⭐ (18-nov): debajo de la tabla, solo el resultado de la última subida a Drive.
         estadoDrive_XTv.setText("Última subida a Drive: " + (drive == null ? "ninguna todavía." : drive));
         llenarTablaUltimos();
+        llenarTablaRestauraciones();
+    }
+
+    // ⭐ NUEVO (21-nov, Jorge, build B): Fecha · Copia restaurada · Origen.
+    private void llenarTablaRestauraciones() {
+        android.widget.TableLayout tabla = tablaRestauraciones_XTl;
+        if (tabla == null) return;
+        tabla.removeAllViews();
+        tabla.addView(filaTabla("Fecha", "Copia restaurada", "Origen", true));
+        List<A32_Respaldos.Restauracion> lista = A32_Respaldos.ultimasRestauraciones(requireContext());
+        filasRestauraciones = lista.size();
+        actualizarTituloRestauraciones();
+        if (lista.isEmpty()) {
+            tabla.addView(filaTabla("—", "Sin restauraciones registradas", "", false));
+        }
+        int n = 0;
+        for (A32_Respaldos.Restauracion r : lista) {
+            android.widget.TableRow fila = filaTabla(
+                    new SimpleDateFormat("d MMM HH:mm", es).format(new Date(r.fecha)),
+                    (r.ok ? "" : "✗ falló: ") + A32_Respaldos.etiquetaRespaldo(r.nombre),
+                    r.origen.isEmpty() ? "—" : r.origen, false);
+            fila.setBackgroundColor(android.graphics.Color.parseColor(n++ % 2 == 0 ? "#FFFFFF" : "#EEF3FB"));
+            tabla.addView(fila);
+        }
     }
 
     // ⭐ NUEVO (18-nov, Jorge): tabla Tipo · Nombre · Fecha y hora, el último de cada tipo.
@@ -251,7 +306,8 @@ public class F7_Respaldos extends Fragment {
         String[] items = new String[locales.size()];
         for (int i = 0; i < locales.size(); i++) {
             File f = locales.get(i);
-            items[i] = (i == 0 ? "★ " : "") + f.getName() + "\n   " + fecha(f.lastModified()) + " · " + tamano(f.length());
+            // ⭐ (21-nov, build B): etiqueta legible en lugar del nombre técnico.
+            items[i] = (i == 0 ? "★ " : "") + A32_Respaldos.etiquetaRespaldo(f.getName()) + "\n   " + tamano(f.length());
         }
         new AlertDialog.Builder(requireContext())
                 .setTitle("Respaldos en este equipo")
@@ -287,7 +343,8 @@ public class F7_Respaldos extends Fragment {
                 }
                 String[] items = new String[fin.size()];
                 for (int i = 0; i < fin.size(); i++) {
-                    items[i] = (i == 0 ? "★ " : "") + fin.get(i)[1] + "\n   " + tamano(Long.parseLong(fin.get(i)[2]));
+                    items[i] = (i == 0 ? "★ " : "") + A32_Respaldos.etiquetaRespaldo(fin.get(i)[1])
+                            + "\n   " + tamano(Long.parseLong(fin.get(i)[2]));
                 }
                 new AlertDialog.Builder(requireContext())
                         .setTitle("Respaldos en Drive")
@@ -343,26 +400,28 @@ public class F7_Respaldos extends Fragment {
                 }
                 new AlertDialog.Builder(requireContext())
                         .setTitle("Confirmar restauración")
-                        .setMessage("Respaldo: " + nombre + "\nOrigen: " + origen
+                        .setMessage("Respaldo: " + A32_Respaldos.etiquetaRespaldo(nombre) + "\n" + nombre
+                                + "\nOrigen: " + origen
                                 + "\nVersión de base: v" + rv.version
                                 + "\nContenido: " + rv.tablas + " tablas · " + rv.filas + " filas"
                                 + "\n\nSe reemplazará TODA la base actual por este respaldo."
                                 + "\nAntes se guarda un respaldo del estado actual."
-                                + "\nLuego la app se cierra; al abrirla de nuevo queda restaurada.")
-                        .setPositiveButton("Sí, restaurar", (d, w) -> respaldarEstadoActualYPreparar(archivo, nombre))
+                                + "\nLuego la app se reinicia sola y queda restaurada.")
+                        .setPositiveButton("Sí, restaurar", (d, w) -> respaldarEstadoActualYPreparar(archivo, nombre, origen))
                         .setNegativeButton("Cancelar", null)
                         .show();
             });
         });
     }
 
-    private void respaldarEstadoActualYPreparar(File archivo, String nombre) {
+    private void respaldarEstadoActualYPreparar(File archivo, String nombre, String origen) {
         mostrarEspera("Respaldando el estado actual…");
         final android.content.Context app = requireContext().getApplicationContext();
         hilo.execute(() -> {
             A32_Respaldos.Resultado previo =
                     A32_Respaldos.respaldarBaseCompleta(app, A32_Respaldos.TIPO_ANTES_RESTAURAR, 5);
-            boolean preparado = previo.ok && A32_Respaldos.prepararRestauracion(app, archivo, nombre);
+            boolean preparado = previo.ok && A32_Respaldos.prepararRestauracion(app, archivo, nombre,
+                    origen, previo.archivo.getName());
             principal.post(() -> {
                 cerrarEspera();
                 if (!isAdded()) return;
@@ -383,27 +442,21 @@ public class F7_Respaldos extends Fragment {
                             .show();
                     return;
                 }
-                new AlertDialog.Builder(requireContext())
-                        .setTitle("✓ Restauración lista")
-                        .setMessage("Estado actual respaldado:\n" + previo.archivo.getName()
-                                + "\n\nLa app se cerrará ahora. Ábrela de nuevo y quedará restaurada desde:\n" + nombre)
-                        .setCancelable(false)
-                        .setPositiveButton("Cerrar la app", (d, w) -> cerrarApp())
-                        .show();
+                // ⭐ CAMBIO (21-nov, Jorge, build B, opción A): la app se reinicia sola (antes
+                // pedía cerrarla y abrirla a mano). El aviso del resultado sale al arrancar.
+                mostrarEspera("Restaurando… la app se reinicia sola.");
+                principal.postDelayed(() -> {
+                    Activity a = getActivity();
+                    if (a != null) A32_Respaldos.reiniciarApp(a);
+                }, 800);
             });
         });
-    }
-
-    private void cerrarApp() {
-        Activity a = getActivity();
-        if (a != null) a.finishAffinity();
-        principal.postDelayed(() -> Runtime.getRuntime().exit(0), 300);
     }
 
     // ─────────────────────────────────────────────────────────────
     // ⭐ NUEVO (18-nov, Jorge): exportar una tabla de un respaldo .db a CSV (solo lectura)
     // ─────────────────────────────────────────────────────────────
-    private void elegirRespaldoParaExportar() {
+    private void elegirRespaldoParaExportar(boolean todas) {
         List<File> locales = A32_Respaldos.respaldosLocales();
         if (locales.isEmpty()) {
             Toast.makeText(requireContext(), "No hay respaldos .db en este equipo.", Toast.LENGTH_LONG).show();
@@ -411,11 +464,14 @@ public class F7_Respaldos extends Fragment {
         }
         String[] items = new String[locales.size()];
         for (int i = 0; i < locales.size(); i++) {
-            items[i] = (i == 0 ? "★ " : "") + locales.get(i).getName() + "\n   " + fecha(locales.get(i).lastModified());
+            items[i] = (i == 0 ? "★ " : "") + A32_Respaldos.etiquetaRespaldo(locales.get(i).getName());
         }
         new AlertDialog.Builder(requireContext())
-                .setTitle("Elige el respaldo .db")
-                .setItems(items, (d, i) -> elegirTablaParaExportar(locales.get(i)))
+                .setTitle(todas ? "Respaldo .db a exportar completo" : "Elige el respaldo .db")
+                .setItems(items, (d, i) -> {
+                    if (todas) exportarTodas(locales.get(i));
+                    else elegirTablaParaExportar(locales.get(i));
+                })
                 .setNegativeButton("Cancelar", null)
                 .show();
     }
@@ -450,6 +506,35 @@ public class F7_Respaldos extends Fragment {
                         .setMessage(csv != null
                                 ? csv.getName() + "\n\nCarpeta: Balance\nTambién se sube a Drive › Respaldos completos.\nSe abre en Sheets o Excel."
                                 : "Revisa que el respaldo no esté dañado.")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+            });
+        });
+    }
+
+    // ⭐ NUEVO (21-nov, Jorge, build B): todas las tablas a una carpeta con fecha.
+    private void exportarTodas(File db) {
+        mostrarEspera("Exportando todas las tablas…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            A32_Respaldos.Exportacion r = A32_Respaldos.exportarTodasLasTablas(app, db, new A32_Respaldos.Escucha() {
+                @Override public void alTerminarLocal(A32_Respaldos.Resultado x) { }
+                @Override public void alTerminarDrive(boolean ok, String mensaje) {
+                    Toast.makeText(app, (ok ? "✓ " : "✗ ") + mensaje, Toast.LENGTH_LONG).show();
+                }
+            });
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(r.ok ? "✓ Tablas exportadas" : "✗ No se pudo exportar")
+                        .setMessage(r.ok
+                                ? "Respaldo: " + A32_Respaldos.etiquetaRespaldo(db.getName())
+                                    + "\n" + r.mensaje
+                                    + "\n\nCarpeta: " + A32_Respaldos.CARPETA_EXPORTACIONES + "/" + r.carpeta.getName()
+                                    + "\nTambién se sube a Drive › Backups (te aviso al terminar)."
+                                    + "\nSe conservan las 5 exportaciones más recientes."
+                                : r.mensaje)
                         .setPositiveButton("Entendido", null)
                         .show();
             });
