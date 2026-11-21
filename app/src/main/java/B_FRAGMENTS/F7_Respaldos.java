@@ -426,15 +426,15 @@ public class F7_Respaldos extends Fragment {
                 long cActual = actual.ok ? valor(actual.filasPorTabla, "cuentas") : -1;
                 long tActual = actual.ok ? valor(actual.filasPorTabla, "transacciones") : -1;
                 boolean alerta = (tActual > 0 && tCopia < tActual / 2) || (cActual > 0 && cCopia < cActual / 2);
-                // ⭐ NUEVO (21-nov, Jorge): una copia vacía (0 cuentas o 0 transacciones) no se
-                // restaura si la base actual sí tiene datos: más riesgo que utilidad.
-                boolean vacia = (cActual > 0 && cCopia == 0) || (tActual > 0 && tCopia == 0);
+                // ⭐ NUEVO (21-nov, Jorge): una copia vacía (0 cuentas o 0 transacciones) nunca se
+                // restaura, esté como esté la base actual: más riesgo que utilidad.
+                boolean vacia = cCopia == 0 || tCopia == 0;
                 if (vacia) {
                     new AlertDialog.Builder(requireContext())
                             .setTitle("✗ No se puede restaurar")
-                            .setMessage("La copia está vacía y la base actual tiene datos:"
-                                    + "\n\nCuentas: copia " + miles(cCopia) + " · actual " + miles(cActual)
-                                    + "\nTransacciones: copia " + miles(tCopia) + " · actual " + miles(tActual)
+                            .setMessage("La copia está vacía (sin cuentas o sin transacciones); una copia así nunca se restaura."
+                                    + "\n\nCuentas: copia " + miles(cCopia) + " · actual " + (cActual < 0 ? "?" : miles(cActual))
+                                    + "\nTransacciones: copia " + miles(tCopia) + " · actual " + (tActual < 0 ? "?" : miles(tActual))
                                     + "\n\nRespaldo: " + A32_Respaldos.etiquetaRespaldo(nombre) + "\n" + nombre
                                     + "\n\nNo se cambió nada. Elige una copia con datos.")
                             .setPositiveButton("Entendido", null)
