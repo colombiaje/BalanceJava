@@ -312,7 +312,7 @@ public class F7_Respaldos extends Fragment {
                 File f = locales.get(i);
                 long[] ct = A32_Respaldos.cuentasYTransacciones(f);
                 String contenido = ct[1] < 0 ? "no se pudo leer"
-                        : (ct[1] == 0 ? "⚠ " : "") + miles(ct[0]) + " cuentas · " + miles(ct[1]) + " transacciones";
+                        : (ct[0] == 0 || ct[1] == 0 ? "⚠ vacía · " : "") + miles(ct[0]) + " cuentas · " + miles(ct[1]) + " transacciones";
                 items[i] = (i == 0 ? "★ " : "") + A32_Respaldos.etiquetaRespaldo(f.getName())
                         + "\n   " + tamano(f.length()) + " · " + contenido;
             }
@@ -426,6 +426,21 @@ public class F7_Respaldos extends Fragment {
                 long cActual = actual.ok ? valor(actual.filasPorTabla, "cuentas") : -1;
                 long tActual = actual.ok ? valor(actual.filasPorTabla, "transacciones") : -1;
                 boolean alerta = (tActual > 0 && tCopia < tActual / 2) || (cActual > 0 && cCopia < cActual / 2);
+                // ⭐ NUEVO (21-nov, Jorge): una copia vacía (0 cuentas o 0 transacciones) no se
+                // restaura si la base actual sí tiene datos: más riesgo que utilidad.
+                boolean vacia = (cActual > 0 && cCopia == 0) || (tActual > 0 && tCopia == 0);
+                if (vacia) {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("✗ No se puede restaurar")
+                            .setMessage("La copia está vacía y la base actual tiene datos:"
+                                    + "\n\nCuentas: copia " + miles(cCopia) + " · actual " + miles(cActual)
+                                    + "\nTransacciones: copia " + miles(tCopia) + " · actual " + miles(tActual)
+                                    + "\n\nRespaldo: " + A32_Respaldos.etiquetaRespaldo(nombre) + "\n" + nombre
+                                    + "\n\nNo se cambió nada. Elige una copia con datos.")
+                            .setPositiveButton("Entendido", null)
+                            .show();
+                    return;
+                }
                 new AlertDialog.Builder(requireContext())
                         .setTitle(alerta ? "⚠ Revisa antes de restaurar" : "Confirmar restauración")
                         .setMessage((alerta ? "⚠ La copia tiene muchas menos cuentas o transacciones que la base actual.\n\n" : "")
