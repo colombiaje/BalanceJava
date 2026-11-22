@@ -295,6 +295,14 @@ public class A36_TraerSheets {
 
         Set<Long> vistos = new HashSet<>();
         Set<String> docItems = new HashSet<>();
+        // ⭐ (22-nov, Jorge): partida doble. Suma por documento antes (base) y después (hoja).
+        Map<String, Long> sumaAntes = new HashMap<>();
+        for (String[] f : actual.values()) {
+            Long val = entero(f[3]);
+            sumaAntes.put(f[0], (sumaAntes.containsKey(f[0]) ? sumaAntes.get(f[0]) : 0L) + (val == null ? 0 : val));
+        }
+        Map<String, Long> sumaDespues = new HashMap<>();
+        documentosTocados = new HashSet<>();
         for (int i = 1; i < filas.size(); i++) {
             String[] fila = filas.get(i);
             if (vacia(fila)) continue;
@@ -310,7 +318,7 @@ public class A36_TraerSheets {
                 if (id == null || !actual.containsKey(id)) {
                     error(a, n, "transaccion_id " + idTxt + " no existe (las filas nuevas van con transaccion_id vacío).");
                 } else if (!vistos.add(id)) {
-                    error(a, n, "transaccion_id " + idTxt + " está repetido.");
+                    error(a, n, "transaccion_id " + idTxt + " está repetido (para agregar una fila, deja transaccion_id vacío).");
                 }
             }
             if (nuevo[0].isEmpty()) error(a, n, "falta el Documento.");
@@ -322,7 +330,11 @@ public class A36_TraerSheets {
             if (entero(nuevo[3]) == null) error(a, n, "el Valor \"" + nuevo[3] + "\" debe ser un número entero, sin puntos ni comas.");
             if (nuevo[4].isEmpty()) error(a, n, "falta la Descripción.");
             if (nuevo[5].isEmpty()) error(a, n, "falta la Fecha y hora.");
-            if (!nuevo[6].isEmpty() && (entero(nuevo[6]) == null || nuevo[6].length() != 8)) {
+            // ⭐ (22-nov, Jorge): la Fecha inicial solo se revisa si es nueva o cambió (hay datos
+            // antiguos con 0, que se respetan).
+            boolean fechaIgual = id != null && actual.containsKey(id) && actual.get(id)[6].equals(nuevo[6]);
+            if (!fechaIgual && !nuevo[6].isEmpty() && !"0".equals(nuevo[6])
+                    && (entero(nuevo[6]) == null || nuevo[6].length() != 8)) {
                 error(a, n, "la Fecha inicial \"" + nuevo[6] + "\" debe ser AAAAMMDD.");
             }
             if (nuevo[7].isEmpty()) error(a, n, "falta la Fecha modificación.");
@@ -330,9 +342,14 @@ public class A36_TraerSheets {
             if (!nuevo[0].isEmpty() && !nuevo[1].isEmpty() && !docItems.add(clave)) {
                 error(a, n, "Documento " + nuevo[0] + " ítem " + nuevo[1] + " está repetido.");
             }
+            Long valorFila = entero(nuevo[3]);
+            if (valorFila != null && !nuevo[0].isEmpty()) {
+                sumaDespues.put(nuevo[0], (sumaDespues.containsKey(nuevo[0]) ? sumaDespues.get(nuevo[0]) : 0L) + valorFila);
+            }
             if (a.errores.size() > erroresAntes) continue;
 
             if (id == null) {
+                documentosTocados.add(nuevo[0]);
                 ContentValues cv = valoresTransaccion(nuevo, tipoDeCuenta.get(cuenta));
                 a.inserciones.add(cv);
                 a.nuevas++;
@@ -356,6 +373,10 @@ public class A36_TraerSheets {
                                 .append(" ").append(antTxt).append(" → ").append(nuevoTxt);
                     }
                 }
+                if (cv.size() > 0) {
+                    documentosTocados.add(ant[0]);
+                    documentosTocados.add(nuevo[0]);
+                }
                 if (cv.containsKey("c1_Documento") || cv.containsKey("c2_ItemDoc")) {
                     // Al aplicar se aparta el documento: van siempre los dos valores finales.
                     cv.put("c1_Documento", nuevo[0]);
@@ -373,6 +394,7 @@ public class A36_TraerSheets {
         for (Map.Entry<Long, String[]> e : actual.entrySet()) {
             if (vistos.contains(e.getKey())) continue;
             String[] f = e.getValue();
+            documentosTocados.add(f[0]);
             if (conInventario.contains(e.getKey())) {
                 a.errores.add("La transacción id " + e.getKey() + " (doc " + f[0] + "-" + f[1]
                         + ") no está en la hoja, pero tiene inventario: no se puede borrar.");
@@ -382,7 +404,20 @@ public class A36_TraerSheets {
             a.borradas++;
             cambio(a, "Borrada id " + e.getKey() + ": doc " + f[0] + "-" + f[1] + " · " + nombre(cuentas, f[2]) + " · " + f[3]);
         }
+        // Cada documento tocado debe quedar en cero (débitos = créditos). Si ya estaba descuadrado
+        // desde antes (datos antiguos), se acepta solo si su suma no cambia.
+        for (String doc : documentosTocados) {
+            long antes = sumaAntes.containsKey(doc) ? sumaAntes.get(doc) : 0L;
+            long despues = sumaDespues.containsKey(doc) ? sumaDespues.get(doc) : 0L;
+            if (despues != 0 && despues != antes) {
+                a.errores.add("El documento " + doc + " no queda en cero: sus valores suman " + despues
+                        + " (los positivos deben igualar a los negativos"
+                        + (antes != 0 ? "; antes sumaba " + antes : "") + ").");
+            }
+        }
     }
+
+    private static Set<String> documentosTocados = new HashSet<>();
 
     private static ContentValues valoresTransaccion(String[] f, Long tipoCuenta) {
         ContentValues cv = new ContentValues();
@@ -605,6 +640,7 @@ public class A36_TraerSheets {
             while (c.moveToNext()) existentes.add(texto(c, 0) + "|" + texto(c, 1));
         }
         Set<String> enHoja = new HashSet<>();
+        long sumaSaldos = 0;
         for (int i = 1; i < filas.size(); i++) {
             String[] fila = filas.get(i);
             if (vacia(fila)) continue;
@@ -628,12 +664,19 @@ public class A36_TraerSheets {
             }
             if (nuevo[7].isEmpty()) nuevo[7] = "n a";
             String clave = nuevo[0] + "|" + nuevo[1];
-            if (existentes.contains(clave)) error(a, n, "Documento " + nuevo[0] + " ítem " + nuevo[1] + " ya existe en la app.");
+            if (existentes.contains(clave)) error(a, n, "Documento " + nuevo[0] + " ítem " + nuevo[1]
+                    + " ya existe en la app (¿ya se trajo esta hoja? Envía una plantilla nueva).");
             else if (!enHoja.add(clave)) error(a, n, "Documento " + nuevo[0] + " ítem " + nuevo[1] + " está repetido.");
             if (a.errores.size() > erroresAntes) continue;
             a.inserciones.add(valoresTransaccion(nuevo, tipoDeCuenta.get(cuenta)));
             a.nuevas++;
+            sumaSaldos += entero(valor);
             cambio(a, "Saldo inicial: " + cuentas.get(cuenta) + " · " + valor);
+        }
+        // ⭐ (22-nov, Jorge): partida doble, los saldos nuevos deben sumar cero.
+        if (a.nuevas > 0 && sumaSaldos != 0) {
+            a.errores.add("Los saldos nuevos suman " + sumaSaldos
+                    + ": deben sumar 0 (los positivos deben igualar a los negativos).");
         }
     }
 
@@ -687,6 +730,23 @@ public class A36_TraerSheets {
         } finally {
             db.endTransaction();
             db.close();
+        }
+    }
+
+    // ⭐ NUEVO (22-nov, Jorge): al aplicar, la hoja queda marcada en Drive para no traerla dos veces.
+    public static final String MARCA_APLICADA = " ✓ aplicada ";
+
+    public static void marcarAplicada(Context context, HojaDrive hoja) {
+        try {
+            Drive drive = A32_Respaldos.servicioDrive(context);
+            com.google.api.services.drive.model.File meta = new com.google.api.services.drive.model.File();
+            String base = hoja.nombre.contains(MARCA_APLICADA)
+                    ? hoja.nombre.substring(0, hoja.nombre.indexOf(MARCA_APLICADA)) : hoja.nombre;
+            meta.setName(base + MARCA_APLICADA
+                    + new java.text.SimpleDateFormat("d MMM HH:mm", new java.util.Locale("es", "CO")).format(new java.util.Date()));
+            drive.files().update(hoja.id, meta).execute();
+        } catch (Exception e) {
+            Log.w(TAG, "No se pudo marcar la hoja como aplicada: " + e.getMessage());
         }
     }
 

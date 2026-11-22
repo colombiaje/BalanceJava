@@ -748,6 +748,7 @@ public class F7_Respaldos extends Fragment {
             } else {
                 try {
                     A1BASES.A36_TraerSheets.aplicar(app, a);
+                    A1BASES.A36_TraerSheets.marcarAplicada(app, a.hoja);
                     A32_Respaldos.Resultado despues = A32_Respaldos.puntoDeRestauracion(app, "despues-" + a.operacion());
                     titulo = "✓ " + a.hoja.titulo() + " traída de Sheets";
                     texto = A32_Respaldos.resumenOperacion(app, a.operacion(), "Traer de Sheets: " + a.hoja.titulo(),
