@@ -200,23 +200,21 @@ public class F4_Cierres extends Fragment {
     // ⭐ RETIRADA (21-nov, Jorge): la antigua opción 1 (backup de reserva 411). Los respaldos
     // manuales quedan centralizados en la pantalla Respaldos (copia completa .db).
 
+    // ⭐ CAMBIO (21-nov, Jorge): cada cierre tiene UN diálogo antes (todo lo que hay que decidir)
+    // y UNO al final (cerrarOperacion). Se retiró el aviso "Backup local, en Drive y todas las
+    // cuentas cerradas" que salía al tocar la opción, antes de confirmar nada.
     private void _2_configurarListener_OpcionAutonomo() {
-
         _2_opcionAutonomoTransacciones_XRb.setOnClickListener(v -> {
             _7_limpiarLista();
             mensajeInformativo_XTv.setText("0");
             opcionActualCierre_XTv.setText("");
-
             dynamicQuery();
             if (todasLasTransacciones_Result_List.size() != 0) {
                 opcionActualCierre_XTv.setText(_2_opcionAutonomoTransacciones_XRb.getText().toString());
-                // ⭐ CAMBIO (18-nov, Jorge): antes del cierre se muestra el resumen del último.
-                alertaUltimoCierre("cierre-total", "cierre total", this::_2dialogoCierreAutonomoMetodoEnF51);
+                dialogoCierreTotal();
             } else {
-                Toast.makeText(getActivity(), "No hay transacciones para hacer backup", Toast.LENGTH_LONG).show();
+                Toast.makeText(getActivity(), "No hay transacciones para cerrar", Toast.LENGTH_LONG).show();
             }
-
-            mostrarToastConDelay("Backup local, en Drive y todas las cuentas cerradas", DELAY_TOAST_LARGO);
         });
     }
 
@@ -225,13 +223,12 @@ public class F4_Cierres extends Fragment {
             _7_limpiarLista();
             mensajeInformativo_XTv.setText("0");
             opcionActualCierre_XTv.setText("");
-
             dynamicQuery();
             if (todasLasTransacciones_Result_List.size() != 0) {
                 opcionActualCierre_XTv.setText(_3_opcionTransaccionesAlgunasCuentas_XRb.getText().toString());
-                alertaUltimoCierre("cierre-algunas", "cierre de algunas cuentas", this::_3dialogoCierreAutonomoAlgunasCuentas);
+                dialogoCierreAlgunas();
             } else {
-                Toast.makeText(getActivity(), "No hay transacciones para hacer backup", Toast.LENGTH_LONG).show();
+                Toast.makeText(getActivity(), "No hay transacciones para cerrar", Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -247,11 +244,17 @@ public class F4_Cierres extends Fragment {
      * 4. Reimporta saldos iniciales desde CSV
      * 5. Sube archivos a Drive con rotación automática
      */
-    public void _2iniciarCierreAutonomoTransaccionesTodasLasCuentas() {
+    public void _2iniciarCierreAutonomoTransaccionesTodasLasCuentas(int anioFoto) {
 
-        // ⭐ CAMBIO E0 (17-nov): el 421 se hace YA y verificado; antes iba con retardo y el
-        // cierre borraba a los 10 s aunque ese respaldo hubiera fallado.
+        // ⭐ CAMBIO E0 (17-nov): el respaldo previo se hace YA y verificado.
         if (!respaldoPrevioOk("cierre-total")) {
+            return;
+        }
+        // ⭐ CAMBIO (21-nov, Jorge): la foto de renta va DESPUÉS del respaldo completo, así el
+        // punto "antes" es de verdad anterior a cualquier cambio. Si la foto falla, no se borra nada.
+        String foto = tomarFotoRenta(anioFoto);
+        if (foto == null) {
+            operacionEnCurso = null;
             return;
         }
 
@@ -290,8 +293,8 @@ public class F4_Cierres extends Fragment {
                 _7verTransaccionesAdaptadorColumnas();
 
                 // 6. ⭐ E3: punto "después" y resumen
-                cerrarOperacion("Cierre interno de todas las cuentas",
-                        "Saldos trasladados: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")");
+                cerrarOperacion("Cierre total",
+                        "Saldos iniciales: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")\n\n" + foto);
             } catch (Exception e) {
                 Log.e(TAG, "Error en cierre autónomo: " + e.getMessage(), e);
                 Toast.makeText(getActivity(), "Error en el proceso de cierre", Toast.LENGTH_SHORT).show();
@@ -301,113 +304,118 @@ public class F4_Cierres extends Fragment {
 
     }
 
-    // ⭐ NUEVO (18-nov, Jorge): control de cierres. Si hay un resumen de un cierre anterior del
-    // mismo tipo, se muestra primero como alerta; el usuario decide si continúa.
-    private void alertaUltimoCierre(String operacion, String nombre, Runnable continuar) {
+    // ==================== DIÁLOGOS DE CIERRE (⭐ 21-nov, Jorge) ====================
+    // Reemplazan la cadena anterior: último cierre → advertencia → foto → reemplazo de foto →
+    // foto tomada (y al final diagnóstico + resumen). Ahora: uno antes, uno al final.
+
+    /** Línea con la fecha del último cierre del mismo tipo (control de cierres, 18-nov). */
+    private String lineaUltimoCierre(String operacion, String nombre) {
         String ultimo = A1BASES.A32_Respaldos.ultimoResumen(operacion);
-        if (ultimo == null) {
-            continuar.run();
-            return;
+        if (ultimo == null) return "Sin " + nombre + " anterior registrado.\n";
+        for (String l : ultimo.split("\n")) {
+            if (l.startsWith("Fecha: ")) return "Último " + nombre + ": " + l.substring(7) + "\n";
         }
-        new AlertDialog.Builder(getActivity())
-                .setTitle("⚠ Último " + nombre)
-                .setMessage(ultimo + "\n¿Continuar con un nuevo " + nombre + "?")
-                .setPositiveButton("Continuar", (d, w) -> continuar.run())
-                .setNegativeButton("Cancelar", null)
-                .show();
+        return "";
     }
 
-    public void _2dialogoCierreAutonomoMetodoEnF51() {
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Advertencia")
-                .setMessage("Actualmente hay: " + _7verNumeroDeTransacciones() + " Transacciones. " +
-                        "¿Eliminarlas todas y recuperar un resumen por cuenta para saldos iniciales?")
-                .setCancelable(false)
-                // ⭐ CAMBIO (3-nov, renta R3): antes de cerrar, la foto anual de renta (el 421 es
-                // también el cierre del período fiscal, decisión de Jorge).
-                .setPositiveButton("Si", (dialog, id) -> _2dialogoFotoRentaAnual())
-
-                .setNegativeButton("No", (dialog, id) -> {
-
-                    _7verNumeroDeTransacciones();
-                    _7verTransaccionesAdaptadorColumnas();
-                    Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show();
-
-                })
-
-                .show();
+    private static String miles(long n) {
+        return String.format(new java.util.Locale("es", "CO"), "%,d", n);
     }
 
-    // ==================== FOTO ANUAL DE RENTA (⭐ NUEVO 3-nov, renta R3) ====================
+    private static int anioValido(String texto) {
+        try {
+            String t = texto.trim();
+            if (t.length() != 4) return -1;
+            int a = Integer.parseInt(t);
+            return a >= 1990 && a <= 2100 ? a : -1;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** Período del año fiscal y aviso si la foto de ese año ya existe. */
+    private String textoAnioFoto(String texto) {
+        int anio = anioValido(texto);
+        if (anio < 0) return "Escribe un año válido (ej.: 2026).";
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            int[] limites = A1_1_AyudanteBD.limitesAnioFiscal(db, anio);
+            boolean existe = A1_1_AyudanteBD.existeFotoRenta(db, anio);
+            return "Período: " + fechaLegible(limites[0]) + " a " + fechaLegible(limites[1])
+                    + (existe ? "\n⚠ La foto de " + anio + " ya existe y se reemplazará." : "");
+        } catch (Exception e) {
+            return "";
+        } finally {
+            db.close();
+        }
+    }
 
     /**
-     * Antes del cierre total: propone el año fiscal de la foto (el que acaba de terminar si el
-     * cierre se hace en los primeros 90 días del año fiscal; si no, el año en curso). El usuario
-     * lo confirma o lo cambia, o cancela todo. (3-nov, Jorge) No hay "cerrar sin foto": era un
-     * riesgo alto de omitir la foto sin querer.
+     * Cierre total: un solo diálogo con el último cierre, las transacciones de hoy, el año de la
+     * foto de renta (editable; el cierre total es también el cierre del período fiscal, 3-nov) y
+     * los pasos. No hay "cerrar sin foto" (3-nov, Jorge).
      */
-    private void _2dialogoFotoRentaAnual() {
+    private void dialogoCierreTotal() {
         int propuesto;
-        int[] limites;
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getReadableDatabase();
         try {
             propuesto = A1_1_AyudanteBD.anioFiscalPropuestoParaFoto(db);
-            limites = A1_1_AyudanteBD.limitesAnioFiscal(db, propuesto);
         } finally {
             db.close();
         }
+        int pad = (int) (22 * getResources().getDisplayMetrics().density);
+        LinearLayout caja = new LinearLayout(getActivity());
+        caja.setOrientation(LinearLayout.VERTICAL);
+        caja.setPadding(pad, pad / 2, pad, 0);
+        TextView info = new TextView(getActivity());
+        info.setTextSize(15);
+        info.setText(lineaUltimoCierre("cierre-total", "cierre total")
+                + "Hoy: " + miles(_7verNumeroDeTransacciones()) + " transacciones.\n\nAño fiscal de la foto de renta:");
         EditText anio_XEt = new EditText(getActivity());
         anio_XEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         anio_XEt.setText(String.valueOf(propuesto));
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Foto anual de renta")
-                .setMessage("El cierre total es también el cierre del período fiscal. Antes de cerrar se " +
-                        "guardan los saldos de cada cuenta al fin del año fiscal, con su renglón de renta.\n\n" +
-                        "Año propuesto: " + propuesto + " (" + fechaLegible(limites[0]) + " a " +
-                        fechaLegible(limites[1]) + "). Puede cambiar el año:")
-                .setView(anio_XEt)
+        TextView periodo = new TextView(getActivity());
+        periodo.setTextSize(14);
+        TextView pasos = new TextView(getActivity());
+        pasos.setTextSize(14);
+        pasos.setText("\nSe hará: respaldo completo → foto de renta → borrar las transacciones → saldos iniciales por cuenta.");
+        caja.addView(info);
+        caja.addView(anio_XEt);
+        caja.addView(periodo);
+        caja.addView(pasos);
+        Runnable revisarAnio = () -> periodo.setText(textoAnioFoto(anio_XEt.getText().toString()));
+        revisarAnio.run();
+        anio_XEt.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence t, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence t, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable t) { revisarAnio.run(); }
+        });
+        AlertDialog dialogo = new AlertDialog.Builder(getActivity())
+                .setTitle("Cierre total")
+                .setView(caja)
                 .setCancelable(false)
-                .setPositiveButton("Tomar foto y cerrar", (d, w) -> {
-                    int anio;
-                    try {
-                        anio = Integer.parseInt(anio_XEt.getText().toString().trim());
-                    } catch (NumberFormatException e) {
-                        Toast.makeText(getActivity(), "Año no válido; no se realizaron acciones", Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                    _2confirmarReemplazoFoto(anio);
-                })
-                .setNegativeButton("Cancelar", (d, w) ->
-                        Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show())
-                .show();
+                .setPositiveButton("Cerrar", null)
+                .setNegativeButton("Cancelar", null)
+                .create();
+        dialogo.setOnShowListener(x -> dialogo.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(b -> {
+            int anio = anioValido(anio_XEt.getText().toString());
+            if (anio < 0) {
+                anio_XEt.setError("Año no válido");
+                return;
+            }
+            dialogo.dismiss();
+            _2iniciarCierreAutonomoTransaccionesTodasLasCuentas(anio);
+        }));
+        dialogo.show();
     }
 
-    private void _2confirmarReemplazoFoto(int anio) {
-        boolean existe;
-        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
-        SQLiteDatabase db = ayudante.getReadableDatabase();
-        try {
-            existe = A1_1_AyudanteBD.existeFotoRenta(db, anio);
-        } finally {
-            db.close();
-        }
-        if (!existe) {
-            _2tomarFotoYCerrar(anio);
-            return;
-        }
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Ya existe la foto de " + anio)
-                .setMessage("La foto del año " + anio + " ya existe y se reemplazará por la de hoy. ¿Continuar?")
-                .setCancelable(false)
-                .setPositiveButton("Reemplazar y cerrar", (d, w) -> _2tomarFotoYCerrar(anio))
-                .setNegativeButton("Cancelar", (d, w) ->
-                        Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show())
-                .show();
-    }
-
-    /** Toma la foto, la respalda (local + Drive), muestra el resumen y, al aceptar, cierra. */
-    private void _2tomarFotoYCerrar(int anio) {
+    /**
+     * Toma la foto anual de renta y la respalda (local + Drive). Devuelve el texto para el
+     * resumen final, o null si falló (con su aviso; el cierre no sigue).
+     */
+    private String tomarFotoRenta(int anio) {
         StringBuilder resumen = new StringBuilder();
         int cuentas;
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
@@ -424,10 +432,10 @@ public class F4_Cierres extends Fragment {
             Log.e(TAG, "No se pudo tomar la foto de renta: " + e.getMessage(), e);
             new AlertDialog.Builder(getActivity())
                     .setTitle("No se tomó la foto")
-                    .setMessage("Error: " + e.getMessage() + "\n\nEl cierre no se realizó.")
-                    .setPositiveButton("OK", null)
+                    .setMessage("Error: " + e.getMessage() + "\n\nEl cierre no se realizó: no se borró nada.")
+                    .setPositiveButton("Entendido", null)
                     .show();
-            return;
+            return null;
         } finally {
             db.close();
         }
@@ -437,42 +445,29 @@ public class F4_Cierres extends Fragment {
         if (A5_1_BackupManager.backupFotoRentaCSV(getActivity(), nombreFoto)) {
             A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(requireContext(), nombreFoto, FOLDER_ID_DRIVE);
         }
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Foto de " + anio + " tomada")
-                .setMessage(cuentas + " cuentas con saldo o movimiento.\n\n" + resumen.toString().trim() +
-                        "\n\nLos saldos contrarios (ej.: bancos sobregirados) se depuran después en la " +
-                        "opción 4 (Reporte renta fiscal).\n\nAl aceptar se hace el cierre de todas las cuentas.")
-                .setCancelable(false)
-                .setPositiveButton("Aceptar y cerrar", (d, w) -> _2iniciarCierreAutonomoTransaccionesTodasLasCuentas())
-                .show();
+        return "Foto de renta " + anio + ": " + cuentas + " cuentas con saldo o movimiento\n"
+                + resumen.toString().trim()
+                + "\n(Los saldos contrarios se depuran en la opción 4, Reporte renta fiscal.)";
     }
 
     private static String fechaLegible(int aaaammdd) {
         return (aaaammdd % 100) + "/" + ((aaaammdd / 100) % 100) + "/" + (aaaammdd / 10000);
     }
 
-    // ==================== MÉTODOS DE CIERRE ALGUNAS CUENTAS ====================
-
-    public void _3dialogoCierreAutonomoAlgunasCuentas() {
-        // ⭐ CORRECCIÓN — Fase 4: este mensaje usaba _7verNumeroDeTransacciones() (el total de
-        // TODA la tabla) para anunciar cuántas se iban a borrar aquí, cuando el cierre parcial
-        // solo borra las Cerrable (ver A1_2_OperacionesBD.eliminarTransaccionesAlgunasCuentas()).
-        // El número mostrado nunca coincidía con lo que en verdad se eliminaba.
+    /** Cierre de algunas cuentas: un solo diálogo antes. */
+    private void dialogoCierreAlgunas() {
         new AlertDialog.Builder(getActivity())
-                .setTitle("Advertencia")
-                .setMessage("Actualmente hay: " + _7verNumeroDeTransaccionesCerrable() +
-                        ", ¿Eliminarlas, hará un resumen de algunas cuentas y lo colocará como saldos iniciales?")
+                .setTitle("Cierre de algunas cuentas")
+                .setMessage(lineaUltimoCierre("cierre-algunas", "cierre de algunas cuentas")
+                        + "Hoy: " + miles(_7verNumeroDeTransaccionesCerrable()) + " transacciones de cuentas cerrables.\n\n"
+                        + "Se hará: respaldo completo → borrar esas transacciones → saldos iniciales por cuenta.")
                 .setCancelable(false)
-                .setPositiveButton("Si", (dialog, id) -> {
+                .setPositiveButton("Cerrar", (d, w) -> {
                     _3iniciarCierreAutonomoTransaccionesAlgunasCuentas();
                     _7verNumeroDeTransacciones();
                     _7verTransaccionesAdaptadorColumnas();
                 })
-                .setNegativeButton("No", (dialog, id) -> {
-                    _7verNumeroDeTransacciones();
-                    _7verTransaccionesAdaptadorColumnas();
-                    Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show();
-                })
+                .setNegativeButton("Cancelar", null)
                 .show();
     }
 
@@ -517,7 +512,7 @@ public class F4_Cierres extends Fragment {
                 _7verTransaccionesAdaptadorColumnas();
 
                 // 6. ⭐ E3: punto "después" y resumen
-                cerrarOperacion("Cierre interno de algunas cuentas",
+                cerrarOperacion("Cierre de algunas cuentas",
                         "Saldos trasladados: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")");
             } catch (Exception e) {
                 Log.e(TAG, "Error en cierre algunas cuentas: " + e.getMessage(), e);
@@ -548,9 +543,10 @@ public class F4_Cierres extends Fragment {
         File archivo = archivoLocalBalance(nombreArchivo);
         if (!archivo.exists()) {
             Log.e(TAG, "Archivo no encontrado: " + archivo.getAbsolutePath());
-            Toast.makeText(getActivity(),
-                    "Archivo no encontrado: " + nombreArchivo,
-                    Toast.LENGTH_LONG).show();
+            Importacion imp = new Importacion();
+            imp.conProblemas = true;
+            imp.diagnostico = "Archivo no encontrado: " + archivo.getAbsolutePath();
+            ultimaImportacion = imp;
             return;
         }
         importarTransaccionesDesdeArchivo(archivo);
@@ -665,22 +661,35 @@ public class F4_Cierres extends Fragment {
                     // ⭐ NUEVO — diagnóstico (30-oct): mensaje real de SQLite del primer fallo.
                     + "Primer error SQLite: "
                     + (primerErrorInsercion != null ? primerErrorInsercion : "ninguno");
-            final boolean huboTransacciones = insertadasOk > 0;
-            new AlertDialog.Builder(getActivity())
-                    .setTitle("Diagnóstico de importación")
-                    .setMessage(resumen)
-                    .setPositiveButton("OK", null)
-                    // ⭐ (12-nov) al cerrar el diagnóstico, aviso si falta restaurar la renta.
-                    .setOnDismissListener(d -> { if (huboTransacciones) avisarSiFaltaRestaurarRenta(); })
-                    .show();
+            // ⭐ CAMBIO (21-nov, Jorge): el diagnóstico ya no es un diálogo aparte; va dentro del
+            // resumen final (cerrarOperacion), completo solo si hubo fallas.
+            Importacion imp = new Importacion();
+            imp.insertadas = insertadasOk;
+            imp.fallidas = fallidasDuplicado + otrosErrores;
+            imp.reubicadas = reubicadasItemRepetido;
+            imp.conProblemas = fallidasDuplicado > 0 || otrosErrores > 0 || huerfanasDespues > 0;
+            imp.diagnostico = resumen;
+            ultimaImportacion = imp;
 
         } catch (Exception e) {
             Log.e(TAG, "Error al importar CSV: " + e.getMessage(), e);
-            Toast.makeText(getActivity(),
-                    "Error al importar: " + e.getMessage(),
-                    Toast.LENGTH_LONG).show();
+            Importacion imp = new Importacion();
+            imp.conProblemas = true;
+            imp.diagnostico = "Error al importar " + archivoAUsar.getName() + ": " + e.getMessage();
+            ultimaImportacion = imp;
         }
     }
+
+    // ⭐ NUEVO (21-nov, Jorge): resultado de la última importación, para el resumen final.
+    private static class Importacion {
+        int insertadas;
+        int fallidas;
+        int reubicadas;
+        boolean conProblemas;
+        String diagnostico = "";
+    }
+
+    private Importacion ultimaImportacion;
 
     /**
      * ⭐ NUEVO (12-nov, pendiente del checklist, opción A elegida por Jorge): la restauración de
@@ -951,6 +960,7 @@ public class F4_Cierres extends Fragment {
     private String operacionEnCurso;
 
     private boolean respaldoPrevioOk(String operacion) {
+        ultimaImportacion = null;
         puntoAntes = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
         operacionEnCurso = operacion;
         if (!puntoAntes.ok) {
@@ -968,24 +978,39 @@ public class F4_Cierres extends Fragment {
 
     // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación (en la app y en archivo).
     private void cerrarOperacion(String titulo, String detalle) {
-        cerrarOperacion(titulo, detalle, true);
+        cerrarOperacion(titulo, detalle, true, false);
     }
 
     // conDespues = false en restauraciones (18-nov, Jorge): el resumen compara con el estado
     // actual sin guardar otra copia.
-    private void cerrarOperacion(String titulo, String detalle, boolean conDespues) {
+    // ⭐ CAMBIO (21-nov, Jorge): es el ÚNICO diálogo al terminar. Incluye el resultado de la
+    // importación (y el diagnóstico completo solo si hubo fallas). avisarRenta: al importar de
+    // Sheets, si la base quedó sin fotos de renta, se ofrece restaurarla al cerrar este diálogo.
+    private void cerrarOperacion(String titulo, String detalle, boolean conDespues, boolean avisarRenta) {
         if (operacionEnCurso == null || getActivity() == null) return;
         A1BASES.A32_Respaldos.Resultado despues = conDespues
                 ? A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionEnCurso)
                 : A1BASES.A32_Respaldos.estadoActual(requireContext());
+        Importacion imp = ultimaImportacion;
+        StringBuilder det = new StringBuilder();
+        if (imp != null) {
+            det.append("Importadas: ").append(miles(imp.insertadas)).append(" · fallidas: ").append(imp.fallidas);
+            if (imp.reubicadas > 0) det.append(" · con ítem nuevo: ").append(imp.reubicadas);
+            det.append('\n');
+        }
+        if (detalle != null) det.append(detalle);
         String texto = A1BASES.A32_Respaldos.resumenOperacion(requireContext(), operacionEnCurso, titulo,
-                puntoAntes, despues, detalle);
+                puntoAntes, despues, det.toString());
         operacionEnCurso = null;
         puntoAntes = null;
+        ultimaImportacion = null;
+        boolean problemas = imp != null && imp.conProblemas;
+        boolean renta = avisarRenta && imp != null && imp.insertadas > 0;
         new AlertDialog.Builder(getActivity())
-                .setTitle("Resumen")
-                .setMessage(texto)
+                .setTitle((problemas ? "⚠ " : "✓ ") + titulo)
+                .setMessage(texto + (problemas ? "\n⚠ Hubo fallas en la importación:\n\n" + imp.diagnostico : ""))
                 .setPositiveButton("Entendido", null)
+                .setOnDismissListener(d -> { if (renta) avisarSiFaltaRestaurarRenta(); })
                 .show();
     }
 
@@ -1034,264 +1059,125 @@ public class F4_Cierres extends Fragment {
             opcionActualCierre_XTv.setText("");
             opcionActualCierre_XTv.setText(_4_1_opcionSincronizarBalance_desde_Sheets_XRb.getText().toString());
 
-            // Mostrar diálogo de confirmación
-            _4_1_dialogoConfirmarSincronizacion();
+            // ⭐ CAMBIO (21-nov, Jorge): sin diálogo de confirmación (no borra nada: descarga el
+            // archivo de Sheets; la versión anterior queda en Balance/Historial).
+            _4_1_iniciarSincronizacionSheets();
         });
     }
     
     private void _4_2_configurarListener_OpcionSaldosIniciales() {
-
         _4_2_opcion_Importar_Balance_desde_Sheets_XRb.setOnClickListener(v -> {
-            Log.d(TAG, "=== CLICK EN OPCIÓN 4 ===");
-
             _7_limpiarLista();
             mensajeInformativo_XTv.setText("0");
-            opcionActualCierre_XTv.setText("");
             opcionActualCierre_XTv.setText(_4_2_opcion_Importar_Balance_desde_Sheets_XRb.getText().toString());
-
-            Log.d(TAG, "Mostrando diálogo de selección de origen");
-
-            // Diálogo para elegir origen: Local o Drive
-
-            // ⭐ CAMBIO E0 (17-nov): respaldo "antes" verificado; si falla, no se sigue.
-            if (!respaldoPrevioOk("sheets-transacciones")) {
-                return;
-            }
-            _4_2_dialogoElegirOrigenRestauracion();
+            _4_2_buscarArchivosYElegir();
         });
     }
 
-    /**
-     * Diálogo para elegir entre restaurar desde Local o Drive
-     */
-    private void _4_2_dialogoElegirOrigenRestauracion() {
-        Log.d(TAG, "=== INICIANDO DIÁLOGO OPCIÓN 4 ===");
-
-        try {
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setTitle("Elegir origen de restauración");
-            builder.setMessage("¿Desde dónde deseas restaurar los saldos iniciales?");
-
-            // Crear LinearLayout para los botones
-            LinearLayout layout = new LinearLayout(getActivity());
-            layout.setOrientation(LinearLayout.VERTICAL);
-            layout.setPadding(50, 40, 50, 40);
-
-            // RadioGroup
-            final RadioGroup radioGroup = new RadioGroup(getActivity());
-            radioGroup.setOrientation(RadioGroup.VERTICAL);
-
-            final RadioButton rbLocal = new RadioButton(getActivity());
-            rbLocal.setText("Almacenamiento Local");
-            rbLocal.setId(1);
-            rbLocal.setChecked(true);
-            rbLocal.setTextSize(16);
-            rbLocal.setPadding(10, 20, 10, 20);
-
-            final RadioButton rbDrive = new RadioButton(getActivity());
-            rbDrive.setText("Google Drive");
-            rbDrive.setId(2);
-            rbDrive.setTextSize(16);
-            rbDrive.setPadding(10, 20, 10, 20);
-
-            radioGroup.addView(rbLocal);
-            radioGroup.addView(rbDrive);
-            layout.addView(radioGroup);
-
-            builder.setView(layout);
-
-            builder.setPositiveButton("Continuar", (dialog, which) -> {
-                int selectedId = radioGroup.getCheckedRadioButtonId();
-                Log.d(TAG, "Opción seleccionada: " + (selectedId == 1 ? "Local" : "Drive"));
-
-                if (selectedId == 1) {
-                    // Restaurar desde local
-                    Log.d(TAG, "Iniciando restauración desde LOCAL");
-                    _4_2_1_dialogoRestaurarDesdeLocalTransacciones();
-                } else {
-                    // Restaurar desde Drive
-                    Log.d(TAG, "Iniciando restauración desde DRIVE");
-                    _4_2_dialogoRestaurarDesdeGoogleDrive();
-                }
-            });
-
-            builder.setNegativeButton("Cancelar", (dialog, which) -> {
-                Log.d(TAG, "Restauración cancelada por usuario");
-                Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-            });
-
-            builder.setCancelable(false);
-
-            AlertDialog dialog = builder.create();
-            dialog.show();
-
-            Log.d(TAG, "Diálogo de selección mostrado correctamente");
-
-        } catch (Exception e) {
-            Log.e(TAG, "ERROR al mostrar diálogo opción 4: " + e.getMessage(), e);
-            Toast.makeText(getActivity(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    /**
-     * Diálogo para restaurar desde almacenamiento local
-     */
-    public void _4_2_1_dialogoRestaurarDesdeLocalTransacciones() {
-        Log.d(TAG, "=== RESTAURAR DESDE LOCAL - OPCIÓN 4 ===");
-
-        //String nombreArchivo = "440 Backup Balance_desde_Sheets.csv";
-        String nombreArchivo = CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName();
-        File archivo = new File(Environment.getExternalStorageDirectory() + "/Balance/" + nombreArchivo);
-
-        Log.d(TAG, "Verificando archivo local: " + archivo.getAbsolutePath());
-        Log.d(TAG, "Archivo existe: " + archivo.exists());
-
-        if (!archivo.exists()) {
-            new AlertDialog.Builder(getActivity())
-                    .setTitle("Archivo no encontrado")
-                    .setMessage("No se encontró el archivo:\n\n" + nombreArchivo + "\n\n" +
-                            "Usa primero la Opción 6 para sincronizar desde Sheets.")
-                    .setPositiveButton("Entendido", null)
-                    .show();
-            return;
-        }
-
-        long transaccionesActuales = _7verNumeroDeTransacciones();
-
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Confirmar restauración")
-                .setMessage("¿Restaurar saldos iniciales desde archivo local?\n\n" +
-                        "Archivo: " + nombreArchivo + "\n" +
-                        "Tamaño: " + (archivo.length() / 1024) + " KB\n\n" +
-                        "Transacciones actuales: " + transaccionesActuales + "\n" +
-                        "Se eliminarán y restaurarán desde el backup.")
-                .setCancelable(false)
-                .setPositiveButton("Sí, restaurar", (dialog, id) -> {
-                    Log.d(TAG, "Usuario confirmó restauración desde LOCAL");
-                    _4_iniciarCierreConImportacionDeCSVExternoTransaccionesBackup();
-                    _7verNumeroDeTransacciones();
-                    _7verTransaccionesAdaptadorColumnas();
-                })
-                .setNegativeButton("No", (dialog, id) -> {
-                    Log.d(TAG, "Usuario canceló restauración");
-                    _7verNumeroDeTransacciones();
-                    _7verTransaccionesAdaptadorColumnas();
-                    Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_SHORT).show();
-                })
-                .show();
-    }
-
-    /**
-     * Diálogo para listar y elegir archivo desde Drive
-     */
-    private void _4_2_dialogoRestaurarDesdeGoogleDrive() {
-        Log.d(TAG, "=== RESTAURAR DESDE DRIVE - OPCIÓN 4 ===");
-
-        // Inicializar downloader
+    // ⭐ CAMBIO (21-nov, Jorge): UN diálogo con los archivos de este equipo y de Drive juntos
+    // (antes: elegir origen → lista → confirmar). El respaldo "antes" se hace al confirmar, no al
+    // tocar la opción (antes quedaba un respaldo huérfano si se cancelaba).
+    private void _4_2_buscarArchivosYElegir() {
+        final android.app.ProgressDialog espera = new android.app.ProgressDialog(getActivity());
+        espera.setMessage("Buscando archivos de Sheets…");
+        espera.setCancelable(false);
+        espera.show();
         driveDownloader = new A6_2_GoogleDriveDownloader(getActivity(), FOLDER_ID_DRIVE);
-
-        // Prefijo de archivos a buscar (serie 440)
-        String prefijo = "441_transacciones";
-        Log.d(TAG, "Buscando en Drive con prefijo: " + prefijo);
-
-        // Mostrar diálogo de carga
-        AlertDialog loadingDialog = new AlertDialog.Builder(getActivity())
-                .setTitle("Cargando...")
-                .setMessage("Buscando archivos en Drive...")
-                .setCancelable(false)
-                .create();
-        loadingDialog.show();
-
-        // Listar archivos
-        driveDownloader.listarArchivos(prefijo, new A6_2_GoogleDriveDownloader.OnFilesListedListener() {
+        driveDownloader.listarArchivos("441_transacciones", new A6_2_GoogleDriveDownloader.OnFilesListedListener() {
             @Override
             public void onFilesListed(List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
-                loadingDialog.dismiss();
-
-                Log.d(TAG, "Archivos encontrados en Drive: " + (archivos != null ? archivos.size() : 0));
-
-                if (archivos == null || archivos.isEmpty()) {
-                    new AlertDialog.Builder(getActivity())
-                            .setTitle("Sin archivos")
-                            .setMessage("No se encontraron archivos de Balance en Drive.\n\n" +
-                                    "Usa primero la Opción 6 para sincronizar desde Sheets.")
-                            .setPositiveButton("Entendido", null)
-                            .show();
-                    return;
-                }
-
-                // Mostrar lista de archivos
-                _4_2_mostrarListaArchivosParaRestaurar(archivos);
+                if (espera.isShowing()) espera.dismiss();
+                _4_2_dialogoImportar(archivos, null);
             }
 
             @Override
             public void onError(String error) {
-                loadingDialog.dismiss();
-                Log.e(TAG, "Error al buscar en Drive: " + error);
-
-                Toast.makeText(getActivity(),
-                        "Error al buscar archivos: " + error,
-                        Toast.LENGTH_LONG).show();
+                if (espera.isShowing()) espera.dismiss();
+                _4_2_dialogoImportar(null, error);
             }
         });
     }
 
-    /**
-     * Muestra lista de archivos disponibles para restaurar
-     */
-    private void _4_2_mostrarListaArchivosParaRestaurar(List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
-        Log.d(TAG, "Mostrando lista con " + archivos.size() + " archivos");
-
-        // Convertir a array de strings
-        String[] nombresArchivos = new String[archivos.size()];
-        for (int i = 0; i < archivos.size(); i++) {
-            nombresArchivos[i] = archivos.get(i).nombre;
-            Log.d(TAG, "Archivo " + i + ": " + nombresArchivos[i]);
+    private void _4_2_dialogoImportar(List<A6_2_GoogleDriveDownloader.DriveFileInfo> enDrive, String errorDrive) {
+        if (!isAdded() || getActivity() == null) return;
+        File local = archivoLocalBalance(CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName());
+        List<Object> opciones = new ArrayList<>();
+        List<String> textos = new ArrayList<>();
+        if (local.exists() && local.length() > 0) {
+            opciones.add(local);
+            textos.add("Este equipo · " + new java.text.SimpleDateFormat("d MMM yyyy HH:mm", new java.util.Locale("es", "CO"))
+                    .format(new java.util.Date(local.lastModified())) + " · " + (local.length() / 1024) + " KB");
         }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Seleccionar archivo de backup");
-        builder.setItems(nombresArchivos, (dialog, position) -> {
-            A6_2_GoogleDriveDownloader.DriveFileInfo archivoSeleccionado = archivos.get(position);
-            Log.d(TAG, "Usuario seleccionó: " + archivoSeleccionado.nombre);
-            _4_2_confirmarYDescargarArchivo(archivoSeleccionado);
-        });
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Log.d(TAG, "Usuario canceló selección");
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-        builder.show();
+        if (enDrive != null) {
+            for (A6_2_GoogleDriveDownloader.DriveFileInfo f : enDrive) {
+                opciones.add(f);
+                textos.add("Drive · " + f.nombre);
+            }
+        }
+        if (opciones.isEmpty()) {
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("No hay archivo para importar")
+                    .setMessage("No se encontró el archivo de Sheets (441) en este equipo ni en Drive."
+                            + (errorDrive != null ? "\n\nDrive: " + errorDrive : "")
+                            + "\n\nUsa primero la opción 3.1 (Sincronizar Balance desde Sheets).")
+                    .setPositiveButton("Entendido", null)
+                    .show();
+            return;
+        }
+        int pad = (int) (22 * getResources().getDisplayMetrics().density);
+        LinearLayout caja = new LinearLayout(getActivity());
+        caja.setOrientation(LinearLayout.VERTICAL);
+        caja.setPadding(pad, pad / 2, pad, 0);
+        TextView info = new TextView(getActivity());
+        info.setTextSize(15);
+        info.setText("Hoy: " + miles(_7verNumeroDeTransacciones()) + " transacciones. Se reemplazan TODAS por las del archivo elegido."
+                + (errorDrive != null ? "\n⚠ Drive no disponible: " + errorDrive : "")
+                + "\n\nArchivo:");
+        RadioGroup grupo = new RadioGroup(getActivity());
+        for (int i = 0; i < textos.size(); i++) {
+            RadioButton rb = new RadioButton(getActivity());
+            rb.setId(i + 1);
+            rb.setText(textos.get(i));
+            rb.setTextSize(14);
+            grupo.addView(rb);
+        }
+        grupo.check(1);
+        TextView pasos = new TextView(getActivity());
+        pasos.setTextSize(14);
+        pasos.setText("\nSe hará: respaldo completo → borrar las transacciones → importar el archivo.");
+        caja.addView(info);
+        caja.addView(grupo);
+        caja.addView(pasos);
+        android.widget.ScrollView desplazable = new android.widget.ScrollView(getActivity());
+        desplazable.addView(caja);
+        new AlertDialog.Builder(getActivity())
+                .setTitle("Importar Balance desde Sheets")
+                .setView(desplazable)
+                .setCancelable(false)
+                .setPositiveButton("Importar", (d, w) -> {
+                    Object elegido = opciones.get(Math.max(0, grupo.getCheckedRadioButtonId() - 1));
+                    if (!respaldoPrevioOk("sheets-transacciones")) return;
+                    if (elegido instanceof File) {
+                        _4_2_importarLocal((File) elegido);
+                    } else {
+                        _4_2_descargarYRestaurarDesdeGoogleDrive((A6_2_GoogleDriveDownloader.DriveFileInfo) elegido);
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
-    /**
-     * Confirma y descarga el archivo seleccionado
-     */
-    private void _4_2_confirmarYDescargarArchivo(A6_2_GoogleDriveDownloader.DriveFileInfo archivo) {
-        Log.d(TAG, "Confirmando descarga de: " + archivo.nombre);
-
-        long transaccionesActuales = _7verNumeroDeTransacciones();
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Confirmar restauración");
-        builder.setMessage("¿Restaurar desde este archivo?\n\n" +
-                "Archivo: " + archivo.nombre + "\n\n" +
-                "Transacciones actuales: " + transaccionesActuales + "\n" +
-                "Se eliminarán y restaurarán desde el backup.");
-
-        builder.setPositiveButton("Sí, restaurar", (dialog, which) -> {
-            // ⭐ CAMBIO E0 (17-nov): ya NO se borra aquí; se borra solo cuando la descarga
-            // terminó bien (ver onFileDownloaded). Antes, si la descarga fallaba, la tabla
-            // quedaba vacía.
-            Log.d(TAG, "Usuario confirmó descarga y restauración");
-            _4_2_descargarYRestaurarDesdeGoogleDrive(archivo);
-        });
-
-        builder.setNegativeButton("Cancelar", (dialog, which) -> {
-            Log.d(TAG, "Usuario canceló descarga");
-            Toast.makeText(getActivity(), "Operación cancelada", Toast.LENGTH_SHORT).show();
-        });
-
-        builder.show();
+    private void _4_2_importarLocal(File archivo) {
+        try {
+            _7borrarHistorialTransacciones("transacciones");
+            importarTransaccionesDesdeArchivo(archivo);
+            _7verNumeroDeTransacciones();
+            _7verTransaccionesAdaptadorColumnas();
+            cerrarOperacion("Importar Balance desde Sheets", "Archivo: " + archivo.getName() + " (este equipo)", true, true);
+        } catch (Exception e) {
+            Log.e(TAG, "Error al importar desde local: " + e.getMessage(), e);
+            Toast.makeText(getActivity(), "Error al importar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     /**
@@ -1326,10 +1212,9 @@ public class F4_Cierres extends Fragment {
                                     progressDialog.dismiss();
                                 }
 
-                                mostrarMensajeExito("✓ Saldos iniciales restaurados desde Drive");
                                 Log.d(TAG, "=== RESTAURACIÓN COMPLETADA ===");
-                                // ⭐ E3 (17-nov): punto "después" y resumen (el CSV 442_2 se retiró el 21-nov).
-                                cerrarOperacion("Importar Balance desde Sheets (Drive)", "Archivo: " + archivo.nombre);
+                                // ⭐ (21-nov): un solo diálogo final (sin el aviso verde aparte).
+                                cerrarOperacion("Importar Balance desde Sheets", "Archivo: " + archivo.nombre + " (Drive)", true, true);
 
                             } catch (Exception e) {
                                 if (progressDialog.isShowing()) {
@@ -1349,9 +1234,14 @@ public class F4_Cierres extends Fragment {
                             progressDialog.dismiss();
                         }
                         Log.e(TAG, "Error al descargar: " + error);
-                        Toast.makeText(getActivity(),
-                                "Error al descargar: " + error,
-                                Toast.LENGTH_LONG).show();
+                        operacionEnCurso = null;
+                        if (getActivity() != null) {
+                            new AlertDialog.Builder(getActivity())
+                                    .setTitle("No se pudo descargar")
+                                    .setMessage(error + "\n\nNo se borró nada.")
+                                    .setPositiveButton("Entendido", null)
+                                    .show();
+                        }
                     }
                 });
     }
@@ -1390,68 +1280,11 @@ public class F4_Cierres extends Fragment {
         }
     }
 
-    /**
-     * Restauración desde archivo local (compatibilidad con método anterior)
-     */
-    public void _4_iniciarCierreConImportacionDeCSVExternoTransaccionesBackup() {
-        Log.d(TAG, "=== RESTAURACIÓN DESDE LOCAL (MÉTODO ANTIGUO) ===");
-
-        try {
-            dynamicQuery();
-
-            // ⭐ CAMBIO E0 (17-nov): antes, 5 s DESPUÉS de borrar se volvía a escribir el
-            // respaldo "antes" (442_1) con el mismo nombre, y así se perdía el estado previo
-            // real. Ahora el "antes" se hace y verifica al tocar la opción 4.2; aquí se borra,
-            // se importa y se guarda el "después" (442_2).
-            if (todasLasTransacciones_Result_List.size() != 0) {
-                _7borrarHistorialTransacciones("transacciones");
-            }
-
-            // Restaurar desde backup
-            //String nombreArchivo = "440 Backup Balance_desde_Sheets.csv";
-            String nombreArchivo = CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName();
-            Log.d(TAG, "Importando: " + nombreArchivo);
-            importarTransaccionesDesdeCSV(nombreArchivo);
-
-            cerrarOperacion("Importar Balance desde Sheets (local)", "Archivo: " + nombreArchivo);
-
-            Log.d(TAG, "Transacciones restauradas: " + _7verNumeroDeTransacciones());
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error al restaurar backup: " + e.getMessage(), e);
-            Toast.makeText(getActivity(), "No se han podido recuperar transacciones del backup", Toast.LENGTH_SHORT).show();
-        }
-    }
-
 //FIN MÉTODOS OPCIÓN 4
 
 
 // INICIO PROCESO CON SHEETS
 // ==================== MÉTODOS OPCIÓN 6: SINCRONIZAR DESDE SHEETS ====================
-
-    /**
-     * Diálogo de confirmación para sincronizar
-     */
-    private void _4_1_dialogoConfirmarSincronizacion() {
-        long transaccionesActuales = _7verNumeroDeTransacciones();
-
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Sincronizar desde Google Sheets")
-                .setMessage("Esta operación:\n\n" +
-                        "1. Descargará el Balance actualizado desde Sheets\n" +
-                        "2. Lo subirá a Drive como backup\n" +
-                        "3. Estará disponible para importar en la opción 3.2\n\n" +
-                        "Transacciones actuales en app: " + transaccionesActuales + "\n\n" +
-                        "¿Continuar?")
-                .setPositiveButton("Sí, sincronizar", (dialog, which) -> {
-                    _4_1_iniciarSincronizacionSheets();
-                })
-                .setNegativeButton("Cancelar", (dialog, which) -> {
-                    Toast.makeText(getActivity(), "Sincronización cancelada", Toast.LENGTH_SHORT).show();
-                })
-                .setCancelable(false)
-                .show();
-    }
 
     /**
      * Inicia proceso de sincronización desde Sheets
@@ -1539,27 +1372,19 @@ public class F4_Cierres extends Fragment {
      * Muestra resultado exitoso de la sincronización
      */
     private void _6mostrarResultadoSincronizacion(int numRegistros, String rutaLocal) {
-        // Obtener info del archivo
         String nombreArchivo = CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName();
         String infoArchivo = A6_5_SheetsDownloader.obtenerInfoArchivo(nombreArchivo);
-
-        // Diálogo de éxito
+        // ⭐ CAMBIO (21-nov, Jorge): un solo diálogo al terminar, con atajo a la opción 3.2.
         new AlertDialog.Builder(getActivity())
-                .setTitle("✓ Sincronización exitosa")
-                .setMessage(
-                        "Balance descargado desde Sheets:\n\n" +
-                                "• Registros: " + numRegistros + "\n" +
-                                "• " + infoArchivo + "\n" +
-                                "• Ubicación local: /Balance/\n" +
-                                "• Subido a Drive: ✓\n\n" +
-                                "Ahora puedes usar la opción 3.2 (Importar Balance desde Sheets) para cargar estos saldos iniciales."
-                )
-                .setPositiveButton("Entendido", (dialog, which) -> {
-                    // Mensaje visual de éxito
-                    mostrarMensajeExito("✓ Balance sincronizado y listo para usar");
+                .setTitle("✓ Balance descargado de Sheets")
+                .setMessage("Registros: " + numRegistros + "\n" + infoArchivo
+                        + "\nGuardado en /Balance/ y subido a Drive.")
+                .setPositiveButton("Importar ahora (3.2)", (d, w) -> {
+                    opcionActualCierre_XTv.setText(_4_2_opcion_Importar_Balance_desde_Sheets_XRb.getText().toString());
+                    _4_2_buscarArchivosYElegir();
                 })
+                .setNegativeButton("Listo", null)
                 .show();
-
         Log.d(TAG, "=== SINCRONIZACIÓN COMPLETADA ===");
     }
 
