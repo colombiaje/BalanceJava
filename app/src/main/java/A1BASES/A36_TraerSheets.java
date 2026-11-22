@@ -10,6 +10,7 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.FileList;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -54,6 +55,7 @@ public class A36_TraerSheets {
         public String nombre;
         public String tipo;
         public long modificada;
+        public long creada;
         // ⭐ (22-nov, Jorge): cuántas veces se aplicó esta hoja y cuántos cambios lleva en total
         // (propiedades del archivo en Drive).
         public int aplicaciones;
@@ -75,6 +77,10 @@ public class A36_TraerSheets {
         public int modificadas;
         public int borradas;
         public int sinCambio;
+        // ⭐ (22-nov, fusión de tres versiones): cambios hechos en la app desde que se preparó la
+        // hoja, que se conservan; y la edad de la hoja en horas.
+        public int conservadosApp;
+        public long horasHoja = -1;
         // Operaciones preparadas
         final List<ContentValues> inserciones = new ArrayList<>();
         final Map<Long, ContentValues> actualizaciones = new LinkedHashMap<>();
@@ -106,7 +112,7 @@ public class A36_TraerSheets {
             String idCarpeta = A33_Sheets.subcarpeta(context, drive, raiz, sub);
             FileList l = drive.files().list()
                     .setQ("'" + idCarpeta + "' in parents and mimeType='" + MIME_HOJA + "' and trashed=false")
-                    .setSpaces("drive").setFields("files(id, name, modifiedTime, appProperties)")
+                    .setSpaces("drive").setFields("files(id, name, modifiedTime, createdTime, appProperties)")
                     .setOrderBy("modifiedTime desc").setPageSize(50).execute();
             if (l.getFiles() == null) continue;
             for (com.google.api.services.drive.model.File f : l.getFiles()) {
@@ -120,6 +126,7 @@ public class A36_TraerSheets {
                 h.nombre = n;
                 h.tipo = tipo;
                 h.modificada = f.getModifiedTime() != null ? f.getModifiedTime().getValue() : 0;
+                h.creada = f.getCreatedTime() != null ? f.getCreatedTime().getValue() : h.modificada;
                 if (f.getAppProperties() != null) {
                     Long ap = entero(f.getAppProperties().get(PROP_APLICACIONES));
                     Long ct = entero(f.getAppProperties().get(PROP_CAMBIOS));
@@ -191,9 +198,119 @@ public class A36_TraerSheets {
     // Análisis (vista previa)
     // ─────────────────────────────────────────────────────────────
 
+    // ═════════════════════════════════════════════════════════════
+    // ⭐ NUEVO (22-nov, Jorge): ventana de tiempo y fusión de tres versiones
+    //  - La hoja vale VENTANA_HORAS desde que se preparó o se puso al día por última vez. Pasada
+    //    la ventana se bloquea: enviar una hoja nueva es sencillo y da certeza de lo que hay hoy.
+    //  - Al preparar la hoja se guarda en el equipo su "base" (cómo estaba cada fila). Al traerla
+    //    se comparan tres versiones de cada fila: base, app de hoy y hoja. Solo se aplica lo que
+    //    cambió el usuario en la hoja; lo que cambió en la app después se conserva; si la misma
+    //    fila cambió en los dos lados, es conflicto y no se aplica nada.
+    // ═════════════════════════════════════════════════════════════
+    public static final int VENTANA_HORAS = 24;
+
+    /** Copia base de una hoja: columnas comparables y filas por id. */
+    static class Base implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+        long fecha;
+        ArrayList<String> columnas = new ArrayList<>();
+        LinkedHashMap<Long, String[]> filas = new LinkedHashMap<>();
+    }
+
+    private static File carpetaBases(Context context) {
+        File c = new File(context.getFilesDir(), "sheets_base");
+        if (!c.exists()) c.mkdirs();
+        return c;
+    }
+
+    /** Lee de la base las filas comparables de la tabla de la hoja. */
+    static Base cargar(SQLiteDatabase db, String tipo) {
+        Base b = new Base();
+        b.fecha = System.currentTimeMillis();
+        if (TIPO_CUENTAS.equals(tipo)) {
+            Set<String> enBase = new HashSet<>();
+            try (Cursor c = db.rawQuery("PRAGMA table_info(cuentas)", null)) {
+                while (c.moveToNext()) enBase.add(c.getString(1));
+            }
+            for (String col : COLS_CUENTA) if (enBase.contains(col)) b.columnas.add(col);
+            StringBuilder sql = new StringBuilder("SELECT cuenta_id");
+            for (String col : b.columnas) sql.append(", \"").append(col).append('"');
+            sql.append(" FROM cuentas");
+            leerFilas(db, sql.toString(), b);
+        } else {
+            b.columnas.addAll(java.util.Arrays.asList(COLS_TRANS));
+            leerFilas(db, "SELECT transaccion_id, c1_Documento, c2_ItemDoc, cuenta_id, c5_Valor, "
+                    + "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion FROM transacciones", b);
+        }
+        return b;
+    }
+
+    private static void leerFilas(SQLiteDatabase db, String sql, Base b) {
+        try (Cursor c = db.rawQuery(sql, null)) {
+            while (c.moveToNext()) {
+                String[] f = new String[b.columnas.size()];
+                for (int k = 0; k < f.length; k++) f[k] = c.isNull(k + 1) ? "" : c.getString(k + 1).trim();
+                b.filas.put(c.getLong(0), f);
+            }
+        }
+    }
+
+    /** Guarda la base de la hoja (al enviarla o ponerla al día). Limpia bases de más de 7 días. */
+    public static void guardarBase(Context context, String idHoja, String tipo) {
+        if (!TIPO_TRANSACCIONES.equals(tipo) && !TIPO_CUENTAS.equals(tipo)) return;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(context, A1_1_AyudanteBD.balanceSqlite_String_PSF,
+                null, A1_1_AyudanteBD.version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        Base b;
+        try {
+            b = cargar(db, tipo);
+        } finally {
+            db.close();
+        }
+        File carpeta = carpetaBases(context);
+        try (java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(
+                new java.io.FileOutputStream(new File(carpeta, idHoja + ".base")))) {
+            out.writeObject(b);
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo guardar la base de la hoja", e);
+        }
+        File[] viejas = carpeta.listFiles();
+        long limite = System.currentTimeMillis() - 7L * 24 * 3600 * 1000;
+        if (viejas != null) for (File f : viejas) if (f.lastModified() < limite) f.delete();
+    }
+
+    public static void borrarBase(Context context, String idHoja) {
+        new File(carpetaBases(context), idHoja + ".base").delete();
+    }
+
+    private static Base leerBase(Context context, String idHoja) {
+        File f = new File(carpetaBases(context), idHoja + ".base");
+        if (!f.exists()) return null;
+        try (java.io.ObjectInputStream in = new java.io.ObjectInputStream(new java.io.FileInputStream(f))) {
+            return (Base) in.readObject();
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo leer la base de la hoja", e);
+            return null;
+        }
+    }
+
     public static Analisis analizar(Context context, HojaDrive hoja, List<String[]> filas) {
         Analisis a = new Analisis();
         a.hoja = hoja;
+        // Ventana de tiempo
+        Base base = TIPO_SALDOS.equals(hoja.tipo) ? null : leerBase(context, hoja.id);
+        long desde = TIPO_SALDOS.equals(hoja.tipo) ? hoja.creada : (base != null ? base.fecha : 0);
+        if (!TIPO_SALDOS.equals(hoja.tipo) && base == null) {
+            a.errores.add("Esta hoja no tiene su copia base en este equipo (se preparó en otro equipo o con una"
+                    + " versión anterior de la app). Envía una hoja nueva desde la app.");
+            return a;
+        }
+        a.horasHoja = Math.max(0, (System.currentTimeMillis() - desde) / 3600000L);
+        if (a.horasHoja >= VENTANA_HORAS) {
+            a.errores.add("Esta hoja se preparó hace " + a.horasHoja + " horas y la ventana es de " + VENTANA_HORAS
+                    + " horas. Envía una hoja nueva desde la app: tendrás la certeza de lo que hay hoy.");
+            return a;
+        }
         if (filas.isEmpty()) {
             a.errores.add("La hoja está vacía.");
             return a;
@@ -203,8 +320,8 @@ public class A36_TraerSheets {
                 null, A1_1_AyudanteBD.version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getReadableDatabase();
         try {
-            if (TIPO_TRANSACCIONES.equals(hoja.tipo)) analizarTransacciones(db, filas, col, a);
-            else if (TIPO_CUENTAS.equals(hoja.tipo)) analizarCuentas(db, filas, col, a);
+            if (TIPO_TRANSACCIONES.equals(hoja.tipo)) analizarTransacciones(db, filas, col, base, a);
+            else if (TIPO_CUENTAS.equals(hoja.tipo)) analizarCuentas(db, filas, col, base, a);
             else analizarSaldos(db, filas, col, a);
         } catch (Exception e) {
             Log.e(TAG, "Error al analizar la hoja", e);
@@ -213,6 +330,76 @@ public class A36_TraerSheets {
             db.close();
         }
         return a;
+    }
+
+    /**
+     * Fusión de tres versiones por fila. Devuelve el estado final de las filas existentes
+     * (id → valores) y deja en 'cambiadas' las que hay que escribir y en 'borrar' las que se borran.
+     */
+    private static Map<Long, String[]> fusionar(Base base, Map<Long, String[]> app, Map<Long, String[]> hoja,
+                                                Map<Long, Integer> filaDeId, Analisis a,
+                                                Set<Long> cambiadas, List<Long> borrar,
+                                                java.util.function.Function<Long, String> nombreFila) {
+        List<String> cols = base.columnas;
+        Map<Long, String[]> fin = new LinkedHashMap<>();
+        for (Map.Entry<Long, String[]> e : app.entrySet()) fin.put(e.getKey(), e.getValue().clone());
+        // Cambios hechos en la app desde la base (se conservan)
+        for (Map.Entry<Long, String[]> e : app.entrySet()) {
+            String[] b = base.filas.get(e.getKey());
+            if (b == null || !java.util.Arrays.equals(b, e.getValue())) a.conservadosApp++;
+        }
+        for (Long id : base.filas.keySet()) if (!app.containsKey(id)) a.conservadosApp++;
+
+        for (Map.Entry<Long, String[]> e : hoja.entrySet()) {
+            Long id = e.getKey();
+            String[] s = e.getValue();
+            String[] b = base.filas.get(id);
+            String[] ap = app.get(id);
+            int n = filaDeId.get(id);
+            if (b == null) {
+                error(a, n, "el id " + id + " no estaba en la hoja preparada por la app (las filas nuevas van con el id vacío).");
+                continue;
+            }
+            boolean hojaCambio = !java.util.Arrays.equals(b, s);
+            if (ap == null) {
+                if (hojaCambio) {
+                    error(a, n, "conflicto: " + nombreFila.apply(id) + " se borró en la app después de preparar la hoja,"
+                            + " pero la cambiaste en la hoja.");
+                }
+                continue;
+            }
+            if (!hojaCambio) continue;
+            String[] f = fin.get(id);
+            for (int k = 0; k < cols.size(); k++) {
+                if (s[k].equals(b[k])) continue;          // la hoja no tocó este campo
+                if (ap[k].equals(b[k]) || ap[k].equals(s[k])) {
+                    f[k] = s[k];                          // solo cambió la hoja
+                } else {
+                    error(a, n, "conflicto en " + nombreFila.apply(id) + ", " + legibleCampo(cols.get(k))
+                            + ": en la app ahora es \"" + ap[k] + "\" y en la hoja \"" + s[k]
+                            + "\" (antes \"" + b[k] + "\").");
+                }
+            }
+            if (!java.util.Arrays.equals(f, ap)) cambiadas.add(id);
+        }
+        // Filas de la base que el usuario quitó de la hoja
+        for (Long id : base.filas.keySet()) {
+            if (hoja.containsKey(id) || !app.containsKey(id)) continue;
+            if (!java.util.Arrays.equals(app.get(id), base.filas.get(id))) {
+                a.errores.add("Conflicto: quitaste de la hoja " + nombreFila.apply(id)
+                        + ", pero cambió en la app después de preparar la hoja.");
+                continue;
+            }
+            borrar.add(id);
+            fin.remove(id);
+        }
+        return fin;
+    }
+
+    private static String legibleCampo(String col) {
+        if ("cuenta_id".equals(col)) return "Cuenta";
+        String l = A33_Sheets.NOMBRE_LEGIBLE.get(col);
+        return l != null ? l : col;
     }
 
     /** Encabezado legible → columna real (las de referencia se ignoran). */
@@ -278,7 +465,8 @@ public class A36_TraerSheets {
     private static final String[] COLS_TRANS = {"c1_Documento", "c2_ItemDoc", "cuenta_id", "c5_Valor",
             "c6_Descripcion", "c7_FechaYHora", "c8_FechaInicial", "c9_FechaModificacion"};
 
-    private static void analizarTransacciones(SQLiteDatabase db, List<String[]> filas, Map<String, Integer> col, Analisis a) {
+    private static void analizarTransacciones(SQLiteDatabase db, List<String[]> filas, Map<String, Integer> col,
+                                              Base base, Analisis a) {
         if (faltan(col, a, "transaccion_id", "c1_Documento", "c2_ItemDoc", "cuenta_id", "c5_Valor",
                 "c6_Descripcion", "c7_FechaYHora", "c8_FechaInicial", "c9_FechaModificacion")) return;
         Map<Long, String> cuentas = new HashMap<>();
@@ -289,159 +477,170 @@ public class A36_TraerSheets {
                 if (!c.isNull(2)) tipoDeCuenta.put(c.getLong(0), c.getLong(2));
             }
         }
-        Map<Long, String[]> actual = new LinkedHashMap<>();
-        try (Cursor c = db.rawQuery("SELECT transaccion_id, c1_Documento, c2_ItemDoc, cuenta_id, c5_Valor, "
-                + "c6_Descripcion, c7_FechaYHora, c8_FechaInicial, c9_FechaModificacion FROM transacciones", null)) {
-            while (c.moveToNext()) {
-                String[] f = new String[8];
-                for (int i = 0; i < 8; i++) f[i] = texto(c, i + 1);
-                actual.put(c.getLong(0), f);
-            }
-        }
+        Map<Long, String[]> app = cargar(db, TIPO_TRANSACCIONES).filas;
         Set<Long> conInventario = new HashSet<>();
         try (Cursor c = db.rawQuery("SELECT transaccion_id FROM transacciones_inventario", null)) {
             while (c.moveToNext()) conInventario.add(c.getLong(0));
         } catch (Exception ignorado) { }
 
-        Set<Long> vistos = new HashSet<>();
-        Set<String> docItems = new HashSet<>();
-        // ⭐ (22-nov, Jorge): partida doble. Suma por documento antes (base) y después (hoja).
-        Map<String, Long> sumaAntes = new HashMap<>();
-        for (String[] f : actual.values()) {
-            Long val = entero(f[3]);
-            sumaAntes.put(f[0], (sumaAntes.containsKey(f[0]) ? sumaAntes.get(f[0]) : 0L) + (val == null ? 0 : val));
-        }
-        Map<String, Long> sumaDespues = new HashMap<>();
-        documentosTocados = new HashSet<>();
+        // 1. Leer la hoja: filas con id (para fusionar) y nuevas (id vacío)
+        Map<Long, String[]> hoja = new LinkedHashMap<>();
+        Map<Long, Integer> filaDeId = new HashMap<>();
+        List<String[]> nuevas = new ArrayList<>();
+        List<Integer> filaNueva = new ArrayList<>();
         for (int i = 1; i < filas.size(); i++) {
             String[] fila = filas.get(i);
             if (vacia(fila)) continue;
             int n = i + 1;
-            String[] nuevo = new String[8];
-            for (int k = 0; k < 8; k++) nuevo[k] = v(fila, col, COLS_TRANS[k]);
+            String[] s = new String[8];
+            for (int k = 0; k < 8; k++) s[k] = v(fila, col, COLS_TRANS[k]);
             String idTxt = v(fila, col, "transaccion_id");
-            int erroresAntes = a.errores.size();
-
-            Long id = null;
-            if (!idTxt.isEmpty()) {
-                id = entero(idTxt);
-                if (id == null || !actual.containsKey(id)) {
-                    error(a, n, "transaccion_id " + idTxt + " no existe (las filas nuevas van con transaccion_id vacío).");
-                } else if (!vistos.add(id)) {
-                    error(a, n, "transaccion_id " + idTxt + " está repetido (para agregar una fila, deja transaccion_id vacío).");
-                }
-            }
-            if (nuevo[0].isEmpty()) error(a, n, "falta el Documento.");
-            if (nuevo[1].isEmpty()) error(a, n, "falta el Ítem documento.");
-            Long cuenta = entero(nuevo[2]);
-            if (cuenta == null || !cuentas.containsKey(cuenta)) {
-                error(a, n, "cuenta_id \"" + nuevo[2] + "\" no existe (búscalo en Catálogos).");
-            }
-            if (entero(nuevo[3]) == null) error(a, n, "el Valor \"" + nuevo[3] + "\" debe ser un número entero, sin puntos ni comas.");
-            if (nuevo[4].isEmpty()) error(a, n, "falta la Descripción.");
-            if (nuevo[5].isEmpty()) error(a, n, "falta la Fecha y hora.");
-            // ⭐ (22-nov, Jorge): la Fecha inicial solo se revisa si es nueva o cambió (hay datos
-            // antiguos con 0, que se respetan).
-            boolean fechaIgual = id != null && actual.containsKey(id) && actual.get(id)[6].trim().equals(nuevo[6]);
-            if (!fechaIgual && !nuevo[6].isEmpty() && !"0".equals(nuevo[6])
-                    && (entero(nuevo[6]) == null || nuevo[6].length() != 8)) {
-                error(a, n, "la Fecha inicial \"" + nuevo[6] + "\" debe ser AAAAMMDD.");
-            }
-            if (nuevo[7].isEmpty()) error(a, n, "falta la Fecha modificación.");
-            String clave = nuevo[0] + "|" + nuevo[1];
-            if (!nuevo[0].isEmpty() && !nuevo[1].isEmpty() && !docItems.add(clave)) {
-                error(a, n, "Documento " + nuevo[0] + " ítem " + nuevo[1] + " está repetido.");
-            }
-            Long valorFila = entero(nuevo[3]);
-            if (valorFila != null && !nuevo[0].isEmpty()) {
-                sumaDespues.put(nuevo[0], (sumaDespues.containsKey(nuevo[0]) ? sumaDespues.get(nuevo[0]) : 0L) + valorFila);
-            }
-            if (a.errores.size() > erroresAntes) continue;
-
-            if (id == null) {
-                documentosTocados.add(nuevo[0]);
-                ContentValues cv = valoresTransaccion(nuevo, tipoDeCuenta.get(cuenta));
-                a.inserciones.add(cv);
-                a.nuevas++;
-                cambio(a, "Nueva: doc " + nuevo[0] + "-" + nuevo[1] + " · " + cuentas.get(cuenta) + " · " + nuevo[3]);
-            } else {
-                String[] ant = actual.get(id);
-                ContentValues cv = new ContentValues();
-                StringBuilder det = new StringBuilder();
-                for (int k = 0; k < 8; k++) {
-                    // ⭐ (22-nov): sin contar espacios al inicio o al final (Sheets los quita).
-                    if (!ant[k].trim().equals(nuevo[k])) {
-                        ponerTransaccion(cv, COLS_TRANS[k], nuevo[k]);
-                        String antTxt = ant[k], nuevoTxt = nuevo[k];
-                        if (k == 2) {
-                            antTxt = nombre(cuentas, ant[k]);
-                            nuevoTxt = cuentas.get(cuenta);
-                            Long tipo = tipoDeCuenta.get(cuenta);
-                            if (tipo != null) cv.put("tipo_cuenta_id", tipo); else cv.putNull("tipo_cuenta_id");
-                        }
-                        if (k < 2) a.cambiaDocumentoItem = true;
-                        det.append(det.length() > 0 ? "; " : "").append(legible(COLS_TRANS[k]))
-                                .append(" ").append(antTxt).append(" → ").append(nuevoTxt);
-                    }
-                }
-                if (cv.size() > 0) {
-                    documentosTocados.add(ant[0]);
-                    documentosTocados.add(nuevo[0]);
-                }
-                if (cv.containsKey("c1_Documento") || cv.containsKey("c2_ItemDoc")) {
-                    // Al aplicar se aparta el documento: van siempre los dos valores finales.
-                    cv.put("c1_Documento", nuevo[0]);
-                    cv.put("c2_ItemDoc", nuevo[1]);
-                }
-                if (cv.size() == 0) {
-                    a.sinCambio++;
-                } else {
-                    a.actualizaciones.put(id, cv);
-                    a.modificadas++;
-                    cambio(a, "Modificada id " + id + " (doc " + ant[0] + "-" + ant[1] + "): " + det);
-                }
-            }
-        }
-        for (Map.Entry<Long, String[]> e : actual.entrySet()) {
-            if (vistos.contains(e.getKey())) continue;
-            String[] f = e.getValue();
-            documentosTocados.add(f[0]);
-            if (conInventario.contains(e.getKey())) {
-                a.errores.add("La transacción id " + e.getKey() + " (doc " + f[0] + "-" + f[1]
-                        + ") no está en la hoja, pero tiene inventario: no se puede borrar.");
+            if (idTxt.isEmpty()) {
+                nuevas.add(s);
+                filaNueva.add(n);
                 continue;
             }
-            a.borrados.add(e.getKey());
-            a.borradas++;
-            cambio(a, "Borrada id " + e.getKey() + ": doc " + f[0] + "-" + f[1] + " · " + nombre(cuentas, f[2]) + " · " + f[3]);
+            Long id = entero(idTxt);
+            if (id == null) {
+                error(a, n, "transaccion_id \"" + idTxt + "\" no es válido.");
+            } else if (hoja.containsKey(id)) {
+                error(a, n, "transaccion_id " + idTxt + " está repetido (para agregar una fila, deja transaccion_id vacío).");
+            } else {
+                hoja.put(id, s);
+                filaDeId.put(id, n);
+            }
         }
-        // ⭐ CAMBIO (22-nov, Jorge): la regla principal es el cuadre TOTAL: la suma de todas las
-        // transacciones debe quedar en cero (positivos = negativos). El documento 0 (saldos
-        // iniciales y saldos de los cierres) no cuadra solo: cuadra con el resto del libro.
+        // 2. Fusión de tres versiones
+        Set<Long> cambiadas = new java.util.LinkedHashSet<>();
+        List<Long> borrar = new ArrayList<>();
+        Map<Long, String[]> fin = fusionar(base, app, hoja, filaDeId, a, cambiadas, borrar,
+                id -> "la transacción id " + id + (app.containsKey(id) ? " (doc " + app.get(id)[0] + "-" + app.get(id)[1] + ")" : ""));
+
+        // 3. Validar lo que cambia o entra
+        for (Long id : cambiadas) validarTransaccion(fin.get(id), app.get(id), filaDeId.get(id), cuentas, a);
+        for (int i = 0; i < nuevas.size(); i++) validarTransaccion(nuevas.get(i), null, filaNueva.get(i), cuentas, a);
+        for (Long id : borrar) {
+            if (conInventario.contains(id)) {
+                String[] f = app.get(id);
+                a.errores.add("La transacción id " + id + " (doc " + f[0] + "-" + f[1]
+                        + ") no está en la hoja, pero tiene inventario: no se puede borrar.");
+            }
+        }
+        // Documento + ítem únicos en el resultado final
+        Map<String, String> docItems = new HashMap<>();
+        for (Map.Entry<Long, String[]> e : fin.entrySet()) docItems.put(e.getValue()[0] + "|" + e.getValue()[1], "id " + e.getKey());
+        if (docItems.size() < fin.size()) {
+            Set<String> vistos = new HashSet<>();
+            for (Map.Entry<Long, String[]> e : fin.entrySet()) {
+                String k = e.getValue()[0] + "|" + e.getValue()[1];
+                if (!vistos.add(k)) a.errores.add("Documento " + e.getValue()[0] + " ítem " + e.getValue()[1]
+                        + " quedaría repetido (id " + e.getKey() + ").");
+            }
+        }
+        for (int i = 0; i < nuevas.size(); i++) {
+            String k = nuevas.get(i)[0] + "|" + nuevas.get(i)[1];
+            if (docItems.containsKey(k)) error(a, filaNueva.get(i), "Documento " + nuevas.get(i)[0] + " ítem "
+                    + nuevas.get(i)[1] + " ya existe (" + docItems.get(k) + ").");
+            else docItems.put(k, "fila " + filaNueva.get(i));
+        }
+        // 4. Partida doble sobre el resultado final
+        Map<String, Long> sumaAntes = sumasPorDocumento(app.values());
+        List<String[]> resultado = new ArrayList<>(fin.values());
+        resultado.addAll(nuevas);
+        Map<String, Long> sumaDespues = sumasPorDocumento(resultado);
         long totalAntes = 0, totalDespues = 0;
         for (long x : sumaAntes.values()) totalAntes += x;
         for (long x : sumaDespues.values()) totalDespues += x;
         if (totalDespues != 0) {
-            a.errores.add("La hoja no queda cuadrada: todas las transacciones suman " + totalDespues
+            a.errores.add("La hoja no queda cuadrada: todas las transacciones sumarían " + totalDespues
                     + " (los positivos deben igualar a los negativos"
                     + (totalAntes != 0 ? "; en la app suman " + totalAntes : "") + ").");
         }
-        // Cada documento tocado (menos el 0) debe quedar en cero. Si ya estaba descuadrado desde
-        // antes (datos antiguos), se acepta solo si su suma no cambia.
-        for (String doc : documentosTocados) {
+        Set<String> tocados = new HashSet<>();
+        for (Long id : cambiadas) { tocados.add(app.get(id)[0]); tocados.add(fin.get(id)[0]); }
+        for (Long id : borrar) tocados.add(app.get(id)[0]);
+        for (String[] f : nuevas) tocados.add(f[0]);
+        for (String doc : tocados) {
             Long numero = entero(doc);
             if (numero != null && numero == 0) continue;
             long antes = sumaAntes.containsKey(doc) ? sumaAntes.get(doc) : 0L;
             long despues = sumaDespues.containsKey(doc) ? sumaDespues.get(doc) : 0L;
             if (despues != 0 && despues != antes) {
-                a.errores.add("El documento " + doc + " no queda en cero: sus valores suman " + despues
-                        + " (los positivos deben igualar a los negativos"
-                        + (antes != 0 ? "; antes sumaba " + antes : "") + ").");
+                a.errores.add("El documento " + doc + " no queda en cero: sus valores sumarían " + despues
+                        + " (los positivos deben igualar a los negativos" + (antes != 0 ? "; antes sumaba " + antes : "") + ").");
             }
         }
+        if (!a.errores.isEmpty()) return;
+
+        // 5. Preparar operaciones y la vista previa
+        for (Long id : cambiadas) {
+            String[] ant = app.get(id), f = fin.get(id);
+            ContentValues cv = new ContentValues();
+            StringBuilder det = new StringBuilder();
+            for (int k = 0; k < 8; k++) {
+                if (ant[k].equals(f[k])) continue;
+                ponerTransaccion(cv, COLS_TRANS[k], f[k]);
+                String antTxt = ant[k], nuevoTxt = f[k];
+                if (k == 2) {
+                    Long cuenta = entero(f[2]);
+                    antTxt = nombre(cuentas, ant[2]);
+                    nuevoTxt = cuentas.get(cuenta);
+                    Long tipo = tipoDeCuenta.get(cuenta);
+                    if (tipo != null) cv.put("tipo_cuenta_id", tipo); else cv.putNull("tipo_cuenta_id");
+                }
+                det.append(det.length() > 0 ? "; " : "").append(legible(COLS_TRANS[k])).append(" ")
+                        .append(antTxt).append(" → ").append(nuevoTxt);
+            }
+            if (cv.containsKey("c1_Documento") || cv.containsKey("c2_ItemDoc")) {
+                cv.put("c1_Documento", f[0]);
+                cv.put("c2_ItemDoc", f[1]);
+                a.cambiaDocumentoItem = true;
+            }
+            a.actualizaciones.put(id, cv);
+            a.modificadas++;
+            cambio(a, "Modificada id " + id + " (doc " + ant[0] + "-" + ant[1] + "): " + det);
+        }
+        for (String[] f : nuevas) {
+            a.inserciones.add(valoresTransaccion(f, tipoDeCuenta.get(entero(f[2]))));
+            a.nuevas++;
+            cambio(a, "Nueva: doc " + f[0] + "-" + f[1] + " · " + cuentas.get(entero(f[2])) + " · " + f[3]);
+        }
+        for (Long id : borrar) {
+            String[] f = app.get(id);
+            a.borrados.add(id);
+            a.borradas++;
+            cambio(a, "Borrada id " + id + ": doc " + f[0] + "-" + f[1] + " · " + nombre(cuentas, f[2]) + " · " + f[3]);
+        }
+        a.sinCambio = Math.max(0, fin.size() - a.modificadas);
     }
 
-    private static Set<String> documentosTocados = new HashSet<>();
+    /** Valida una fila de transacción; si 'ant' no es null, solo los campos que cambian. */
+    private static void validarTransaccion(String[] f, String[] ant, int n, Map<Long, String> cuentas, Analisis a) {
+        boolean[] cambia = new boolean[8];
+        for (int k = 0; k < 8; k++) cambia[k] = ant == null || !ant[k].equals(f[k]);
+        if (cambia[0] && f[0].isEmpty()) error(a, n, "falta el Documento.");
+        if (cambia[1] && f[1].isEmpty()) error(a, n, "falta el Ítem documento.");
+        Long cuenta = entero(f[2]);
+        if (cambia[2] && (cuenta == null || !cuentas.containsKey(cuenta))) {
+            error(a, n, "cuenta_id \"" + f[2] + "\" no existe (búscalo en Catálogos).");
+        }
+        if (entero(f[3]) == null) error(a, n, "el Valor \"" + f[3] + "\" debe ser un número entero, sin puntos ni comas.");
+        if (cambia[4] && f[4].isEmpty()) error(a, n, "falta la Descripción.");
+        if (cambia[5] && f[5].isEmpty()) error(a, n, "falta la Fecha y hora.");
+        if (cambia[6] && !f[6].isEmpty() && !"0".equals(f[6]) && (entero(f[6]) == null || f[6].length() != 8)) {
+            error(a, n, "la Fecha inicial \"" + f[6] + "\" debe ser AAAAMMDD.");
+        }
+        if (cambia[7] && f[7].isEmpty()) error(a, n, "falta la Fecha modificación.");
+    }
+
+    private static Map<String, Long> sumasPorDocumento(java.util.Collection<String[]> filas) {
+        Map<String, Long> m = new HashMap<>();
+        for (String[] f : filas) {
+            Long val = entero(f[3]);
+            m.put(f[0], (m.containsKey(f[0]) ? m.get(f[0]) : 0L) + (val == null ? 0 : val));
+        }
+        return m;
+    }
 
     private static ContentValues valoresTransaccion(String[] f, Long tipoCuenta) {
         ContentValues cv = new ContentValues();
@@ -485,110 +684,118 @@ public class A36_TraerSheets {
     private static final Set<String> COLS_ENTERAS = new HashSet<>(java.util.Arrays.asList(
             "Cerrable", "conciliable", "con_inventario", "tipo_cuenta_id", "cuenta_seguimiento", "renglon_renta_id"));
 
-    private static void analizarCuentas(SQLiteDatabase db, List<String[]> filas, Map<String, Integer> col, Analisis a) {
+    private static void analizarCuentas(SQLiteDatabase db, List<String[]> filas, Map<String, Integer> col,
+                                        Base base, Analisis a) {
         if (faltan(col, a, "cuenta_id", "Item", "Cuenta", "Fecha")) return;
-        // Solo las columnas editables que estén en la base y en la hoja.
-        List<String> columnas = new ArrayList<>();
-        Set<String> enBase = new HashSet<>();
-        try (Cursor c = db.rawQuery("PRAGMA table_info(cuentas)", null)) {
-            while (c.moveToNext()) enBase.add(c.getString(1));
-        }
-        for (String c : COLS_CUENTA) if (enBase.contains(c) && col.containsKey(c)) columnas.add(c);
-
-        Set<Long> tipos = ids(db, "SELECT tipo_cuenta_id FROM " + A1_1_AyudanteBD.TABLE_TIPO_CUENTA);
-        Set<Long> renglones = ids(db, "SELECT renglon_id FROM " + A1_1_AyudanteBD.TABLE_RENGLON_RENTA);
-        Map<Long, Map<String, String>> actual = new LinkedHashMap<>();
-        StringBuilder sql = new StringBuilder("SELECT cuenta_id");
-        for (String c : columnas) sql.append(", \"").append(c).append('"');
-        try (Cursor c = db.rawQuery(sql.append(" FROM cuentas").toString(), null)) {
-            while (c.moveToNext()) {
-                Map<String, String> m = new HashMap<>();
-                for (int k = 0; k < columnas.size(); k++) m.put(columnas.get(k), texto(c, k + 1));
-                actual.put(c.getLong(0), m);
+        List<String> cols = base.columnas;
+        for (String c : cols) {
+            if (!col.containsKey(c)) {
+                a.errores.add("Falta la columna \"" + legibleCuenta(c) + "\".");
             }
         }
+        if (!a.errores.isEmpty()) return;
+        Set<Long> tipos = ids(db, "SELECT tipo_cuenta_id FROM " + A1_1_AyudanteBD.TABLE_TIPO_CUENTA);
+        Set<Long> renglones = ids(db, "SELECT renglon_id FROM " + A1_1_AyudanteBD.TABLE_RENGLON_RENTA);
+        Map<Long, String[]> app = cargar(db, TIPO_CUENTAS).filas;
+        int iCuenta = cols.indexOf("Cuenta");
 
-        Set<Long> vistos = new HashSet<>();
-        Set<String> nombres = new HashSet<>();
+        Map<Long, String[]> hoja = new LinkedHashMap<>();
+        Map<Long, Integer> filaDeId = new HashMap<>();
+        List<String[]> nuevas = new ArrayList<>();
+        List<Integer> filaNueva = new ArrayList<>();
         for (int i = 1; i < filas.size(); i++) {
             String[] fila = filas.get(i);
             if (vacia(fila)) continue;
             int n = i + 1;
-            int erroresAntes = a.errores.size();
+            String[] s = new String[cols.size()];
+            for (int k = 0; k < s.length; k++) s[k] = v(fila, col, cols.get(k));
             String idTxt = v(fila, col, "cuenta_id");
-            Long id = null;
-            if (!idTxt.isEmpty()) {
-                id = entero(idTxt);
-                if (id == null || !actual.containsKey(id)) {
-                    error(a, n, "cuenta_id " + idTxt + " no existe (las cuentas nuevas van con cuenta_id vacío).");
-                } else if (!vistos.add(id)) {
-                    error(a, n, "cuenta_id " + idTxt + " está repetido.");
-                }
-            }
-            Map<String, String> nuevo = new HashMap<>();
-            for (String c : columnas) nuevo.put(c, v(fila, col, c));
-            if (nuevo.get("Cuenta").isEmpty()) error(a, n, "falta el nombre de la Cuenta.");
-            else if (!nombres.add(nuevo.get("Cuenta"))) error(a, n, "la cuenta \"" + nuevo.get("Cuenta") + "\" está repetida.");
-            if (nuevo.get("Item").isEmpty()) error(a, n, "falta el Ítem.");
-            if (nuevo.get("Fecha").isEmpty()) error(a, n, "falta la Fecha.");
-            for (String c : columnas) {
-                String val = nuevo.get(c);
-                if (COLS_0_1.contains(c) && !"0".equals(val) && !"1".equals(val)) {
-                    error(a, n, legibleCuenta(c) + " debe ser 0 o 1.");
-                } else if (COLS_ENTERAS.contains(c) && !val.isEmpty() && entero(val) == null) {
-                    error(a, n, legibleCuenta(c) + " \"" + val + "\" debe ser un número.");
-                }
-            }
-            if (nuevo.containsKey("tipo_cuenta_id") && !nuevo.get("tipo_cuenta_id").isEmpty()
-                    && !tipos.contains(entero(nuevo.get("tipo_cuenta_id")))) {
-                error(a, n, "tipo_cuenta_id " + nuevo.get("tipo_cuenta_id") + " no existe (búscalo en Catálogos).");
-            }
-            if (nuevo.containsKey("renglon_renta_id") && !nuevo.get("renglon_renta_id").isEmpty()
-                    && !renglones.contains(entero(nuevo.get("renglon_renta_id")))) {
-                error(a, n, "renglon_renta_id " + nuevo.get("renglon_renta_id") + " no existe (búscalo en Catálogos).");
-            }
-            if (a.errores.size() > erroresAntes) continue;
-
-            if (id == null) {
-                ContentValues cv = new ContentValues();
-                for (String c : columnas) ponerCuenta(cv, c, nuevo.get(c));
-                a.inserciones.add(cv);
-                a.nuevas++;
-                cambio(a, "Nueva cuenta: " + nuevo.get("Cuenta"));
-            } else {
-                Map<String, String> ant = actual.get(id);
-                ContentValues cv = new ContentValues();
-                StringBuilder det = new StringBuilder();
-                for (String c : columnas) {
-                    if (!ant.get(c).trim().equals(nuevo.get(c))) {
-                        ponerCuenta(cv, c, nuevo.get(c));
-                        if ("tipo_cuenta_id".equals(c)) a.cambiaTipoCuenta = true;
-                        det.append(det.length() > 0 ? "; " : "").append(legibleCuenta(c)).append(" ")
-                                .append(ant.get(c)).append(" → ").append(nuevo.get(c));
-                    }
-                }
-                if (cv.size() == 0) {
-                    a.sinCambio++;
-                } else {
-                    a.actualizaciones.put(id, cv);
-                    a.modificadas++;
-                    cambio(a, "Modificada " + ant.get("Cuenta") + " (id " + id + "): " + det);
-                }
-            }
-        }
-        // Cuentas que no están en la hoja: se borran solo si nada las usa.
-        List<String> tablasConCuenta = tablasQueUsanCuenta(db);
-        for (Map.Entry<Long, Map<String, String>> e : actual.entrySet()) {
-            if (vistos.contains(e.getKey())) continue;
-            String uso = usoDeCuenta(db, tablasConCuenta, e.getKey());
-            if (uso != null) {
-                a.errores.add("La cuenta \"" + e.getValue().get("Cuenta") + "\" (id " + e.getKey()
-                        + ") no está en la hoja, pero se usa en " + uso + ": no se puede borrar.");
+            if (idTxt.isEmpty()) {
+                nuevas.add(s);
+                filaNueva.add(n);
                 continue;
             }
-            a.borrados.add(e.getKey());
+            Long id = entero(idTxt);
+            if (id == null) error(a, n, "cuenta_id \"" + idTxt + "\" no es válido.");
+            else if (hoja.containsKey(id)) error(a, n, "cuenta_id " + idTxt + " está repetido (para agregar una cuenta, deja cuenta_id vacío).");
+            else {
+                hoja.put(id, s);
+                filaDeId.put(id, n);
+            }
+        }
+        Set<Long> cambiadas = new java.util.LinkedHashSet<>();
+        List<Long> borrar = new ArrayList<>();
+        Map<Long, String[]> fin = fusionar(base, app, hoja, filaDeId, a, cambiadas, borrar,
+                id -> "la cuenta \"" + (app.containsKey(id) ? app.get(id)[iCuenta] : String.valueOf(id)) + "\" (id " + id + ")");
+
+        for (Long id : cambiadas) validarCuenta(cols, fin.get(id), app.get(id), filaDeId.get(id), tipos, renglones, a);
+        for (int i = 0; i < nuevas.size(); i++) validarCuenta(cols, nuevas.get(i), null, filaNueva.get(i), tipos, renglones, a);
+        // Nombres únicos en el resultado final
+        Map<String, String> nombres = new HashMap<>();
+        for (Map.Entry<Long, String[]> e : fin.entrySet()) {
+            String nom = e.getValue()[iCuenta];
+            if (nombres.containsKey(nom)) a.errores.add("La cuenta \"" + nom + "\" quedaría repetida.");
+            nombres.put(nom, "id " + e.getKey());
+        }
+        for (int i = 0; i < nuevas.size(); i++) {
+            String nom = nuevas.get(i)[iCuenta];
+            if (nombres.containsKey(nom)) error(a, filaNueva.get(i), "la cuenta \"" + nom + "\" ya existe (" + nombres.get(nom) + ").");
+            else nombres.put(nom, "fila " + filaNueva.get(i));
+        }
+        List<String> tablasConCuenta = tablasQueUsanCuenta(db);
+        for (Long id : borrar) {
+            String uso = usoDeCuenta(db, tablasConCuenta, id);
+            if (uso != null) a.errores.add("La cuenta \"" + app.get(id)[iCuenta] + "\" (id " + id
+                    + ") no está en la hoja, pero se usa en " + uso + ": no se puede borrar.");
+        }
+        if (!a.errores.isEmpty()) return;
+
+        for (Long id : cambiadas) {
+            String[] ant = app.get(id), f = fin.get(id);
+            ContentValues cv = new ContentValues();
+            StringBuilder det = new StringBuilder();
+            for (int k = 0; k < cols.size(); k++) {
+                if (ant[k].equals(f[k])) continue;
+                ponerCuenta(cv, cols.get(k), f[k]);
+                if ("tipo_cuenta_id".equals(cols.get(k))) a.cambiaTipoCuenta = true;
+                det.append(det.length() > 0 ? "; " : "").append(legibleCuenta(cols.get(k))).append(" ")
+                        .append(ant[k]).append(" → ").append(f[k]);
+            }
+            a.actualizaciones.put(id, cv);
+            a.modificadas++;
+            cambio(a, "Modificada " + ant[iCuenta] + " (id " + id + "): " + det);
+        }
+        for (String[] f : nuevas) {
+            ContentValues cv = new ContentValues();
+            for (int k = 0; k < cols.size(); k++) ponerCuenta(cv, cols.get(k), f[k]);
+            a.inserciones.add(cv);
+            a.nuevas++;
+            cambio(a, "Nueva cuenta: " + f[iCuenta]);
+        }
+        for (Long id : borrar) {
+            a.borrados.add(id);
             a.borradas++;
-            cambio(a, "Borrada cuenta: " + e.getValue().get("Cuenta") + " (id " + e.getKey() + ")");
+            cambio(a, "Borrada cuenta: " + app.get(id)[iCuenta] + " (id " + id + ")");
+        }
+        a.sinCambio = Math.max(0, fin.size() - a.modificadas);
+    }
+
+    private static void validarCuenta(List<String> cols, String[] f, String[] ant, int n, Set<Long> tipos,
+                                      Set<Long> renglones, Analisis a) {
+        for (int k = 0; k < cols.size(); k++) {
+            if (ant != null && ant[k].equals(f[k])) continue;
+            String c = cols.get(k), val = f[k];
+            if (("Cuenta".equals(c) || "Item".equals(c) || "Fecha".equals(c)) && val.isEmpty()) {
+                error(a, n, "falta " + legibleCuenta(c) + ".");
+            } else if (COLS_0_1.contains(c) && !"0".equals(val) && !"1".equals(val)) {
+                error(a, n, legibleCuenta(c) + " debe ser 0 o 1.");
+            } else if (COLS_ENTERAS.contains(c) && !val.isEmpty() && entero(val) == null) {
+                error(a, n, legibleCuenta(c) + " \"" + val + "\" debe ser un número.");
+            } else if ("tipo_cuenta_id".equals(c) && !val.isEmpty() && !tipos.contains(entero(val))) {
+                error(a, n, "tipo_cuenta_id " + val + " no existe (búscalo en Catálogos).");
+            } else if ("renglon_renta_id".equals(c) && !val.isEmpty() && !renglones.contains(entero(val))) {
+                error(a, n, "renglon_renta_id " + val + " no existe (búscalo en Catálogos).");
+            }
         }
     }
 

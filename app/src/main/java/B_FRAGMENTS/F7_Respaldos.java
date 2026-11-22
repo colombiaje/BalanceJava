@@ -705,6 +705,14 @@ public class F7_Respaldos extends Fragment {
     private void mostrarVistaPrevia(A1BASES.A36_TraerSheets.Analisis a) {
         String conteo = "Nuevas: " + a.nuevas + " · Modificadas: " + a.modificadas
                 + " · Borradas: " + a.borradas + " · Sin cambio: " + a.sinCambio;
+        // ⭐ (22-nov): edad de la hoja y cambios de la app que se conservan (fusión de tres versiones).
+        if (a.horasHoja >= 0) {
+            conteo += "\nHoja preparada hace " + (a.horasHoja == 0 ? "menos de 1 hora" : a.horasHoja + " h")
+                    + " (vale " + A1BASES.A36_TraerSheets.VENTANA_HORAS + " h).";
+        }
+        if (a.conservadosApp > 0) {
+            conteo += "\nCambios hechos en la app desde que se preparó la hoja: " + a.conservadosApp + " (se conservan).";
+        }
         if (!a.errores.isEmpty()) {
             StringBuilder sb = new StringBuilder("No se aplicó nada. Corrige la hoja en Sheets y vuelve a traerla.\n\n");
             for (int i = 0; i < Math.min(40, a.errores.size()); i++) sb.append("• ").append(a.errores.get(i)).append('\n');
@@ -731,7 +739,7 @@ public class F7_Respaldos extends Fragment {
         sb.append("\nSe hará: respaldo completo → aplicar los cambios → poner la hoja al día.");
         new AlertDialog.Builder(requireContext())
                 .setTitle("Revisa antes de aplicar: " + a.hoja.titulo())
-                .setView(vistaConAlerta(a.hoja, sb.toString()))
+                .setView(vistaConAlerta(a.hoja, sb.toString(), a.conservadosApp))
                 .setPositiveButton("Aplicar", (d, w) -> aplicarHoja(a))
                 .setNegativeButton("Cancelar", null)
                 .show();
@@ -743,15 +751,28 @@ public class F7_Respaldos extends Fragment {
      * compara contra la app actual.
      */
     private View vistaConAlerta(A1BASES.A36_TraerSheets.HojaDrive hoja, String mensaje) {
+        return vistaConAlerta(hoja, mensaje, 0);
+    }
+
+    private View vistaConAlerta(A1BASES.A36_TraerSheets.HojaDrive hoja, String mensaje, int conservados) {
         float d = getResources().getDisplayMetrics().density;
         LinearLayout caja = new LinearLayout(requireContext());
         caja.setOrientation(LinearLayout.VERTICAL);
         caja.setPadding((int) (22 * d), (int) (8 * d), (int) (22 * d), 0);
+        StringBuilder aviso = new StringBuilder();
         if (hoja.aplicaciones > 0) {
+            aviso.append("⚠ Esta hoja ya se aplicó ").append(hoja.aplicaciones)
+                    .append(hoja.aplicaciones == 1 ? " vez" : " veces").append(" y lleva ").append(hoja.cambiosTotales)
+                    .append(" cambios en la base de la app. Esta traída se compara contra la app actual y suma más cambios.");
+        }
+        if (conservados > 0) {
+            if (aviso.length() > 0) aviso.append("\n");
+            aviso.append("⚠ La app cambió ").append(conservados)
+                    .append(" registros desde que se preparó la hoja: se conservan; revisa que no choquen con tu corrección.");
+        }
+        if (aviso.length() > 0) {
             TextView alerta = new TextView(requireContext());
-            alerta.setText("⚠ Esta hoja ya se aplicó " + hoja.aplicaciones
-                    + (hoja.aplicaciones == 1 ? " vez" : " veces") + " y lleva " + hoja.cambiosTotales
-                    + " cambios en la base de la app. Esta traída se compara contra la app actual y suma más cambios.");
+            alerta.setText(aviso.toString());
             alerta.setTextColor(android.graphics.Color.WHITE);
             alerta.setTextSize(14);
             alerta.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);

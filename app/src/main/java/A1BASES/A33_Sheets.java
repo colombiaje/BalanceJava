@@ -92,6 +92,7 @@ public class A33_Sheets {
         public String titulo = "";
         public String nombre = "";
         public String enlace;
+        public String id;
         public long filas;
     }
 
@@ -193,7 +194,11 @@ public class A33_Sheets {
                 drive.files().update(idHoja, papelera).execute();
                 nueva[0] = true;
             }
+            // ⭐ (22-nov): nueva base de la hoja (empieza otra ventana de tiempo).
+            A36_TraerSheets.guardarBase(context, f.getId(), tipo);
+            if (nueva[0]) A36_TraerSheets.borrarBase(context, idHoja);
             Hoja r = new Hoja();
+            r.id = f.getId();
             r.nombre = f.getName();
             r.enlace = f.getWebViewLink();
             r.filas = filas;
@@ -455,6 +460,9 @@ public class A33_Sheets {
         h.titulo = titulo;
         h.nombre = creado.getName();
         h.enlace = creado.getWebViewLink();
+        h.id = creado.getId();
+        // ⭐ (22-nov, fusión de tres versiones): base de la hoja en el equipo.
+        A36_TraerSheets.guardarBase(context, h.id, tipo);
         h.filas = filas;
         return h;
     }
