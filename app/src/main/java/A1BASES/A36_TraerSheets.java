@@ -107,10 +107,10 @@ public class A36_TraerSheets {
     /** Hojas de Correcciones y Saldos iniciales (sin catálogos), la más reciente primero. */
     public static List<HojaDrive> listar(Context context) throws Exception {
         Drive drive = A32_Respaldos.servicioDrive(context);
-        String raiz = A33_Sheets.carpetaSheets(context, drive);
         List<HojaDrive> lista = new ArrayList<>();
+        // ⭐ (22-nov, Jorge): solo las hojas de este equipo.
         for (String sub : new String[]{A33_Sheets.SUBCARPETA_CORRECCIONES, A33_Sheets.SUBCARPETA_SALDOS}) {
-            String idCarpeta = A33_Sheets.subcarpeta(context, drive, raiz, sub);
+            String idCarpeta = A33_Sheets.carpetaDeEquipo(context, drive, sub);
             FileList l = drive.files().list()
                     .setQ("'" + idCarpeta + "' in parents and mimeType='" + MIME_HOJA + "' and trashed=false")
                     .setSpaces("drive").setFields("files(id, name, modifiedTime, createdTime, appProperties)")
@@ -302,6 +302,32 @@ public class A36_TraerSheets {
         File[] viejas = carpeta.listFiles();
         long limite = System.currentTimeMillis() - 7L * 24 * 3600 * 1000;
         if (viejas != null) for (File f : viejas) if (f.lastModified() < limite) f.delete();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ⭐ NUEVO (22-nov, Jorge): una sola sesión activa por equipo (correcciones O saldos).
+    // Activa = hoja dentro de su ventana; la plantilla de saldos, además, sin aplicar.
+    // ─────────────────────────────────────────────────────────────
+    public static List<HojaDrive> sesionActiva(Context context) throws Exception {
+        List<HojaDrive> activas = new ArrayList<>();
+        for (HojaDrive h : listar(context)) {
+            long min = minutosRestantes(context, h);
+            if (min == Long.MIN_VALUE || min <= 0) continue;
+            if (TIPO_SALDOS.equals(h.tipo) && h.aplicaciones > 0) continue;
+            activas.add(h);
+        }
+        return activas;
+    }
+
+    /** Envía las hojas a la papelera de Drive (recuperables 30 días) y borra sus bases. */
+    public static void descartar(Context context, List<HojaDrive> hojas) throws Exception {
+        Drive drive = A32_Respaldos.servicioDrive(context);
+        for (HojaDrive h : hojas) {
+            com.google.api.services.drive.model.File papelera = new com.google.api.services.drive.model.File();
+            papelera.setTrashed(true);
+            drive.files().update(h.id, papelera).execute();
+            borrarBase(context, h.id);
+        }
     }
 
     public static void borrarBase(Context context, String idHoja) {

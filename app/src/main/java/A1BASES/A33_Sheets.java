@@ -52,7 +52,8 @@ public class A33_Sheets {
     private static final String MIME_HOJA = "application/vnd.google-apps.spreadsheet";
     private static final String MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String MIME_CARPETA = "application/vnd.google-apps.folder";
-    private static final int MAX_POR_TIPO = 3;
+    // ⭐ (22-nov, Jorge): una sola hoja por tabla y equipo; las anteriores van a la papelera.
+    private static final int MAX_POR_TIPO = 1;
     private static final String PREFS = "a33_sheets";
     private static final String CLAVE_CARPETA = "carpeta_sheets_id";
 
@@ -99,6 +100,7 @@ public class A33_Sheets {
     public static class Envio {
         public boolean ok;
         public String mensaje = "";
+        public String aviso = "";
         public List<Hoja> hojas = new ArrayList<>();
     }
 
@@ -134,12 +136,13 @@ public class A33_Sheets {
         }
         try {
             Drive drive = A32_Respaldos.servicioDrive(context);
-            String idCarpeta = subcarpeta(context, drive, carpetaSheets(context, drive), SUBCARPETA_CORRECCIONES);
+            String idCarpeta = carpetaDeEquipo(context, drive, SUBCARPETA_CORRECCIONES);
             r.hojas.add(subir(context, drive, idCarpeta, fTrans, TIPO_TRANSACCIONES, "Transacciones", filas[0]));
             r.hojas.add(subir(context, drive, idCarpeta, fCuentas, TIPO_CUENTAS, "Cuentas", filas[1]));
             r.hojas.add(subir(context, drive, idCarpeta, fCatalogos, TIPO_CATALOGOS, "Catálogos (solo consulta)", filas[2]));
             r.ok = true;
-            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS + " › " + SUBCARPETA_CORRECCIONES;
+            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS + " › " + SUBCARPETA_CORRECCIONES
+                    + " › " + A32_Respaldos.equipo(context);
         } catch (Exception e) {
             Log.e(TAG, "No se pudieron subir las hojas", e);
             r.mensaje = "No se pudieron crear las hojas en Drive: " + e.getMessage();
@@ -217,7 +220,27 @@ public class A33_Sheets {
         long[] filas = new long[2];
         SQLiteDatabase db = abrirBase(context);
         try {
-            A35_Xlsx.Hoja saldos = hojaPlantillaSaldos(db);
+            // ⭐ (22-nov, Jorge): condiciones de los saldos iniciales.
+            long cuentas = numero(db, "SELECT COUNT(*) FROM cuentas WHERE TRIM(Cuenta) <> '' AND LOWER(TRIM(Cuenta)) <> 'n a'");
+            if (cuentas == 0) {
+                r.mensaje = "Primero crea las cuentas (F2): la plantilla de saldos iniciales trae una fila por cuenta.";
+                return r;
+            }
+            long movimientos = numero(db, "SELECT COUNT(*) FROM transacciones WHERE CAST(c1_Documento AS INTEGER) <> 0");
+            long primera = numero(db, "SELECT MIN(c8_FechaInicial) FROM transacciones "
+                    + "WHERE CAST(c1_Documento AS INTEGER) <> 0 AND c8_FechaInicial > 19000101");
+            Date fecha = new Date();
+            if (movimientos > 0 && primera > 0) {
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.set((int) (primera / 10000), (int) ((primera / 100) % 100) - 1, (int) (primera % 100), 0, 0, 0);
+                cal.add(java.util.Calendar.DAY_OF_MONTH, -1);
+                fecha = cal.getTime();
+                r.aviso = "Ya hay " + movimientos + " transacciones registradas desde el "
+                        + new SimpleDateFormat("d MMM yyyy", new Locale("es", "CO")).format(new Date(fecha.getTime() + 86400000L))
+                        + ". La plantilla trae como fecha el día anterior al primer movimiento ("
+                        + new SimpleDateFormat("d MMM yyyy", new Locale("es", "CO")).format(fecha) + ").";
+            }
+            A35_Xlsx.Hoja saldos = hojaPlantillaSaldos(db, fecha, movimientos > 0);
             List<A35_Xlsx.Hoja> catalogos = hojasCatalogos(db);
             filas[0] = saldos.filas.size();
             for (A35_Xlsx.Hoja h : catalogos) filas[1] += h.filas.size();
@@ -232,11 +255,12 @@ public class A33_Sheets {
         }
         try {
             Drive drive = A32_Respaldos.servicioDrive(context);
-            String idCarpeta = subcarpeta(context, drive, carpetaSheets(context, drive), SUBCARPETA_SALDOS);
+            String idCarpeta = carpetaDeEquipo(context, drive, SUBCARPETA_SALDOS);
             r.hojas.add(subir(context, drive, idCarpeta, fSaldos, TIPO_SALDOS, "Plantilla de saldos iniciales", filas[0]));
             r.hojas.add(subir(context, drive, idCarpeta, fCatalogos, TIPO_CATALOGOS, "Catálogos (solo consulta)", filas[1]));
             r.ok = true;
-            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS + " › " + SUBCARPETA_SALDOS;
+            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS + " › " + SUBCARPETA_SALDOS
+                    + " › " + A32_Respaldos.equipo(context);
         } catch (Exception e) {
             Log.e(TAG, "No se pudo subir la plantilla", e);
             r.mensaje = "No se pudo crear la plantilla en Drive: " + e.getMessage();
@@ -355,15 +379,20 @@ public class A33_Sheets {
      * Plantilla de saldos iniciales: documento 0, ítem consecutivo después del último ítem del
      * documento 0 que ya exista, cuenta, valor en blanco (fucsia), descripción y fechas de hoy.
      */
-    private static A35_Xlsx.Hoja hojaPlantillaSaldos(SQLiteDatabase db) {
+    private static long numero(SQLiteDatabase db, String sql) {
+        try (Cursor c = db.rawQuery(sql, null)) {
+            return c.moveToFirst() && !c.isNull(0) ? c.getLong(0) : 0;
+        }
+    }
+
+    private static A35_Xlsx.Hoja hojaPlantillaSaldos(SQLiteDatabase db, Date fecha, boolean horaCero) {
         long siguiente = 1;
         try (Cursor c = db.rawQuery("SELECT MAX(CAST(c2_ItemDoc AS INTEGER)) FROM transacciones "
                 + "WHERE CAST(c1_Documento AS INTEGER) = 0", null)) {
             if (c.moveToFirst() && !c.isNull(0)) siguiente = c.getLong(0) + 1;
         }
-        Date hoy = new Date();
-        String fechaYHora = new SimpleDateFormat("yyyy/M/d H:m", Locale.US).format(hoy);
-        String fechaInicial = new SimpleDateFormat("yyyyMMdd", Locale.US).format(hoy);
+        String fechaYHora = new SimpleDateFormat(horaCero ? "yyyy/M/d 0:0" : "yyyy/M/d H:m", Locale.US).format(fecha);
+        String fechaInicial = new SimpleDateFormat("yyyyMMdd", Locale.US).format(fecha);
         A35_Xlsx.Hoja h = new A35_Xlsx.Hoja();
         h.nombre = "Saldos iniciales";
         String[] cols = {"Documento", "Ítem documento", "cuenta_id", "Cuenta (referencia)", "Valor", "Descripción",
@@ -394,6 +423,12 @@ public class A33_Sheets {
     /** Carpeta Backups › Sheets (creada por la app; su id se recuerda). */
     static String carpetaSheets(Context context, Drive drive) throws Exception {
         return carpeta(context, drive, A32_Respaldos.FOLDER_ID_BACKUPS, CARPETA_SHEETS);
+    }
+
+    /** ⭐ (22-nov, Jorge): Sheets › Correcciones|Saldos iniciales › <equipo>. */
+    static String carpetaDeEquipo(Context context, Drive drive, String opcion) throws Exception {
+        String idOpcion = subcarpeta(context, drive, carpetaSheets(context, drive), opcion);
+        return subcarpeta(context, drive, idOpcion, A32_Respaldos.equipo(context));
     }
 
     /** Subcarpeta de Sheets por opción (Correcciones, Saldos iniciales). */
@@ -450,7 +485,10 @@ public class A33_Sheets {
         if (previas.getFiles() != null) {
             for (int i = MAX_POR_TIPO; i < previas.getFiles().size(); i++) {
                 try {
-                    drive.files().delete(previas.getFiles().get(i).getId()).execute();
+                    com.google.api.services.drive.model.File papelera = new com.google.api.services.drive.model.File();
+                    papelera.setTrashed(true);
+                    drive.files().update(previas.getFiles().get(i).getId(), papelera).execute();
+                    A36_TraerSheets.borrarBase(context, previas.getFiles().get(i).getId());
                 } catch (Exception e) {
                     Log.e(TAG, "No se pudo borrar en Drive: " + previas.getFiles().get(i).getName(), e);
                 }

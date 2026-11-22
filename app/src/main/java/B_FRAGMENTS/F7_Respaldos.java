@@ -599,7 +599,81 @@ public class F7_Respaldos extends Fragment {
                 new String[]{"Transacciones, cuentas y catálogos", "Plantilla de saldos iniciales"},
                 new String[]{"Para corregir registros. Carpeta Sheets › Correcciones.",
                         "Una fila por cuenta, para llenar el valor. Carpeta Sheets › Saldos iniciales."},
-                i -> enviarASheets(i == 1));
+                i -> revisarSesionYEnviar(i == 1));
+    }
+
+    /**
+     * ⭐ NUEVO (22-nov, Jorge): una sola sesión activa por equipo. Si hay hojas en curso (de
+     * correcciones o de saldos), se ofrece continuar con ellas o empezar de nuevo (las actuales
+     * van a la papelera de Drive).
+     */
+    private void revisarSesionYEnviar(boolean plantillaSaldos) {
+        mostrarEspera("Revisando hojas en curso…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            List<A1BASES.A36_TraerSheets.HojaDrive> activas;
+            try {
+                activas = A1BASES.A36_TraerSheets.sesionActiva(app);
+            } catch (Exception e) {
+                activas = new java.util.ArrayList<>();
+            }
+            final List<A1BASES.A36_TraerSheets.HojaDrive> fin = activas;
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                if (fin.isEmpty()) {
+                    enviarASheets(plantillaSaldos);
+                    return;
+                }
+                boolean deSaldos = A1BASES.A36_TraerSheets.TIPO_SALDOS.equals(fin.get(0).tipo);
+                long min = A1BASES.A36_TraerSheets.minutosRestantes(app, fin.get(0));
+                StringBuilder sb = new StringBuilder("Hay una sesión de ")
+                        .append(deSaldos ? "Saldos iniciales" : "Correcciones").append(" en curso (⏱ quedan ")
+                        .append(A1BASES.A36_TraerSheets.textoMinutos(min)).append("):\n");
+                for (A1BASES.A36_TraerSheets.HojaDrive h : fin) sb.append("• ").append(h.titulo()).append('\n');
+                sb.append("\nSolo se trabaja una sesión a la vez en este equipo.");
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Sesión de Sheets en curso")
+                        .setMessage(sb.toString())
+                        .setPositiveButton("Continuar con ella", (d, w) -> mostrarHojasActivas(fin))
+                        .setNeutralButton("Empezar de nuevo", (d, w) -> descartarYEnviar(fin, plantillaSaldos))
+                        .setNegativeButton("Cancelar", null)
+                        .show();
+            });
+        });
+    }
+
+    private void mostrarHojasActivas(List<A1BASES.A36_TraerSheets.HojaDrive> hojas) {
+        String[] items = new String[hojas.size()];
+        for (int i = 0; i < items.length; i++) items[i] = "↗ " + hojas.get(i).titulo() + "\n   " + hojas.get(i).nombre;
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Abrir en Sheets")
+                .setItems(items, (d, i) -> abrirEnlace("https://docs.google.com/spreadsheets/d/" + hojas.get(i).id + "/edit"))
+                .setPositiveButton("Listo", null)
+                .show();
+    }
+
+    private void descartarYEnviar(List<A1BASES.A36_TraerSheets.HojaDrive> hojas, boolean plantillaSaldos) {
+        mostrarEspera("Mandando las hojas en curso a la papelera…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            String error = null;
+            try {
+                A1BASES.A36_TraerSheets.descartar(app, hojas);
+            } catch (Exception e) {
+                error = e.getMessage();
+            }
+            final String err = error;
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                if (err != null) {
+                    Toast.makeText(requireContext(), "No se pudieron descartar: " + err, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                enviarASheets(plantillaSaldos);
+            });
+        });
     }
 
     private void enviarASheets(boolean plantillaSaldos) {
@@ -624,6 +698,14 @@ public class F7_Respaldos extends Fragment {
                 for (int i = 0; i < items.length; i++) {
                     A1BASES.A33_Sheets.Hoja h = r.hojas.get(i);
                     items[i] = "↗ " + h.titulo + " · " + miles(h.filas) + " filas\n   " + h.nombre;
+                }
+                if (!r.aviso.isEmpty()) {
+                    // ⭐ (22-nov): aviso de saldos iniciales con movimientos ya registrados.
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("Saldos iniciales")
+                            .setMessage(r.aviso)
+                            .setPositiveButton("Entendido", null)
+                            .show();
                 }
                 new AlertDialog.Builder(requireContext())
                         .setTitle("✓ " + r.mensaje)
