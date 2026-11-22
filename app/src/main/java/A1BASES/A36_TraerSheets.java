@@ -81,6 +81,7 @@ public class A36_TraerSheets {
         // hoja, que se conservan; y la edad de la hoja en horas.
         public int conservadosApp;
         public long horasHoja = -1;
+        public long minutosRestantes = Long.MIN_VALUE;
         // Operaciones preparadas
         final List<ContentValues> inserciones = new ArrayList<>();
         final Map<Long, ContentValues> actualizaciones = new LinkedHashMap<>();
@@ -207,7 +208,31 @@ public class A36_TraerSheets {
     //    cambió el usuario en la hoja; lo que cambió en la app después se conserva; si la misma
     //    fila cambió en los dos lados, es conflicto y no se aplica nada.
     // ═════════════════════════════════════════════════════════════
-    public static final int VENTANA_HORAS = 24;
+    // ⭐ (22-nov, Jorge): 6 horas; las correcciones en Sheets son cortas y volver a enviar es sencillo.
+    public static final int VENTANA_HORAS = 6;
+
+    /**
+     * Minutos que le quedan a la hoja dentro de la ventana (negativo = vencida). Para hojas sin base
+     * en este equipo devuelve Long.MIN_VALUE. Usa la fecha del archivo de la base (se escribe al
+     * enviar o poner al día la hoja) o, en saldos iniciales, la creación de la hoja en Drive.
+     */
+    public static long minutosRestantes(Context context, HojaDrive hoja) {
+        long desde;
+        if (TIPO_SALDOS.equals(hoja.tipo)) {
+            desde = hoja.creada;
+        } else {
+            File f = new File(carpetaBases(context), hoja.id + ".base");
+            if (!f.exists()) return Long.MIN_VALUE;
+            desde = f.lastModified();
+        }
+        return (desde + VENTANA_HORAS * 3600000L - System.currentTimeMillis()) / 60000L;
+    }
+
+    /** "5 h 20 min", "40 min". */
+    public static String textoMinutos(long minutos) {
+        long m = Math.max(0, minutos);
+        return (m >= 60 ? (m / 60) + " h " : "") + (m % 60) + " min";
+    }
 
     /** Copia base de una hoja: columnas comparables y filas por id. */
     static class Base implements java.io.Serializable {
@@ -306,8 +331,9 @@ public class A36_TraerSheets {
             return a;
         }
         a.horasHoja = Math.max(0, (System.currentTimeMillis() - desde) / 3600000L);
-        if (a.horasHoja >= VENTANA_HORAS) {
-            a.errores.add("Esta hoja se preparó hace " + a.horasHoja + " horas y la ventana es de " + VENTANA_HORAS
+        a.minutosRestantes = (desde + VENTANA_HORAS * 3600000L - System.currentTimeMillis()) / 60000L;
+        if (a.minutosRestantes <= 0) {
+            a.errores.add("Esta hoja se preparó hace " + a.horasHoja + " horas y vale " + VENTANA_HORAS
                     + " horas. Envía una hoja nueva desde la app: tendrás la certeza de lo que hay hoy.");
             return a;
         }
@@ -997,7 +1023,8 @@ public class A36_TraerSheets {
             return nueva[0]
                     ? "Drive no dejó poner al día la misma hoja: se creó una nueva con los datos de la app"
                         + " (la anterior fue a la papelera). Ábrela desde Drive › Backups › Sheets."
-                    : "La hoja se puso al día con la app (mismo enlace): puedes seguir corrigiéndola."
+                    : "La hoja se puso al día con la app (mismo enlace): puedes seguir corrigiéndola"
+                        + " durante " + VENTANA_HORAS + " horas más."
                         + " Lleva " + aplicaciones + (aplicaciones == 1 ? " aplicación" : " aplicaciones")
                         + " y " + cambios + " cambios. Las pestañas o formatos que agregaste se reemplazaron.";
         } catch (Exception e) {

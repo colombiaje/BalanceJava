@@ -669,6 +669,7 @@ public class F7_Respaldos extends Fragment {
                     A1BASES.A36_TraerSheets.HojaDrive h = fin.get(i);
                     items[i] = (i == 0 ? "★ " : "") + h.titulo()
                             + (h.aplicaciones > 0 ? " · aplicada " + h.aplicaciones + (h.aplicaciones == 1 ? " vez" : " veces") : "")
+                            + tiempoHoja(fin.get(i))
                             + " · modificada "
                             + new SimpleDateFormat("d MMM HH:mm", es).format(new Date(h.modificada)) + "\n   " + h.nombre;
                 }
@@ -679,6 +680,14 @@ public class F7_Respaldos extends Fragment {
                         .show();
             });
         });
+    }
+
+    // ⭐ (22-nov, Jorge): tiempo que le queda a cada hoja en la lista.
+    private String tiempoHoja(A1BASES.A36_TraerSheets.HojaDrive h) {
+        long min = A1BASES.A36_TraerSheets.minutosRestantes(requireContext(), h);
+        if (min == Long.MIN_VALUE) return " · ✗ sin base en este equipo";
+        if (min <= 0) return " · ✗ vencida";
+        return " · ⏱ quedan " + A1BASES.A36_TraerSheets.textoMinutos(min);
     }
 
     private void revisarHoja(A1BASES.A36_TraerSheets.HojaDrive hoja) {
@@ -706,8 +715,8 @@ public class F7_Respaldos extends Fragment {
         String conteo = "Nuevas: " + a.nuevas + " · Modificadas: " + a.modificadas
                 + " · Borradas: " + a.borradas + " · Sin cambio: " + a.sinCambio;
         // ⭐ (22-nov): edad de la hoja y cambios de la app que se conservan (fusión de tres versiones).
-        if (a.horasHoja >= 0) {
-            conteo += "\nHoja preparada hace " + (a.horasHoja == 0 ? "menos de 1 hora" : a.horasHoja + " h")
+        if (a.minutosRestantes != Long.MIN_VALUE && a.minutosRestantes > 0) {
+            conteo += "\n⏱ A esta hoja le quedan " + A1BASES.A36_TraerSheets.textoMinutos(a.minutosRestantes)
                     + " (vale " + A1BASES.A36_TraerSheets.VENTANA_HORAS + " h).";
         }
         if (a.conservadosApp > 0) {
