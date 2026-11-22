@@ -192,13 +192,13 @@ public class A33_Sheets {
     // ⭐ (22-nov, Jorge): columnas que el usuario SÍ puede cambiar (texto fucsia en la hoja); las
     // demás (ids propios y referencias) van en azul rey. Una columna nueva que no esté aquí queda
     // fija por seguridad. El cuenta_id de una transacción se puede cambiar por otro existente.
-    private static final java.util.Set<String> EDITABLES_TRANSACCIONES = new java.util.HashSet<>(java.util.Arrays.asList(
+    static final java.util.Set<String> EDITABLES_TRANSACCIONES = new java.util.HashSet<>(java.util.Arrays.asList(
             "Documento", "Ítem documento", "Valor", "Descripción", "Fecha y hora", "Fecha inicial",
             "Fecha modificación", "cuenta_id"));
-    private static final java.util.Set<String> EDITABLES_CUENTAS = new java.util.HashSet<>(java.util.Arrays.asList(
+    static final java.util.Set<String> EDITABLES_CUENTAS = new java.util.HashSet<>(java.util.Arrays.asList(
             "Ítem", "Cuenta", "Fecha", "Código cuenta", "Cerrable", "tipo_cuenta_id", "Cuenta seguimiento",
             "Conciliable", "Con inventario", "renglon_renta_id", "Entidad", "Tipo de soporte"));
-    private static final java.util.Set<String> EDITABLES_SALDOS = new java.util.HashSet<>(java.util.Arrays.asList(
+    static final java.util.Set<String> EDITABLES_SALDOS = new java.util.HashSet<>(java.util.Arrays.asList(
             "Valor", "Descripción", "Fecha y hora", "Fecha inicial"));
 
     // ─────────────────────────────────────────────────────────────
@@ -334,12 +334,12 @@ public class A33_Sheets {
     // ─────────────────────────────────────────────────────────────
 
     /** Carpeta Backups › Sheets (creada por la app; su id se recuerda). */
-    private static String carpetaSheets(Context context, Drive drive) throws Exception {
+    static String carpetaSheets(Context context, Drive drive) throws Exception {
         return carpeta(context, drive, A32_Respaldos.FOLDER_ID_BACKUPS, CARPETA_SHEETS);
     }
 
     /** Subcarpeta de Sheets por opción (Correcciones, Saldos iniciales). */
-    private static String subcarpeta(Context context, Drive drive, String idPadre, String nombre) throws Exception {
+    static String subcarpeta(Context context, Drive drive, String idPadre, String nombre) throws Exception {
         return carpeta(context, drive, idPadre, nombre);
     }
 

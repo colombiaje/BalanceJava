@@ -14,9 +14,9 @@ import java.util.zip.ZipOutputStream;
  * hojas de "Enviar a Sheets" la identidad de la app. Drive convierte el .xlsx en hoja de Google
  * conservando el formato (sin la API de Sheets):
  *  - fila 1 (encabezados) con fondo morado (el de los títulos de la app) y texto blanco;
- *  - filas de datos con el fondo rosado de las pantallas de la app;
- *  - texto azul rey en las columnas que NO se deben cambiar y fucsia (el de "donde se llenan
- *    datos" de la app) en las que sí;
+ *  - filas de datos con el azul claro de la información de la app (#DCE8F5, más contraste);
+ *  - texto azul rey en las columnas que NO se deben cambiar y lila (#E441F1, el marco de los
+ *    campos que se llenan en F1) en las que sí; (22-nov, Jorge)
  *  - fila 1 y columna A (el id) inmovilizadas, y un filtro listo en los encabezados.
  * Una hoja (pestaña) por tabla.
  */
@@ -107,7 +107,7 @@ public final class A35_Xlsx {
         return sb.append("</Relationships>").toString();
     }
 
-    /** Colores de la app: morado #AA66CC (títulos), rosado #F4D7F5 (fondo), azul rey #1F3FA6, fucsia #D81B60. */
+    /** Colores de la app: morado #AA66CC (títulos), azul claro #DCE8F5 (fondo), azul rey #1F3FA6, lila #E441F1. */
     private static String estilos() {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
@@ -115,13 +115,13 @@ public final class A35_Xlsx {
                 + "<font><sz val=\"10\"/><name val=\"Arial\"/></font>"
                 + "<font><b/><sz val=\"10\"/><color rgb=\"FFFFFFFF\"/><name val=\"Arial\"/></font>"
                 + "<font><sz val=\"10\"/><color rgb=\"FF1F3FA6\"/><name val=\"Arial\"/></font>"
-                + "<font><b/><sz val=\"10\"/><color rgb=\"FFD81B60\"/><name val=\"Arial\"/></font>"
+                + "<font><b/><sz val=\"10\"/><color rgb=\"FFE441F1\"/><name val=\"Arial\"/></font>"
                 + "</fonts>"
                 + "<fills count=\"4\">"
                 + "<fill><patternFill patternType=\"none\"/></fill>"
                 + "<fill><patternFill patternType=\"gray125\"/></fill>"
                 + "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFAA66CC\"/><bgColor indexed=\"64\"/></patternFill></fill>"
-                + "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFF4D7F5\"/><bgColor indexed=\"64\"/></patternFill></fill>"
+                + "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFDCE8F5\"/><bgColor indexed=\"64\"/></patternFill></fill>"
                 + "</fills>"
                 + "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>"
                 + "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>"

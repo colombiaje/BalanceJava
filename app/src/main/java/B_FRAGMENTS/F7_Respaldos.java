@@ -130,6 +130,7 @@ public class F7_Respaldos extends Fragment {
         v.findViewById(R.id.exportarTodas_XBt).setOnClickListener(x -> elegirRespaldoParaExportar(true));
         // ⭐ NUEVO (22-nov, Jorge, etapa S1): Sheets como herramienta de correcciones masivas.
         v.findViewById(R.id.enviarASheets_XBt).setOnClickListener(x -> elegirEnvioASheets());
+        v.findViewById(R.id.traerDeSheets_XBt).setOnClickListener(x -> elegirHojaParaTraer());
         Button cambiarEquipo = v.findViewById(R.id.cambiarEquipo_XBt);
         Button respaldarAhora = v.findViewById(R.id.respaldarAhora_XBt);
         Button restaurarLocal = v.findViewById(R.id.restaurarLocal_XBt);
@@ -629,6 +630,143 @@ public class F7_Respaldos extends Fragment {
                         .setItems(items, (d, i) -> abrirEnlace(r.hojas.get(i).enlace))
                         .setPositiveButton("Listo", null)
                         .show();
+            });
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ⭐ NUEVO (22-nov, Jorge, etapa S2): Traer de Sheets
+    // Elegir hoja → revisar (vista previa con cambios y errores) → respaldo "antes" → aplicar →
+    // resumen. Con un solo error no se aplica nada.
+    // ─────────────────────────────────────────────────────────────
+    private void elegirHojaParaTraer() {
+        mostrarEspera("Buscando hojas en Drive…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            List<A1BASES.A36_TraerSheets.HojaDrive> hojas;
+            String error = null;
+            try {
+                hojas = A1BASES.A36_TraerSheets.listar(app);
+            } catch (Exception e) {
+                hojas = new java.util.ArrayList<>();
+                error = e.getMessage();
+            }
+            final List<A1BASES.A36_TraerSheets.HojaDrive> fin = hojas;
+            final String err = error;
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                if (err != null || fin.isEmpty()) {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle(err != null ? "✗ No se pudo leer Drive" : "No hay hojas para traer")
+                            .setMessage(err != null ? err : "Primero usa \"Enviar a Sheets\", corrige la hoja y vuelve aquí.")
+                            .setPositiveButton("Entendido", null)
+                            .show();
+                    return;
+                }
+                String[] items = new String[fin.size()];
+                for (int i = 0; i < items.length; i++) {
+                    A1BASES.A36_TraerSheets.HojaDrive h = fin.get(i);
+                    items[i] = (i == 0 ? "★ " : "") + h.titulo() + " · modificada "
+                            + new SimpleDateFormat("d MMM HH:mm", es).format(new Date(h.modificada)) + "\n   " + h.nombre;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Elige la hoja a traer")
+                        .setItems(items, (d, i) -> revisarHoja(fin.get(i)))
+                        .setNegativeButton("Cancelar", null)
+                        .show();
+            });
+        });
+    }
+
+    private void revisarHoja(A1BASES.A36_TraerSheets.HojaDrive hoja) {
+        mostrarEspera("Revisando la hoja…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            A1BASES.A36_TraerSheets.Analisis a;
+            try {
+                a = A1BASES.A36_TraerSheets.analizar(app, hoja, A1BASES.A36_TraerSheets.descargar(app, hoja.id));
+            } catch (Exception e) {
+                a = new A1BASES.A36_TraerSheets.Analisis();
+                a.hoja = hoja;
+                a.errores.add("No se pudo descargar la hoja: " + e.getMessage());
+            }
+            final A1BASES.A36_TraerSheets.Analisis an = a;
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                mostrarVistaPrevia(an);
+            });
+        });
+    }
+
+    private void mostrarVistaPrevia(A1BASES.A36_TraerSheets.Analisis a) {
+        String conteo = "Nuevas: " + a.nuevas + " · Modificadas: " + a.modificadas
+                + " · Borradas: " + a.borradas + " · Sin cambio: " + a.sinCambio;
+        if (!a.errores.isEmpty()) {
+            StringBuilder sb = new StringBuilder("No se aplicó nada. Corrige la hoja en Sheets y vuelve a traerla.\n\n");
+            for (int i = 0; i < Math.min(40, a.errores.size()); i++) sb.append("• ").append(a.errores.get(i)).append('\n');
+            if (a.errores.size() > 40) sb.append("… y ").append(a.errores.size() - 40).append(" más.\n");
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("✗ La hoja tiene " + a.errores.size() + (a.errores.size() == 1 ? " error" : " errores"))
+                    .setMessage(sb.toString())
+                    .setPositiveButton("Entendido", null)
+                    .show();
+            return;
+        }
+        if (!a.hayCambios()) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Sin cambios")
+                    .setMessage("La hoja " + a.hoja.titulo() + " es igual a la app.\n" + conteo)
+                    .setPositiveButton("Entendido", null)
+                    .show();
+            return;
+        }
+        int total = a.nuevas + a.modificadas + a.borradas;
+        StringBuilder sb = new StringBuilder(conteo).append("\n\n");
+        for (String c : a.cambios) sb.append("• ").append(c).append('\n');
+        if (total > a.cambios.size()) sb.append("… y ").append(total - a.cambios.size()).append(" más.\n");
+        sb.append("\nSe hará: respaldo completo → aplicar los cambios.");
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Revisa antes de aplicar: " + a.hoja.titulo())
+                .setMessage(sb.toString())
+                .setPositiveButton("Aplicar", (d, w) -> aplicarHoja(a))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void aplicarHoja(A1BASES.A36_TraerSheets.Analisis a) {
+        mostrarEspera("Aplicando los cambios…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            String titulo;
+            String texto;
+            A32_Respaldos.Resultado antes = A32_Respaldos.puntoDeRestauracion(app, "antes-" + a.operacion());
+            if (!antes.ok) {
+                titulo = "✗ No se hizo ningún cambio";
+                texto = "No se pudo hacer el respaldo completo:\n" + antes.mensaje;
+            } else {
+                try {
+                    A1BASES.A36_TraerSheets.aplicar(app, a);
+                    A32_Respaldos.Resultado despues = A32_Respaldos.puntoDeRestauracion(app, "despues-" + a.operacion());
+                    titulo = "✓ " + a.hoja.titulo() + " traída de Sheets";
+                    texto = A32_Respaldos.resumenOperacion(app, a.operacion(), "Traer de Sheets: " + a.hoja.titulo(),
+                            antes, despues, A1BASES.A36_TraerSheets.detalle(a));
+                } catch (Exception e) {
+                    titulo = "✗ No se aplicó nada";
+                    texto = "Error al aplicar: " + e.getMessage() + "\n\nLa base quedó como estaba.";
+                }
+            }
+            final String t = titulo, m = texto;
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(t)
+                        .setMessage(m)
+                        .setPositiveButton("Entendido", null)
+                        .show();
+                refrescarEstado();
             });
         });
     }

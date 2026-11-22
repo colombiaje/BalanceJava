@@ -235,6 +235,17 @@
                 android:textAllCaps="false"
                 android:textColor="#1F3FA6" />
 
+            <!-- ⭐ NUEVO (22-nov, Jorge, etapa S2 de Sheets). -->
+            <Button
+                android:id="@+id/traerDeSheets_XBt"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_boton_accion"
+                android:text="Traer de Sheets (aplicar correcciones)"
+                android:textAllCaps="false"
+                android:textColor="#1F3FA6" />
+
             <Button
                 android:id="@+id/probarSelector_XBt"
                 android:layout_width="match_parent"

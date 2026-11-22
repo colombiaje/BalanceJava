@@ -759,6 +759,10 @@ public class A32_Respaldos {
             case "cierre-algunas": nombreOp = "cierre de algunas cuentas"; break;
             case "sheets-transacciones": nombreOp = "importar Balance de Sheets"; break;
             case "sheets-cuentas": nombreOp = "importar cuentas de Sheets"; break;
+            // ⭐ (22-nov, S2): "Traer de Sheets".
+            case "sheets-corregir-transacciones": nombreOp = "corregir transacciones desde Sheets"; break;
+            case "sheets-corregir-cuentas": nombreOp = "corregir cuentas desde Sheets"; break;
+            case "sheets-saldos-iniciales": nombreOp = "cargar saldos iniciales desde Sheets"; break;
             default: nombreOp = op.replace('-', ' ');
         }
         String texto = prefijo + nombreOp;
