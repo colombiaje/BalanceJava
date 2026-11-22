@@ -128,6 +128,8 @@ public class F7_Respaldos extends Fragment {
         // ⭐ (21-nov, build B): dos formas de exportar: una tabla, o todas a una carpeta.
         v.findViewById(R.id.exportarTabla_XBt).setOnClickListener(x -> elegirRespaldoParaExportar(false));
         v.findViewById(R.id.exportarTodas_XBt).setOnClickListener(x -> elegirRespaldoParaExportar(true));
+        // ⭐ NUEVO (22-nov, Jorge, etapa S1): Sheets como herramienta de correcciones masivas.
+        v.findViewById(R.id.enviarASheets_XBt).setOnClickListener(x -> elegirEnvioASheets());
         Button cambiarEquipo = v.findViewById(R.id.cambiarEquipo_XBt);
         Button respaldarAhora = v.findViewById(R.id.respaldarAhora_XBt);
         Button restaurarLocal = v.findViewById(R.id.restaurarLocal_XBt);
@@ -585,6 +587,65 @@ public class F7_Respaldos extends Fragment {
                         .show();
             });
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ⭐ NUEVO (22-nov, Jorge, etapa S1): Enviar a Sheets
+    // ─────────────────────────────────────────────────────────────
+    private void elegirEnvioASheets() {
+        String[] opciones = {
+                "Transacciones, cuentas y catálogos\n   para corregir registros",
+                "Plantilla de saldos iniciales\n   una fila por cuenta, para llenar el valor"
+        };
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Enviar a Sheets")
+                .setItems(opciones, (d, i) -> enviarASheets(i == 1))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void enviarASheets(boolean plantillaSaldos) {
+        mostrarEspera("Creando las hojas en Drive…");
+        final android.content.Context app = requireContext().getApplicationContext();
+        hilo.execute(() -> {
+            A1BASES.A33_Sheets.Envio r = plantillaSaldos
+                    ? A1BASES.A33_Sheets.enviarPlantillaSaldos(app)
+                    : A1BASES.A33_Sheets.enviarTablas(app);
+            principal.post(() -> {
+                cerrarEspera();
+                if (!isAdded()) return;
+                if (!r.ok) {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("✗ No se crearon las hojas")
+                            .setMessage(r.mensaje)
+                            .setPositiveButton("Entendido", null)
+                            .show();
+                    return;
+                }
+                String[] items = new String[r.hojas.size()];
+                for (int i = 0; i < items.length; i++) {
+                    A1BASES.A33_Sheets.Hoja h = r.hojas.get(i);
+                    items[i] = "↗ " + h.titulo + " · " + miles(h.filas) + " filas\n   " + h.nombre;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("✓ " + r.mensaje)
+                        .setItems(items, (d, i) -> abrirEnlace(r.hojas.get(i).enlace))
+                        .setPositiveButton("Listo", null)
+                        .show();
+            });
+        });
+    }
+
+    private void abrirEnlace(String enlace) {
+        if (enlace == null) {
+            Toast.makeText(requireContext(), "La hoja no trae enlace; ábrela desde Drive.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(enlace)));
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "No se pudo abrir: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

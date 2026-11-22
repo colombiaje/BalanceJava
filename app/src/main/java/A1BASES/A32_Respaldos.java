@@ -448,7 +448,8 @@ public class A32_Respaldos {
         }
     }
 
-    private static Drive servicioDrive(Context context) {
+    // (22-nov) visible en el paquete: también lo usa A33_Sheets.
+    static Drive servicioDrive(Context context) {
         GoogleAccountCredential credencial = GoogleAccountCredential.usingOAuth2(
                 context, Collections.singleton(DriveScopes.DRIVE_FILE))
                 .setSelectedAccountName(CUENTA_GOOGLE);
@@ -1257,7 +1258,7 @@ public class A32_Respaldos {
         }
     }
 
-    private static String celdaCsv(String v) {
+    static String celdaCsv(String v) {
         if (v == null) return "";
         if (v.contains(",") || v.contains("\"") || v.contains("\n") || v.contains("\r")) {
             return "\"" + v.replace("\"", "\"\"") + "\"";
