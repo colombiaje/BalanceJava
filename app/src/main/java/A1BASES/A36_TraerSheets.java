@@ -108,6 +108,7 @@ public class A36_TraerSheets {
     public static List<HojaDrive> listar(Context context) throws Exception {
         Drive drive = A32_Respaldos.servicioDrive(context);
         List<HojaDrive> lista = new ArrayList<>();
+        limpiarHojasSueltas(context, drive);
         // ⭐ (22-nov, Jorge): solo las hojas de este equipo.
         for (String sub : new String[]{A33_Sheets.SUBCARPETA_CORRECCIONES, A33_Sheets.SUBCARPETA_SALDOS}) {
             String idCarpeta = A33_Sheets.carpetaDeEquipo(context, drive, sub);
@@ -139,6 +140,38 @@ public class A36_TraerSheets {
         }
         java.util.Collections.sort(lista, (a, b) -> Long.compare(b.modificada, a.modificada));
         return lista;
+    }
+
+    /**
+     * ⭐ NUEVO (22-nov, Jorge): las hojas de este equipo que quedaron sueltas de versiones
+     * anteriores (en Sheets, Sheets › Correcciones o Sheets › Saldos iniciales, fuera de la carpeta
+     * del equipo) van a la papelera de Drive: así solo queda una hoja por tabla.
+     */
+    private static void limpiarHojasSueltas(Context context, Drive drive) {
+        try {
+            String prefijo = A32_Respaldos.equipo(context) + "_sheets-";
+            String raiz = A33_Sheets.carpetaSheets(context, drive);
+            List<String> carpetas = new ArrayList<>();
+            carpetas.add(raiz);
+            carpetas.add(A33_Sheets.subcarpeta(context, drive, raiz, A33_Sheets.SUBCARPETA_CORRECCIONES));
+            carpetas.add(A33_Sheets.subcarpeta(context, drive, raiz, A33_Sheets.SUBCARPETA_SALDOS));
+            for (String idCarpeta : carpetas) {
+                FileList l = drive.files().list()
+                        .setQ("'" + idCarpeta + "' in parents and mimeType='" + MIME_HOJA + "'"
+                                + " and name contains '" + prefijo + "' and trashed=false")
+                        .setSpaces("drive").setFields("files(id, name)").setPageSize(100).execute();
+                if (l.getFiles() == null) continue;
+                for (com.google.api.services.drive.model.File f : l.getFiles()) {
+                    if (!f.getName().startsWith(prefijo)) continue;
+                    com.google.api.services.drive.model.File papelera = new com.google.api.services.drive.model.File();
+                    papelera.setTrashed(true);
+                    drive.files().update(f.getId(), papelera).execute();
+                    borrarBase(context, f.getId());
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "No se pudieron limpiar las hojas sueltas: " + e.getMessage());
+        }
     }
 
     /** Descarga la primera pestaña de la hoja como CSV y la convierte en filas. */
