@@ -44,6 +44,9 @@ public class A33_Sheets {
 
     private static final String TAG = "A33_Sheets";
     public static final String CARPETA_SHEETS = "Sheets";
+    // ⭐ (22-nov, Jorge): una subcarpeta por opción de "Enviar a Sheets", para no mezclar archivos.
+    public static final String SUBCARPETA_CORRECCIONES = "Correcciones";
+    public static final String SUBCARPETA_SALDOS = "Saldos iniciales";
     private static final String MIME_HOJA = "application/vnd.google-apps.spreadsheet";
     private static final String MIME_CARPETA = "application/vnd.google-apps.folder";
     private static final int MAX_POR_TIPO = 3;
@@ -54,6 +57,33 @@ public class A33_Sheets {
     public static final String TIPO_CUENTAS = "cuentas";
     public static final String TIPO_CATALOGOS = "catalogos";
     public static final String TIPO_SALDOS = "saldos-iniciales";
+
+    // ⭐ NUEVO (22-nov, Jorge): encabezados legibles en las hojas, sin los prefijos técnicos de
+    // la base (c1_, c5_…). La etapa S2 usa este mismo mapa para volver a las columnas reales.
+    // (Pendiente aparte: quitar esos prefijos de los nombres de columna en el código y la base.)
+    public static final java.util.Map<String, String> NOMBRE_LEGIBLE = new java.util.LinkedHashMap<>();
+    static {
+        NOMBRE_LEGIBLE.put("c1_Documento", "Documento");
+        NOMBRE_LEGIBLE.put("c2_ItemDoc", "Ítem documento");
+        NOMBRE_LEGIBLE.put("c5_Valor", "Valor");
+        NOMBRE_LEGIBLE.put("c6_Descripcion", "Descripción");
+        NOMBRE_LEGIBLE.put("c7_FechaYHora", "Fecha y hora");
+        NOMBRE_LEGIBLE.put("c8_FechaInicial", "Fecha inicial");
+        NOMBRE_LEGIBLE.put("c9_FechaModificacion", "Fecha modificación");
+        NOMBRE_LEGIBLE.put("Item", "Ítem");
+        NOMBRE_LEGIBLE.put("codigo_cuenta", "Código cuenta");
+        NOMBRE_LEGIBLE.put("cuenta_seguimiento", "Cuenta seguimiento");
+        NOMBRE_LEGIBLE.put("conciliable", "Conciliable");
+        NOMBRE_LEGIBLE.put("con_inventario", "Con inventario");
+        NOMBRE_LEGIBLE.put("entidad", "Entidad");
+        NOMBRE_LEGIBLE.put("tipo_soporte", "Tipo de soporte");
+    }
+
+    /** Columna real → expresión SQL con su encabezado legible. */
+    private static String columnaLegible(String alias, String col) {
+        String legible = NOMBRE_LEGIBLE.get(col);
+        return alias + ".\"" + col + "\"" + (legible != null ? " AS \"" + legible + "\"" : "");
+    }
 
     public static class Hoja {
         public String titulo = "";
@@ -94,12 +124,12 @@ public class A33_Sheets {
         }
         try {
             Drive drive = A32_Respaldos.servicioDrive(context);
-            String idCarpeta = carpetaSheets(context, drive);
+            String idCarpeta = subcarpeta(context, drive, carpetaSheets(context, drive), SUBCARPETA_CORRECCIONES);
             r.hojas.add(subir(context, drive, idCarpeta, fTrans, TIPO_TRANSACCIONES, "Transacciones", filas[0]));
             r.hojas.add(subir(context, drive, idCarpeta, fCuentas, TIPO_CUENTAS, "Cuentas", filas[1]));
             r.hojas.add(subir(context, drive, idCarpeta, fCatalogos, TIPO_CATALOGOS, "Catálogos (solo consulta)", filas[2]));
             r.ok = true;
-            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS;
+            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS + " › " + SUBCARPETA_CORRECCIONES;
         } catch (Exception e) {
             Log.e(TAG, "No se pudieron subir las hojas", e);
             r.mensaje = "No se pudieron crear las hojas en Drive: " + e.getMessage();
@@ -131,11 +161,11 @@ public class A33_Sheets {
         }
         try {
             Drive drive = A32_Respaldos.servicioDrive(context);
-            String idCarpeta = carpetaSheets(context, drive);
+            String idCarpeta = subcarpeta(context, drive, carpetaSheets(context, drive), SUBCARPETA_SALDOS);
             r.hojas.add(subir(context, drive, idCarpeta, fSaldos, TIPO_SALDOS, "Plantilla de saldos iniciales", filas[0]));
             r.hojas.add(subir(context, drive, idCarpeta, fCatalogos, TIPO_CATALOGOS, "Catálogos (solo consulta)", filas[1]));
             r.ok = true;
-            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS;
+            r.mensaje = "Hojas creadas en Drive › Backups › " + CARPETA_SHEETS + " › " + SUBCARPETA_SALDOS;
         } catch (Exception e) {
             Log.e(TAG, "No se pudo subir la plantilla", e);
             r.mensaje = "No se pudo crear la plantilla en Drive: " + e.getMessage();
@@ -172,7 +202,7 @@ public class A33_Sheets {
         StringBuilder sb = new StringBuilder("SELECT t.transaccion_id");
         for (String col : columnas(db, "transacciones")) {
             if (col.equals("transaccion_id")) continue;
-            sb.append(", t.\"").append(col).append('"');
+            sb.append(", ").append(columnaLegible("t", col));
             if (col.equals("cuenta_id")) sb.append(", c.Cuenta AS \"Cuenta (referencia)\"");
             if (col.equals("tipo_cuenta_id")) sb.append(", tc.nombre AS \"Tipo de cuenta (referencia)\"");
         }
@@ -189,7 +219,7 @@ public class A33_Sheets {
         StringBuilder sb = new StringBuilder("SELECT c.cuenta_id");
         for (String col : columnas(db, "cuentas")) {
             if (col.equals("cuenta_id")) continue;
-            sb.append(", c.\"").append(col).append('"');
+            sb.append(", ").append(columnaLegible("c", col));
             if (col.equals("tipo_cuenta_id")) sb.append(", tc.nombre AS \"Tipo de cuenta (referencia)\"");
             if (col.equals("renglon_renta_id")) {
                 sb.append(", (r.codigo || ' ' || r.nombre) AS \"Renglón renta (referencia)\"");
@@ -240,8 +270,8 @@ public class A33_Sheets {
         long filas = 0;
         try (Writer w = escritor(destino);
              Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta FROM cuentas ORDER BY CAST(Item AS INTEGER), Cuenta", null)) {
-            w.write("c1_Documento,c2_ItemDoc,cuenta_id,Cuenta (referencia),c5_Valor,c6_Descripcion,"
-                    + "c7_FechaYHora,c8_FechaInicial,c9_FechaModificacion\n");
+            w.write("Documento,Ítem documento,cuenta_id,Cuenta (referencia),Valor,Descripción,"
+                    + "Fecha y hora,Fecha inicial,Fecha modificación\n");
             while (c.moveToNext()) {
                 w.write("0," + (siguiente++) + "," + c.getLong(0) + "," + A32_Respaldos.celdaCsv(c.getString(1))
                         + ",,Saldos iniciales," + fechaYHora + "," + fechaInicial + ",n a\n");
@@ -300,30 +330,41 @@ public class A33_Sheets {
 
     /** Carpeta Backups › Sheets (creada por la app; su id se recuerda). */
     private static String carpetaSheets(Context context, Drive drive) throws Exception {
+        return carpeta(context, drive, A32_Respaldos.FOLDER_ID_BACKUPS, CARPETA_SHEETS);
+    }
+
+    /** Subcarpeta de Sheets por opción (Correcciones, Saldos iniciales). */
+    private static String subcarpeta(Context context, Drive drive, String idPadre, String nombre) throws Exception {
+        return carpeta(context, drive, idPadre, nombre);
+    }
+
+    /** Busca (o crea) la carpeta 'nombre' dentro de 'idPadre'; recuerda su id. */
+    private static String carpeta(Context context, Drive drive, String idPadre, String nombre) throws Exception {
         SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String id = sp.getString(CLAVE_CARPETA, null);
+        String clave = CLAVE_CARPETA + "_" + idPadre + "_" + nombre;
+        String id = sp.getString(clave, null);
         if (id != null) {
             try {
                 com.google.api.services.drive.model.File f = drive.files().get(id).setFields("id, trashed").execute();
                 if (f.getTrashed() == null || !f.getTrashed()) return id;
             } catch (Exception e) {
-                Log.w(TAG, "La carpeta Sheets recordada ya no está: " + e.getMessage());
+                Log.w(TAG, "La carpeta " + nombre + " recordada ya no está: " + e.getMessage());
             }
         }
         FileList lista = drive.files().list()
-                .setQ("'" + A32_Respaldos.FOLDER_ID_BACKUPS + "' in parents and mimeType='" + MIME_CARPETA + "'"
-                        + " and name='" + CARPETA_SHEETS + "' and trashed=false")
+                .setQ("'" + idPadre + "' in parents and mimeType='" + MIME_CARPETA + "'"
+                        + " and name='" + nombre + "' and trashed=false")
                 .setSpaces("drive").setFields("files(id)").execute();
         if (lista.getFiles() != null && !lista.getFiles().isEmpty()) {
             id = lista.getFiles().get(0).getId();
         } else {
             com.google.api.services.drive.model.File meta = new com.google.api.services.drive.model.File();
-            meta.setName(CARPETA_SHEETS);
+            meta.setName(nombre);
             meta.setMimeType(MIME_CARPETA);
-            meta.setParents(Collections.singletonList(A32_Respaldos.FOLDER_ID_BACKUPS));
+            meta.setParents(Collections.singletonList(idPadre));
             id = drive.files().create(meta).setFields("id").execute().getId();
         }
-        sp.edit().putString(CLAVE_CARPETA, id).apply();
+        sp.edit().putString(clave, id).apply();
         return id;
     }
 

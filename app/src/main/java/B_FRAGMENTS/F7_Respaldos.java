@@ -593,15 +593,12 @@ public class F7_Respaldos extends Fragment {
     // ⭐ NUEVO (22-nov, Jorge, etapa S1): Enviar a Sheets
     // ─────────────────────────────────────────────────────────────
     private void elegirEnvioASheets() {
-        String[] opciones = {
-                "Transacciones, cuentas y catálogos\n   para corregir registros",
-                "Plantilla de saldos iniciales\n   una fila por cuenta, para llenar el valor"
-        };
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Enviar a Sheets")
-                .setItems(opciones, (d, i) -> enviarASheets(i == 1))
-                .setNegativeButton("Cancelar", null)
-                .show();
+        // ⭐ (22-nov, Jorge): opciones con estilo de menú (botones verdes numerados).
+        A1BASES.A34_MenuOpciones.mostrar(requireContext(), "Enviar a Sheets",
+                new String[]{"Transacciones, cuentas y catálogos", "Plantilla de saldos iniciales"},
+                new String[]{"Para corregir registros. Carpeta Sheets › Correcciones.",
+                        "Una fila por cuenta, para llenar el valor. Carpeta Sheets › Saldos iniciales."},
+                i -> enviarASheets(i == 1));
     }
 
     private void enviarASheets(boolean plantillaSaldos) {
