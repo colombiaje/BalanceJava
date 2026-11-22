@@ -332,7 +332,7 @@ public class A36_TraerSheets {
             if (nuevo[5].isEmpty()) error(a, n, "falta la Fecha y hora.");
             // ⭐ (22-nov, Jorge): la Fecha inicial solo se revisa si es nueva o cambió (hay datos
             // antiguos con 0, que se respetan).
-            boolean fechaIgual = id != null && actual.containsKey(id) && actual.get(id)[6].equals(nuevo[6]);
+            boolean fechaIgual = id != null && actual.containsKey(id) && actual.get(id)[6].trim().equals(nuevo[6]);
             if (!fechaIgual && !nuevo[6].isEmpty() && !"0".equals(nuevo[6])
                     && (entero(nuevo[6]) == null || nuevo[6].length() != 8)) {
                 error(a, n, "la Fecha inicial \"" + nuevo[6] + "\" debe ser AAAAMMDD.");
@@ -359,7 +359,8 @@ public class A36_TraerSheets {
                 ContentValues cv = new ContentValues();
                 StringBuilder det = new StringBuilder();
                 for (int k = 0; k < 8; k++) {
-                    if (!ant[k].equals(nuevo[k])) {
+                    // ⭐ (22-nov): sin contar espacios al inicio o al final (Sheets los quita).
+                    if (!ant[k].trim().equals(nuevo[k])) {
                         ponerTransaccion(cv, COLS_TRANS[k], nuevo[k]);
                         String antTxt = ant[k], nuevoTxt = nuevo[k];
                         if (k == 2) {
@@ -549,7 +550,7 @@ public class A36_TraerSheets {
                 ContentValues cv = new ContentValues();
                 StringBuilder det = new StringBuilder();
                 for (String c : columnas) {
-                    if (!ant.get(c).equals(nuevo.get(c))) {
+                    if (!ant.get(c).trim().equals(nuevo.get(c))) {
                         ponerCuenta(cv, c, nuevo.get(c));
                         if ("tipo_cuenta_id".equals(c)) a.cambiaTipoCuenta = true;
                         det.append(det.length() > 0 ? "; " : "").append(legibleCuenta(c)).append(" ")
