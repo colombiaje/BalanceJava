@@ -36,8 +36,10 @@ import java.util.Locale;
  *    para buscar el id correcto al corregir;
  *  - plantilla de saldos iniciales: una fila por cuenta, con el valor en blanco para llenar.
  *
- * Solo usa la API de Drive (sin la API de Sheets, decisión de Jorge): cada tabla es un archivo;
- * el CSV se sube con conversión a hoja de Google. Se conservan las 3 más recientes por tipo.
+ * Solo usa la API de Drive (sin la API de Sheets, decisión de Jorge): cada tabla es un archivo.
+ * ⭐ (22-nov) Se sube como .xlsx (A35_Xlsx) con conversión a hoja de Google, para llevar la
+ * identidad de la app: encabezado morado, fondo rosado, azul rey en lo fijo, fucsia en lo
+ * editable, fila 1 y columna A inmovilizadas y filtro listo. Se conservan 3 por tipo.
  * La importación de vuelta ("Traer de Sheets", con validación y vista previa) es la etapa S2.
  */
 public class A33_Sheets {
@@ -48,6 +50,7 @@ public class A33_Sheets {
     public static final String SUBCARPETA_CORRECCIONES = "Correcciones";
     public static final String SUBCARPETA_SALDOS = "Saldos iniciales";
     private static final String MIME_HOJA = "application/vnd.google-apps.spreadsheet";
+    private static final String MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String MIME_CARPETA = "application/vnd.google-apps.folder";
     private static final int MAX_POR_TIPO = 3;
     private static final String PREFS = "a33_sheets";
@@ -106,15 +109,21 @@ public class A33_Sheets {
     public static Envio enviarTablas(Context context) {
         Envio r = new Envio();
         File carpeta = carpetaTemporal(context);
-        File fTrans = new File(carpeta, "transacciones.csv");
-        File fCuentas = new File(carpeta, "cuentas.csv");
-        File fCatalogos = new File(carpeta, "catalogos.csv");
+        File fTrans = new File(carpeta, "transacciones.xlsx");
+        File fCuentas = new File(carpeta, "cuentas.xlsx");
+        File fCatalogos = new File(carpeta, "catalogos.xlsx");
         long[] filas = new long[3];
         SQLiteDatabase db = abrirBase(context);
         try {
-            filas[0] = escribirConsulta(db, sqlTransacciones(db), fTrans, null);
-            filas[1] = escribirConsulta(db, sqlCuentas(db), fCuentas, null);
-            filas[2] = escribirCatalogos(db, fCatalogos);
+            A35_Xlsx.Hoja trans = leer(db, sqlTransacciones(db), "Transacciones", EDITABLES_TRANSACCIONES);
+            A35_Xlsx.Hoja cuentas = leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS);
+            List<A35_Xlsx.Hoja> catalogos = hojasCatalogos(db);
+            filas[0] = trans.filas.size();
+            filas[1] = cuentas.filas.size();
+            for (A35_Xlsx.Hoja h : catalogos) filas[2] += h.filas.size();
+            A35_Xlsx.escribir(fTrans, Collections.singletonList(trans));
+            A35_Xlsx.escribir(fCuentas, Collections.singletonList(cuentas));
+            A35_Xlsx.escribir(fCatalogos, catalogos);
         } catch (Exception e) {
             Log.e(TAG, "No se pudieron preparar las hojas", e);
             r.mensaje = "No se pudieron preparar los datos: " + e.getMessage();
@@ -145,13 +154,17 @@ public class A33_Sheets {
     public static Envio enviarPlantillaSaldos(Context context) {
         Envio r = new Envio();
         File carpeta = carpetaTemporal(context);
-        File fSaldos = new File(carpeta, "saldos.csv");
-        File fCatalogos = new File(carpeta, "catalogos.csv");
+        File fSaldos = new File(carpeta, "saldos.xlsx");
+        File fCatalogos = new File(carpeta, "catalogos.xlsx");
         long[] filas = new long[2];
         SQLiteDatabase db = abrirBase(context);
         try {
-            filas[0] = escribirPlantillaSaldos(db, fSaldos);
-            filas[1] = escribirCatalogos(db, fCatalogos);
+            A35_Xlsx.Hoja saldos = hojaPlantillaSaldos(db);
+            List<A35_Xlsx.Hoja> catalogos = hojasCatalogos(db);
+            filas[0] = saldos.filas.size();
+            for (A35_Xlsx.Hoja h : catalogos) filas[1] += h.filas.size();
+            A35_Xlsx.escribir(fSaldos, Collections.singletonList(saldos));
+            A35_Xlsx.escribir(fCatalogos, catalogos);
         } catch (Exception e) {
             Log.e(TAG, "No se pudo preparar la plantilla", e);
             r.mensaje = "No se pudo preparar la plantilla: " + e.getMessage();
@@ -175,6 +188,18 @@ public class A33_Sheets {
         }
         return r;
     }
+
+    // ⭐ (22-nov, Jorge): columnas que el usuario SÍ puede cambiar (texto fucsia en la hoja); las
+    // demás (ids propios y referencias) van en azul rey. Una columna nueva que no esté aquí queda
+    // fija por seguridad. El cuenta_id de una transacción se puede cambiar por otro existente.
+    private static final java.util.Set<String> EDITABLES_TRANSACCIONES = new java.util.HashSet<>(java.util.Arrays.asList(
+            "Documento", "Ítem documento", "Valor", "Descripción", "Fecha y hora", "Fecha inicial",
+            "Fecha modificación", "cuenta_id"));
+    private static final java.util.Set<String> EDITABLES_CUENTAS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "Ítem", "Cuenta", "Fecha", "Código cuenta", "Cerrable", "tipo_cuenta_id", "Cuenta seguimiento",
+            "Conciliable", "Con inventario", "renglon_renta_id", "Entidad", "Tipo de soporte"));
+    private static final java.util.Set<String> EDITABLES_SALDOS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "Valor", "Descripción", "Fecha y hora", "Fecha inicial"));
 
     // ─────────────────────────────────────────────────────────────
     // Consultas
@@ -234,31 +259,45 @@ public class A33_Sheets {
         return sb.toString();
     }
 
-    /** Catálogos para consulta: tres bloques, uno debajo del otro. Devuelve las filas de datos. */
-    private static long escribirCatalogos(SQLiteDatabase db, File destino) throws Exception {
-        long filas = 0;
-        try (Writer w = escritor(destino)) {
-            w.write("CATÁLOGOS (solo consulta: la app no importa este archivo)\n\n");
-            w.write("CUENTAS\n");
-            filas += volcar(db, "SELECT c.cuenta_id, c.Cuenta, tc.nombre AS \"Tipo de cuenta\" FROM cuentas c"
-                    + " LEFT JOIN " + A1_1_AyudanteBD.TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id"
-                    + " ORDER BY c.Cuenta", w);
-            w.write("\nTIPOS DE CUENTA\n");
-            filas += volcar(db, "SELECT tipo_cuenta_id, nombre, naturaleza_normal FROM "
-                    + A1_1_AyudanteBD.TABLE_TIPO_CUENTA + " ORDER BY tipo_cuenta_id", w);
-            w.write("\nRENGLONES DE RENTA (vigentes)\n");
-            filas += volcar(db, "SELECT renglon_id, pais, codigo, nombre, naturaleza FROM "
-                    + A1_1_AyudanteBD.TABLE_RENGLON_RENTA + " WHERE vigente_hasta IS NULL"
-                    + " ORDER BY pais, orden, codigo", w);
+    /** Lee una consulta como pestaña: encabezados, columnas editables y filas. */
+    private static A35_Xlsx.Hoja leer(SQLiteDatabase db, String sql, String nombre, java.util.Set<String> editables) {
+        A35_Xlsx.Hoja h = new A35_Xlsx.Hoja();
+        h.nombre = nombre;
+        try (Cursor c = db.rawQuery(sql, null)) {
+            String[] cols = c.getColumnNames();
+            for (String col : cols) {
+                h.columnas.add(col);
+                h.editable.add(editables != null && editables.contains(col));
+            }
+            while (c.moveToNext()) {
+                String[] fila = new String[cols.length];
+                for (int i = 0; i < cols.length; i++) fila[i] = c.isNull(i) ? "" : c.getString(i);
+                h.filas.add(fila);
+            }
         }
-        return filas;
+        return h;
+    }
+
+    /** Catálogos para consulta: una pestaña por catálogo, todo en azul rey (no se importa). */
+    private static List<A35_Xlsx.Hoja> hojasCatalogos(SQLiteDatabase db) {
+        List<A35_Xlsx.Hoja> hojas = new ArrayList<>();
+        hojas.add(leer(db, "SELECT c.cuenta_id, c.Cuenta, tc.nombre AS \"Tipo de cuenta\" FROM cuentas c"
+                + " LEFT JOIN " + A1_1_AyudanteBD.TABLE_TIPO_CUENTA + " tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id"
+                + " ORDER BY c.Cuenta", "Cuentas", null));
+        hojas.add(leer(db, "SELECT tipo_cuenta_id, nombre AS \"Tipo de cuenta\", naturaleza_normal AS \"Naturaleza\" FROM "
+                + A1_1_AyudanteBD.TABLE_TIPO_CUENTA + " ORDER BY tipo_cuenta_id", "Tipos de cuenta", null));
+        hojas.add(leer(db, "SELECT renglon_id AS renglon_renta_id, pais AS \"País\", codigo AS \"Código\", "
+                + "nombre AS \"Renglón\", naturaleza AS \"Naturaleza\" FROM "
+                + A1_1_AyudanteBD.TABLE_RENGLON_RENTA + " WHERE vigente_hasta IS NULL"
+                + " ORDER BY pais, orden, codigo", "Renglones de renta", null));
+        return hojas;
     }
 
     /**
      * Plantilla de saldos iniciales: documento 0, ítem consecutivo después del último ítem del
-     * documento 0 que ya exista, cuenta, valor en blanco, descripción y fechas de hoy.
+     * documento 0 que ya exista, cuenta, valor en blanco (fucsia), descripción y fechas de hoy.
      */
-    private static long escribirPlantillaSaldos(SQLiteDatabase db, File destino) throws Exception {
+    private static A35_Xlsx.Hoja hojaPlantillaSaldos(SQLiteDatabase db) {
         long siguiente = 1;
         try (Cursor c = db.rawQuery("SELECT MAX(CAST(c2_ItemDoc AS INTEGER)) FROM transacciones "
                 + "WHERE CAST(c1_Documento AS INTEGER) = 0", null)) {
@@ -267,55 +306,21 @@ public class A33_Sheets {
         Date hoy = new Date();
         String fechaYHora = new SimpleDateFormat("yyyy/M/d H:m", Locale.US).format(hoy);
         String fechaInicial = new SimpleDateFormat("yyyyMMdd", Locale.US).format(hoy);
-        long filas = 0;
-        try (Writer w = escritor(destino);
-             Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta FROM cuentas ORDER BY CAST(Item AS INTEGER), Cuenta", null)) {
-            w.write("Documento,Ítem documento,cuenta_id,Cuenta (referencia),Valor,Descripción,"
-                    + "Fecha y hora,Fecha inicial,Fecha modificación\n");
+        A35_Xlsx.Hoja h = new A35_Xlsx.Hoja();
+        h.nombre = "Saldos iniciales";
+        String[] cols = {"Documento", "Ítem documento", "cuenta_id", "Cuenta (referencia)", "Valor", "Descripción",
+                "Fecha y hora", "Fecha inicial", "Fecha modificación"};
+        for (String col : cols) {
+            h.columnas.add(col);
+            h.editable.add(EDITABLES_SALDOS.contains(col));
+        }
+        try (Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta FROM cuentas ORDER BY CAST(Item AS INTEGER), Cuenta", null)) {
             while (c.moveToNext()) {
-                w.write("0," + (siguiente++) + "," + c.getLong(0) + "," + A32_Respaldos.celdaCsv(c.getString(1))
-                        + ",,Saldos iniciales," + fechaYHora + "," + fechaInicial + ",n a\n");
-                filas++;
+                h.filas.add(new String[]{"0", String.valueOf(siguiente++), String.valueOf(c.getLong(0)),
+                        c.getString(1), "", "Saldos iniciales", fechaYHora, fechaInicial, "n a"});
             }
         }
-        return filas;
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // CSV
-    // ─────────────────────────────────────────────────────────────
-
-    private static Writer escritor(File destino) throws Exception {
-        return new OutputStreamWriter(new FileOutputStream(destino), StandardCharsets.UTF_8);
-    }
-
-    private static long escribirConsulta(SQLiteDatabase db, String sql, File destino, String titulo) throws Exception {
-        try (Writer w = escritor(destino)) {
-            if (titulo != null) w.write(titulo + "\n");
-            return volcar(db, sql, w);
-        }
-    }
-
-    /** Escribe encabezado y filas de la consulta; devuelve las filas de datos. */
-    private static long volcar(SQLiteDatabase db, String sql, Writer w) throws Exception {
-        long filas = 0;
-        try (Cursor c = db.rawQuery(sql, null)) {
-            String[] cols = c.getColumnNames();
-            for (int i = 0; i < cols.length; i++) {
-                if (i > 0) w.write(',');
-                w.write(A32_Respaldos.celdaCsv(cols[i]));
-            }
-            w.write('\n');
-            while (c.moveToNext()) {
-                for (int i = 0; i < cols.length; i++) {
-                    if (i > 0) w.write(',');
-                    w.write(c.isNull(i) ? "" : A32_Respaldos.celdaCsv(c.getString(i)));
-                }
-                w.write('\n');
-                filas++;
-            }
-        }
-        return filas;
+        return h;
     }
 
     private static File carpetaTemporal(Context context) {
@@ -368,8 +373,8 @@ public class A33_Sheets {
         return id;
     }
 
-    /** Sube el CSV convertido en hoja de Google y rota a las 3 más recientes de ese tipo y equipo. */
-    private static Hoja subir(Context context, Drive drive, String idCarpeta, File csv, String tipo,
+    /** Sube el .xlsx convertido en hoja de Google y rota a las 3 más recientes de ese tipo y equipo. */
+    private static Hoja subir(Context context, Drive drive, String idCarpeta, File archivo, String tipo,
                               String titulo, long filas) throws Exception {
         String prefijo = A32_Respaldos.equipo(context) + "_sheets-" + tipo + "_";
         String nombre = prefijo + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
@@ -378,7 +383,7 @@ public class A33_Sheets {
         meta.setMimeType(MIME_HOJA);
         meta.setParents(Collections.singletonList(idCarpeta));
         com.google.api.services.drive.model.File creado = drive.files()
-                .create(meta, new FileContent("text/csv", csv))
+                .create(meta, new FileContent(MIME_XLSX, archivo))
                 .setFields("id, name, webViewLink").execute();
         FileList previas = drive.files().list()
                 .setQ("'" + idCarpeta + "' in parents and mimeType='" + MIME_HOJA + "'"
