@@ -404,9 +404,22 @@ public class A36_TraerSheets {
             a.borradas++;
             cambio(a, "Borrada id " + e.getKey() + ": doc " + f[0] + "-" + f[1] + " · " + nombre(cuentas, f[2]) + " · " + f[3]);
         }
-        // Cada documento tocado debe quedar en cero (débitos = créditos). Si ya estaba descuadrado
-        // desde antes (datos antiguos), se acepta solo si su suma no cambia.
+        // ⭐ CAMBIO (22-nov, Jorge): la regla principal es el cuadre TOTAL: la suma de todas las
+        // transacciones debe quedar en cero (positivos = negativos). El documento 0 (saldos
+        // iniciales y saldos de los cierres) no cuadra solo: cuadra con el resto del libro.
+        long totalAntes = 0, totalDespues = 0;
+        for (long x : sumaAntes.values()) totalAntes += x;
+        for (long x : sumaDespues.values()) totalDespues += x;
+        if (totalDespues != 0) {
+            a.errores.add("La hoja no queda cuadrada: todas las transacciones suman " + totalDespues
+                    + " (los positivos deben igualar a los negativos"
+                    + (totalAntes != 0 ? "; en la app suman " + totalAntes : "") + ").");
+        }
+        // Cada documento tocado (menos el 0) debe quedar en cero. Si ya estaba descuadrado desde
+        // antes (datos antiguos), se acepta solo si su suma no cambia.
         for (String doc : documentosTocados) {
+            Long numero = entero(doc);
+            if (numero != null && numero == 0) continue;
             long antes = sumaAntes.containsKey(doc) ? sumaAntes.get(doc) : 0L;
             long despues = sumaDespues.containsKey(doc) ? sumaDespues.get(doc) : 0L;
             if (despues != 0 && despues != antes) {
