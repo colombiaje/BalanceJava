@@ -54,6 +54,10 @@ public class A36_TraerSheets {
         public String nombre;
         public String tipo;
         public long modificada;
+        // ⭐ (22-nov, Jorge): cuántas veces se aplicó esta hoja y cuántos cambios lleva en total
+        // (propiedades del archivo en Drive).
+        public int aplicaciones;
+        public int cambiosTotales;
 
         public String titulo() {
             if (TIPO_TRANSACCIONES.equals(tipo)) return "Transacciones";
@@ -102,7 +106,7 @@ public class A36_TraerSheets {
             String idCarpeta = A33_Sheets.subcarpeta(context, drive, raiz, sub);
             FileList l = drive.files().list()
                     .setQ("'" + idCarpeta + "' in parents and mimeType='" + MIME_HOJA + "' and trashed=false")
-                    .setSpaces("drive").setFields("files(id, name, modifiedTime)")
+                    .setSpaces("drive").setFields("files(id, name, modifiedTime, appProperties)")
                     .setOrderBy("modifiedTime desc").setPageSize(50).execute();
             if (l.getFiles() == null) continue;
             for (com.google.api.services.drive.model.File f : l.getFiles()) {
@@ -116,6 +120,12 @@ public class A36_TraerSheets {
                 h.nombre = n;
                 h.tipo = tipo;
                 h.modificada = f.getModifiedTime() != null ? f.getModifiedTime().getValue() : 0;
+                if (f.getAppProperties() != null) {
+                    Long ap = entero(f.getAppProperties().get(PROP_APLICACIONES));
+                    Long ct = entero(f.getAppProperties().get(PROP_CAMBIOS));
+                    h.aplicaciones = ap == null ? 0 : ap.intValue();
+                    h.cambiosTotales = ct == null ? 0 : ct.intValue();
+                }
                 lista.add(h);
             }
         }
@@ -747,20 +757,46 @@ public class A36_TraerSheets {
         }
     }
 
-    // ⭐ NUEVO (22-nov, Jorge): al aplicar, la hoja queda marcada en Drive para no traerla dos veces.
+    // ⭐ CAMBIO (22-nov, Jorge): al aplicar, la hoja de transacciones o cuentas se pone al día con
+    // la app (misma hoja) y se puede seguir corrigiendo; el nombre y las propiedades llevan la
+    // cuenta de aplicaciones y de cambios. La de saldos iniciales solo se marca.
     public static final String MARCA_APLICADA = " ✓ aplicada ";
+    private static final String PROP_APLICACIONES = "aplicaciones";
+    private static final String PROP_CAMBIOS = "cambios";
 
-    public static void marcarAplicada(Context context, HojaDrive hoja) {
+    /** Devuelve una línea para el resumen final. */
+    public static String actualizarTrasAplicar(Context context, Analisis a) {
+        HojaDrive hoja = a.hoja;
+        int aplicaciones = hoja.aplicaciones + 1;
+        int cambios = hoja.cambiosTotales + a.nuevas + a.modificadas + a.borradas;
+        String base = hoja.nombre.contains(MARCA_APLICADA)
+                ? hoja.nombre.substring(0, hoja.nombre.indexOf(MARCA_APLICADA)) : hoja.nombre;
+        String nombre = base + MARCA_APLICADA + aplicaciones + (aplicaciones == 1 ? " vez" : " veces") + " · "
+                + new java.text.SimpleDateFormat("d MMM HH:mm", new java.util.Locale("es", "CO")).format(new java.util.Date());
+        Map<String, String> props = new HashMap<>();
+        props.put(PROP_APLICACIONES, String.valueOf(aplicaciones));
+        props.put(PROP_CAMBIOS, String.valueOf(cambios));
         try {
-            Drive drive = A32_Respaldos.servicioDrive(context);
-            com.google.api.services.drive.model.File meta = new com.google.api.services.drive.model.File();
-            String base = hoja.nombre.contains(MARCA_APLICADA)
-                    ? hoja.nombre.substring(0, hoja.nombre.indexOf(MARCA_APLICADA)) : hoja.nombre;
-            meta.setName(base + MARCA_APLICADA
-                    + new java.text.SimpleDateFormat("d MMM HH:mm", new java.util.Locale("es", "CO")).format(new java.util.Date()));
-            drive.files().update(hoja.id, meta).execute();
+            if (TIPO_SALDOS.equals(hoja.tipo)) {
+                Drive drive = A32_Respaldos.servicioDrive(context);
+                com.google.api.services.drive.model.File meta = new com.google.api.services.drive.model.File();
+                meta.setName(nombre);
+                meta.setAppProperties(props);
+                drive.files().update(hoja.id, meta).execute();
+                return "La plantilla quedó marcada como aplicada en Drive. Para más saldos, envía una plantilla nueva.";
+            }
+            boolean[] nueva = new boolean[1];
+            A33_Sheets.Hoja h = A33_Sheets.reescribirHoja(context, hoja.id, hoja.tipo, nombre, props, nueva);
+            return nueva[0]
+                    ? "Drive no dejó poner al día la misma hoja: se creó una nueva con los datos de la app"
+                        + " (la anterior fue a la papelera). Ábrela desde Drive › Backups › Sheets."
+                    : "La hoja se puso al día con la app (mismo enlace): puedes seguir corrigiéndola."
+                        + " Lleva " + aplicaciones + (aplicaciones == 1 ? " aplicación" : " aplicaciones")
+                        + " y " + cambios + " cambios. Las pestañas o formatos que agregaste se reemplazaron.";
         } catch (Exception e) {
-            Log.w(TAG, "No se pudo marcar la hoja como aplicada: " + e.getMessage());
+            Log.w(TAG, "No se pudo poner al día la hoja: " + e.getMessage());
+            return "⚠ No se pudo poner al día la hoja en Drive (" + e.getMessage()
+                    + "). Antes de seguir corrigiendo, envía una hoja nueva desde la app.";
         }
     }
 

@@ -150,6 +150,59 @@ public class A33_Sheets {
         return r;
     }
 
+    /**
+     * ⭐ NUEVO (22-nov, Jorge): después de "Traer de Sheets", la MISMA hoja (mismo archivo y
+     * enlace) se reescribe con lo que quedó en la app, para que el usuario siga corrigiendo sobre
+     * datos al día (ids de filas nuevas, borradas fuera). Si Drive no deja reescribirla, se crea
+     * una hoja nueva en la misma carpeta y la vieja va a la papelera.
+     * Devuelve la hoja resultante (enlace) o null si no se pudo; 'nueva' = true si es otra hoja.
+     */
+    public static Hoja reescribirHoja(Context context, String idHoja, String tipo, String nombre,
+                                      java.util.Map<String, String> propiedades, boolean[] nueva) throws Exception {
+        File archivo = new File(carpetaTemporal(context), "refresco.xlsx");
+        long filas;
+        SQLiteDatabase db = abrirBase(context);
+        try {
+            A35_Xlsx.Hoja h = TIPO_CUENTAS.equals(tipo)
+                    ? leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS)
+                    : leer(db, sqlTransacciones(db), "Transacciones", EDITABLES_TRANSACCIONES);
+            filas = h.filas.size();
+            A35_Xlsx.escribir(archivo, Collections.singletonList(h));
+        } finally {
+            db.close();
+        }
+        Drive drive = A32_Respaldos.servicioDrive(context);
+        try {
+            com.google.api.services.drive.model.File meta = new com.google.api.services.drive.model.File();
+            meta.setName(nombre);
+            meta.setAppProperties(propiedades);
+            com.google.api.services.drive.model.File f;
+            try {
+                f = drive.files().update(idHoja, meta, new FileContent(MIME_XLSX, archivo))
+                        .setFields("id, name, webViewLink").execute();
+                nueva[0] = false;
+            } catch (Exception e) {
+                Log.w(TAG, "Drive no dejó reescribir la hoja; se crea una nueva: " + e.getMessage());
+                com.google.api.services.drive.model.File vieja = drive.files().get(idHoja).setFields("parents").execute();
+                meta.setMimeType(MIME_HOJA);
+                meta.setParents(vieja.getParents());
+                f = drive.files().create(meta, new FileContent(MIME_XLSX, archivo))
+                        .setFields("id, name, webViewLink").execute();
+                com.google.api.services.drive.model.File papelera = new com.google.api.services.drive.model.File();
+                papelera.setTrashed(true);
+                drive.files().update(idHoja, papelera).execute();
+                nueva[0] = true;
+            }
+            Hoja r = new Hoja();
+            r.nombre = f.getName();
+            r.enlace = f.getWebViewLink();
+            r.filas = filas;
+            return r;
+        } finally {
+            archivo.delete();
+        }
+    }
+
     /** Una fila por cuenta, con el valor en blanco: para cargar saldos iniciales. */
     public static Envio enviarPlantillaSaldos(Context context) {
         Envio r = new Envio();

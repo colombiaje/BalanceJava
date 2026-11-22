@@ -667,7 +667,9 @@ public class F7_Respaldos extends Fragment {
                 String[] items = new String[fin.size()];
                 for (int i = 0; i < items.length; i++) {
                     A1BASES.A36_TraerSheets.HojaDrive h = fin.get(i);
-                    items[i] = (i == 0 ? "★ " : "") + h.titulo() + " · modificada "
+                    items[i] = (i == 0 ? "★ " : "") + h.titulo()
+                            + (h.aplicaciones > 0 ? " · aplicada " + h.aplicaciones + (h.aplicaciones == 1 ? " vez" : " veces") : "")
+                            + " · modificada "
                             + new SimpleDateFormat("d MMM HH:mm", es).format(new Date(h.modificada)) + "\n   " + h.nombre;
                 }
                 new AlertDialog.Builder(requireContext())
@@ -709,7 +711,7 @@ public class F7_Respaldos extends Fragment {
             if (a.errores.size() > 40) sb.append("… y ").append(a.errores.size() - 40).append(" más.\n");
             new AlertDialog.Builder(requireContext())
                     .setTitle("✗ La hoja tiene " + a.errores.size() + (a.errores.size() == 1 ? " error" : " errores"))
-                    .setMessage(sb.toString())
+                    .setView(vistaConAlerta(a.hoja, sb.toString()))
                     .setPositiveButton("Entendido", null)
                     .show();
             return;
@@ -726,13 +728,47 @@ public class F7_Respaldos extends Fragment {
         StringBuilder sb = new StringBuilder(conteo).append("\n\n");
         for (String c : a.cambios) sb.append("• ").append(c).append('\n');
         if (total > a.cambios.size()) sb.append("… y ").append(total - a.cambios.size()).append(" más.\n");
-        sb.append("\nSe hará: respaldo completo → aplicar los cambios.");
+        sb.append("\nSe hará: respaldo completo → aplicar los cambios → poner la hoja al día.");
         new AlertDialog.Builder(requireContext())
                 .setTitle("Revisa antes de aplicar: " + a.hoja.titulo())
-                .setMessage(sb.toString())
+                .setView(vistaConAlerta(a.hoja, sb.toString()))
                 .setPositiveButton("Aplicar", (d, w) -> aplicarHoja(a))
                 .setNegativeButton("Cancelar", null)
                 .show();
+    }
+
+    /**
+     * ⭐ NUEVO (22-nov, Jorge): si la hoja ya se aplicó antes, una franja de color arriba avisa
+     * cuántas veces y cuántos cambios lleva: la app ya tiene esos cambios y esta traída se
+     * compara contra la app actual.
+     */
+    private View vistaConAlerta(A1BASES.A36_TraerSheets.HojaDrive hoja, String mensaje) {
+        float d = getResources().getDisplayMetrics().density;
+        LinearLayout caja = new LinearLayout(requireContext());
+        caja.setOrientation(LinearLayout.VERTICAL);
+        caja.setPadding((int) (22 * d), (int) (8 * d), (int) (22 * d), 0);
+        if (hoja.aplicaciones > 0) {
+            TextView alerta = new TextView(requireContext());
+            alerta.setText("⚠ Esta hoja ya se aplicó " + hoja.aplicaciones
+                    + (hoja.aplicaciones == 1 ? " vez" : " veces") + " y lleva " + hoja.cambiosTotales
+                    + " cambios en la base de la app. Esta traída se compara contra la app actual y suma más cambios.");
+            alerta.setTextColor(android.graphics.Color.WHITE);
+            alerta.setTextSize(14);
+            alerta.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            alerta.setBackgroundColor(android.graphics.Color.parseColor("#E441F1"));
+            alerta.setPadding((int) (10 * d), (int) (8 * d), (int) (10 * d), (int) (8 * d));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.bottomMargin = (int) (8 * d);
+            caja.addView(alerta, lp);
+        }
+        TextView texto = new TextView(requireContext());
+        texto.setText(mensaje);
+        texto.setTextSize(15);
+        caja.addView(texto);
+        android.widget.ScrollView desplazable = new android.widget.ScrollView(requireContext());
+        desplazable.addView(caja);
+        return desplazable;
     }
 
     private void aplicarHoja(A1BASES.A36_TraerSheets.Analisis a) {
@@ -748,11 +784,12 @@ public class F7_Respaldos extends Fragment {
             } else {
                 try {
                     A1BASES.A36_TraerSheets.aplicar(app, a);
-                    A1BASES.A36_TraerSheets.marcarAplicada(app, a.hoja);
                     A32_Respaldos.Resultado despues = A32_Respaldos.puntoDeRestauracion(app, "despues-" + a.operacion());
                     titulo = "✓ " + a.hoja.titulo() + " traída de Sheets";
                     texto = A32_Respaldos.resumenOperacion(app, a.operacion(), "Traer de Sheets: " + a.hoja.titulo(),
                             antes, despues, A1BASES.A36_TraerSheets.detalle(a));
+                    // ⭐ (22-nov): la hoja se pone al día con la app para seguir corrigiendo.
+                    texto += "\n" + A1BASES.A36_TraerSheets.actualizarTrasAplicar(app, a);
                 } catch (Exception e) {
                     titulo = "✗ No se aplicó nada";
                     texto = "Error al aplicar: " + e.getMessage() + "\n\nLa base quedó como estaba.";
