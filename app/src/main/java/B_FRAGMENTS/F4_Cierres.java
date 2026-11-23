@@ -4,7 +4,6 @@ import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
 import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS;
 import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS;
-import static A1BASES.A9_2_BackupFile.CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
@@ -45,9 +44,7 @@ import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A5_1_BackupManager;
 import android.widget.EditText;
 import A1BASES.A9_2_BackupFile;
-import A1BASES.A6_2_GoogleDriveDownloader;
 import A1BASES.A99_MetodosVarios;
-import A1BASES.A6_5_SheetsDownloader;
 import A2QueryBD.A22_QueryManager;
 import A2QueryBD.A23_QueryResult;
 import D_ADAPTERS.D_F4_AdaptadorTransaccionesCierre;
@@ -58,8 +55,6 @@ import D_ADAPTERS.D_F4_AdaptadorTransaccionesCierre;
  */
 public class F4_Cierres extends Fragment {
 
-    private RadioButton _4_1_opcionSincronizarBalance_desde_Sheets_XRb;
-    private A6_5_SheetsDownloader sheetsDownloader;
     private static final String TAG = "F51_CierresPrincipal";
     private static final String FOLDER_ID_DRIVE = "1_45-JDssinDjj7NOykxAh2xHzRNhuwEJ";
     private static final int DELAY_TOAST_CORTO = 4000;
@@ -68,7 +63,6 @@ public class F4_Cierres extends Fragment {
 
     // Views
     private RadioButton _2_opcionAutonomoTransacciones_XRb;
-    private RadioButton _4_2_opcion_Importar_Balance_desde_Sheets_XRb;
     private RadioButton _3_opcionTransaccionesAlgunasCuentas_XRb;
     private RadioButton opcionSaleDeLaApp_XRb;
     private ListView todasLasTransacciones_XLv;
@@ -89,7 +83,6 @@ public class F4_Cierres extends Fragment {
     private A1_1_AyudanteBD ayudante_Class;
     private A6_3_CSVDriveUploader csvDriveUploader;
 
-    private A6_2_GoogleDriveDownloader driveDownloader;
 
     // Data statics
     public static Integer[] dateCurrent_ArrayInteger;
@@ -156,7 +149,6 @@ public class F4_Cierres extends Fragment {
      */
     private void inicializarViews(View view) {
         _2_opcionAutonomoTransacciones_XRb = view.findViewById(R.id._2_opcionAutonomoTransacciones_XRb);
-        _4_2_opcion_Importar_Balance_desde_Sheets_XRb = view.findViewById(R.id._4_2_opcion_Importar_Balance_desde_Sheets_XRb);
         // ⭐ NUEVO (3-nov, renta R4, pedido de Jorge): "6. Reporte renta fiscal".
         RadioButton _6_opcionReporteRentaFiscal_XRb = view.findViewById(R.id._6_opcionReporteRentaFiscal_XRb);
         _6_opcionReporteRentaFiscal_XRb.setOnClickListener(v -> {
@@ -175,7 +167,6 @@ public class F4_Cierres extends Fragment {
         consultaPorCuentaYFechaEnOtroFragment_XSp = view.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
 
         envolventeEncabezado_XLl.setVisibility(View.INVISIBLE);
-        _4_1_opcionSincronizarBalance_desde_Sheets_XRb = view.findViewById(R.id._4_1_opcionSincronizarBalance_desde_Sheets_XRb);
     }
 
     /**
@@ -188,10 +179,11 @@ public class F4_Cierres extends Fragment {
     private void configurarListeners() {
         _2_configurarListener_OpcionAutonomo();
         _3_configurarListener_OpcionAlgunasCuentas();
-        _4_2_configurarListener_OpcionSaldosIniciales();
+        // ⭐ RETIRADAS (23-nov, Jorge, S3): 3.1 Sincronizar Balance desde Sheets y 3.2 Importar
+        // Balance desde Sheets (hoja fija compartida + CSV 441). Las reemplazan Respaldos › Enviar
+        // a Sheets y Traer de Sheets. El reporte de renta pasa a ser la opción 3.
         configurarListener_SpinnerCuentas();
         configurarListener_SalirApp();
-        _4_1_configurarListener_SincronizarSheets();
     }
     
 
@@ -1084,236 +1076,12 @@ public class F4_Cierres extends Fragment {
     
 //INICIO MÉTODOS OPCIÓN 4
 
-    /**
-     * Configura listener para botón de sincronización con Sheets
-     */
-    private void _4_1_configurarListener_SincronizarSheets() {
-        _4_1_opcionSincronizarBalance_desde_Sheets_XRb.setOnClickListener(v -> {
-            _7_limpiarLista();
-            mensajeInformativo_XTv.setText("0");
-            opcionActualCierre_XTv.setText("");
-            opcionActualCierre_XTv.setText(_4_1_opcionSincronizarBalance_desde_Sheets_XRb.getText().toString());
-
-            // ⭐ CAMBIO (21-nov, Jorge): sin diálogo de confirmación (no borra nada: descarga el
-            // archivo de Sheets; la versión anterior queda en Balance/Historial).
-            _4_1_iniciarSincronizacionSheets();
-        });
-    }
     
-    private void _4_2_configurarListener_OpcionSaldosIniciales() {
-        _4_2_opcion_Importar_Balance_desde_Sheets_XRb.setOnClickListener(v -> {
-            _7_limpiarLista();
-            mensajeInformativo_XTv.setText("0");
-            opcionActualCierre_XTv.setText(_4_2_opcion_Importar_Balance_desde_Sheets_XRb.getText().toString());
-            _4_2_buscarArchivosYElegir();
-        });
-    }
 
-    // ⭐ CAMBIO (21-nov, Jorge): UN diálogo con los archivos de este equipo y de Drive juntos
-    // (antes: elegir origen → lista → confirmar). El respaldo "antes" se hace al confirmar, no al
-    // tocar la opción (antes quedaba un respaldo huérfano si se cancelaba).
-    private void _4_2_buscarArchivosYElegir() {
-        final android.app.ProgressDialog espera = new android.app.ProgressDialog(getActivity());
-        espera.setMessage("Buscando archivos de Sheets…");
-        espera.setCancelable(false);
-        espera.show();
-        driveDownloader = new A6_2_GoogleDriveDownloader(getActivity(), FOLDER_ID_DRIVE);
-        driveDownloader.listarArchivos("441_transacciones", new A6_2_GoogleDriveDownloader.OnFilesListedListener() {
-            @Override
-            public void onFilesListed(List<A6_2_GoogleDriveDownloader.DriveFileInfo> archivos) {
-                if (espera.isShowing()) espera.dismiss();
-                _4_2_dialogoImportar(archivos, null);
-            }
 
-            @Override
-            public void onError(String error) {
-                if (espera.isShowing()) espera.dismiss();
-                _4_2_dialogoImportar(null, error);
-            }
-        });
-    }
 
-    private void _4_2_dialogoImportar(List<A6_2_GoogleDriveDownloader.DriveFileInfo> enDrive, String errorDrive) {
-        if (!isAdded() || getActivity() == null) return;
-        File local = archivoLocalBalance(CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName());
-        List<Object> opciones = new ArrayList<>();
-        List<String> textos = new ArrayList<>();
-        if (local.exists() && local.length() > 0) {
-            opciones.add(local);
-            textos.add("Este equipo · " + new java.text.SimpleDateFormat("d MMM yyyy HH:mm", new java.util.Locale("es", "CO"))
-                    .format(new java.util.Date(local.lastModified())) + " · " + (local.length() / 1024) + " KB");
-        }
-        if (enDrive != null) {
-            for (A6_2_GoogleDriveDownloader.DriveFileInfo f : enDrive) {
-                opciones.add(f);
-                textos.add("Drive · " + f.nombre);
-            }
-        }
-        if (opciones.isEmpty()) {
-            new AlertDialog.Builder(getActivity())
-                    .setTitle("No hay archivo para importar")
-                    .setMessage("No se encontró el archivo de Sheets (441) en este equipo ni en Drive."
-                            + (errorDrive != null ? "\n\nDrive: " + errorDrive : "")
-                            + "\n\nUsa primero la opción 3.1 (Sincronizar Balance desde Sheets).")
-                    .setPositiveButton("Entendido", null)
-                    .show();
-            return;
-        }
-        int pad = (int) (22 * getResources().getDisplayMetrics().density);
-        LinearLayout caja = new LinearLayout(getActivity());
-        caja.setOrientation(LinearLayout.VERTICAL);
-        caja.setPadding(pad, pad / 2, pad, 0);
-        TextView info = new TextView(getActivity());
-        info.setTextSize(15);
-        info.setText("Hoy: " + miles(_7verNumeroDeTransacciones()) + " transacciones. Se reemplazan TODAS por las del archivo elegido."
-                + (errorDrive != null ? "\n⚠ Drive no disponible: " + errorDrive : "")
-                + "\n\nArchivo:");
-        RadioGroup grupo = new RadioGroup(getActivity());
-        for (int i = 0; i < textos.size(); i++) {
-            RadioButton rb = new RadioButton(getActivity());
-            rb.setId(i + 1);
-            rb.setText(textos.get(i));
-            rb.setTextSize(14);
-            grupo.addView(rb);
-        }
-        grupo.check(1);
-        TextView pasos = new TextView(getActivity());
-        pasos.setTextSize(14);
-        pasos.setText("\nSe hará: respaldo completo → borrar las transacciones → importar el archivo.");
-        caja.addView(info);
-        caja.addView(grupo);
-        caja.addView(pasos);
-        android.widget.ScrollView desplazable = new android.widget.ScrollView(getActivity());
-        desplazable.addView(caja);
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Importar Balance desde Sheets")
-                .setView(desplazable)
-                .setCancelable(false)
-                .setPositiveButton("Importar", (d, w) -> {
-                    Object elegido = opciones.get(Math.max(0, grupo.getCheckedRadioButtonId() - 1));
-                    if (!respaldoPrevioOk("sheets-transacciones")) return;
-                    if (elegido instanceof File) {
-                        _4_2_importarLocal((File) elegido);
-                    } else {
-                        _4_2_descargarYRestaurarDesdeGoogleDrive((A6_2_GoogleDriveDownloader.DriveFileInfo) elegido);
-                    }
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
-    }
 
-    private void _4_2_importarLocal(File archivo) {
-        try {
-            _7borrarHistorialTransacciones("transacciones");
-            importarTransaccionesDesdeArchivo(archivo);
-            _7verNumeroDeTransacciones();
-            _7verTransaccionesAdaptadorColumnas();
-            cerrarOperacion("Importar Balance desde Sheets", "Archivo: " + archivo.getName() + " (este equipo)", true, true);
-        } catch (Exception e) {
-            Log.e(TAG, "Error al importar desde local: " + e.getMessage(), e);
-            Toast.makeText(getActivity(), "Error al importar: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
 
-    /**
-     * Descarga archivo de Drive y ejecuta restauración
-     */
-    private void _4_2_descargarYRestaurarDesdeGoogleDrive(A6_2_GoogleDriveDownloader.DriveFileInfo archivo) {
-        Log.d(TAG, "=== INICIANDO DESCARGA DESDE DRIVE ===");
-        Log.d(TAG, "Archivo ID: " + archivo.id);
-        Log.d(TAG, "Archivo nombre: " + archivo.nombre);
-
-        final android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(getActivity());
-        progressDialog.setMessage("Descargando desde Drive...\n\nPor favor espere");
-        progressDialog.setProgressStyle(android.app.ProgressDialog.STYLE_SPINNER);
-        progressDialog.setCancelable(false);
-        progressDialog.show();
-
-        driveDownloader.descargarArchivo(archivo.id, archivo.nombre,
-                new A6_2_GoogleDriveDownloader.OnFileDownloadedListener() {
-                    @Override
-                    public void onFileDownloaded(String localPath) {
-                        Log.d(TAG, "✓ Descarga exitosa: " + localPath);
-
-                        progressDialog.setMessage("Restaurando transacciones...\n\nÚltimo paso");
-
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            try {
-                                // ⭐ E0 (17-nov): descarga bien → ahora sí se borra y se importa.
-                                _7borrarHistorialTransacciones("transacciones");
-                                _4_ejecutarRestauracionDesdeArchivoLocal(localPath);
-
-                                if (progressDialog.isShowing()) {
-                                    progressDialog.dismiss();
-                                }
-
-                                Log.d(TAG, "=== RESTAURACIÓN COMPLETADA ===");
-                                // ⭐ (21-nov): un solo diálogo final (sin el aviso verde aparte).
-                                cerrarOperacion("Importar Balance desde Sheets", "Archivo: " + archivo.nombre + " (Drive)", true, true);
-
-                            } catch (Exception e) {
-                                if (progressDialog.isShowing()) {
-                                    progressDialog.dismiss();
-                                }
-                                Log.e(TAG, "Error en restauración: " + e.getMessage(), e);
-                                Toast.makeText(getActivity(),
-                                        "Error en restauración: " + e.getMessage(),
-                                        Toast.LENGTH_LONG).show();
-                            }
-                        }, 800);
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        if (progressDialog.isShowing()) {
-                            progressDialog.dismiss();
-                        }
-                        Log.e(TAG, "Error al descargar: " + error);
-                        operacionEnCurso = null;
-                        if (getActivity() != null) {
-                            new AlertDialog.Builder(getActivity())
-                                    .setTitle("No se pudo descargar")
-                                    .setMessage(error + "\n\nNo se borró nada.")
-                                    .setPositiveButton("Entendido", null)
-                                    .show();
-                        }
-                    }
-                });
-    }
-
-    /**
-     * Ejecuta restauración desde archivo local
-     */
-    private void _4_ejecutarRestauracionDesdeArchivoLocal(String rutaArchivo) {
-        Log.d(TAG, "=== EJECUTANDO RESTAURACIÓN LOCAL ===");
-        Log.d(TAG, "Ruta: " + rutaArchivo);
-
-        try {
-            dynamicQuery();
-
-            long transaccionesActuales = todasLasTransacciones_Result_List.size();
-            Log.d(TAG, "Transacciones antes de borrar: " + transaccionesActuales);
-
-            // Importar desde archivo descargado
-            // ⭐ E0 (17-nov): se importa EXACTAMENTE el archivo descargado.
-            File archivo = new File(rutaArchivo);
-            Log.d(TAG, "Importando desde: " + archivo.getAbsolutePath());
-
-            importarTransaccionesDesdeArchivo(archivo);
-
-            // Actualizar vista
-            _7verNumeroDeTransacciones();
-            _7verTransaccionesAdaptadorColumnas();
-
-            Log.d(TAG, "Transacciones después de restaurar: " + _7verNumeroDeTransacciones());
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error al restaurar: " + e.getMessage(), e);
-            Toast.makeText(getActivity(),
-                    "Error al restaurar: " + e.getMessage(),
-                    Toast.LENGTH_SHORT).show();
-        }
-    }
 
 //FIN MÉTODOS OPCIÓN 4
 
@@ -1321,107 +1089,7 @@ public class F4_Cierres extends Fragment {
 // INICIO PROCESO CON SHEETS
 // ==================== MÉTODOS OPCIÓN 6: SINCRONIZAR DESDE SHEETS ====================
 
-    /**
-     * Inicia proceso de sincronización desde Sheets
-     */
-    private void _4_1_iniciarSincronizacionSheets() {
-        // Mostrar diálogo de progreso
-        final android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(getActivity());
-        progressDialog.setTitle("Sincronizando");
-        progressDialog.setMessage("Descargando desde Google Sheets...\n\nPor favor espere");
-        progressDialog.setProgressStyle(android.app.ProgressDialog.STYLE_SPINNER);
-        progressDialog.setCancelable(false);
-        progressDialog.show();
 
-        // ID de tu archivo Sheets
-        //String sheetsId = "1fxxl97K0Mt1-sWQ9pDZ6k6qMuvL3g9ksg3gNszqwWBo";// anterior que borre en sheets
-        String sheetsId = "1jw1CNS7agSTV8-hQWGE9SGsQWyV3Wd_Jvf2tr0CiU-c";
-        //String nombreArchivo = "440 Backup Balance_desde_Sheets.csv";
-        String nombreArchivo = CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName();
-        //String SheetsAApp = "balance_sheets_a_app";
-
-        Log.d(TAG, "=== INICIANDO SINCRONIZACIÓN SHEETS ===");
-        Log.d(TAG, "Sheets ID: " + sheetsId);
-        Log.d(TAG, "Archivo destino: " + nombreArchivo);
-
-        // Descargar desde Sheets
-        sheetsDownloader.descargarCSV(sheetsId, nombreArchivo,
-                 new A6_5_SheetsDownloader.OnDownloadListener() {
-
-                    @Override
-                    public void onDownloadSuccess(String rutaLocal, int numLineas) {
-                        Log.d(TAG, "✓ Descarga exitosa: " + rutaLocal);
-                        Log.d(TAG, "✓ Líneas (registros): " + numLineas);
-
-                        // Cambiar mensaje del diálogo
-                        progressDialog.setMessage("Subiendo a Google Drive...\n\nÚltimo paso");
-
-                        // Delay para mostrar mensaje
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            try {
-                                // Subir a Drive con rotación (mantener últimos 5)
-                                A6_3_CSVDriveUploader.guardarYSubirTransacciones(
-                                        requireContext(),
-                                        nombreArchivo,
-                                        FOLDER_ID_DRIVE,
-                                        5
-                                );
-
-                                Log.d(TAG, "✓ Archivo subido a Drive");
-
-                                // Delay antes de cerrar diálogo
-                                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                                    progressDialog.dismiss();
-                                    _6mostrarResultadoSincronizacion(numLineas, rutaLocal);
-                                }, 1500);
-
-                            } catch (Exception e) {
-                                progressDialog.dismiss();
-                                Log.e(TAG, "Error al subir a Drive: " + e.getMessage(), e);
-                                Toast.makeText(getActivity(),
-                                        "Error al subir a Drive: " + e.getMessage(),
-                                        Toast.LENGTH_LONG).show();
-                            }
-                        }, 800);
-                    }
-
-                    @Override
-                    public void onDownloadError(String error) {
-                        progressDialog.dismiss();
-                        Log.e(TAG, "✗ Error en descarga: " + error);
-
-                        new AlertDialog.Builder(getActivity())
-                                .setTitle("Error en sincronización")
-                                .setMessage("No se pudo descargar desde Sheets:\n\n" + error + "\n\n" +
-                                        "Verifica:\n" +
-                                        "• Conexión a internet\n" +
-                                        "• Permisos del archivo en Sheets\n" +
-                                        "• El archivo está compartido con 'Cualquiera con el enlace'")
-                                .setPositiveButton("Entendido", null)
-                                .show();
-                    }
-                });
-    }
-
-    /**
-     * Muestra resultado exitoso de la sincronización
-     */
-    private void _6mostrarResultadoSincronizacion(int numRegistros, String rutaLocal) {
-        String nombreArchivo = CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED.getFileName();
-        String infoArchivo = A6_5_SheetsDownloader.obtenerInfoArchivo(nombreArchivo);
-        // ⭐ CAMBIO (21-nov, Jorge): un solo diálogo al terminar, con atajo a la opción 3.2.
-        new AlertDialog.Builder(getActivity())
-                .setTitle("✓ Balance descargado de Sheets")
-                .setMessage("Registros: " + numRegistros + "\n" + infoArchivo
-                        + "\nGuardado en /Balance/ y subido a Drive.")
-                .setPositiveButton("Importar ahora (3.2)", (d, w) -> {
-                    opcionActualCierre_XTv.setText(_4_2_opcion_Importar_Balance_desde_Sheets_XRb.getText().toString());
-                    _4_2_buscarArchivosYElegir();
-                })
-                .setNegativeButton("Listo", null)
-                .show();
-        Log.d(TAG, "=== SINCRONIZACIÓN COMPLETADA ===");
-    }
 
 // FIN MÉTODOS OPCIÓN 6
 
@@ -1530,7 +1198,6 @@ public class F4_Cierres extends Fragment {
         metodosVarios_Class = new A99_MetodosVarios(getActivity());
         dateCurrent_ArrayInteger = metodosVarios_Class.fechasYHoras();
         csvDriveUploader = new A6_3_CSVDriveUploader();
-        sheetsDownloader = new A6_5_SheetsDownloader(getActivity());
 
         // Crear bitmaps para botones (si es necesario)
         A99_MetodosVarios llamarA9 = new A99_MetodosVarios(getActivity());

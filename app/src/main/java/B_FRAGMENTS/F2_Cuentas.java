@@ -4,7 +4,6 @@ import static A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF;
 import static A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF;
 import static A1BASES.A1_1_AyudanteBD.TABLE_CATALOGO_GRUPO1;
 import static A1BASES.A1_1_AyudanteBD.TABLE_CATALOGO_GRUPO2;
-import static A1BASES.A9_2_BackupFile.CSV_ACCOUNTS_SHEETS_SYNCHRONIZED;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -95,9 +94,7 @@ import A1BASES.A19_AyudaTipoCuenta;
 import A1BASES.A3_1_TipoCuentasGetsYSets;
 import A1BASES.A3_2_TipoTransaccionesGetsYSets;
 import A1BASES.A5_1_BackupManager;
-import A1BASES.A6_2_GoogleDriveDownloader;
 import A1BASES.A6_3_CSVDriveUploader;
-import A1BASES.A6_5_SheetsDownloader;
 import A1BASES.A99_MetodosVarios;
 import A2QueryBD.A22_QueryManager;
 import A2QueryBD.A23_QueryResult;
@@ -106,7 +103,6 @@ import D_ADAPTERS.D_F2_AdaptadorCuentas;
 
 public class F2_Cuentas extends DialogFragment {
 
-    RadioButton _2_1_opcionSincronizarCuentasDesdeSheets_XRb;
     // ==================== CONSTANTES NUEVAS ====================
     private static final String TAG = "F2_Cuentas";
     private static final String FOLDER_ID_DRIVE = "1jrcnKozSB2okTStCaPyxkGz39GwBKL_y";;
@@ -115,8 +111,6 @@ public class F2_Cuentas extends DialogFragment {
     private static final int DELAY_SUBIDA_DRIVE = 2500;
 
     // Nuevas variables para Drive y Sheets
-    private A6_2_GoogleDriveDownloader driveDownloader;
-    private A6_5_SheetsDownloader sheetsDownloader;
 
     //declaracion de objetos y variables
 
@@ -206,7 +200,6 @@ public class F2_Cuentas extends DialogFragment {
     CheckBox verCuentas_XChb;
     CheckBox verBackupsYCierres_XChb;
     RadioGroup OpcionesCierre_XRg;
-    RadioButton _2_2_opcionImportarCuentasGoogleSheets_XRb;
     TextView mensajeInformativo_XTv;
     TextView opcionActualCierre_XTv;
     String nombreArchivo_String;
@@ -571,7 +564,6 @@ public class F2_Cuentas extends DialogFragment {
         areaTituloBackupsYCierreXTv = (TextView) inflarViews_View.findViewById(R.id.areaTituloBackupsYCierreXTv);
         verCuentas_XChb = (CheckBox) inflarViews_View.findViewById(R.id.verCuentas_XChb);
         OpcionesCierre_XRg = (RadioGroup) inflarViews_View.findViewById(R.id.OpcionesCierre_XRg);
-        _2_2_opcionImportarCuentasGoogleSheets_XRb = (RadioButton) inflarViews_View.findViewById(R.id._2_2_opcionImportarCuentasGoogleSheets_XRb);
         //areaDocumento_XGl = (GridLayout) inflarViews_View.findViewById(R.id.areaDocumento_XGl);
         mensajeInformativo_XTv= (TextView)inflarViews_View.findViewById(R.id.mensajeInformativo_XTv);
         opcionActualCierre_XTv= (TextView)inflarViews_View.findViewById(R.id.opcionActualCierre_XTv);
@@ -779,25 +771,9 @@ public class F2_Cuentas extends DialogFragment {
         // ⭐ RETIRADAS (21-nov, Jorge): las antiguas opciones 1. Backup (CSV 211) y 3. Restaurar
         // backup (CSV 211). Respaldar y restaurar se hacen solo en la pantalla Respaldos, siempre
         // con la copia completa .db. Se renumeró: 1 y 2 Sheets, 3 renta.
-
-        _2_2_opcionImportarCuentasGoogleSheets_XRb.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                mensajeInformativo_XTv.setText("0");
-
-                dialogoCierreCuentas();
-
-                opcionActualCierre_XTv.setText(""+_2_2_opcionImportarCuentasGoogleSheets_XRb.getText());
-                //mensajeInformativo_XTv.setText(""+queryAzAllAccounts_Result_ArrayList.size());//? Revisar
-
-
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    Toast.makeText(getActivity(), "Backup local, en Drive y Cuentas restauradas de Sheets", Toast.LENGTH_SHORT).show();
-
-                }, 6000); // 5 segundos
-            }
-        });
+        // ⭐ RETIRADAS (23-nov, Jorge, S3): 1. Sincronizar Cuentas con Sheets y 2. Importar de
+        // Sheets (hoja fija compartida + CSV 221). Las reemplazan Respaldos › Enviar a Sheets y
+        // Traer de Sheets. Queda 1. Configuración renta fiscal.
 
         // ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): "4. Configuración renta fiscal".
         _4_opcionConfiguracionRentaFiscal_XRb = (RadioButton) inflarViews_View.findViewById(R.id._4_opcionConfiguracionRentaFiscal_XRb);
@@ -914,28 +890,6 @@ public class F2_Cuentas extends DialogFragment {
         setCheckBoxListeners();
 
         emulateAttributesAccount_XAct.setText("");
-
-        _2_1_opcionSincronizarCuentasDesdeSheets_XRb =
-                (RadioButton) inflarViews_View.findViewById(R.id._2_1_opcionSincronizarCuentasDesdeSheets_XRb);
-
-        // Nuevos helpers
-        driveDownloader = new A6_2_GoogleDriveDownloader(getActivity(), FOLDER_ID_DRIVE);
-        sheetsDownloader = new A6_5_SheetsDownloader(getActivity());
-
-        _2_1_opcionSincronizarCuentasDesdeSheets_XRb.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mensajeInformativo_XTv.setText("0");
-                opcionActualCierre_XTv.setText("");
-                opcionActualCierre_XTv.setText(_2_1_opcionSincronizarCuentasDesdeSheets_XRb.getText().toString());
-
-                _2_1_dialogoConfirmarSincronizacion();
-
-                _2_2_opcionImportarCuentasGoogleSheets_XRb.setChecked(false);
-            }
-        });
-
-        _2_1_opcionSincronizarCuentasDesdeSheets_XRb = (RadioButton) inflarViews_View.findViewById(R.id._2_1_opcionSincronizarCuentasDesdeSheets_XRb);
 
         if (calculadoraLibre_XBt != null) {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());
@@ -2253,334 +2207,20 @@ public class F2_Cuentas extends DialogFragment {
         }
     }
 
-    public void pedirPermisoAlDispositivo () {
-        // PERMISOS PARA ANDROID 6 O SUPERIOR
-        if(ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
 
-            ActivityCompat.requestPermissions(getActivity(), new String[]
-                            {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    0);
-        }
-    }
 
-    private long verNumeroDeRegistrosCuentas () {
-        A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF,null, version1BalanceSqlite_int_PSF);
-        SQLiteDatabase sqLiteDataBase_Abstracta = ayudanteBD_Class.getReadableDatabase();
-        long numeroDeRegistros_Long= DatabaseUtils.queryNumEntries(sqLiteDataBase_Abstracta,"cuentas");
-        sqLiteDataBase_Abstracta.close();
-        // NUEVO LOG
-        return  numeroDeRegistros_Long;
-    }
 
-    public void borrarHistorialCuentas (String tablaX_String) {
-        A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,  version1BalanceSqlite_int_PSF);
-        SQLiteDatabase sqliteDatabase_Abstracta = ayudanteBD_Class.getWritableDatabase();
-        // ⭐ NUEVO — fix v8 (bug preexistente, corregido aparte de la v10 a pedido explícito):
-        // si se va a vaciar por completo "cuentas", primero hay que soltar las referencias de
-        // transacciones.cuenta_id hacia esas filas — si no, el DELETE de abajo choca contra la
-        // FK (activa desde v8) apenas alguna transacción siga apuntando a una cuenta existente.
-        // Los 3 flujos que llaman a este método con "cuentas" (Sheets, backup local, Drive)
-        // reinsertan "cuentas" completa justo después, y ya cada uno reempareja las referencias
-        // por nombre al terminar — ver A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre().
-        if ("cuentas".equals(tablaX_String)) {
-            A1_2_OperacionesBD.limpiarReferenciasCuentaId(sqliteDatabase_Abstracta);
-            // ⭐ NUEVO — fix restauración (30-oct): los 3 flujos que vacían "cuentas" (Sheets,
-            // backup local, Drive) la reinsertan justo después desde un CSV cuyas cuentas traen
-            // tipo_cuenta_id. Si tipo_cuenta está vacía (instalación nueva), se siembra el
-            // catálogo definitivo para que esas filas no choquen con la FK. No hace nada si
-            // tipo_cuenta ya tiene datos — ver A1_1_AyudanteBD.asegurarCatalogoTipoCuenta().
-            A1_1_AyudanteBD.asegurarCatalogoTipoCuenta(sqliteDatabase_Abstracta);
-            // ⭐ NUEVO (31-oct): se reinicia la marca de formato antiguo para esta restauración
-            // (ver insertarCuenta() y repararReferenciasCuentaIdTrasRestaurarCuentas()).
-            restauracionConBackupFormatoAntiguo = false;
-            gruposFormatoAntiguo.clear(); // ⭐ (9-nov)
-            // ⭐ NUEVO (1-nov): los artículos de inventario impiden borrar sus cuentas (FK
-            // RESTRICT, cuenta_id NOT NULL) — se respalda su vínculo por nombre y se borra con
-            // las FK apagadas solo en esta conexión; se reapuntan al terminar (ver
-            // repararReferenciasCuentaIdTrasRestaurarCuentas()).
-            A1_2_OperacionesBD.respaldarVinculoArticulos(sqliteDatabase_Abstracta);
-            A1_2_OperacionesBD.borrarCuentasSinRestriccionDeArticulos(sqliteDatabase_Abstracta);
-            return;
-        }
-        A1_2_OperacionesBD.borrarRegistros(tablaX_String, sqliteDatabase_Abstracta);
-        // NUEVO LOG
-    }
 
-    // ⭐ NUEVO — fix v8: completa, del lado de "después", el fix de borrarHistorialCuentas()
-    // de arriba. Se llama al terminar de reinsertar "cuentas" completa en cada uno de los 3
-    // flujos de restauración (Sheets, backup local, Drive).
-    //
-    // ⭐ AMPLIADO — fix v8 (parte 2): además de reemparejar transacciones.cuenta_id por nombre,
-    // ahora también repara la clasificación de la v10 que los 3 flujos pierden al reinsertar
-    // "cuentas" (insertarCuenta() y los otros dos insert loops no traen tipo_cuenta_id ni
-    // cuenta_seguimiento del CSV — eso llega con la unificación de la tanda 2). Confirmado por
-    // Logcat: sin esto, cualquier restauración completa deja el panel de Indicadores en cero.
-    // Ninguna de las dos reparaciones es una migración versionada — se pueden repetir tantas
-    // veces como se restaure, sin duplicar ni dañar nada (ver
-    // A1_1_AyudanteBD.repararTipoCuentaDeCuentasSinClasificar()).
-    private void repararReferenciasCuentaIdTrasRestaurarCuentas(String origenRestauracion) {
-        try {
-            A1_1_AyudanteBD ayudanteBD_Class = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
-            SQLiteDatabase sqliteDatabase_Abstracta = ayudanteBD_Class.getWritableDatabase();
 
-            // 1) Reclasificar por Grupo1/Grupo2 toda cuenta que haya quedado con tipo_cuenta_id
-            //    NULL (mismo backfill que la migración v9, reutilizado — ver el método).
-            // ⭐ NUEVO (31-oct): si la restauración vino de un CSV en formato ANTIGUO (sin la
-            // columna tipo_cuenta_nombre), sus tipo_cuenta_id son del catálogo provisional
-            // (1..9) y hoy significan otra cosa — se reclasifican por nombre de cuenta.
-            String avisoClasificacion = null;
-            if (restauracionConBackupFormatoAntiguo) {
-                int sinTipo = A1_1_AyudanteBD.reclasificarCuentasDesdeCatalogoProvisional(sqliteDatabase_Abstracta);
-                Log.w(TAG, "Restauración (" + origenRestauracion + ") desde backup en formato " +
-                        "antiguo: cuentas reclasificadas al catálogo definitivo; sin tipo: " + sinTipo);
-                // ⭐ NUEVO (9-nov, Jorge): las que no están en la tabla por nombre se clasifican
-                // por su Grupo1/Grupo2 del CSV; se avisa cuáles, para revisarlas en F2.
-                java.util.List<String> porGrupos = new java.util.ArrayList<>();
-                java.util.List<String> sinTipoNombres = new java.util.ArrayList<>();
-                A1_1_AyudanteBD.clasificarPorGruposAntiguos(sqliteDatabase_Abstracta, gruposFormatoAntiguo,
-                        porGrupos, sinTipoNombres);
-                if (!porGrupos.isEmpty() || !sinTipoNombres.isEmpty()) {
-                    StringBuilder m = new StringBuilder();
-                    if (!porGrupos.isEmpty()) {
-                        m.append(porGrupos.size()).append(" cuenta(s) no estaban en la tabla de tipos por nombre y se ")
-                                .append("clasificaron por su Grupo1/Grupo2 del backup (revise el tipo en F2):\n• ")
-                                .append(String.join("\n• ", porGrupos));
-                    }
-                    if (!sinTipoNombres.isEmpty()) {
-                        if (m.length() > 0) m.append("\n\n");
-                        m.append(sinTipoNombres.size()).append(" cuenta(s) quedaron SIN tipo (asígnelo en F2):\n• ")
-                                .append(String.join("\n• ", sinTipoNombres));
-                    }
-                    avisoClasificacion = m.toString();
-                }
-                gruposFormatoAntiguo.clear();
-                restauracionConBackupFormatoAntiguo = false;
-            }
-            int sinClasificar = ayudanteBD_Class.repararTipoCuentaDeCuentasSinClasificar(sqliteDatabase_Abstracta);
-            // ⭐ NUEVO (3-nov, BD v24, renta R1): cuentas restauradas sin renglón de renta o sin
-            // tipo de soporte (backups anteriores) los reciben por defecto.
-            int conRenglonNuevo = A1_1_AyudanteBD.asignarRenglonYSoportePendientes(sqliteDatabase_Abstracta);
-            Log.w(TAG, "Restauración (" + origenRestauracion + "): renglón de renta asignado por defecto a " +
-                    conRenglonNuevo + " cuentas");
-            if (sinClasificar > 0) {
-                Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + sinClasificar +
-                        " cuentas quedaron sin tipo_cuenta_id tras reclasificar " +
-                        "(Grupo1 fuera de las 9 clases esperadas — revisar manualmente)");
-            }
-
-            // 2) Si ninguna cuenta quedó marcada como cuenta_seguimiento (se pierde en cada
-            //    restauración completa, igual que tipo_cuenta_id), se vuelve a marcar
-            //    automáticamente "CxC Enrique" si existe — mismo backfill de continuidad que la
-            //    migración v10. Si el usuario ya había marcado otra cuenta distinta, tendrá que
-            //    volver a marcarla manualmente desde Cuentas (el control en la UI llega con la
-            //    tanda 2) — no se puede adivinar cuál era sin ese dato.
-            Cursor marcadaCursor = sqliteDatabase_Abstracta.rawQuery(
-                    "SELECT COUNT(*) FROM cuentas WHERE cuenta_seguimiento = 1", null);
-            boolean hayMarcada = marcadaCursor.moveToFirst() && marcadaCursor.getInt(0) > 0;
-            marcadaCursor.close();
-            if (!hayMarcada) {
-                sqliteDatabase_Abstracta.execSQL(
-                        "UPDATE cuentas SET cuenta_seguimiento = 1 WHERE Cuenta = 'CxC Enrique'");
-                Cursor reMarcadaCursor = sqliteDatabase_Abstracta.rawQuery(
-                        "SELECT COUNT(*) FROM cuentas WHERE cuenta_seguimiento = 1", null);
-                int totalMarcadas = reMarcadaCursor.moveToFirst() ? reMarcadaCursor.getInt(0) : 0;
-                reMarcadaCursor.close();
-                if (totalMarcadas != 1) {
-                    Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " +
-                            totalMarcadas + " cuentas quedaron marcadas como cuenta_seguimiento " +
-                            "tras reintentar con \"CxC Enrique\" (se esperaba 1) — revisar " +
-                            "manualmente desde Cuentas.");
-                }
-            }
-
-            // 3) Reemparejar transacciones.cuenta_id por nombre (ya existía en el fix anterior).
-            sqliteDatabase_Abstracta.close();
-            if (avisoClasificacion != null && getActivity() != null) {
-                new AlertDialog.Builder(getActivity())
-                        .setTitle("Tipos de cuenta tras restaurar")
-                        .setMessage(avisoClasificacion)
-                        .setPositiveButton("Entendido", null)
-                        .show();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error al reparar clasificación tras restaurar cuentas: " + e.getMessage(), e);
-        }
-
-        // ⭐ CAMBIO (1-nov): el reemparejado de transacciones y artículos con sus cuentas va en
-        // su PROPIO bloque, para que ningún error de los pasos de arriba lo impida (antes, el
-        // fallo de repararTipoCuentaDeCuentasSinClasificar() lo saltaba en silencio).
-        try {
-            A1_1_AyudanteBD ayudanteVinculos = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
-            SQLiteDatabase sqliteDatabase_Abstracta = ayudanteVinculos.getWritableDatabase();
-            int huerfanas = A1_2_OperacionesBD.repararReferenciasCuentaIdPorNombre(sqliteDatabase_Abstracta);
-            // ⭐ NUEVO (1-nov): reapuntar los artículos de inventario a sus cuentas por nombre.
-            int articulosSinCuenta = A1_2_OperacionesBD.repararVinculoArticulos(sqliteDatabase_Abstracta);
-            sqliteDatabase_Abstracta.close();
-            if (huerfanas > 0) {
-                Toast.makeText(getActivity(), "Atención: " + huerfanas + " transacción(es) quedaron " +
-                        "sin cuenta tras restaurar (su cuenta no está en el backup)",
-                        Toast.LENGTH_LONG).show();
-            }
-            if (articulosSinCuenta > 0) {
-                Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + articulosSinCuenta +
-                        " artículo(s) de inventario cuya cuenta no vino en el backup");
-                Toast.makeText(getActivity(), "Atención: " + articulosSinCuenta + " artículo(s) de " +
-                        "inventario quedaron sin cuenta (su cuenta no está en el backup)",
-                        Toast.LENGTH_LONG).show();
-            }
-            if (huerfanas > 0) {
-                Log.w(TAG, "Restauración de cuentas (" + origenRestauracion + "): " + huerfanas +
-                        " transacciones sin cuenta_id tras reemparejar por nombre " +
-                        "(nombre de cuenta sin match exacto en cuentas.Cuenta)");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error al reemparejar transacciones/artículos tras restaurar cuentas: " + e.getMessage(), e);
-            Toast.makeText(getActivity(), "Error al reemparejar transacciones con sus cuentas: " +
-                    e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    public void iniciarCierreConCSVCuentasDeGoogleSheets () {
-
-        pedirPermisoAlDispositivo();
-
-        // ⭐ CAMBIO (21-nov, Jorge): el respaldo "antes" es solo la copia completa .db (se
-        // retiraron los CSV 222_1 y 222_2). Si falla, no se borra nada.
-        if (!respaldoCuentasPrevioOk("sheets-cuentas")) {
-            return;
-        }
-
-        File carpeta_File = new File(Environment.getExternalStorageDirectory() + "/Balance/");
-
-        String nombreArchivo_String = carpeta_File.toString() + "/" + CSV_ACCOUNTS_SHEETS_SYNCHRONIZED.getFileName();
-        if(!carpeta_File.exists()) {
-            Toast.makeText(getActivity(), "No existe la carpeta Balance", Toast.LENGTH_SHORT).show();
-            }
-
-        else {
-            String lecturaDeCadaLineaDelArchivo_String;
-            String[] lineasLeidasDelArchivo_ArrayString;
-
-            try {
-
-                borrarHistorialCuentas("cuentas");
-                FileReader leerArchivo_FileReader = new FileReader(nombreArchivo_String);
-                BufferedReader lecturaDeCadaLineaDelArchivo_BufferedReader = new BufferedReader(leerArchivo_FileReader);
-
-                // ⭐ CAMBIO — tanda 2 v10: se reemplaza el insert manual (5 columnas fijas, sin
-                // cuenta_id/codigo_cuenta/Cerrable) por el mismo insertarCuenta(String[]) que ya
-                // usa la restauración desde Drive — unifica los 3 flujos de importación de
-                // cuentas en un único método (ver también _3_starBackupAndRestore()), en vez de
-                // tener 3 copias del mismo insert con columnas distintas. Si el CSV de Sheets
-                // trae 8 columnas más adelante (cuando la tanda 3 unifique también el formato
-                // de exportación), esto ya lo aprovecha sin más cambios.
-                while ((lecturaDeCadaLineaDelArchivo_String = lecturaDeCadaLineaDelArchivo_BufferedReader.readLine()) != null) {
-                    lineasLeidasDelArchivo_ArrayString = lecturaDeCadaLineaDelArchivo_String.split(",");
-                    insertarCuenta(lineasLeidasDelArchivo_ArrayString);
-                }
-
-                repararReferenciasCuentaIdTrasRestaurarCuentas("Sheets");
-
-                } catch (Exception e) {
-
-                Toast.makeText(getActivity(), "Hubo un error", Toast.LENGTH_SHORT).show();
-                }
-        }
-        cerrarOperacionCuentas("Importar cuentas desde Sheets", true);
-        }
-
-    public void dialogoCierreCuentas () {
-
-        AlertDialog.Builder dialogo_AlertDialog = new AlertDialog.Builder(getActivity());
-        dialogo_AlertDialog.setTitle("Primeros registros tabla cuentas");
-        dialogo_AlertDialog.setMessage("Actualmente hay: "+verNumeroDeRegistrosCuentas()+" Cuentas"+" " +
-                "¿Eliminarlas y colocar nuevas cuentas ?");
-        dialogo_AlertDialog.setCancelable(false);
-        dialogo_AlertDialog.setPositiveButton("Si", new DialogInterface.OnClickListener() {
-
-            public void onClick(DialogInterface dialogo_AlertDialog, int id) {
-
-                nombreArchivo_String = CSV_ACCOUNTS_SHEETS_SYNCHRONIZED.getFileName();
-
-                //Ruta y archivo_File
-                String rutaDestino_String = Environment.getExternalStorageDirectory().getPath() + "/Balance/";
-                String rutaDestinoYNombreArchivo_String = rutaDestino_String+nombreArchivo_String;
-                File archivo_File = new File(rutaDestinoYNombreArchivo_String);
-
-                A23_QueryResult queryAzAllAccounts_Result = a22QueryManager.queryAzAllAccounts();
-                ArrayList<String> queryAzAllAccounts_Result_ArrayList = queryAzAllAccounts_Result.getDatos();
-
-                if (archivo_File.exists()) {
-
-                    archivo_File = new File(rutaDestinoYNombreArchivo_String);
-                    iniciarCierreConCSVCuentasDeGoogleSheets();
-
-                    opcionActualCierre_XTv.setText(_2_2_opcionImportarCuentasGoogleSheets_XRb.getText().toString());
-
-                    mensajeInformativo_XTv.setText(""+ queryAzAllAccounts_Result_ArrayList.size());
-                    populateList();
-                    }
-                else {
-
-                    Toast.makeText(getActivity(), "No esta el archivo_File de Sheets: "+archivo_File, Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
-        });
-
-        dialogo_AlertDialog.setNegativeButton("No", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialogo_AlertDialog, int id) {
-                populateList();
-                Toast.makeText(getActivity(), "No se realizaron acciones", Toast.LENGTH_LONG).show();
-            }
-        });
-        dialogo_AlertDialog.show();
-    }
 
     // ⭐ RETIRADO (21-nov, Jorge): restaurar cuentas desde un CSV 211 (local o Drive) y el
     // respaldo CSV de cuentas (subirCsvBackupCrud). Se restaura la copia completa .db.
 
-    // ⭐ NUEVO E3 (17-nov): punto "después" + resumen de la operación de cuentas.
-    // conDespues = false en restauraciones (18-nov): el resumen compara con el estado actual
-    // sin guardar otra copia.
-    private void cerrarOperacionCuentas(String titulo, boolean conDespues) {
-        if (operacionCuentasEnCurso == null || getActivity() == null) return;
-        A1BASES.A32_Respaldos.Resultado despues = conDespues
-                ? A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "despues-" + operacionCuentasEnCurso)
-                : A1BASES.A32_Respaldos.estadoActual(requireContext());
-        String texto = A1BASES.A32_Respaldos.resumenOperacion(requireContext(), operacionCuentasEnCurso, titulo,
-                puntoAntesCuentas, despues, "Cuentas en la tabla ahora: " + verNumeroDeRegistrosCuentas());
-        operacionCuentasEnCurso = null;
-        puntoAntesCuentas = null;
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Resumen")
-                .setMessage(texto)
-                .setPositiveButton("Entendido", null)
-                .show();
-    }
 
     // ⭐ CAMBIO (21-nov, Jorge, paso 3 respaldos): respaldo previo OBLIGATORIO antes de borrar
     // cuentas = SOLO el punto de restauración completo .db ("antes-<operación>"). Si falla, se
     // avisa y el proceso no sigue.
-    private A1BASES.A32_Respaldos.Resultado puntoAntesCuentas;
-    private String operacionCuentasEnCurso;
 
-    private boolean respaldoCuentasPrevioOk(String operacion) {
-        puntoAntesCuentas = A1BASES.A32_Respaldos.puntoDeRestauracion(requireContext(), "antes-" + operacion);
-        operacionCuentasEnCurso = operacion;
-        if (puntoAntesCuentas.ok) {
-            return true;
-        }
-        operacionCuentasEnCurso = null;
-        new AlertDialog.Builder(getActivity())
-                .setTitle("No se hizo ningún cambio")
-                .setMessage("No se pudo hacer el punto de restauración completo:\n\n" + puntoAntesCuentas.mensaje +
-                        "\n\nPor seguridad, el proceso se detuvo antes de borrar nada.")
-                .setPositiveButton("Entendido", null)
-                .show();
-        return false;
-    }
 
 //See accounts
 
@@ -2872,23 +2512,6 @@ public class F2_Cuentas extends DialogFragment {
         );
     }
 
-    /**
-     * Muestra mensaje de éxito con fondo verde
-     */
-    private void mostrarMensajeExito(String mensaje) {
-        Toast toast = Toast.makeText(getActivity(), mensaje, Toast.LENGTH_LONG);
-        View view = toast.getView();
-        if (view != null) {
-            view.setBackgroundColor(Color.parseColor("#4CAF50")); // Verde material
-            TextView text = view.findViewById(android.R.id.message);
-            if (text != null) {
-                text.setTextColor(Color.WHITE);
-                text.setGravity(Gravity.CENTER);
-                text.setPadding(20, 20, 20, 20);
-            }
-        }
-        toast.show();
-    }
 
     /**
      * NUEVO: Insertar una cuenta en la base de datos
@@ -2901,320 +2524,9 @@ public class F2_Cuentas extends DialogFragment {
     /** ⭐ (9-nov) Grupo1/Grupo2 por nombre de cuenta, leídos de un CSV de formato antiguo. */
     private final java.util.Map<String, String[]> gruposFormatoAntiguo = new java.util.HashMap<>();
 
-    // ⭐ CAMBIO — diagnóstico (30-oct): devuelve long en vez de void (id insertado, -1 si
-    // SQLite rechazó la fila, -2 si se omitió). Los llamadores que lo ignoran no cambian.
-    private long insertarCuenta(String[] datos) {
-        if (datos == null || datos.length < 5) {
-            Log.e(TAG, "Datos insuficientes para insertar cuenta");
-            return -2L;
-        }
 
-        // ⭐ NUEVO — a pedido de Jorge (27-sep): los CSV ahora traen una fila de encabezado
-        // (ver A5_1_BackupManager.backupCuentasArchivoCSV) para que se entiendan solos al
-        // abrirlos. Se detecta por contenido, no por posición: el primer campo de un
-        // encabezado es siempre el literal "Item", y el de una fila real de datos es siempre
-        // un número (el Item de la cuenta) — nunca coinciden, así que esto no puede confundir
-        // una cuenta real con un encabezado. Cubre los 3 flujos que llaman a este método
-        // (Sheets, backup local, Drive) con un solo cambio.
-        if (datos[0] != null && datos[0].trim().equalsIgnoreCase("Item")) {
-            Log.d(TAG, "Fila de encabezado detectada en el CSV de cuentas, se ignora sin insertar");
-            return -2L;
-        }
 
-        // ⭐ NUEVO (31-oct, a pedido de Jorge): la cuenta comodín sin nombre ("Item 0") ya no se
-        // restaura — no es una cuenta real.
-        if (datos[1] == null || datos[1].trim().isEmpty()) {
-            Log.d(TAG, "Cuenta sin nombre en el CSV (comodín \"0\"), se omite");
-            return -2L;
-        }
 
-        try {
-            A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
-                    getActivity(),
-                    balanceSqlite_String_PSF,
-                    null,
-                    version1BalanceSqlite_int_PSF
-            );
-            SQLiteDatabase db = ayudanteBD.getWritableDatabase();
-
-            ContentValues valores = new ContentValues();
-            valores.put("Item", datos[0]);
-            valores.put("Cuenta", datos[1]);
-            // ⭐ CAMBIO — v11 tanda 3 (parte D): "cuentas" pierde Grupo1/Grupo2 (ver
-            // A1_1_AyudanteBD, migración v13) — se quitan estos 2 .put(). datos[2]/datos[3]
-            // (las columnas Grupo1/Grupo2 del CSV, que se mantienen en blanco para siempre —
-            // ver A5_1_BackupManager) ya no se leen aquí; el resto de posiciones del array
-            // (datos[4] en adelante) no se ve afectado.
-            valores.put("Fecha", datos[4]);
-
-            // ⭐ NUEVO — Fase 4 (parte C): cuenta_id, codigo_cuenta y Cerrable, si el CSV los
-            // trae (backup nuevo de A5_1_BackupManager.backupCuentasArchivoCSV, columnas 6,7,8).
-            // Compatible con CSVs viejos de 5 columnas: si no vienen, simplemente no se ponen y
-            // cuenta_id lo asigna AUTOINCREMENT como siempre. Se preserva el cuenta_id original
-            // (en vez de dejar que AUTOINCREMENT asigne uno nuevo) para que las transacciones
-            // restauradas después, que traen su propio cuenta_id, sigan apuntando a la cuenta
-            // correcta.
-            // ⭐ CAMBIO (9-nov, Jorge): cada columna se revisa por separado. String.split(",")
-            // descarta los campos vacíos del final, así que una línea "…,98,," (sin código ni
-            // Cerrable) llegaba con 6 posiciones y el "datos.length >= 8" ignoraba su cuenta_id:
-            // AUTOINCREMENT le daba otro número y sus transacciones quedaban en otra cuenta
-            // (13T → Pad: "Banco ARQ EURc" 97→96 y "Banco Pibank Cdt" 98→97).
-            if (datos.length >= 6) {
-                if (datos[5] != null && !datos[5].trim().isEmpty()) {
-                    try {
-                        valores.put("cuenta_id", Long.parseLong(datos[5].trim()));
-                    } catch (NumberFormatException nfe) {
-                        Log.e(TAG, "cuenta_id inválido en CSV, se omite: " + datos[5]);
-                    }
-                }
-            }
-            if (datos.length >= 7) {
-                if (datos[6] != null && !datos[6].trim().isEmpty()) {
-                    valores.put("codigo_cuenta", datos[6]);
-                }
-            }
-            if (datos.length >= 8) {
-                if (datos[7] != null && !datos[7].trim().isEmpty()) {
-                    // ⭐ CAMBIO (31-oct, BD v18): el CSV trae "Cerrable"; se guarda 0/1.
-                    valores.put("Cerrable", A1_1_AyudanteBD.textoAMarca01(datos[7], "Cerrable"));
-                }
-            }
-
-            // ⭐ NUEVO — v11 (prep): tipo_cuenta_id y cuenta_seguimiento, si el CSV los trae
-            // (backup nuevo de A5_1_BackupManager.backupCuentasArchivoCSV, columnas 9 y 10). Con
-            // esto, las 3 restauraciones (Sheets, backup local, Drive) ya no dependen de que
-            // A1_1_AyudanteBD.repararTipoCuentaDeCuentasSinClasificar() adivine la clasificación
-            // reconstruyéndola desde Grupo1/Grupo2 — cada cuenta llega ya clasificada. Compatible
-            // con CSVs de 8 columnas (o menos): si estas 2 no vienen, simplemente no se ponen, y
-            // el reparo automático que ya corre después de cada restauración (ver
-            // repararReferenciasCuentaIdTrasRestaurarCuentas()) las completa igual que hoy — ese
-            // reparo solo toca cuentas con tipo_cuenta_id NULL / sin ninguna cuenta_seguimiento
-            // marcada, así que no hay riesgo de pisar lo que ya llegó del CSV.
-            if (datos.length >= 10) {
-                if (datos[8] != null && !datos[8].trim().isEmpty()) {
-                    try {
-                        valores.put("tipo_cuenta_id", Long.parseLong(datos[8].trim()));
-                    } catch (NumberFormatException nfe) {
-                        Log.e(TAG, "tipo_cuenta_id inválido en CSV, se omite: " + datos[8]);
-                    }
-                }
-                if (datos[9] != null && !datos[9].trim().isEmpty()) {
-                    valores.put("cuenta_seguimiento", "1".equals(datos[9].trim()) ? 1 : 0);
-                }
-            }
-
-            // ⭐ NUEVO — v11 tanda 3 (parte A): conciliable, si el CSV lo trae (backup nuevo de
-            // A5_1_BackupManager.backupCuentasArchivoCSV, columna 11). Compatible con CSVs de 10
-            // columnas (o menos): si no viene, simplemente no se pone, y la cuenta queda con
-            // conciliable NULL como cualquier cuenta creada antes de la migración v12.
-            if (datos.length >= 11) {
-                if (datos[10] != null && !datos[10].trim().isEmpty()) {
-                    valores.put("conciliable", A1_1_AyudanteBD.textoAMarca01(datos[10], "Conciliable"));
-                }
-            }
-
-            // ⭐ NUEVO — v12 tanda 3 (a pedido de Jorge, 28-sep): con_inventario, si el CSV lo
-            // trae (backup nuevo de A5_1_BackupManager.backupCuentasArchivoCSV, columna 12).
-            // Compatible con CSVs de 11 columnas (o menos): si no viene, no se pone y la cuenta
-            // queda con con_inventario en su valor por defecto (0 — ver A1_1_AyudanteBD).
-            if (datos.length >= 12) {
-                if (datos[11] != null && !datos[11].trim().isEmpty()) {
-                    valores.put("con_inventario", "1".equals(datos[11].trim()) ? 1 : 0);
-                }
-            }
-
-            // ⭐ NUEVO (31-oct): columna 13 = nombre del tipo de cuenta. Si viene, MANDA sobre el
-            // número de la columna 9 (los números pueden cambiar entre versiones del catálogo;
-            // el nombre no). Si no viene, el backup es de formato antiguo y se reclasifica al
-            // terminar la restauración (ver repararReferenciasCuentaIdTrasRestaurarCuentas()).
-            if (datos.length >= 13 && datos[12] != null && !datos[12].trim().isEmpty()) {
-                Long tipoPorNombre = A1_1_AyudanteBD.buscarTipoCuentaIdPorNombre(db, datos[12]);
-                if (tipoPorNombre != null) {
-                    valores.put("tipo_cuenta_id", tipoPorNombre);
-                } else {
-                    valores.remove("tipo_cuenta_id");
-                    Log.w(TAG, "Tipo de cuenta \"" + datos[12] + "\" no existe en el catálogo; " +
-                            "la cuenta " + datos[1] + " queda sin tipo");
-                }
-            } else {
-                restauracionConBackupFormatoAntiguo = true;
-                // ⭐ NUEVO (9-nov, Jorge): se guardan Grupo1/Grupo2 del CSV antiguo (columnas 3 y
-                // 4) para clasificar, al terminar, las cuentas que no estén en la tabla por nombre.
-                if (datos[2] != null && datos[3] != null) {
-                    gruposFormatoAntiguo.put(datos[1].trim(), new String[]{datos[2].trim(), datos[3].trim()});
-                }
-                // ⭐ NUEVO (10-nov, Jorge): el CSV antiguo no trae la columna "conciliable" y la
-                // cuenta quedaba en 0, así que en F1 la lista "A conciliar" salía vacía. Se deriva
-                // de su Grupo2, con la misma regla de la migración v12: "Exigible Conciliable" y
-                // "No exigible Conciliable" → 1; "... No conciliable" → 0.
-                if (!valores.containsKey("conciliable") && datos.length > 3 && datos[3] != null) {
-                    String g2 = datos[3].trim().toLowerCase(java.util.Locale.ROOT);
-                    valores.put("conciliable",
-                            g2.contains("conciliable") && !g2.contains("no conciliable") ? 1 : 0);
-                }
-            }
-
-            // ⭐ NUEVO (3-nov, BD v24, renta R1): columnas 14-16 (renglón de renta por código,
-            // entidad, tipo de soporte). Si no vienen (backup anterior) o el código no existe en
-            // el catálogo vigente, se completan por defecto al terminar la restauración (ver
-            // repararReferenciasCuentaIdTrasRestaurarCuentas()).
-            if (datos.length >= 14) {
-                Long renglon = A1_1_AyudanteBD.buscarRenglonRentaVigentePorCodigo(db, datos[13]);
-                if (renglon != null) {
-                    valores.put("renglon_renta_id", renglon);
-                }
-            }
-            if (datos.length >= 15 && datos[14] != null && !datos[14].trim().isEmpty()) {
-                valores.put("entidad", datos[14].trim());
-            }
-            if (datos.length >= 16 && datos[15] != null && !datos[15].trim().isEmpty()) {
-                valores.put("tipo_soporte", datos[15].trim());
-            }
-
-            // ⭐ CAMBIO — diagnóstico (30-oct): insertOrThrow en vez de insert, SOLO para
-            // capturar el mensaje real de SQLite (db.insert() lo traga y devuelve -1). El
-            // comportamiento no cambia: si falla, la cuenta se omite igual que antes.
-            long idInsertado;
-            try {
-                idInsertado = db.insertOrThrow("cuentas", null, valores);
-            } catch (android.database.SQLException sqle) {
-                idInsertado = -1L;
-                Log.e(TAG, "SQLite rechazó la cuenta " + datos[1] + ": " + sqle.getMessage());
-                if (primerErrorInsercionCuenta == null) {
-                    primerErrorInsercionCuenta = sqle.getMessage();
-                }
-            }
-            db.close();
-            return idInsertado;
-        } catch (Exception e) {
-            Log.e(TAG, "Error al insertar cuenta: " + e.getMessage(), e);
-            if (primerErrorInsercionCuenta == null) {
-                primerErrorInsercionCuenta = e.getMessage();
-            }
-            return -2L;
-        }
-    }
-
-    /**
-     * NUEVO: Diálogo de confirmación para sincronizar
-     */
-    private void _2_1_dialogoConfirmarSincronizacion() {
-        long cuentasActuales = verNumeroDeRegistrosCuentas();
-
-        new AlertDialog.Builder(getActivity())
-                .setTitle("Sincronizar desde Google Sheets")
-                .setMessage("Esta operación:\n\n" +
-                        "1. Descargará las Cuentas actualizadas desde Sheets\n" +
-                        "2. Las subirá a Drive como backup\n" +
-                        "3. Estarán disponibles para importar en la opción 2\n\n" +
-                        "Cuentas actuales en app: " + cuentasActuales + "\n\n" +
-                        "¿Continuar?")
-                .setPositiveButton("Sí, sincronizar", (dialog, which) -> {
-                    _2_1_iniciarSincronizacionSheets();
-                })
-                .setNegativeButton("Cancelar", (dialog, which) -> {
-                    Toast.makeText(getActivity(), "Sincronización cancelada", Toast.LENGTH_SHORT).show();
-                })
-                .setCancelable(false)
-                .show();
-    }
-
-    /**
-     * NUEVO: Inicia proceso de sincronización desde Sheets
-     */
-    private void _2_1_iniciarSincronizacionSheets() {
-        final android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(getActivity());
-        progressDialog.setTitle("Sincronizando");
-        progressDialog.setMessage("Descargando desde Google Sheets...\n\nPor favor espere");
-        progressDialog.setProgressStyle(android.app.ProgressDialog.STYLE_SPINNER);
-        progressDialog.setCancelable(false);
-        progressDialog.show();
-
-        // ⚠️ CAMBIAR POR TU ID REAL DE SHEETS DE CUENTAS
-        String sheetsId = "1cPjezc6zSOJHK7WfufhPDBqI4G29z0Zt8_I1Ls0qCXk";//aqui pendiente
-        //String nombreArchivo = "221_BackupSheetsCuentasSincronizadas.csv";
-        String nombreArchivo = CSV_ACCOUNTS_SHEETS_SYNCHRONIZED.getFileName();
-
-        //String SheetsAApp = "cuentas_sheets_a_app";
-        /*sheetsDownloader.descargarCSV(sheetsId,nombreArchivo, SheetsAApp ,
-                new A6_5_SheetsDownloader.OnDownloadListener() {*/
-
-        sheetsDownloader.descargarCSV(sheetsId,nombreArchivo,
-                new A6_5_SheetsDownloader.OnDownloadListener() {
-
-                    @Override
-                    public void onDownloadSuccess(String rutaLocal, int numLineas) {
-                        progressDialog.setMessage("Subiendo a Google Drive...\n\nÚltimo paso");
-
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            try {
-                                // ⭐ CAMBIO (27-sep): antes llamaba a guardarYSubirCuentas(), que
-                                // sobrescribía este archivo recién descargado de Sheets con un
-                                // export nuevo generado desde la app antes de subirlo a Drive —
-                                // así "2.2 Importar de Sheets" nunca veía el contenido real de
-                                // Sheets. Ahora se sube el archivo tal cual se acaba de descargar.
-                                A6_3_CSVDriveUploader.subirArchivoCuentasExistenteADrive(
-                                        requireContext(),
-                                        nombreArchivo,  // ✅ CORRECTO - usar nombreArchivo
-                                        FOLDER_ID_DRIVE
-                                );                                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                                    progressDialog.dismiss();
-                                    _2_1_mostrarResultadoSincronizacion(numLineas, rutaLocal);
-                                }, 1500);
-
-                            } catch (Exception e) {
-                                progressDialog.dismiss();
-                                Log.e("sheets", "Error al subir a Drive: " + e.getMessage(), e);
-                                Toast.makeText(getActivity(),
-                                        "Error al subir a Drive: " + e.getMessage(),
-                                        Toast.LENGTH_LONG).show();
-                            }
-                        }, 800);
-                    }
-
-                    @Override
-                    public void onDownloadError(String error) {
-                        progressDialog.dismiss();
-                        Log.e("sheets", "✗ Error en descarga: " + error);
-
-                        new AlertDialog.Builder(getActivity())
-                                .setTitle("Error en sincronización")
-                                .setMessage("No se pudo descargar desde Sheets:\n\n" + error + "\n\n" +
-                                        "Verifica:\n" +
-                                        "• Conexión a internet\n" +
-                                        "• Permisos del archivo en Sheets\n" +
-                                        "• El archivo está compartido con 'Cualquiera con el enlace'")
-                                .setPositiveButton("Entendido", null)
-                                .show();
-                    }
-                });
-    }
-
-    /**
-     * NUEVO: Muestra resultado exitoso de la sincronización
-     */
-    private void _2_1_mostrarResultadoSincronizacion(int numRegistros, String rutaLocal) {
-
-        String nombreArchivo = CSV_ACCOUNTS_SHEETS_SYNCHRONIZED.getFileName();
-
-        String infoArchivo = A6_5_SheetsDownloader.obtenerInfoArchivo(nombreArchivo);
-
-        new AlertDialog.Builder(getActivity())
-                .setTitle("✓ Sincronización exitosa")
-                .setMessage(
-                        "Cuentas descargadas desde Sheets:\n\n" +
-                                "• Registros: " + numRegistros + "\n" +
-                                "• " + infoArchivo + "\n" +
-                                "• Ubicación local: /Balance/\n" +
-                                "• Subido a Drive: ✓\n\n" +
-                                "Ahora puedes usar la opción 2 (Importar de Sheets) para cargar estas cuentas."
-                )
-                .setPositiveButton("Entendido", (dialog, which) -> {
-                    mostrarMensajeExito("✓ Cuentas sincronizadas y listas para usar");
-                })
-                .show();
-
-        }
 
     //f2
 

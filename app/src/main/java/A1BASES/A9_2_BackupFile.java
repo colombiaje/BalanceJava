@@ -5,9 +5,10 @@ public enum A9_2_BackupFile {
     // ⭐ RETIRADOS (21-nov, Jorge, paso 3 respaldos): 121, 211, 222_1/222_2, 231/232, 411, 421,
     // 431, 442_1/442_2, 451_1/451_2 y 452_1/452_2 — eran copias CSV de tablas para respaldar o
     // restaurar. Los respaldos son la copia completa .db (A32_Respaldos).
+    // ⭐ RETIRADOS (23-nov, Jorge, S3): 221 y 441, los CSV que bajaban de las hojas fijas de
+    // Sheets. Los reemplazan Enviar a Sheets y Traer de Sheets (A33/A36).
 
     /* ─────────── ACCOUNTS ─────────── */
-    CSV_ACCOUNTS_SHEETS_SYNCHRONIZED("221_BackupSheetsCuentasSincronizadas", A9_1_FileType.CSV),
     // ⭐ NUEVO (3-nov, BD v24, renta R1): catálogo de renglones de renta, sube con las cuentas.
     CSV_RENGLONES_RENTA("213_CatalogoRenglonesRenta", A9_1_FileType.CSV),
 
@@ -23,8 +24,7 @@ public enum A9_2_BackupFile {
     CSV_SOPORTES_RENTA("426_SoportesRenta", A9_1_FileType.CSV),
     // (4-nov) El reporte de renta (424) ya no usa un nombre fijo: A17_ReporteRentaDialogo lo arma
     // con el año y la vista, ej. "424_Renta_2026_cierre_depurada".
-    CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS("432_saldos_al_cerrar_algunas cuentas.csv", A9_1_FileType.CSV),
-    CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED("441_transacciones_sheets.csv", A9_1_FileType.CSV);
+    CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_SOME_ACCOUNTS("432_saldos_al_cerrar_algunas cuentas.csv", A9_1_FileType.CSV);
 
     // ─────────── IMPLEMENTACIÓN ───────────
     public static final String BALANCE_FOLDER = "Balance";
@@ -37,8 +37,7 @@ public enum A9_2_BackupFile {
     }
 
     // ⭐ NUEVO (18-nov, Jorge): prefijo del equipo (13T, PAD5…) en todos los respaldos. Lo fija
-    // C2_ActivityMenu al arrancar (A32_Respaldos.equipo). Los dos CSV que llegan DESDE Sheets
-    // (221 y 441) no lo llevan: son copias de Sheets, no respaldos de un equipo.
+    // C2_ActivityMenu al arrancar (A32_Respaldos.equipo).
     public static String prefijoEquipo = "";
 
     public static String prefijo() {
@@ -46,9 +45,6 @@ public enum A9_2_BackupFile {
     }
 
     public String getFileName() {
-        if (this == CSV_ACCOUNTS_SHEETS_SYNCHRONIZED || this == CSV_TRANSACTIONS_SHEETS_SYNCHRONIZED) {
-            return baseName + fileType.getExtension();
-        }
         return prefijo() + baseName + fileType.getExtension();
     }
 

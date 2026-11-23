@@ -963,38 +963,10 @@
             android:layout_gravity="center_horizontal"
             >
 
-                <RadioButton
-                android:id="@+id/_2_1_opcionSincronizarCuentasDesdeSheets_XRb"
-                android:layout_width="300dp"
-                android:layout_height="36dp"
-                android:layout_marginTop="4dp"
-                android:background="@drawable/bg_opcion_accion"
-                android:button="@null"
-                android:gravity="center"
-                android:textSize="15dp"
-                android:textStyle="bold"
-                android:textColor="#1F3FA6"
-                android:text="1. Sincronizar Cuentas con Sheets"
-                    />
-
-
-                <RadioButton
-                android:id="@+id/_2_2_opcionImportarCuentasGoogleSheets_XRb"
-                android:layout_width="300dp"
-                android:layout_height="36dp"
-                android:layout_marginTop="4dp"
-                android:background="@drawable/bg_opcion_accion"
-                android:button="@null"
-                android:gravity="center"
-                android:textSize="15dp"
-                android:textStyle="bold"
-                android:textColor="#1F3FA6"
-                android:text="2. Importar de Sheets"
-                  />
-
-
             <!-- ⭐ (21-nov, Jorge): salieron 1. Backup y 3. Restaurar backup (centralizados en
-                 Respaldos, copia completa .db); se renumeró. -->
+                 Respaldos, copia completa .db); se renumeró.
+                 (23-nov, Jorge, S3): salieron 1. Sincronizar y 2. Importar de Sheets (los
+                 reemplazan Respaldos › Enviar a Sheets / Traer de Sheets). -->
             <!-- ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): país, moneda, año fiscal y catálogo
                  de renglones de renta (importar plantilla). -->
             <RadioButton
@@ -1008,7 +980,7 @@
                 android:textSize="15dp"
                 android:textStyle="bold"
                 android:textColor="#1F3FA6"
-                android:text="3. Configuración renta fiscal"
+                android:text="1. Configuración renta fiscal"
                  />
 
                 </RadioGroup>
