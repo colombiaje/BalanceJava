@@ -256,25 +256,28 @@ public class F4_Cierres extends Fragment {
 
             try {
 
-                // 1. Crear archivo resumen por cuenta
-                //String nombreArchivoResumen = "422 Backup saldos de todas las cuentas.csv";
-                String nombreArchivoResumen = CSV_TRANSACTIONS_BALANCES_UPON_CLOSING_ALL_ACCOUNTS.getFileName();
-
-                A5_1_BackupManager._2csvConsultaResumenTodasLasCuentasAntesDeCerrarParaTablaTransaccionesDespuesDeCerrar(
-                        getActivity(),
-                        nombreArchivoResumen
-                );
-                // ⭐ E0 (17-nov): sin resumen de saldos no se borra nada.
-                if (!archivoConContenido(nombreArchivoResumen)) {
-                    Toast.makeText(getActivity(), "No se generó el resumen de saldos; no se borró nada.", Toast.LENGTH_LONG).show();
+                // ⭐ CAMBIO (23-nov, Jorge, historial P2): cierre POR PERÍODO (A37_CierrePeriodo).
+                // Salen documentos completos hasta el corte (fin del año fiscal); el historial de
+                // las cuentas marcadas se alimenta; el doc 0 nuevo trae los saldos; todo en una
+                // transacción con cotejo de saldos (si no cuadra, no se cambia nada).
+                int corte = corteDelAnio(anioFoto);
+                A1BASES.A37_CierrePeriodo.Resultado cierre;
+                A1_1_AyudanteBD ayudanteCierre = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+                SQLiteDatabase dbCierre = ayudanteCierre.getWritableDatabase();
+                try {
+                    cierre = A1BASES.A37_CierrePeriodo.ejecutar(dbCierre, corte);
+                } finally {
+                    dbCierre.close();
+                }
+                if (!cierre.ok) {
+                    operacionEnCurso = null;
+                    new AlertDialog.Builder(getActivity())
+                            .setTitle("⚠ Cierre por período")
+                            .setMessage(cierre.mensaje + "\n\nEl respaldo previo quedó en Respaldos.")
+                            .setPositiveButton("Entendido", null)
+                            .show();
                     return;
                 }
-
-                // 2. Borrar historial de transacciones
-                _7borrarHistorialTransacciones("transacciones");
-
-                // 3. Reimportar saldos desde CSV
-                importarTransaccionesDesdeCSV(nombreArchivoResumen);
 
                 // 4. Subir a Drive (rotación automática), sin espera fija
                 A6_3_CSVDriveUploader.guardarYSubirTransacciones(requireContext(),
@@ -285,8 +288,15 @@ public class F4_Cierres extends Fragment {
                 _7verTransaccionesAdaptadorColumnas();
 
                 // 6. ⭐ E3: punto "después" y resumen
-                cerrarOperacion("Cierre total",
-                        "Saldos iniciales: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")\n\n" + foto);
+                StringBuilder det = new StringBuilder(cierre.mensaje)
+                        .append("\nDocumentos cerrados: ").append(miles(cierre.documentos))
+                        .append(" (").append(miles(cierre.lineas)).append(" líneas)")
+                        .append("\nSaldos iniciales (doc 0): ").append(cierre.saldosIniciales).append(" cuentas")
+                        .append("\n✓ Saldos cotejados: cada cuenta tiene el mismo saldo antes y después.")
+                        .append("\nAl historial: ").append(miles(cierre.lineasHistorial)).append(" líneas");
+                if (cierre.avisosHistorial.isEmpty()) det.append(" ✓ (cuadra con los saldos iniciales)");
+                else for (String aviso : cierre.avisosHistorial) det.append("\n⚠ ").append(aviso);
+                cerrarOperacion("Cierre por período", det + "\n\n" + foto);
             } catch (Exception e) {
                 Log.e(TAG, "Error en cierre autónomo: " + e.getMessage(), e);
                 Toast.makeText(getActivity(), "Error en el proceso de cierre", Toast.LENGTH_SHORT).show();
@@ -325,6 +335,29 @@ public class F4_Cierres extends Fragment {
         }
     }
 
+    /** ⭐ (23-nov, historial P2): corte del cierre = último día del año fiscal. */
+    private int corteDelAnio(int anio) {
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            return A1_1_AyudanteBD.limitesAnioFiscal(db, anio)[1];
+        } finally {
+            db.close();
+        }
+    }
+
+    private A1BASES.A37_CierrePeriodo.Revision revisionDelAnio(int anio) {
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            return A1BASES.A37_CierrePeriodo.revisar(db, A1_1_AyudanteBD.limitesAnioFiscal(db, anio)[1]);
+        } catch (Exception e) {
+            return null;
+        } finally {
+            db.close();
+        }
+    }
+
     /** Período del año fiscal y aviso si la foto de ese año ya existe. */
     private String textoAnioFoto(String texto) {
         int anio = anioValido(texto);
@@ -334,8 +367,18 @@ public class F4_Cierres extends Fragment {
         try {
             int[] limites = A1_1_AyudanteBD.limitesAnioFiscal(db, anio);
             boolean existe = A1_1_AyudanteBD.existeFotoRenta(db, anio);
-            return "Período: " + fechaLegible(limites[0]) + " a " + fechaLegible(limites[1])
-                    + (existe ? "\n⚠ La foto de " + anio + " ya existe y se reemplazará." : "");
+            // ⭐ (23-nov, historial P2): corte y qué pasará.
+            A1BASES.A37_CierrePeriodo.Revision rev = A1BASES.A37_CierrePeriodo.revisar(db, limites[1]);
+            StringBuilder t = new StringBuilder("Período: " + fechaLegible(limites[0]) + " a " + fechaLegible(limites[1])
+                    + (existe ? "\n⚠ La foto de " + anio + " ya existe y se reemplazará." : "")
+                    + "\nCorte: " + fechaLegible(limites[1]) + ". Se cierran " + miles(rev.documentosACerrar)
+                    + " documentos (" + miles(rev.lineasACerrar) + " líneas); quedan " + miles(rev.documentosQuedan)
+                    + " posteriores.");
+            if (!rev.mixtos.isEmpty()) t.append("\n⚠ ").append(rev.mixtos.size()).append(" documento(s) mixtos: no se podrá cerrar.");
+            t.append("\nCon historial: ").append(rev.cuentasConHistorial.isEmpty() ? "ninguna"
+                    : String.join(", ", rev.cuentasConHistorial)).append(" (").append(miles(rev.lineasAlHistorial))
+                    .append(" líneas). ¿Falta alguna? Márcala en Cuentas antes de cerrar.");
+            return t.toString();
         } catch (Exception e) {
             return "";
         } finally {
@@ -363,7 +406,7 @@ public class F4_Cierres extends Fragment {
         caja.setPadding(pad, pad / 2, pad, 0);
         TextView info = new TextView(getActivity());
         info.setTextSize(15);
-        info.setText(lineaUltimoCierre("cierre-total", "cierre total")
+        info.setText(lineaUltimoCierre("cierre-total", "cierre por período")
                 + "Hoy: " + miles(_7verNumeroDeTransacciones()) + " transacciones.\n\nAño fiscal de la foto de renta:");
         EditText anio_XEt = new EditText(getActivity());
         anio_XEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
@@ -372,7 +415,8 @@ public class F4_Cierres extends Fragment {
         periodo.setTextSize(14);
         TextView pasos = new TextView(getActivity());
         pasos.setTextSize(14);
-        pasos.setText("\nSe hará: respaldo completo → foto de renta → borrar las transacciones → saldos iniciales por cuenta.");
+        pasos.setText("\nSe hará: respaldo completo → foto de renta → copia al historial → borrar los documentos"
+                + " hasta el corte → saldos iniciales por cuenta → cotejo.");
         caja.addView(info);
         caja.addView(anio_XEt);
         caja.addView(periodo);
@@ -385,7 +429,7 @@ public class F4_Cierres extends Fragment {
             @Override public void afterTextChanged(android.text.Editable t) { revisarAnio.run(); }
         });
         AlertDialog dialogo = new AlertDialog.Builder(getActivity())
-                .setTitle("Cierre total")
+                .setTitle("Cierre por período")
                 .setView(caja)
                 .setCancelable(false)
                 .setPositiveButton("Cerrar", null)
@@ -395,6 +439,17 @@ public class F4_Cierres extends Fragment {
             int anio = anioValido(anio_XEt.getText().toString());
             if (anio < 0) {
                 anio_XEt.setError("Año no válido");
+                return;
+            }
+            // ⭐ (23-nov, historial P2): con documentos mixtos no se cierra; se listan.
+            A1BASES.A37_CierrePeriodo.Revision rev = revisionDelAnio(anio);
+            if (rev != null && !rev.mixtos.isEmpty()) {
+                StringBuilder l = new StringBuilder("Estos documentos tienen líneas antes y después del corte. "
+                        + "Corrige sus fechas (en F1 o por Sheets) y vuelve a cerrar:\n");
+                for (int i = 0; i < Math.min(rev.mixtos.size(), 30); i++) l.append("\n• ").append(rev.mixtos.get(i));
+                if (rev.mixtos.size() > 30) l.append("\n…");
+                new AlertDialog.Builder(getActivity()).setTitle("⚠ Documentos mixtos")
+                        .setMessage(l.toString()).setPositiveButton("Entendido", null).show();
                 return;
             }
             dialogo.dismiss();
