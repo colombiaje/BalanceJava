@@ -1811,7 +1811,14 @@ public class F2_Cuentas extends DialogFragment {
         SQLiteDatabase bd = ayudante.getWritableDatabase();
         try {
             String texto = A1_1_AyudanteBD.activarHistorial(bd, cuentaId);
-            Toast.makeText(getActivity(), "Con historial: " + texto, Toast.LENGTH_LONG).show();
+            // ⭐ (23-nov, Jorge): diálogo en vez de Toast; el Toast se perdía detrás de
+            // "Registro modificado".
+            new AlertDialog.Builder(getActivity())
+                    .setTitle("✓ Con historial")
+                    .setMessage(texto + "\n\nDesde ahora, en cada cierre por período el detalle de esta cuenta"
+                            + " se guarda en su historial.")
+                    .setPositiveButton("Entendido", null)
+                    .show();
         } catch (Exception e) {
             Log.e(TAG, "No se pudo iniciar el historial: " + e.getMessage(), e);
             Toast.makeText(getActivity(), "No se pudo iniciar el historial: " + e.getMessage(), Toast.LENGTH_LONG).show();

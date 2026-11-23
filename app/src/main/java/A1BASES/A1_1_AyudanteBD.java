@@ -2440,10 +2440,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                         : "Períodos cerrados sin detalle (historial desactivado)");
                 v.put("c8_FechaInicial", fechaInicial != null ? fechaInicial : hoy);
                 db.insert(TABLE_HISTORIAL, null, v);
-                texto = arranque ? "Historial iniciado con el saldo inicial " + saldoInicial + "."
-                        : "Historial reactivado; se agregó " + (saldoInicial - sumaHistorial) + " sin detalle.";
+                texto = arranque ? "Historial iniciado. Saldo de arranque (saldo inicial del doc 0): " + saldoInicial + "."
+                        : "Historial reactivado. Se agregó una línea sin detalle por " + (saldoInicial - sumaHistorial)
+                        + " (cierres hechos mientras estuvo desactivado).";
             } else {
-                texto = "Historial reactivado; ya cuadra con el saldo inicial.";
+                texto = "Historial reactivado. Ya cuadra con el saldo inicial (" + saldoInicial + "); no se agregó nada.";
             }
             db.execSQL("UPDATE cuentas SET con_historial = 1, historial_desde = IFNULL(historial_desde, ?) WHERE cuenta_id = ?",
                     new Object[]{hoy, cuentaId});
