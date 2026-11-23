@@ -25,6 +25,12 @@ public final class A34_MenuOpciones {
 
     public static void mostrar(Context context, String titulo, String[] opciones, String[] explicaciones,
                                AlElegir alElegir) {
+        mostrar(context, titulo, null, opciones, explicaciones, "Cancelar", alElegir);
+    }
+
+    /** ⭐ (22-nov): con un texto arriba de las opciones y el texto del botón de cierre. */
+    public static void mostrar(Context context, String titulo, String encabezado, String[] opciones,
+                               String[] explicaciones, String textoCerrar, AlElegir alElegir) {
         float d = context.getResources().getDisplayMetrics().density;
         LinearLayout caja = new LinearLayout(context);
         caja.setOrientation(LinearLayout.VERTICAL);
@@ -32,8 +38,15 @@ public final class A34_MenuOpciones {
         AlertDialog dialogo = new AlertDialog.Builder(context)
                 .setTitle(titulo)
                 .setView(caja)
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(textoCerrar, null)
                 .create();
+        if (encabezado != null) {
+            TextView arriba = new TextView(context);
+            arriba.setText(encabezado);
+            arriba.setTextSize(15);
+            arriba.setTextColor(Color.parseColor("#1F3FA6"));
+            caja.addView(arriba);
+        }
         for (int i = 0; i < opciones.length; i++) {
             final int indice = i;
             TextView boton = new TextView(context);

@@ -643,14 +643,22 @@ public class F7_Respaldos extends Fragment {
         });
     }
 
+    // ⭐ CAMBIO (22-nov, Jorge): "Continuar con ella" lleva a la hoja donde estaba, con el tiempo
+    // que le queda; con el estilo de menú.
     private void mostrarHojasActivas(List<A1BASES.A36_TraerSheets.HojaDrive> hojas) {
-        String[] items = new String[hojas.size()];
-        for (int i = 0; i < items.length; i++) items[i] = "↗ " + hojas.get(i).titulo() + "\n   " + hojas.get(i).nombre;
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Abrir en Sheets")
-                .setItems(items, (d, i) -> abrirEnlace("https://docs.google.com/spreadsheets/d/" + hojas.get(i).id + "/edit"))
-                .setPositiveButton("Listo", null)
-                .show();
+        long min = A1BASES.A36_TraerSheets.minutosRestantes(requireContext(), hojas.get(0));
+        String[] opciones = new String[hojas.size()];
+        String[] notas = new String[hojas.size()];
+        for (int i = 0; i < opciones.length; i++) {
+            opciones[i] = "Ir a " + hojas.get(i).titulo();
+            notas[i] = hojas.get(i).nombre;
+        }
+        A1BASES.A34_MenuOpciones.mostrar(requireContext(), "Continúa donde estabas",
+                "Puedes seguir corrigiendo en Sheets en la hoja donde estabas.\n⏱ Te quedan "
+                        + A1BASES.A36_TraerSheets.textoMinutos(min) + " de la ventana de "
+                        + A1BASES.A36_TraerSheets.VENTANA_HORAS + " h.",
+                opciones, notas, "Listo",
+                i -> abrirEnlace("https://docs.google.com/spreadsheets/d/" + hojas.get(i).id + "/edit"));
     }
 
     private void descartarYEnviar(List<A1BASES.A36_TraerSheets.HojaDrive> hojas, boolean plantillaSaldos) {
