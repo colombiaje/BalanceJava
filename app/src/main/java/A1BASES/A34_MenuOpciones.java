@@ -31,6 +31,12 @@ public final class A34_MenuOpciones {
     /** ⭐ (22-nov): con un texto arriba de las opciones y el texto del botón de cierre. */
     public static void mostrar(Context context, String titulo, String encabezado, String[] opciones,
                                String[] explicaciones, String textoCerrar, AlElegir alElegir) {
+        mostrar(context, titulo, encabezado, opciones, explicaciones, null, textoCerrar, alElegir);
+    }
+
+    /** ⭐ (22-nov, Jorge): además, un texto al pie, debajo de las opciones y antes del botón de cierre. */
+    public static void mostrar(Context context, String titulo, String encabezado, String[] opciones,
+                               String[] explicaciones, String pie, String textoCerrar, AlElegir alElegir) {
         float d = context.getResources().getDisplayMetrics().density;
         LinearLayout caja = new LinearLayout(context);
         caja.setOrientation(LinearLayout.VERTICAL);
@@ -73,6 +79,14 @@ public final class A34_MenuOpciones {
                 nota.setPadding((int) (6 * d), (int) (2 * d), (int) (6 * d), 0);
                 caja.addView(nota);
             }
+        }
+        if (pie != null) {
+            TextView abajo = new TextView(context);
+            abajo.setText(pie);
+            abajo.setTextSize(15);
+            abajo.setTextColor(Color.parseColor("#1F3FA6"));
+            abajo.setPadding(0, (int) (14 * d), 0, 0);
+            caja.addView(abajo);
         }
         dialogo.show();
     }
