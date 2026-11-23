@@ -118,13 +118,13 @@ public class A33_Sheets {
         long[] filas = new long[3];
         SQLiteDatabase db = abrirBase(context);
         try {
-            A35_Xlsx.Hoja trans = leer(db, sqlTransacciones(db), "Transacciones", EDITABLES_TRANSACCIONES);
+            List<A35_Xlsx.Hoja> libroTrans = libroTransacciones(db);
             A35_Xlsx.Hoja cuentas = leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS);
             List<A35_Xlsx.Hoja> catalogos = hojasCatalogos(db);
-            filas[0] = trans.filas.size();
+            filas[0] = libroTrans.get(0).filas.size();
             filas[1] = cuentas.filas.size();
             for (A35_Xlsx.Hoja h : catalogos) filas[2] += h.filas.size();
-            A35_Xlsx.escribir(fTrans, Collections.singletonList(trans));
+            A35_Xlsx.escribir(fTrans, libroTrans);
             A35_Xlsx.escribir(fCuentas, Collections.singletonList(cuentas));
             A35_Xlsx.escribir(fCatalogos, catalogos);
         } catch (Exception e) {
@@ -167,11 +167,11 @@ public class A33_Sheets {
         long filas;
         SQLiteDatabase db = abrirBase(context);
         try {
-            A35_Xlsx.Hoja h = TIPO_CUENTAS.equals(tipo)
-                    ? leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS)
-                    : leer(db, sqlTransacciones(db), "Transacciones", EDITABLES_TRANSACCIONES);
-            filas = h.filas.size();
-            A35_Xlsx.escribir(archivo, Collections.singletonList(h));
+            List<A35_Xlsx.Hoja> libro = TIPO_CUENTAS.equals(tipo)
+                    ? Collections.singletonList(leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS))
+                    : libroTransacciones(db);
+            filas = libro.get(0).filas.size();
+            A35_Xlsx.escribir(archivo, libro);
         } finally {
             db.close();
         }
@@ -310,7 +310,6 @@ public class A33_Sheets {
         for (String col : columnas(db, "transacciones")) {
             if (col.equals("transaccion_id")) continue;
             sb.append(", ").append(columnaLegible("t", col));
-            if (col.equals("cuenta_id")) sb.append(", c.Cuenta AS \"Cuenta (referencia)\"");
             if (col.equals("tipo_cuenta_id")) sb.append(", tc.nombre AS \"Tipo de cuenta (referencia)\"");
         }
         sb.append(" FROM transacciones t")
@@ -319,6 +318,57 @@ public class A33_Sheets {
                 .append(" tc ON tc.tipo_cuenta_id = t.tipo_cuenta_id")
                 .append(" ORDER BY CAST(t.c1_Documento AS INTEGER), CAST(t.c2_ItemDoc AS INTEGER)");
         return sb.toString();
+    }
+
+    /**
+     * ⭐ NUEVO (23-nov, Jorge): el archivo de transacciones con tres pestañas. "Transacciones" va
+     * primero, porque "Traer de Sheets" lee solo la primera.
+     *  - Transacciones: al final, "Cuenta (referencia)" con BUSCARV: el nombre cambia solo si el
+     *    usuario cambia el cuenta_id (no se importa, termina en "(referencia)");
+     *  - Conciliación: suma neta, positivos, negativos y comprobación, con fórmulas vivas;
+     *  - Cuentas (consulta): id y nombre, la tabla que usa el BUSCARV.
+     */
+    private static List<A35_Xlsx.Hoja> libroTransacciones(SQLiteDatabase db) {
+        A35_Xlsx.Hoja trans = leer(db, sqlTransacciones(db), "Transacciones", EDITABLES_TRANSACCIONES);
+        A35_Xlsx.Hoja nombres = leer(db, "SELECT cuenta_id, Cuenta FROM cuentas ORDER BY cuenta_id",
+                "Cuentas (consulta)", null);
+        String rangoNombres = "'" + nombres.nombre + "'!A:B";
+        int colCuenta = trans.columnas.indexOf("cuenta_id");
+        int colValor = trans.columnas.indexOf("Valor");
+        if (colCuenta >= 0) {
+            String letraCuenta = A35_Xlsx.letra(colCuenta);
+            int nueva = trans.columnas.size();
+            trans.columnas.add("Cuenta (referencia)");
+            trans.editable.add(false);
+            trans.formulas.add(nueva);
+            for (int f = 0; f < trans.filas.size(); f++) {
+                String[] vieja = trans.filas.get(f);
+                String[] fila = java.util.Arrays.copyOf(vieja, nueva + 1);
+                fila[nueva] = "IFERROR(VLOOKUP(" + letraCuenta + (f + 2) + "," + rangoNombres
+                        + ",2,FALSE),\"⚠ cuenta no existe\")";
+                trans.filas.set(f, fila);
+            }
+        }
+        List<A35_Xlsx.Hoja> libro = new ArrayList<>();
+        libro.add(trans);
+        if (colValor >= 0) {
+            String d = "Transacciones!" + A35_Xlsx.letra(colValor) + ":" + A35_Xlsx.letra(colValor);
+            A35_Xlsx.Hoja con = new A35_Xlsx.Hoja();
+            con.nombre = "Conciliación";
+            con.inmovilizarColumnaA = false;
+            con.columnas.add("Concepto");
+            con.columnas.add("Valor");
+            con.editable.add(false);
+            con.editable.add(false);
+            con.formulas.add(1);
+            con.filas.add(new String[]{"Suma neta", "SUM(" + d + ")"});
+            con.filas.add(new String[]{"Suma positivos", "SUMIF(" + d + ",\">0\")"});
+            con.filas.add(new String[]{"Suma negativos", "SUMIF(" + d + ",\"<0\")"});
+            con.filas.add(new String[]{"Comprobación (positivos + negativos, debe dar 0)", "B3+B4"});
+            libro.add(con);
+        }
+        libro.add(nombres);
+        return libro;
     }
 
     /** Todas las columnas de cuentas (cuenta_id primero), con tipo y renglón como referencia. */

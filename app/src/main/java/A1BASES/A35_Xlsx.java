@@ -31,6 +31,9 @@ public final class A35_Xlsx {
         public List<Boolean> editable = new ArrayList<>();
         public List<String[]> filas = new ArrayList<>();
         public boolean inmovilizarColumnaA = true;
+        // ⭐ (23-nov, Jorge): columnas cuyas celdas son fórmulas (en inglés y sin el "=": Sheets
+        // las traduce al idioma de la cuenta, p. ej. VLOOKUP → BUSCARV).
+        public java.util.Set<Integer> formulas = new java.util.HashSet<>();
     }
 
     // Estilos (cellXfs): 0 normal · 1 encabezado · 2 dato fijo (azul rey) · 3 dato editable (fucsia)
@@ -152,7 +155,8 @@ public final class A35_Xlsx {
         sb.append("<cols>");
         for (int c = 0; c < nCols; c++) {
             int ancho = c < h.columnas.size() ? h.columnas.get(c).length() : 8;
-            for (int f = 0; f < Math.min(h.filas.size(), 300); f++) {
+            if (h.formulas.contains(c)) ancho = Math.max(ancho, 27); // el texto de la fórmula no cuenta
+            else for (int f = 0; f < Math.min(h.filas.size(), 300); f++) {
                 String[] fila = h.filas.get(f);
                 if (c < fila.length && fila[c] != null) ancho = Math.max(ancho, fila[c].length());
             }
@@ -172,7 +176,13 @@ public final class A35_Xlsx {
             for (int c = 0; c < h.columnas.size(); c++) {
                 String v = c < fila.length ? fila[c] : null;
                 boolean editable = c < h.editable.size() && Boolean.TRUE.equals(h.editable.get(c));
-                celda(sb, c, r, v == null ? "" : v, editable ? ESTILO_EDITABLE : ESTILO_FIJO, true);
+                int estilo = editable ? ESTILO_EDITABLE : ESTILO_FIJO;
+                if (h.formulas.contains(c) && v != null && !v.isEmpty()) {
+                    sb.append("<c r=\"").append(letra(c)).append(r).append("\" s=\"").append(estilo)
+                            .append("\"><f>").append(xml(v)).append("</f></c>");
+                } else {
+                    celda(sb, c, r, v == null ? "" : v, estilo, true);
+                }
             }
             sb.append("</row>");
         }
@@ -206,7 +216,7 @@ public final class A35_Xlsx {
     }
 
     /** 0 → A, 25 → Z, 26 → AA. */
-    private static String letra(int indice) {
+    public static String letra(int indice) {
         StringBuilder sb = new StringBuilder();
         int n = indice + 1;
         while (n > 0) {
