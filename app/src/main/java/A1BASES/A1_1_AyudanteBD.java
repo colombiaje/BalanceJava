@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 31; // v31 plantillas (P1); ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
+    public static final int version1BalanceSqlite_int_PSF = 32; // v32 historial de cuentas (P1, 23-nov); v31 plantillas (P1); ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -2353,6 +2353,107 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 "PRIMARY KEY (plantilla_id, orden))";
     }
 
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (23-nov, Jorge, BD v32): HISTORIAL DE CUENTAS (P1)
+    //  Historial no contable para las pocas cuentas cuyo detalle sirve: al cerrar un período
+    //  (P2), las líneas de esas cuentas se copian aquí antes de borrarse. La consulta (P3) une
+    //  el tramo cerrado (esta tabla, solo lectura) con el tramo abierto (transacciones, en
+    //  vivo): la "gemela grande" de la cuenta. Siempre: suma del historial = saldo inicial
+    //  (doc 0) de la cuenta. Ver el doc de diseño y el chat del 23-nov.
+    //   - cuentas.con_historial: 0/1 (marca "Con historial" en F2).
+    //   - cuentas.historial_desde: AAAAMMDD de la primera activación.
+    //   - historial.tipo: 'arranque' (saldo del doc 0 al activar), 'sin detalle' (períodos
+    //     cerrados mientras estuvo desactivado) o 'movimiento' (línea copiada en un cierre).
+    // ─────────────────────────────────────────────
+    public static final String TABLE_HISTORIAL = "historial";
+    public static final String HISTORIAL_ARRANQUE = "arranque";
+    public static final String HISTORIAL_SIN_DETALLE = "sin detalle";
+    public static final String HISTORIAL_MOVIMIENTO = "movimiento";
+
+    private static final String SQL_CREAR_HISTORIAL =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_HISTORIAL + " (" +
+                    "historial_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "cuenta_id INTEGER NOT NULL REFERENCES cuentas(cuenta_id), " +
+                    "tipo TEXT NOT NULL, " +
+                    "periodo_corte INTEGER, " +          // AAAAMMDD del corte del cierre (NULL en arranque)
+                    "fecha_registro TEXT NOT NULL, " +   // cuándo se escribió esta línea
+                    "transaccion_id_original INTEGER, " +
+                    "c1_Documento TEXT, c2_ItemDoc TEXT, " +
+                    "c5_Valor INTEGER NOT NULL, c6_Descripcion TEXT, " +
+                    "c7_FechaYHora TEXT, c8_FechaInicial INTEGER, c9_FechaModificacion TEXT)";
+
+    /** Idempotente: columnas de cuentas, tabla e índice (instalación nueva y migración v32). */
+    static void asegurarHistorial(SQLiteDatabase db) {
+        java.util.Set<String> cols = new java.util.HashSet<>();
+        try (Cursor c = db.rawQuery("PRAGMA table_info(cuentas)", null)) {
+            while (c.moveToNext()) cols.add(c.getString(1));
+        }
+        if (!cols.contains("con_historial")) {
+            db.execSQL("ALTER TABLE cuentas ADD COLUMN con_historial INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!cols.contains("historial_desde")) {
+            db.execSQL("ALTER TABLE cuentas ADD COLUMN historial_desde INTEGER");
+        }
+        db.execSQL(SQL_CREAR_HISTORIAL);
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_historial_cuenta ON " + TABLE_HISTORIAL
+                + " (cuenta_id, c8_FechaInicial, historial_id)");
+    }
+
+    /**
+     * Al activar "Con historial" en una cuenta (nueva o existente). El historial debe sumar el
+     * saldo inicial de la cuenta (su doc 0): si está vacío, arranca con ese saldo; si ya tenía
+     * líneas (se reactiva), se agrega la diferencia como "sin detalle" (períodos cerrados
+     * mientras estuvo desactivado). Devuelve un texto corto para el usuario.
+     */
+    public static String activarHistorial(SQLiteDatabase db, long cuentaId) {
+        long saldoInicial = 0;
+        Integer fechaInicial = null;
+        try (Cursor c = db.rawQuery("SELECT IFNULL(SUM(c5_Valor), 0), MIN(c8_FechaInicial) FROM transacciones"
+                + " WHERE cuenta_id = ? AND CAST(c1_Documento AS INTEGER) = 0", new String[]{String.valueOf(cuentaId)})) {
+            if (c.moveToFirst()) {
+                saldoInicial = c.getLong(0);
+                if (!c.isNull(1)) fechaInicial = c.getInt(1);
+            }
+        }
+        long lineas = 0, sumaHistorial = 0;
+        try (Cursor c = db.rawQuery("SELECT COUNT(*), IFNULL(SUM(c5_Valor), 0) FROM " + TABLE_HISTORIAL
+                + " WHERE cuenta_id = ?", new String[]{String.valueOf(cuentaId)})) {
+            if (c.moveToFirst()) {
+                lineas = c.getLong(0);
+                sumaHistorial = c.getLong(1);
+            }
+        }
+        String ahora = new java.text.SimpleDateFormat("yyyy.MM.dd HH:mm:ss", java.util.Locale.US).format(new java.util.Date());
+        int hoy = Integer.parseInt(new java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(new java.util.Date()));
+        String texto;
+        db.beginTransaction();
+        try {
+            if (lineas == 0 || sumaHistorial != saldoInicial) {
+                boolean arranque = lineas == 0;
+                ContentValues v = new ContentValues();
+                v.put("cuenta_id", cuentaId);
+                v.put("tipo", arranque ? HISTORIAL_ARRANQUE : HISTORIAL_SIN_DETALLE);
+                v.put("fecha_registro", ahora);
+                v.put("c1_Documento", "0");
+                v.put("c5_Valor", arranque ? saldoInicial : saldoInicial - sumaHistorial);
+                v.put("c6_Descripcion", arranque ? "Saldo de arranque del historial"
+                        : "Períodos cerrados sin detalle (historial desactivado)");
+                v.put("c8_FechaInicial", fechaInicial != null ? fechaInicial : hoy);
+                db.insert(TABLE_HISTORIAL, null, v);
+                texto = arranque ? "Historial iniciado con el saldo inicial " + saldoInicial + "."
+                        : "Historial reactivado; se agregó " + (saldoInicial - sumaHistorial) + " sin detalle.";
+            } else {
+                texto = "Historial reactivado; ya cuadra con el saldo inicial.";
+            }
+            db.execSQL("UPDATE cuentas SET con_historial = 1, historial_desde = IFNULL(historial_desde, ?) WHERE cuenta_id = ?",
+                    new Object[]{hoy, cuentaId});
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        return texto;
+    }
+
     static void crearTablasPlantilla(SQLiteDatabase db) {
         db.execSQL(SQL_CREAR_PLANTILLA);
         db.execSQL(sqlCrearPlantillaItem(TABLE_PLANTILLA_ITEM));
@@ -2849,6 +2950,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_SOPORTE_RENTA); // ⭐ NUEVO (9-nov, BD v29, renta R7)
         db.execSQL(SQL_CREAR_SOPORTE_RENTA_CONCEPTO);
         crearTablasPlantilla(db); // ⭐ NUEVO (15-nov, BD v31, plantillas P1)
+        asegurarHistorial(db); // ⭐ NUEVO (23-nov, BD v32, historial P1)
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -3816,6 +3918,12 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // no cambian).
         if (oldVersion < 31) {
             crearTablasPlantilla(db);
+        }
+
+        // ⭐ NUEVO (23-nov, Jorge): versión 32 — historial de cuentas (P1). Aditivo: una tabla
+        // nueva vacía y dos columnas nuevas en cuentas (0 / NULL en todas).
+        if (oldVersion < 32) {
+            asegurarHistorial(db);
         }
     }
 

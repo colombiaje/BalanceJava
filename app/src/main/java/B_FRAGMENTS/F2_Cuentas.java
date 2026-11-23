@@ -158,6 +158,10 @@ public class F2_Cuentas extends DialogFragment {
     // inventario (pasó de 0 a 1), para invitar a dar de alta el primer artículo igual que en
     // una cuenta nueva.
     boolean conInventarioOriginalEnModificar_boolean = false;
+    // ⭐ NUEVO (23-nov, Jorge, BD v32, historial P1): marca "Con historial" y su valor al abrir
+    // la cuenta en Modificar (para detectar si esta edición la ACTIVÓ, 0 → 1).
+    CheckBox conHistorialCuentaNueva_XChB;
+    boolean conHistorialOriginalEnModificar_boolean = false;
     // ⭐ NUEVO — Tanda 5 (1-oct, pedido de Jorge): botón de historial básico de movimientos de
     // inventario por cuenta, visible solo en "Modificar cuenta" cuando la cuenta cargada tiene
     // con_inventario = 1 (ver interrelationsAccountsGroups() y cleanClickFieldsAccount()).
@@ -525,6 +529,7 @@ public class F2_Cuentas extends DialogFragment {
         grupo2CuentaNueva_XSp=(Spinner) inflarViews_View.findViewById(R.id.grupo2CuentaNueva_XSp);
         cerrableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.cerrableCuentaNueva_XChB);
         conciliableCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conciliableCuentaNueva_XChB);
+        conHistorialCuentaNueva_XChB = (CheckBox) inflarViews_View.findViewById(R.id.conHistorialCuentaNueva_XChB); // ⭐ historial P1
         // ⭐ NUEVO — v12 tanda 3.
         conInventarioCuentaNueva_XChB=(CheckBox) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XChB);
         conInventarioCuentaNueva_XTv=(TextView) inflarViews_View.findViewById(R.id.conInventarioCuentaNueva_XTv);
@@ -872,6 +877,7 @@ public class F2_Cuentas extends DialogFragment {
                         cerrableCuentaNueva_XChB.setChecked(false);
                         // ⭐ NUEVO — v11 tanda 3 (parte A): mismo criterio que Cerrable arriba.
                         conciliableCuentaNueva_XChB.setChecked(false);
+                        conHistorialCuentaNueva_XChB.setChecked(false); // ⭐ historial P1
                         copyCuentaABuscarXChb.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_paste,0,0,0);
                         limpiarTextoEnCuentaABuscar();
                         isCopyMode = false;
@@ -1161,6 +1167,7 @@ public class F2_Cuentas extends DialogFragment {
             // ⭐ NUEVO — v12 tanda 3: checkbox "con inventario". Se lee ANTES de
             // cleanClickFieldsAccount() (más abajo), que lo vuelve a dejar en false.
             boolean conInventarioCuentaNueva_boolean = conInventarioCuentaNueva_XChB.isChecked();
+            boolean conHistorialCuentaNueva_boolean = conHistorialCuentaNueva_XChB.isChecked(); // ⭐ historial P1
             a3_operacionesBD.insertarCuentas(itemCuentaNueva_String, cuentaNueva_String,
                     grupo1CuentaNueva_String, grupo2CuentaNueva_String, fechaCuentaNueva_String,
                     cerrableCuentaNueva_String, tipoCuentaIdSeleccionado, conciliableCuentaNueva_String,
@@ -1169,6 +1176,7 @@ public class F2_Cuentas extends DialogFragment {
             // (insertarCuentas ya asignó los valores por defecto; aquí manda lo que se ve en
             // pantalla). Antes de cleanClickFieldsAccount(), que limpia los campos.
             guardarDatosRentaDeCuenta(cuentaNueva_String);
+            if (conHistorialCuentaNueva_boolean) iniciarHistorialPorNombre(cuentaNueva_String); // ⭐ historial P1
 
             cleanClickFieldsAccount();
             Toast.makeText(getActivity(), "! Registro de cuenta nueva guardado ! ", Toast.LENGTH_SHORT).show();
@@ -1561,7 +1569,7 @@ public class F2_Cuentas extends DialogFragment {
             // cuenta al abrirla en "Modificar cuenta" (reportado por Jorge: "no pude probar").
             Cursor fila = db.rawQuery
                     ("select Item, Cerrable, cuenta_id, tipo_cuenta_id, conciliable, con_inventario, " +
-                            "renglon_renta_id, entidad, tipo_soporte from" + /* ⭐ renta R2: índices 6-8 */
+                            "renglon_renta_id, entidad, tipo_soporte, con_historial from" + /* ⭐ renta R2: índices 6-8; historial P1: 9 */
                             " cuentas where Cuenta like '" +
                             existingText + "';",null);
 
@@ -1606,6 +1614,9 @@ public class F2_Cuentas extends DialogFragment {
                 // artículo — igual que al crear una cuenta nueva con el interruptor activado.
                 conInventarioOriginalEnModificar_boolean = !fila.isNull(5) && fila.getLong(5) != 0;
                 conInventarioCuentaNueva_XChB.setChecked(conInventarioOriginalEnModificar_boolean);
+                // ⭐ NUEVO (23-nov, historial P1).
+                conHistorialOriginalEnModificar_boolean = !fila.isNull(9) && fila.getLong(9) != 0;
+                conHistorialCuentaNueva_XChB.setChecked(conHistorialOriginalEnModificar_boolean);
 
                 //aplica en nuevas
 
@@ -1792,6 +1803,35 @@ public class F2_Cuentas extends DialogFragment {
         return filas;
     }
 
+    // ⭐ NUEVO (23-nov, Jorge, historial P1): inicia el historial de la cuenta (saldo de arranque
+    // = su saldo inicial del doc 0) y avisa al usuario.
+    private void iniciarHistorial(Long cuentaId) {
+        if (cuentaId == null || getActivity() == null) return;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase bd = ayudante.getWritableDatabase();
+        try {
+            String texto = A1_1_AyudanteBD.activarHistorial(bd, cuentaId);
+            Toast.makeText(getActivity(), "Con historial: " + texto, Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo iniciar el historial: " + e.getMessage(), e);
+            Toast.makeText(getActivity(), "No se pudo iniciar el historial: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        } finally {
+            bd.close();
+        }
+    }
+
+    private void iniciarHistorialPorNombre(String nombreCuenta) {
+        Long id = null;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase bd = ayudante.getReadableDatabase();
+        try (Cursor c = bd.rawQuery("SELECT cuenta_id FROM cuentas WHERE Cuenta = ?", new String[]{nombreCuenta})) {
+            if (c.moveToFirst()) id = c.getLong(0);
+        } finally {
+            bd.close();
+        }
+        iniciarHistorial(id);
+    }
+
     /** Firma del formulario para saber si hay cambios sin guardar. */
     private String firmaFormulario() {
         ContentValues renta = new ContentValues();
@@ -1800,7 +1840,8 @@ public class F2_Cuentas extends DialogFragment {
                 grupo1CuentaNueva_XSp.getSelectedItemPosition() + "|" +
                 cerrableCuentaNueva_XChB.isChecked() + "|" +
                 conciliableCuentaNueva_XChB.isChecked() + "|" +
-                conInventarioCuentaNueva_XChB.isChecked() + "|" + renta;
+                conInventarioCuentaNueva_XChB.isChecked() + "|" +
+                conHistorialCuentaNueva_XChB.isChecked() + "|" + renta;
     }
 
     private boolean hayCambiosSinGuardarEnCuenta() {
@@ -1900,6 +1941,7 @@ public class F2_Cuentas extends DialogFragment {
         cerrableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — Fase 4 (parte B)
         conciliableCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v11 tanda 3 (parte A)
         conInventarioCuentaNueva_XChB.setChecked(false); // ⭐ NUEVO — v12 tanda 3
+        conHistorialCuentaNueva_XChB.setChecked(false); // ⭐ historial P1
         if (liquidezCuentaNueva_XTv != null) liquidezCuentaNueva_XTv.setText(""); // ⭐ 31-oct
         tipoIdDeLaPropuestaRenta = null; // ⭐ renta R2
         mostrarDatosRentaEnFormulario(null, null, null);
@@ -1911,6 +1953,7 @@ public class F2_Cuentas extends DialogFragment {
         cuentaIdEnModificar_Long = null;
         nombreOriginalEnModificar_String = null;
         conInventarioOriginalEnModificar_boolean = false; // ⭐ NUEVO — v12 tanda 3
+        conHistorialOriginalEnModificar_boolean = false; // ⭐ historial P1
         verHistorialInventario_XBt.setVisibility(View.GONE); // ⭐ NUEVO — Tanda 5 (1-oct)
         agregarArticulosInventario_XBt.setVisibility(View.GONE); // ⭐ NUEVO — Tanda 6 (31-oct)
         account_XAct.setError(null);
@@ -2118,6 +2161,9 @@ public class F2_Cuentas extends DialogFragment {
             // una que no lo tenía, o desactivar en una que sí. ejecutarActualizacionCuenta()
             // usa este mismo valor para detectar si esta edición lo ACTIVÓ (pasó de 0 a 1).
             contenedor_ContentValues.put("con_inventario", conInventarioCuentaNueva_XChB.isChecked() ? 1 : 0);
+            // ⭐ NUEVO (23-nov, historial P1): desactivar deja el historial guardado (solo
+            // lectura); activar (0 → 1) lo inicia en ejecutarActualizacionCuenta().
+            contenedor_ContentValues.put("con_historial", conHistorialCuentaNueva_XChB.isChecked() ? 1 : 0);
             // ⭐ NUEVO (3-nov, renta R2): renglón de renta, entidad y soporte.
             ponerDatosRentaDelFormulario(contenedor_ContentValues);
 
@@ -2184,6 +2230,11 @@ public class F2_Cuentas extends DialogFragment {
             boolean seActivoInventarioAhora = !conInventarioOriginalEnModificar_boolean
                     && conInventarioNuevo_Integer != null && conInventarioNuevo_Integer == 1;
             long cuentaIdParaDialogoInventario = cuentaIdEnModificar_Long;
+            // ⭐ NUEVO (23-nov, historial P1): si esta edición ACTIVÓ "Con historial".
+            Integer conHistorialNuevo_Integer = valores.getAsInteger("con_historial");
+            if (!conHistorialOriginalEnModificar_boolean && conHistorialNuevo_Integer != null && conHistorialNuevo_Integer == 1) {
+                iniciarHistorial(cuentaIdEnModificar_Long);
+            }
             String nombreCuentaParaDialogoInventario = (String) valores.get("Cuenta");
 
             // ⭐ CAMBIO — Fase 4 Objetivo 2 (fix): estas dos llamadas vivían en el listener de

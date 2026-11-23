@@ -638,6 +638,31 @@
             app:layout_row="12"
             />
 
+        <!-- ⭐ NUEVO (23-nov, Jorge, BD v32, historial P1): marca "Con historial". Al activarla,
+             la cuenta guarda su detalle en el historial no contable en cada cierre por período.
+             Las filas siguientes se corrieron una fila abajo. -->
+        <TextView
+            android:id="@+id/conHistorialCuentaNueva_XTv"
+            android:layout_width="70dp"
+            android:layout_height="25dp"
+            android:background="@android:color/holo_purple"
+            android:text="Historial"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="@android:color/white"
+            android:textSize="18dp"
+            app:layout_column="1"
+            app:layout_gravity="center"
+            app:layout_row="13" />
+
+        <CheckBox
+            android:id="@+id/conHistorialCuentaNueva_XChB"
+            android:layout_width="260dp"
+            android:layout_height="40dp"
+            android:background="#F4D7F5"
+            app:layout_column="2"
+            app:layout_row="13"
+            />
+
         <!-- ⭐ NUEVO (31-oct, pedido de Jorge): liquidez de la cuenta, SOLO LECTURA — se hereda
              del tipo de cuenta elegido arriba (tipo_cuenta.liquidez, BD v17) y cambia sola al
              elegir otro Tipo. Las filas siguientes (botones, etc.) se corrieron una fila abajo. -->
@@ -651,7 +676,7 @@
             android:textSize="18dp"
             app:layout_column="1"
             app:layout_gravity="center"
-            app:layout_row="13" />
+            app:layout_row="14" />
 
         <TextView
             android:id="@+id/liquidezCuentaNueva_XTv"
@@ -663,7 +688,7 @@
             android:textColor="@android:color/black"
             android:textSize="16dp"
             app:layout_column="2"
-            app:layout_row="13" />
+            app:layout_row="14" />
 
         <!-- ⭐ NUEVO (3-nov, renta R2, pedido de Jorge): renglón de renta, entidad y soporte de la
              cuenta. Al elegir el Tipo se proponen el renglón y el soporte; el usuario los cambia.
@@ -678,7 +703,7 @@
             android:textSize="18dp"
             app:layout_column="1"
             app:layout_gravity="center"
-            app:layout_row="14" />
+            app:layout_row="15" />
 
         <Spinner
             android:id="@+id/renglonRentaCuenta_XSp"
@@ -686,7 +711,7 @@
             android:layout_height="40dp"
             android:background="#F4D7F5"
             app:layout_column="2"
-            app:layout_row="14" />
+            app:layout_row="15" />
 
         <TextView
             android:layout_width="70dp"
@@ -698,7 +723,7 @@
             android:textSize="18dp"
             app:layout_column="1"
             app:layout_gravity="center"
-            app:layout_row="15" />
+            app:layout_row="16" />
 
         <EditText
             android:id="@+id/entidadCuenta_XEt"
@@ -711,7 +736,7 @@
             android:textColor="@android:color/black"
             android:textSize="16dp"
             app:layout_column="2"
-            app:layout_row="15" />
+            app:layout_row="16" />
 
         <TextView
             android:layout_width="70dp"
@@ -723,7 +748,7 @@
             android:textSize="18dp"
             app:layout_column="1"
             app:layout_gravity="center"
-            app:layout_row="16" />
+            app:layout_row="17" />
 
         <Spinner
             android:id="@+id/soporteCuenta_XSp"
@@ -731,7 +756,7 @@
             android:layout_height="40dp"
             android:background="#F4D7F5"
             app:layout_column="2"
-            app:layout_row="16" />
+            app:layout_row="17" />
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -741,7 +766,7 @@
             app:layout_column="0"
             app:layout_columnSpan="4"
             app:layout_gravity="center_horizontal"
-            app:layout_row="17">
+            app:layout_row="18">
 
             <Button
                 android:id="@+id/cleanFieldsAccount_XBt"
