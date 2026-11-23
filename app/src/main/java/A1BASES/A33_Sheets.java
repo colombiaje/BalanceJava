@@ -330,13 +330,26 @@ public class A33_Sheets {
      */
     private static List<A35_Xlsx.Hoja> libroTransacciones(SQLiteDatabase db) {
         A35_Xlsx.Hoja trans = leer(db, sqlTransacciones(db), "Transacciones", EDITABLES_TRANSACCIONES);
-        A35_Xlsx.Hoja nombres = leer(db, "SELECT cuenta_id, Cuenta FROM cuentas ORDER BY cuenta_id",
-                "Cuentas (consulta)", null);
-        String rangoNombres = "'" + nombres.nombre + "'!A:B";
+        // ⭐ (23-nov, Jorge): con el tipo de cuenta, para que tipo_cuenta_id y su referencia también
+        // sigan al cuenta_id (la app recalcula el tipo al aplicar; esto es lo que ve el usuario).
+        A35_Xlsx.Hoja nombres = leer(db, "SELECT c.cuenta_id, c.Cuenta, c.tipo_cuenta_id, tc.nombre AS \"Tipo de cuenta\""
+                + " FROM cuentas c LEFT JOIN " + A1_1_AyudanteBD.TABLE_TIPO_CUENTA
+                + " tc ON tc.tipo_cuenta_id = c.tipo_cuenta_id ORDER BY c.cuenta_id", "Cuentas (consulta)", null);
+        String rangoNombres = "'" + nombres.nombre + "'!A:D";
         int colCuenta = trans.columnas.indexOf("cuenta_id");
         int colValor = trans.columnas.indexOf("Valor");
         if (colCuenta >= 0) {
             String letraCuenta = A35_Xlsx.letra(colCuenta);
+            // tipo_cuenta_id (col. 3 de la consulta) y su nombre (col. 4), por fórmula.
+            int[] colsTipo = {trans.columnas.indexOf("tipo_cuenta_id"), trans.columnas.indexOf("Tipo de cuenta (referencia)")};
+            for (int k = 0; k < 2; k++) {
+                if (colsTipo[k] < 0) continue;
+                trans.formulas.add(colsTipo[k]);
+                for (int f = 0; f < trans.filas.size(); f++) {
+                    trans.filas.get(f)[colsTipo[k]] = "IFERROR(VLOOKUP(" + letraCuenta + (f + 2) + "," + rangoNombres
+                            + "," + (k + 3) + ",FALSE)&\"\",\"\")";
+                }
+            }
             int nueva = trans.columnas.size();
             trans.columnas.add("Cuenta (referencia)");
             trans.editable.add(false);

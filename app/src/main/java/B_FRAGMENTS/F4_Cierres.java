@@ -455,6 +455,37 @@ public class F4_Cierres extends Fragment {
     }
 
     /** Cierre de algunas cuentas: un solo diálogo antes. */
+    // ⭐ NUEVO (23-nov, Jorge): cotejo del cierre de algunas cuentas. El saldo de cada cuenta
+    // (suma de sus valores) debe ser el mismo antes y después: lo borrado queda como saldo inicial.
+    private java.util.Map<Long, Long> saldosPorCuenta() {
+        java.util.Map<Long, Long> m = new java.util.HashMap<>();
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(requireContext(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try (Cursor c = db.rawQuery("SELECT IFNULL(cuenta_id, -1), IFNULL(SUM(c5_Valor), 0) FROM transacciones GROUP BY cuenta_id", null)) {
+            while (c.moveToNext()) m.put(c.getLong(0), c.getLong(1));
+        } finally {
+            db.close();
+        }
+        return m;
+    }
+
+    private String cotejoDeSaldos(java.util.Map<Long, Long> antes, java.util.Map<Long, Long> despues) {
+        java.util.Set<Long> cuentas = new java.util.TreeSet<>(antes.keySet());
+        cuentas.addAll(despues.keySet());
+        StringBuilder dif = new StringBuilder();
+        int distintas = 0;
+        for (Long id : cuentas) {
+            long a = antes.containsKey(id) ? antes.get(id) : 0L;
+            long d = despues.containsKey(id) ? despues.get(id) : 0L;
+            if (a == d) continue;
+            distintas++;
+            if (distintas <= 10) dif.append("\n  cuenta ").append(id).append(": ").append(miles(a)).append(" → ").append(miles(d));
+        }
+        if (distintas == 0) return "✓ Saldos cotejados: las " + cuentas.size() + " cuentas tienen el mismo saldo antes y después.";
+        return "⚠ " + distintas + " cuenta(s) cambiaron de saldo (antes → después):" + dif
+                + (distintas > 10 ? "\n  …" : "") + "\nRevisa antes de seguir; el respaldo previo está en Respaldos.";
+    }
+
     private void dialogoCierreAlgunas() {
         new AlertDialog.Builder(getActivity())
                 .setTitle("Cierre de algunas cuentas")
@@ -496,6 +527,9 @@ public class F4_Cierres extends Fragment {
                     return;
                 }
 
+                // ⭐ (23-nov, Jorge): saldo de cada cuenta antes, para cotejarlo con el de después.
+                java.util.Map<Long, Long> saldosAntes = saldosPorCuenta();
+
                 // 2. Borrar transacciones de algunas cuentas
                 A1_2_OperacionesBD operacionesBD_class = new A1_2_OperacionesBD(getActivity());
                 operacionesBD_class.eliminarTransaccionesAlgunasCuentas();
@@ -513,7 +547,8 @@ public class F4_Cierres extends Fragment {
 
                 // 6. ⭐ E3: punto "después" y resumen
                 cerrarOperacion("Cierre de algunas cuentas",
-                        "Saldos trasladados: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")");
+                        "Saldos trasladados: " + lineasDeDatos(nombreArchivoResumen) + " cuentas (archivo " + nombreArchivoResumen + ")"
+                                + "\n" + cotejoDeSaldos(saldosAntes, saldosPorCuenta()));
             } catch (Exception e) {
                 Log.e(TAG, "Error en cierre algunas cuentas: " + e.getMessage(), e);
                 Toast.makeText(getActivity(), "Error en el proceso de cierre", Toast.LENGTH_SHORT).show();
