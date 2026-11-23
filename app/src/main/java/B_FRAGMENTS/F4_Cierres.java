@@ -374,7 +374,7 @@ public class F4_Cierres extends Fragment {
                     + "\nCorte: " + fechaLegible(limites[1]) + ". Se cierran " + miles(rev.documentosACerrar)
                     + " documentos (" + miles(rev.lineasACerrar) + " líneas); quedan " + miles(rev.documentosQuedan)
                     + " posteriores.");
-            if (!rev.mixtos.isEmpty()) t.append("\n⚠ ").append(rev.mixtos.size()).append(" documento(s) mixtos: no se podrá cerrar.");
+            if (!rev.mixtos.isEmpty()) t.append("\n⚠ ").append(rev.mixtos.size()).append(" documento(s) mixtos o sin fecha: no se podrá cerrar.");
             t.append("\nCon historial: ").append(rev.cuentasConHistorial.isEmpty() ? "ninguna"
                     : String.join(", ", rev.cuentasConHistorial)).append(" (").append(miles(rev.lineasAlHistorial))
                     .append(" líneas). ¿Falta alguna? Márcala en Cuentas antes de cerrar.");
@@ -444,8 +444,8 @@ public class F4_Cierres extends Fragment {
             // ⭐ (23-nov, historial P2): con documentos mixtos no se cierra; se listan.
             A1BASES.A37_CierrePeriodo.Revision rev = revisionDelAnio(anio);
             if (rev != null && !rev.mixtos.isEmpty()) {
-                StringBuilder l = new StringBuilder("Estos documentos tienen líneas antes y después del corte. "
-                        + "Corrige sus fechas (en F1 o por Sheets) y vuelve a cerrar:\n");
+                StringBuilder l = new StringBuilder("Estos documentos tienen líneas antes y después del corte, o líneas "
+                        + "sin fecha. Corrige sus fechas (en F1 o por Sheets) y vuelve a cerrar:\n");
                 for (int i = 0; i < Math.min(rev.mixtos.size(), 30); i++) l.append("\n• ").append(rev.mixtos.get(i));
                 if (rev.mixtos.size() > 30) l.append("\n…");
                 new AlertDialog.Builder(getActivity()).setTitle("⚠ Documentos mixtos")

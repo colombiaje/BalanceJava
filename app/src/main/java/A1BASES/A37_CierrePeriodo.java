@@ -28,14 +28,20 @@ import java.util.TreeSet;
  *       día siguiente al corte;
  *     - cotejo: el saldo de cada cuenta (suma de todas sus líneas) debe ser el mismo antes y
  *       después; si no, se deshace todo. Y el historial de cada cuenta debe sumar su doc 0.
- * Una fecha sin valor o 0 (filas antiguas) se toma como anterior al corte.
+ * ⭐ CAMBIO (23-nov, Jorge, tras la primera prueba): la fecha de cada línea es su Fecha inicial
+ * (c8); si está vacía o en 0 (filas antiguas), se toma la de "Fecha y hora" (c7, aaaa.mm.dd).
+ * Antes se tomaba como anterior al corte, y documentos de 2026 con c8 = 0 salieron en el cierre
+ * de 2025. Si una línea no tiene ninguna fecha válida, su documento NO se cierra: se lista como
+ * "sin fecha" para corregirlo antes.
  */
 public final class A37_CierrePeriodo {
 
     private A37_CierrePeriodo() { }
 
     private static final String DOC = "CAST(c1_Documento AS INTEGER)";
-    private static final String FECHA = "IFNULL(c8_FechaInicial, 0)";
+    private static final String FECHA_C7 = "CAST(REPLACE(REPLACE(SUBSTR(c7_FechaYHora, 1, 10), '.', ''), '-', '') AS INTEGER)";
+    private static final String FECHA = "(CASE WHEN IFNULL(c8_FechaInicial, 0) BETWEEN 19000101 AND 21001231 THEN c8_FechaInicial"
+            + " WHEN IFNULL(" + FECHA_C7 + ", 0) BETWEEN 19000101 AND 21001231 THEN " + FECHA_C7 + " ELSE 0 END)";
 
     public static class Revision {
         public int corte;
@@ -68,7 +74,9 @@ public final class A37_CierrePeriodo {
                 + " FROM transacciones WHERE " + DOC + " <> 0 GROUP BY " + DOC + " ORDER BY " + DOC, null)) {
             while (c.moveToNext()) {
                 long min = c.getLong(1), max = c.getLong(2);
-                if (max <= corte) {
+                if (min == 0) {
+                    r.mixtos.add("Doc " + c.getLong(0) + ": sin fecha válida (Fecha inicial ni Fecha y hora)");
+                } else if (max <= corte) {
                     r.documentosACerrar++;
                     r.lineasACerrar += c.getLong(3);
                 } else if (min <= corte) {
@@ -91,7 +99,7 @@ public final class A37_CierrePeriodo {
     /** Subconsulta: números de documento (sin el 0) cuyas líneas son todas hasta el corte. */
     private static String docsACerrar(int corte) {
         return "SELECT " + DOC + " FROM transacciones WHERE " + DOC + " <> 0 GROUP BY " + DOC
-                + " HAVING MAX(" + FECHA + ") <= " + corte;
+                + " HAVING MIN(" + FECHA + ") > 0 AND MAX(" + FECHA + ") <= " + corte;
     }
 
     private static Map<Long, Long> saldos(SQLiteDatabase db, String sql) {
@@ -106,7 +114,7 @@ public final class A37_CierrePeriodo {
         Resultado r = new Resultado();
         Revision rev = revisar(db, corte);
         if (!rev.mixtos.isEmpty()) {
-            r.mensaje = "Hay " + rev.mixtos.size() + " documento(s) con líneas a ambos lados del corte; no se cerró nada.";
+            r.mensaje = "Hay " + rev.mixtos.size() + " documento(s) mixtos o sin fecha; no se cerró nada.";
             return r;
         }
         String ahora = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss", Locale.US).format(new Date());
