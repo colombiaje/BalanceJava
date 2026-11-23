@@ -656,8 +656,10 @@ public class F7_Respaldos extends Fragment {
         A1BASES.A34_MenuOpciones.mostrar(requireContext(), "Continúa donde estabas",
                 "Puedes seguir corrigiendo en Sheets en la hoja donde estabas.\n⏱ Te quedan "
                         + A1BASES.A36_TraerSheets.textoMinutos(min) + " de la ventana de "
-                        + A1BASES.A36_TraerSheets.VENTANA_HORAS + " h.",
-                opciones, notas, "Listo",
+                        + A1BASES.A36_TraerSheets.VENTANA_HORAS + " h."
+                        + "\n\n¿La tienes abierta en el computador u otro equipo? Toca Cerrar y sigue allí;"
+                        + " al terminar vuelve aquí a \"Traer de Sheets\".",
+                opciones, notas, "Cerrar",
                 i -> abrirEnlace("https://docs.google.com/spreadsheets/d/" + hojas.get(i).id + "/edit"));
     }
 
