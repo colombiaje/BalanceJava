@@ -79,6 +79,8 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     // el saldo alterna con "solo período abierto" (la contable).
     private boolean soloPeriodoAbierto = false;
     private String avisoGemela = null;
+    // ⭐ (24-nov): documentos de las líneas cerradas (solo lectura). El 🔒 va en la descripción.
+    private final java.util.Set<String> documentosCerrados = new java.util.HashSet<>();
     public static final String MARCA_CERRADO = "🔒";
 
     private boolean vieneDeVerItemTransaccion = false;
@@ -487,7 +489,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                         getActivity(), listaFiltrada,
                         documento -> {
                             // ⭐ (historial P3): las líneas de períodos cerrados son solo lectura.
-                            if (documento != null && documento.startsWith(MARCA_CERRADO)) {
+                            if (documento != null && documentosCerrados.contains(documento)) {
                                 Toast.makeText(getActivity(), "Línea de un período cerrado: solo lectura. "
                                         + "Si hay un error, corrígelo con un ajuste en el período abierto.", Toast.LENGTH_LONG).show();
                                 return;
@@ -504,7 +506,14 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 actualizarContador();
             }
             if (textoGemela != null && c5_Valor_XTv != null) {
-                c5_Valor_XTv.setText(textoGemela);
+                // ⭐ (24-nov, Jorge): el ícono (🔒, ⚠ o ☑) más grande.
+                android.text.SpannableString sp = new android.text.SpannableString(textoGemela);
+                int iIcono = textoGemela.lastIndexOf(' ') + 1;
+                if (iIcono > 0 && iIcono < textoGemela.length()) {
+                    sp.setSpan(new android.text.style.RelativeSizeSpan(1.6f), iIcono, textoGemela.length(),
+                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                c5_Valor_XTv.setText(sp);
                 if (avisoGemela != null) Toast.makeText(getActivity(), avisoGemela, Toast.LENGTH_LONG).show();
                 c5_Valor_XTv.setOnClickListener(v -> {
                     soloPeriodoAbierto = !soloPeriodoAbierto;
@@ -533,6 +542,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
      */
     private String armarGemela(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
         avisoGemela = null;
+        documentosCerrados.clear();
         if (receivedAccount == null || getActivity() == null) return null;
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getReadableDatabase();
@@ -547,8 +557,8 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             long saldoContable = 0;
             for (A3_2_TipoTransaccionesGetsYSets t : lista) saldoContable += t.tipoTget_5ValorMetodoEnA52();
             if (soloPeriodoAbierto) {
-                avisoGemela = "Solo período abierto (la contable, con su doc 0). Toca el saldo para ver el historial.";
-                return "$ " + saldoContable + " ◻";
+                avisoGemela = "☑ Solo período abierto (la contable, con su doc 0). Toca el saldo para ver el historial 🔒.";
+                return "$ " + saldoContable + " ☑";
             }
             long saldoGemela = 0;
             java.util.Iterator<A3_2_TipoTransaccionesGetsYSets> it = lista.iterator();
@@ -581,15 +591,16 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 while (c.moveToNext()) {
                     int valor = c.getInt(1);
                     String tipo = c.getString(4);
-                    String desc = c.getString(2) == null ? "" : c.getString(2);
-                    if (!c.isNull(5)) desc = "[cerrado al " + c.getInt(5) + "] " + desc;
-                    else if (!A1_1_AyudanteBD.HISTORIAL_MOVIMIENTO.equals(tipo)) desc = "[" + tipo + "] " + desc;
+                    // ⭐ (24-nov, Jorge): 🔒 al inicio de la descripción, sin "[...]" (los corchetes
+                    // ya tienen otro uso) y con la descripción original limpia.
+                    String desc = MARCA_CERRADO + " " + (c.getString(2) == null ? "" : c.getString(2));
                     int fecha = c.getInt(3);
                     if (!A1_1_AyudanteBD.HISTORIAL_MOVIMIENTO.equals(tipo) && fechaMinima != Integer.MAX_VALUE) {
                         fecha = Math.min(fecha, fechaMinima);
                     }
-                    lista.add(new A3_2_TipoTransaccionesGetsYSets(MARCA_CERRADO + (c.getString(0) == null ? "" : c.getString(0)),
-                            valor, desc, fecha));
+                    String documento = c.getString(0) == null ? "" : c.getString(0);
+                    documentosCerrados.add(documento);
+                    lista.add(new A3_2_TipoTransaccionesGetsYSets(documento, valor, desc, fecha));
                     saldoGemela += valor;
                     lineasCerradas++;
                 }
@@ -599,7 +610,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             avisoGemela = "Con historial: " + lineasCerradas + " líneas 🔒 de períodos cerrados (solo lectura) + período abierto. "
                     + (cuadra ? "✓ El saldo es igual al de la contable." : "⚠ La contable dice $ " + saldoContable + ".")
                     + " Toca el saldo para ver solo el período abierto.";
-            return "$ " + saldoGemela + (cuadra ? " 🔒✓" : " 🔒⚠");
+            return "$ " + saldoGemela + (cuadra ? " 🔒" : " ⚠");
         } catch (Exception e) {
             Log.e("F3_2", "Historial: " + e.getMessage(), e);
             return null;

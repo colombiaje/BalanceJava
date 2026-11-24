@@ -5,7 +5,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="800dp"
+    android:layout_height="870dp"
     android:background="#EFA9A4"
     tools:context="B_FRAGMENTS.F2_Cuentas"
     app:rowCount="13"
@@ -13,6 +13,8 @@
     android:layout_marginLeft="0dp"
     android:layout_marginTop="60dp"
     >
+    <!-- ⭐ (24-nov, Jorge): alto 800 → 870dp por la fila nueva "Historial" (los botones quedaban
+         cortados y se veía la pantalla de atrás). -->
     <!-- ⭐ (16-nov, Jorge): ancho = pantalla (antes 450dp fijos, más que el 13T), para que las
          áreas centradas queden centradas de verdad en cada equipo. -->
 

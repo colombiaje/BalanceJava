@@ -160,8 +160,9 @@ public final class A37_CierrePeriodo {
             // Borrar el período y el doc 0 anterior; escribir el doc 0 nuevo.
             db.execSQL("DELETE FROM transacciones WHERE " + DOC + " = 0 OR " + enCierre);
             int item = 1;
+            // ⭐ (24-nov, Jorge): "(por cierre Año AAAA)", el año del corte.
             String descripcion = "Saldo inicial al " + (fechaSaldo % 100) + "/" + ((fechaSaldo / 100) % 100) + "/"
-                    + (fechaSaldo / 10000) + " (cierre por período)";
+                    + (fechaSaldo / 10000) + " (por cierre Año " + (corte / 10000) + ")";
             for (long[] n : nuevos) {
                 ContentValues v = new ContentValues();
                 v.put("c1_Documento", "0");
