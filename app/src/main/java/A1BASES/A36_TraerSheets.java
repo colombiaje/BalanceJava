@@ -88,6 +88,10 @@ public class A36_TraerSheets {
         final List<Long> borrados = new ArrayList<>();
         boolean cambiaDocumentoItem;
         boolean cambiaTipoCuenta;
+        // ⭐ (24-nov, Jorge): "Historial" desde la hoja de cuentas. Activar (0 → 1) hace el saldo
+        // de arranque igual que F2; en cuentas nuevas, por su posición en "inserciones".
+        final List<Long> activarHistorial = new ArrayList<>();
+        final java.util.Set<Integer> historialEnNuevas = new HashSet<>();
 
         public boolean hayCambios() {
             return nuevas + modificadas + borradas > 0;
@@ -783,6 +787,8 @@ public class A36_TraerSheets {
         Set<Long> renglones = ids(db, "SELECT renglon_id FROM " + A1_1_AyudanteBD.TABLE_RENGLON_RENTA);
         Map<Long, String[]> app = cargar(db, TIPO_CUENTAS).filas;
         int iCuenta = cols.indexOf("Cuenta");
+        Map<String, String> historialHoja = new HashMap<>();          // ⭐ (24-nov)
+        java.util.Set<Integer> historialNuevas = new HashSet<>();
 
         Map<Long, String[]> hoja = new LinkedHashMap<>();
         Map<Long, Integer> filaDeId = new HashMap<>();
@@ -795,11 +801,15 @@ public class A36_TraerSheets {
             String[] s = new String[cols.size()];
             for (int k = 0; k < s.length; k++) s[k] = v(fila, col, cols.get(k));
             String idTxt = v(fila, col, "cuenta_id");
+            String hist = v(fila, col, "con_historial"); // ⭐ (24-nov) "Historial"
+            if (!hist.isEmpty() && !"0".equals(hist) && !"1".equals(hist)) error(a, n, "Historial debe ser 0 o 1.");
             if (idTxt.isEmpty()) {
+                if ("1".equals(hist)) historialNuevas.add(nuevas.size());
                 nuevas.add(s);
                 filaNueva.add(n);
                 continue;
             }
+            if (!hist.isEmpty()) historialHoja.put(idTxt, hist);
             Long id = entero(idTxt);
             if (id == null) error(a, n, "cuenta_id \"" + idTxt + "\" no es válido.");
             else if (hoja.containsKey(id)) error(a, n, "cuenta_id " + idTxt + " está repetido (para agregar una cuenta, deja cuenta_id vacío).");
@@ -850,13 +860,35 @@ public class A36_TraerSheets {
             a.modificadas++;
             cambio(a, "Modificada " + ant[iCuenta] + " (id " + id + "): " + det);
         }
-        for (String[] f : nuevas) {
+        for (int i = 0; i < nuevas.size(); i++) {
+            String[] f = nuevas.get(i);
             ContentValues cv = new ContentValues();
             for (int k = 0; k < cols.size(); k++) ponerCuenta(cv, cols.get(k), f[k]);
+            if (historialNuevas.contains(i)) a.historialEnNuevas.add(a.inserciones.size());
             a.inserciones.add(cv);
             a.nuevas++;
-            cambio(a, "Nueva cuenta: " + f[iCuenta]);
+            cambio(a, "Nueva cuenta: " + f[iCuenta] + (historialNuevas.contains(i) ? " (con historial)" : ""));
         }
+        // ⭐ (24-nov, Jorge): cambios de "Historial" (comparado con la app).
+        try (Cursor k = db.rawQuery("SELECT cuenta_id, IFNULL(con_historial, 0) FROM cuentas", null)) {
+            while (k.moveToNext()) {
+                String hist = historialHoja.get(k.getString(0));
+                if (hist == null || hist.equals(k.getString(1))) continue;
+                long id = k.getLong(0);
+                String nombre = app.containsKey(id) ? app.get(id)[iCuenta] : String.valueOf(id);
+                if ("1".equals(hist)) {
+                    a.activarHistorial.add(id);
+                    cambio(a, "Historial activado: " + nombre + " (arranca con su saldo inicial)");
+                } else {
+                    ContentValues cv = a.actualizaciones.containsKey(id) ? a.actualizaciones.get(id) : new ContentValues();
+                    cv.put("con_historial", 0);
+                    if (!a.actualizaciones.containsKey(id)) a.modificadas++;
+                    a.actualizaciones.put(id, cv);
+                    cambio(a, "Historial desactivado: " + nombre + " (lo guardado se conserva)");
+                }
+            }
+        }
+        for (Long id : a.activarHistorial) if (!a.actualizaciones.containsKey(id)) a.modificadas++;
         for (Long id : borrar) {
             a.borrados.add(id);
             a.borradas++;
@@ -1036,11 +1068,14 @@ public class A36_TraerSheets {
             for (Map.Entry<Long, ContentValues> e : a.actualizaciones.entrySet()) {
                 db.update(tabla, e.getValue(), idCol + " = ?", new String[]{String.valueOf(e.getKey())});
             }
-            for (ContentValues cv : a.inserciones) {
-                if (db.insert(tabla, null, cv) == -1) {
+            for (int i = 0; i < a.inserciones.size(); i++) {
+                long nuevoId = db.insert(tabla, null, a.inserciones.get(i));
+                if (nuevoId == -1) {
                     throw new IllegalStateException("No se pudo insertar una fila nueva en " + tabla);
                 }
+                if (cuentas && a.historialEnNuevas.contains(i)) A1_1_AyudanteBD.activarHistorial(db, nuevoId);
             }
+            for (Long id : a.activarHistorial) A1_1_AyudanteBD.activarHistorial(db, id); // ⭐ (24-nov)
             if (cuentas && a.cambiaTipoCuenta) A1_1_AyudanteBD.alinearTipoCuentaDeTransacciones(db);
             db.setTransactionSuccessful();
         } finally {

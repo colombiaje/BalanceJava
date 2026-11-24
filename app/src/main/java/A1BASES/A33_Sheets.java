@@ -81,6 +81,8 @@ public class A33_Sheets {
         NOMBRE_LEGIBLE.put("con_inventario", "Con inventario");
         NOMBRE_LEGIBLE.put("entidad", "Entidad");
         NOMBRE_LEGIBLE.put("tipo_soporte", "Tipo de soporte");
+        NOMBRE_LEGIBLE.put("con_historial", "Historial");          // ⭐ (24-nov) editable: 0/1
+        NOMBRE_LEGIBLE.put("historial_desde", "Historial desde");
     }
 
     /** Columna real → expresión SQL con su encabezado legible. */
@@ -119,13 +121,14 @@ public class A33_Sheets {
         SQLiteDatabase db = abrirBase(context);
         try {
             List<A35_Xlsx.Hoja> libroTrans = libroTransacciones(db);
-            A35_Xlsx.Hoja cuentas = leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS);
+            List<A35_Xlsx.Hoja> libroCuentas = libroCuentas(db);
+            A35_Xlsx.Hoja cuentas = libroCuentas.get(0);
             List<A35_Xlsx.Hoja> catalogos = hojasCatalogos(db);
             filas[0] = libroTrans.get(0).filas.size();
             filas[1] = cuentas.filas.size();
             for (A35_Xlsx.Hoja h : catalogos) filas[2] += h.filas.size();
             A35_Xlsx.escribir(fTrans, libroTrans);
-            A35_Xlsx.escribir(fCuentas, Collections.singletonList(cuentas));
+            A35_Xlsx.escribir(fCuentas, libroCuentas);
             A35_Xlsx.escribir(fCatalogos, catalogos);
         } catch (Exception e) {
             Log.e(TAG, "No se pudieron preparar las hojas", e);
@@ -168,7 +171,7 @@ public class A33_Sheets {
         SQLiteDatabase db = abrirBase(context);
         try {
             List<A35_Xlsx.Hoja> libro = TIPO_CUENTAS.equals(tipo)
-                    ? Collections.singletonList(leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS))
+                    ? libroCuentas(db)
                     : libroTransacciones(db);
             filas = libro.get(0).filas.size();
             A35_Xlsx.escribir(archivo, libro);
@@ -279,7 +282,7 @@ public class A33_Sheets {
             "Fecha modificación", "cuenta_id"));
     static final java.util.Set<String> EDITABLES_CUENTAS = new java.util.HashSet<>(java.util.Arrays.asList(
             "Ítem", "Cuenta", "Fecha", "Código cuenta", "Cerrable", "tipo_cuenta_id", "Cuenta seguimiento",
-            "Conciliable", "Con inventario", "renglon_renta_id", "Entidad", "Tipo de soporte"));
+            "Conciliable", "Con inventario", "renglon_renta_id", "Entidad", "Tipo de soporte", "Historial"));
     static final java.util.Set<String> EDITABLES_SALDOS = new java.util.HashSet<>(java.util.Arrays.asList(
             "Valor", "Descripción", "Fecha y hora", "Fecha inicial"));
 
@@ -381,6 +384,107 @@ public class A33_Sheets {
             libro.add(con);
         }
         libro.add(nombres);
+        return libro;
+    }
+
+    /**
+     * ⭐ NUEVO (24-nov, Jorge): revisión precisa de cuentas por Sheets. Archivo con tres pestañas;
+     * "Cuentas" va primero (Traer de Sheets lee solo la primera):
+     *  - Cuentas: las columnas de siempre (editables en lila, ahora también "Historial") y al
+     *    final referencias vivas por BUSCARV (tipo, clasificación, clase, naturaleza, liquidez,
+     *    soporte sugerido, renglón), contexto fijo (saldo, transacciones, último movimiento,
+     *    saldo inicial, líneas en historial) y "Revisión" con avisos por fórmula. Todo lo que
+     *    termina en "(referencia)" la app no lo lee al traer.
+     *  - Tipos de cuenta (consulta) y Renglones (consulta): las tablas de los BUSCARV.
+     */
+    private static List<A35_Xlsx.Hoja> libroCuentas(SQLiteDatabase db) {
+        A35_Xlsx.Hoja c = leer(db, sqlCuentas(db), "Cuentas", EDITABLES_CUENTAS);
+        A35_Xlsx.Hoja tipos = leer(db, "SELECT tc.tipo_cuenta_id, tc.nombre AS \"Tipo de cuenta\","
+                + " cl.nombre AS \"Clasificación\", ca.nombre AS \"Clase\", tc.naturaleza_normal AS \"Naturaleza\","
+                + " tc.liquidez AS \"Liquidez\", tc.soporte_sugerido AS \"Soporte sugerido\""
+                + " FROM " + A1_1_AyudanteBD.TABLE_TIPO_CUENTA + " tc"
+                + " LEFT JOIN " + A1_1_AyudanteBD.TABLE_CLASIFICACION_CONTABLE + " cl ON cl.clasificacion_id = tc.clasificacion_id"
+                + " LEFT JOIN " + A1_1_AyudanteBD.TABLE_CLASE_CONTABLE + " ca ON ca.clase_id = cl.clase_id"
+                + " ORDER BY tc.tipo_cuenta_id", "Tipos de cuenta (consulta)", null);
+        A35_Xlsx.Hoja renglones = leer(db, "SELECT renglon_id AS renglon_renta_id, (codigo || ' ' || nombre) AS \"Renglón\","
+                + " pais AS \"País\", naturaleza AS \"Naturaleza\" FROM " + A1_1_AyudanteBD.TABLE_RENGLON_RENTA
+                + " ORDER BY pais, orden, codigo", "Renglones (consulta)", null);
+        // Contexto por cuenta (fijo, del momento del envío).
+        java.util.Map<String, String[]> ctx = new java.util.HashMap<>();
+        try (Cursor k = db.rawQuery("SELECT cu.cuenta_id,"
+                + " (SELECT IFNULL(SUM(c5_Valor), 0) FROM transacciones t WHERE t.cuenta_id = cu.cuenta_id),"
+                + " (SELECT COUNT(*) FROM transacciones t WHERE t.cuenta_id = cu.cuenta_id),"
+                + " (SELECT MAX(c8_FechaInicial) FROM transacciones t WHERE t.cuenta_id = cu.cuenta_id),"
+                + " (SELECT IFNULL(SUM(c5_Valor), 0) FROM transacciones t WHERE t.cuenta_id = cu.cuenta_id"
+                + "   AND CAST(t.c1_Documento AS INTEGER) = 0),"
+                + " (SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL + " h WHERE h.cuenta_id = cu.cuenta_id)"
+                + " FROM cuentas cu", null)) {
+            while (k.moveToNext()) {
+                ctx.put(k.getString(0), new String[]{k.getString(1), k.getString(2),
+                        k.isNull(3) ? "" : k.getString(3), k.getString(4), k.getString(5)});
+            }
+        }
+        // Las referencias fijas viejas salen: ahora van por fórmula al final.
+        int quitarTipo = c.columnas.indexOf("Tipo de cuenta (referencia)");
+        int quitarRenglon = c.columnas.indexOf("Renglón renta (referencia)");
+        java.util.List<Integer> quedan = new ArrayList<>();
+        for (int k = 0; k < c.columnas.size(); k++) if (k != quitarTipo && k != quitarRenglon) quedan.add(k);
+        A35_Xlsx.Hoja h = new A35_Xlsx.Hoja();
+        h.nombre = c.nombre;
+        for (int k : quedan) {
+            h.columnas.add(c.columnas.get(k));
+            h.editable.add(c.editable.get(k));
+        }
+        int base = h.columnas.size();
+        String[] nuevas = {"Tipo de cuenta (referencia)", "Clasificación (referencia)", "Clase (referencia)",
+                "Naturaleza (referencia)", "Liquidez (referencia)", "Soporte sugerido (referencia)",
+                "Renglón renta (referencia)", "Saldo (referencia)", "Transacciones (referencia)",
+                "Último movimiento (referencia)", "Saldo inicial (referencia)", "Líneas historial (referencia)",
+                "Revisión (referencia)"};
+        for (String n : nuevas) {
+            h.columnas.add(n);
+            h.editable.add(false);
+        }
+        // Columnas que se calculan con fórmula (las de contexto son valores).
+        for (int k = 0; k <= 6; k++) h.formulas.add(base + k);
+        h.formulas.add(base + 12);
+        String lTipo = A35_Xlsx.letra(h.columnas.indexOf("tipo_cuenta_id"));
+        String lRenglon = A35_Xlsx.letra(h.columnas.indexOf("renglon_renta_id"));
+        String lSoporte = A35_Xlsx.letra(h.columnas.indexOf("Tipo de soporte"));
+        String lNat = A35_Xlsx.letra(base + 3), lSop = A35_Xlsx.letra(base + 5), lSaldo = A35_Xlsx.letra(base + 7);
+        String rTipos = "'" + tipos.nombre + "'!A:G", rRenglones = "'" + renglones.nombre + "'!A:B";
+        int iId = c.columnas.indexOf("cuenta_id");
+        for (int f = 0; f < c.filas.size(); f++) {
+            String[] vieja = c.filas.get(f);
+            String[] fila = new String[h.columnas.size()];
+            for (int k = 0; k < quedan.size(); k++) fila[k] = vieja[quedan.get(k)];
+            int r = f + 2;
+            for (int k = 0; k < 6; k++) {
+                fila[base + k] = "IFERROR(VLOOKUP(" + lTipo + r + "," + rTipos + "," + (k + 2) + ",FALSE)&\"\",\"\")";
+            }
+            fila[base + 6] = "IFERROR(VLOOKUP(" + lRenglon + r + "," + rRenglones + ",2,FALSE)&\"\",\"\")";
+            String[] x = iId >= 0 ? ctx.get(vieja[iId]) : null;
+            for (int k = 0; k < 5; k++) fila[base + 7 + k] = x == null ? "" : x[k];
+            fila[base + 12] = "IF(TRIM("
+                    + "IF(" + lTipo + r + "=\"\",\"⚠ sin tipo \",\"\")"
+                    + "&IF(" + lRenglon + r + "=\"\",\"⚠ sin renglón \",\"\")"
+                    + "&IF(AND(" + lSoporte + r + "<>\"\"," + lSop + r + "<>\"\"," + lSoporte + r + "<>" + lSop + r
+                    + "),\"⚠ soporte ≠ sugerido \",\"\")"
+                    + "&IF(OR(AND(" + lNat + r + "=\"DEUDORA\"," + lSaldo + r + "<0),AND(" + lNat + r + "=\"ACREEDORA\","
+                    + lSaldo + r + ">0)),\"⚠ saldo contrario a la naturaleza\",\"\")"
+                    + ")=\"\",\"✓\",TRIM("
+                    + "IF(" + lTipo + r + "=\"\",\"⚠ sin tipo \",\"\")"
+                    + "&IF(" + lRenglon + r + "=\"\",\"⚠ sin renglón \",\"\")"
+                    + "&IF(AND(" + lSoporte + r + "<>\"\"," + lSop + r + "<>\"\"," + lSoporte + r + "<>" + lSop + r
+                    + "),\"⚠ soporte ≠ sugerido \",\"\")"
+                    + "&IF(OR(AND(" + lNat + r + "=\"DEUDORA\"," + lSaldo + r + "<0),AND(" + lNat + r + "=\"ACREEDORA\","
+                    + lSaldo + r + ">0)),\"⚠ saldo contrario a la naturaleza\",\"\")))";
+            h.filas.add(fila);
+        }
+        List<A35_Xlsx.Hoja> libro = new ArrayList<>();
+        libro.add(h);
+        libro.add(tipos);
+        libro.add(renglones);
         return libro;
     }
 
