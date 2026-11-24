@@ -2415,6 +2415,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                 if (!c.isNull(1)) fechaInicial = c.getInt(1);
             }
         }
+        if (fechaInicial == null) {
+            // ⭐ (23-nov): sin doc 0, el arranque toma la fecha de la primera transacción de la cuenta.
+            try (Cursor c = db.rawQuery("SELECT MIN(c8_FechaInicial) FROM transacciones WHERE cuenta_id = ? AND c8_FechaInicial > 0",
+                    new String[]{String.valueOf(cuentaId)})) {
+                if (c.moveToFirst() && !c.isNull(0)) fechaInicial = c.getInt(0);
+            }
+        }
         long lineas = 0, sumaHistorial = 0;
         try (Cursor c = db.rawQuery("SELECT COUNT(*), IFNULL(SUM(c5_Valor), 0) FROM " + TABLE_HISTORIAL
                 + " WHERE cuenta_id = ?", new String[]{String.valueOf(cuentaId)})) {

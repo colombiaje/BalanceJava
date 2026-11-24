@@ -78,6 +78,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     // grande" (tramo cerrado del historial + tramo abierto en vivo, sin repetir el doc 0). Tocar
     // el saldo alterna con "solo período abierto" (la contable).
     private boolean soloPeriodoAbierto = false;
+    private String avisoGemela = null;
     public static final String MARCA_CERRADO = "🔒";
 
     private boolean vieneDeVerItemTransaccion = false;
@@ -504,6 +505,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             }
             if (textoGemela != null && c5_Valor_XTv != null) {
                 c5_Valor_XTv.setText(textoGemela);
+                if (avisoGemela != null) Toast.makeText(getActivity(), avisoGemela, Toast.LENGTH_LONG).show();
                 c5_Valor_XTv.setOnClickListener(v -> {
                     soloPeriodoAbierto = !soloPeriodoAbierto;
                     verTransaccionesSoloCuenta();
@@ -530,6 +532,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
      * no tiene historial.
      */
     private String armarGemela(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
+        avisoGemela = null;
         if (receivedAccount == null || getActivity() == null) return null;
         A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudante.getReadableDatabase();
@@ -544,7 +547,8 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             long saldoContable = 0;
             for (A3_2_TipoTransaccionesGetsYSets t : lista) saldoContable += t.tipoTget_5ValorMetodoEnA52();
             if (soloPeriodoAbierto) {
-                return "$ " + saldoContable + "  · solo período abierto (tocar: ver historial)";
+                avisoGemela = "Solo período abierto (la contable, con su doc 0). Toca el saldo para ver el historial.";
+                return "$ " + saldoContable + " ◻";
             }
             long saldoGemela = 0;
             java.util.Iterator<A3_2_TipoTransaccionesGetsYSets> it = lista.iterator();
@@ -560,6 +564,17 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 if (esDoc0) it.remove(); else saldoGemela += t.tipoTget_5ValorMetodoEnA52();
             }
             int lineasCerradas = 0;
+            // ⭐ (23-nov): fecha más antigua (sin contar arranque/sin detalle), para mostrar esas
+            // líneas al final de la lista y no arriba con la fecha del día en que se activó.
+            int fechaMinima = Integer.MAX_VALUE;
+            for (A3_2_TipoTransaccionesGetsYSets t : lista) {
+                if (t.tipoTget_8FechaInicialMetodoEnA52() > 0) fechaMinima = Math.min(fechaMinima, t.tipoTget_8FechaInicialMetodoEnA52());
+            }
+            try (android.database.Cursor c = db.rawQuery("SELECT MIN(c8_FechaInicial) FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL
+                    + " WHERE cuenta_id = ? AND tipo = ? AND c8_FechaInicial > 0",
+                    new String[]{String.valueOf(cuentaId), A1_1_AyudanteBD.HISTORIAL_MOVIMIENTO})) {
+                if (c.moveToFirst() && !c.isNull(0)) fechaMinima = Math.min(fechaMinima, c.getInt(0));
+            }
             try (android.database.Cursor c = db.rawQuery("SELECT c1_Documento, c5_Valor, c6_Descripcion,"
                     + " IFNULL(c8_FechaInicial, 0), tipo, periodo_corte FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL
                     + " WHERE cuenta_id = ? ORDER BY historial_id", new String[]{String.valueOf(cuentaId)})) {
@@ -569,15 +584,22 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                     String desc = c.getString(2) == null ? "" : c.getString(2);
                     if (!c.isNull(5)) desc = "[cerrado al " + c.getInt(5) + "] " + desc;
                     else if (!A1_1_AyudanteBD.HISTORIAL_MOVIMIENTO.equals(tipo)) desc = "[" + tipo + "] " + desc;
+                    int fecha = c.getInt(3);
+                    if (!A1_1_AyudanteBD.HISTORIAL_MOVIMIENTO.equals(tipo) && fechaMinima != Integer.MAX_VALUE) {
+                        fecha = Math.min(fecha, fechaMinima);
+                    }
                     lista.add(new A3_2_TipoTransaccionesGetsYSets(MARCA_CERRADO + (c.getString(0) == null ? "" : c.getString(0)),
-                            valor, desc, c.getInt(3)));
+                            valor, desc, fecha));
                     saldoGemela += valor;
                     lineasCerradas++;
                 }
             }
-            String cotejo = saldoGemela == saldoContable ? "✓ = contable" : "⚠ contable $ " + saldoContable;
-            return "$ " + saldoGemela + "  · con historial (" + lineasCerradas + " 🔒) " + cotejo
-                    + " · tocar: solo período abierto";
+            // ⭐ (23-nov): el cuadro del saldo es de 100 dp: ahí va corto; el detalle, en un aviso.
+            boolean cuadra = saldoGemela == saldoContable;
+            avisoGemela = "Con historial: " + lineasCerradas + " líneas 🔒 de períodos cerrados (solo lectura) + período abierto. "
+                    + (cuadra ? "✓ El saldo es igual al de la contable." : "⚠ La contable dice $ " + saldoContable + ".")
+                    + " Toca el saldo para ver solo el período abierto.";
+            return "$ " + saldoGemela + (cuadra ? " 🔒✓" : " 🔒⚠");
         } catch (Exception e) {
             Log.e("F3_2", "Historial: " + e.getMessage(), e);
             return null;
