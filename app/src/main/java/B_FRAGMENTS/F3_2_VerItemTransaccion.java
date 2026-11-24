@@ -506,14 +506,10 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 actualizarContador();
             }
             if (textoGemela != null && c5_Valor_XTv != null) {
-                // ⭐ (24-nov, Jorge): el ícono (🔒, ⚠ o ☑) más grande.
-                android.text.SpannableString sp = new android.text.SpannableString(textoGemela);
-                int iIcono = textoGemela.lastIndexOf(' ') + 1;
-                if (iIcono > 0 && iIcono < textoGemela.length()) {
-                    sp.setSpan(new android.text.style.RelativeSizeSpan(1.6f), iIcono, textoGemela.length(),
-                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-                c5_Valor_XTv.setText(sp);
+                // ⭐ (24-nov, Jorge): tamaño normal (agrandado tapaba nombre y valor) y fondo verde
+                // como los botones, para sugerir que se puede tocar.
+                c5_Valor_XTv.setText(textoGemela);
+                c5_Valor_XTv.setBackgroundResource(R.drawable.bg_opcion_accion);
                 if (avisoGemela != null) Toast.makeText(getActivity(), avisoGemela, Toast.LENGTH_LONG).show();
                 c5_Valor_XTv.setOnClickListener(v -> {
                     soloPeriodoAbierto = !soloPeriodoAbierto;
@@ -521,6 +517,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 });
             } else if (c5_Valor_XTv != null) {
                 c5_Valor_XTv.setOnClickListener(null);
+                c5_Valor_XTv.setBackgroundColor(Color.parseColor("#FFEB3B")); // amarillo de siempre
             }
 
             if (buscar_XTv != null) {
@@ -1101,7 +1098,10 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
 
     public void verTransaccionesPorCuentaYPorFecha() {
         consultasPorCuentaYFecha_XLl.setVisibility(View.VISIBLE);
-        if (c5_Valor_XTv != null) c5_Valor_XTv.setOnClickListener(null); // ⭐ historial P3: solo en la consulta por cuenta
+        if (c5_Valor_XTv != null) { // ⭐ historial P3: solo en la consulta por cuenta
+            c5_Valor_XTv.setOnClickListener(null);
+            c5_Valor_XTv.setBackgroundColor(Color.parseColor("#FFEB3B"));
+        }
         dynamicqueryByAccountAndDateRange();
         //verTransaccionesPorCuentaYOFecha_XGv.setAdapter(adapter);
         //transaccionesCuentaYoFecha_XLv.setAdapter(adapter);
