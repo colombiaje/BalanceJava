@@ -74,6 +74,11 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     private int anioRecibido = -1;
     private int mesRecibido = -1;
     private boolean desdeIndicadores = false;
+    // ⭐ NUEVO (23-nov, Jorge, historial P3): con una cuenta que tiene historial se ve la "gemela
+    // grande" (tramo cerrado del historial + tramo abierto en vivo, sin repetir el doc 0). Tocar
+    // el saldo alterna con "solo período abierto" (la contable).
+    private boolean soloPeriodoAbierto = false;
+    public static final String MARCA_CERRADO = "🔒";
 
     private boolean vieneDeVerItemTransaccion = false;
     ImageButton limpiarChecks_XBt;
@@ -457,6 +462,9 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 listaFiltrada.add(transaccionReducida);
             }
 
+            // ⭐ NUEVO (23-nov, historial P3): la gemela grande.
+            String textoGemela = desdeIndicadores ? null : armarGemela(listaFiltrada);
+
             // ✅ TODO TU CÓDIGO DE ORDENAMIENTO Y ADAPTADOR SIN CAMBIOS
             Collections.sort(listaFiltrada, new Comparator<A3_2_TipoTransaccionesGetsYSets>() {
                 @Override
@@ -477,6 +485,12 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 adaptadorTransaccionesCuentaYoFecha = new D_F3_2_AdaptadorTransaccionesCuentaYoFecha(
                         getActivity(), listaFiltrada,
                         documento -> {
+                            // ⭐ (historial P3): las líneas de períodos cerrados son solo lectura.
+                            if (documento != null && documento.startsWith(MARCA_CERRADO)) {
+                                Toast.makeText(getActivity(), "Línea de un período cerrado: solo lectura. "
+                                        + "Si hay un error, corrígelo con un ajuste en el período abierto.", Toast.LENGTH_LONG).show();
+                                return;
+                            }
                             abrirFragmentoConDocumento(documento);
                             Log.d("VerButtons", "Documento seleccionado: " + documento);
                         }
@@ -488,6 +502,15 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 adaptadorTransaccionesCuentaYoFecha.updateData(listaFiltrada);
                 actualizarContador();
             }
+            if (textoGemela != null && c5_Valor_XTv != null) {
+                c5_Valor_XTv.setText(textoGemela);
+                c5_Valor_XTv.setOnClickListener(v -> {
+                    soloPeriodoAbierto = !soloPeriodoAbierto;
+                    verTransaccionesSoloCuenta();
+                });
+            } else if (c5_Valor_XTv != null) {
+                c5_Valor_XTv.setOnClickListener(null);
+            }
 
             if (buscar_XTv != null) {
                 buscar_XTv.setText("");
@@ -496,6 +519,70 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
         } else {
             Toast.makeText(getActivity(), "La lista de transacciones está vacía o es nula.",
                     Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * ⭐ NUEVO (23-nov, Jorge, historial P3). Si la cuenta tiene historial (marcada o con líneas
+     * guardadas) y no se pidió "solo período abierto", cambia la lista por la gemela grande:
+     * quita el doc 0 (su saldo es el subtotal del tramo cerrado) y agrega las líneas del
+     * historial marcadas con 🔒. Devuelve el texto del saldo con su cotejo, o null si la cuenta
+     * no tiene historial.
+     */
+    private String armarGemela(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
+        if (receivedAccount == null || getActivity() == null) return null;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        try {
+            long cuentaId;
+            try (android.database.Cursor c = db.rawQuery("SELECT c.cuenta_id FROM cuentas c WHERE c.Cuenta = ? AND"
+                    + " (c.con_historial = 1 OR EXISTS (SELECT 1 FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL
+                    + " h WHERE h.cuenta_id = c.cuenta_id))", new String[]{receivedAccount})) {
+                if (!c.moveToFirst()) return null;
+                cuentaId = c.getLong(0);
+            }
+            long saldoContable = 0;
+            for (A3_2_TipoTransaccionesGetsYSets t : lista) saldoContable += t.tipoTget_5ValorMetodoEnA52();
+            if (soloPeriodoAbierto) {
+                return "$ " + saldoContable + "  · solo período abierto (tocar: ver historial)";
+            }
+            long saldoGemela = 0;
+            java.util.Iterator<A3_2_TipoTransaccionesGetsYSets> it = lista.iterator();
+            while (it.hasNext()) {
+                A3_2_TipoTransaccionesGetsYSets t = it.next();
+                String doc = t.tipoTget_1DocumentoMetodoEnA52();
+                boolean esDoc0;
+                try {
+                    esDoc0 = doc != null && Integer.parseInt(doc.trim()) == 0;
+                } catch (NumberFormatException e) {
+                    esDoc0 = false;
+                }
+                if (esDoc0) it.remove(); else saldoGemela += t.tipoTget_5ValorMetodoEnA52();
+            }
+            int lineasCerradas = 0;
+            try (android.database.Cursor c = db.rawQuery("SELECT c1_Documento, c5_Valor, c6_Descripcion,"
+                    + " IFNULL(c8_FechaInicial, 0), tipo, periodo_corte FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL
+                    + " WHERE cuenta_id = ? ORDER BY historial_id", new String[]{String.valueOf(cuentaId)})) {
+                while (c.moveToNext()) {
+                    int valor = c.getInt(1);
+                    String tipo = c.getString(4);
+                    String desc = c.getString(2) == null ? "" : c.getString(2);
+                    if (!c.isNull(5)) desc = "[cerrado al " + c.getInt(5) + "] " + desc;
+                    else if (!A1_1_AyudanteBD.HISTORIAL_MOVIMIENTO.equals(tipo)) desc = "[" + tipo + "] " + desc;
+                    lista.add(new A3_2_TipoTransaccionesGetsYSets(MARCA_CERRADO + (c.getString(0) == null ? "" : c.getString(0)),
+                            valor, desc, c.getInt(3)));
+                    saldoGemela += valor;
+                    lineasCerradas++;
+                }
+            }
+            String cotejo = saldoGemela == saldoContable ? "✓ = contable" : "⚠ contable $ " + saldoContable;
+            return "$ " + saldoGemela + "  · con historial (" + lineasCerradas + " 🔒) " + cotejo
+                    + " · tocar: solo período abierto";
+        } catch (Exception e) {
+            Log.e("F3_2", "Historial: " + e.getMessage(), e);
+            return null;
+        } finally {
+            db.close();
         }
     }
 
@@ -981,6 +1068,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
 
     public void verTransaccionesPorCuentaYPorFecha() {
         consultasPorCuentaYFecha_XLl.setVisibility(View.VISIBLE);
+        if (c5_Valor_XTv != null) c5_Valor_XTv.setOnClickListener(null); // ⭐ historial P3: solo en la consulta por cuenta
         dynamicqueryByAccountAndDateRange();
         //verTransaccionesPorCuentaYOFecha_XGv.setAdapter(adapter);
         //transaccionesCuentaYoFecha_XLv.setAdapter(adapter);
