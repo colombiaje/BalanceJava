@@ -458,7 +458,8 @@ public class F2_Cuentas extends DialogFragment {
         if (salidaEsteFragment_XBt != null) {
             // ✅ Si getDialog() existe, estamos en modo Dialog → MOSTRAR botón
             if (getDialog() != null) {
-                salidaEsteFragment_XBt.setVisibility(View.VISIBLE);
+                // ⭐ (25-nov, Jorge): oculto siempre; la salida es "✕ Salir" (outAccounts_XRb).
+                salidaEsteFragment_XBt.setVisibility(View.GONE);
                 Log.d("F2_Cuentas", "Botón salida VISIBLE (modo Dialog)");
             } else {
                 // ❌ Si no hay Dialog, estamos en modo Fragment normal → OCULTAR botón
@@ -953,7 +954,21 @@ public class F2_Cuentas extends DialogFragment {
         seeNewXChB.setOnCheckedChangeListener(listener);
         seeModifyXChB.setOnCheckedChangeListener(listener);
         verCuentas_XChb.setOnCheckedChangeListener(listener);
-        verBackupsYCierres_XChb.setOnCheckedChangeListener(listener);
+        // ⭐ REDISEÑO (25-nov, Jorge): "⚙ Renta" es una acción, no una pestaña: abre directo la
+        // configuración de renta (antes abría la sección "Backups y cierre" con esa sola opción).
+        verBackupsYCierres_XChb.setOnClickListener(v -> {
+            verBackupsYCierres_XChb.setChecked(false);
+            new A1BASES.A16_ConfiguracionRentaDialogo().mostrar(getActivity(), this::cargarListasRenta);
+        });
+        // Al entrar se ve la lista de cuentas (sin tocar nada); "☰ Lista" queda oculto hasta
+        // que se abra un formulario.
+        verCuentas_XChb.setOnCheckedChangeListener(null);
+        verCuentas_XChb.setChecked(true);
+        verCuentas_XChb.setOnCheckedChangeListener(listener);
+        lastCheckedBox = verCuentas_XChb;
+        setvisibilityOcultarAreas();
+        area4SeeAccountsXGl.setVisibility(View.VISIBLE);
+        todasLasCuentas_XLv.post(this::populateList); // después de armar la pantalla
     }
 
     // Listener global para manejar la lógica de los CheckBox
@@ -989,6 +1004,8 @@ public class F2_Cuentas extends DialogFragment {
     }
 
     private void executeMethodForCheckBox(CheckBox checkBox) {
+        // ⭐ (25-nov): "☰ Lista" solo se ve con un formulario abierto.
+        if (verCuentas_XChb != null) verCuentas_XChb.setVisibility(checkBox == verCuentas_XChb ? View.GONE : View.VISIBLE);
         if (checkBox == seeNewXChB) {
             handleClickViewNew();
         } else if (checkBox == seeModifyXChB) {

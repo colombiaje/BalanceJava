@@ -32,116 +32,72 @@
 
     <!-- are 1 inicio-->
 
-            <LinearLayout
-                android:id="@+id/area1BotonesVerAreas"
+            <!-- ⭐ REDISEÑO (25-nov, Jorge): barra con botones verdes de acción, cada uno con ícono y
+                 palabra. Salieron el ícono de lista (la lista se ve al entrar; "☰ Lista" aparece
+                 solo con un formulario abierto), la sección "Backups y cierre" (⚙ Renta abre directo
+                 la configuración) y las salidas repetidas (queda ✕ Salir). Desliza si no cabe. -->
+            <HorizontalScrollView
                 app:layout_row="1"
                 app:layout_column="0"
                 android:layout_width="wrap_content"
-                android:layout_height="50dp"
+                android:layout_height="52dp"
+                app:layout_gravity="center_horizontal"
+                android:scrollbars="none">
+            <LinearLayout
+                android:id="@+id/area1BotonesVerAreas"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                app:layout_gravity="center_horizontal"
                 tools:ignore="MissingConstraints"
                 android:visibility="visible"
                 >
-                <!-- ⭐ (16-nov, Jorge): barra centrada en la pantalla y sus íconos a la misma altura. -->
 
                 <CheckBox
                     android:id="@+id/seeNewXChB"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="@drawable/ic_add_cuenta"
-                    android:text=""
-                    android:textColor="#425DF6"
-                    android:textSize="15dp"
-                    android:layout_marginRight="2dp"
-                    android:button="@drawable/bg_transparent"
-                    />
+                    style="@style/BotonBarraF2"
+                    android:text="＋ Nueva" />
 
                 <CheckBox
                     android:id="@+id/seeModifyXChB"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="@drawable/ic_edit_cuentas2"
-                    android:text=""
-                    android:textColor="#425DF6"
-                    android:textSize="15dp"
-                    android:layout_marginRight="2dp"
-                    android:button="@drawable/bg_transparent"
-                    />
+                    style="@style/BotonBarraF2"
+                    android:text="✎ Modificar" />
 
                 <CheckBox
                     android:id="@+id/verCuentas_XChb"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:text=""
-                    android:textSize="12dp"
-                    android:lines="2"
-                    app:layout_column="0"
-                    app:layout_row="1"
-                    android:background="@drawable/ic_list_cuentas"
-                    android:layout_marginRight="2dp"
-                    android:button="@drawable/bg_transparent"
-                    />
+                    style="@style/BotonBarraF2"
+                    android:visibility="gone"
+                    android:text="☰ Lista" />
+
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginLeft="2dp"
+                    android:layout_marginRight="2dp">
+                    <Spinner
+                        android:id="@+id/consultaPorCuentaYFechaEnOtroFragment_XSp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_opcion_accion"
+                        android:spinnerMode="dialog" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:paddingLeft="10dp"
+                        android:paddingRight="10dp"
+                        android:clickable="false"
+                        android:focusable="false"
+                        android:text="🔍 Consultar"
+                        android:textColor="#1F3FA6"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </FrameLayout>
 
                 <CheckBox
                     android:id="@+id/verBackupsYCierres_XChb"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:text=""
-                    android:textSize="12dp"
-                    android:lines="2"
-                    app:layout_column="0"
-                    app:layout_row="1"
-                    android:background="@drawable/ic_cierre_cuentas"
-                    android:layout_marginRight="2dp"
-                    android:button="@drawable/bg_transparent"
-                    />
-
-
-                <Spinner
-                    android:id="@+id/consultaPorCuentaYFechaEnOtroFragment_XSp"
-                    android:layout_width="60dp"
-                    android:layout_height="35dp"
-                    android:background="@drawable/ic_spinner_arrow_down"
-                    android:textColor="#425DF6"
-                    android:textSize="22dp"
-                    android:spinnerMode="dialog" />
-
-                <RadioButton
-                    android:id="@+id/salidaEsteFragment_XBt"
-                    android:layout_width="30dp"
-                    android:layout_height="35dp"
-                    android:background="@drawable/ic_out"
-                    android:text="Sale de cuentas "
-                    android:layout_marginRight="2dp"
-                    android:layout_marginLeft="1dp"
-                    android:layout_gravity="center_vertical"
-                    />
-
-                <RadioButton
-                    android:id="@+id/opcionSaleDeLaApp_XRb"
-                    android:layout_width="35dp"
-                    android:layout_height="35dp"
-                    android:text="Sale de la App"
-                    android:textSize="0dp"
-                    android:layout_marginLeft="1dp"
-                    android:button="@drawable/bg_transparent"
-                    android:background="@drawable/ic_out"
-                    android:layout_gravity="center_vertical"
-
-                    />
-                <RadioButton
-                    android:id="@+id/outAccounts_XRb"
-                    android:layout_width="45dp"
-                    android:layout_height="35dp"
-                    android:text="Sale App"
-                    android:textSize="15dp"
-                    android:layout_marginLeft="1dp"
-                    android:button="@drawable/bg_transparent"
-                    android:background="#A1CA26"
-                    android:layout_gravity="center_vertical"
-                    />
+                    style="@style/BotonBarraF2"
+                    android:text="⚙ Renta" />
 
                 <Button
                     android:id="@+id/calculadoraLibre_XBt"
@@ -151,11 +107,28 @@
                     android:text="🔢"
                     android:textAllCaps="false"
                     android:textColor="#1976D2"
-                    android:textSize="24sp"
+                    android:textSize="24sp" />
 
-                    />
+                <RadioButton
+                    android:id="@+id/outAccounts_XRb"
+                    style="@style/BotonBarraF2"
+                    android:text="✕ Salir" />
+
+                <!-- Se conservan ocultos (el código los usa): salida en modo diálogo y salir de la app. -->
+                <RadioButton
+                    android:id="@+id/salidaEsteFragment_XBt"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
+
+                <RadioButton
+                    android:id="@+id/opcionSaleDeLaApp_XRb"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
 
             </LinearLayout>
+            </HorizontalScrollView>
 
 
         <!-- area 2 -->
