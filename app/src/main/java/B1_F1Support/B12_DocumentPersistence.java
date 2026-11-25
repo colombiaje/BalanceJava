@@ -91,7 +91,11 @@ public class B12_DocumentPersistence {
         // llamarla TAMBIÉN desde ExecuteButtonsUnit ANTES de borrar las transacciones viejas
         // del documento en el flujo "Modificar documento" — ver el comentario completo en esa
         // función.
-        if (bloqueadoPorCuentaConInventario()) {
+        // ⭐ FIX (25-nov, Jorge): en "Editar documento" la verificación ya se hizo ANTES de borrar
+        // las líneas viejas (ExecuteButtonsUnit). Repetirla aquí, DESPUÉS de borrarlas, fallaba
+        // con cualquier línea de inventario ya guardada (su movimiento se borró en cascada, así
+        // que "ya no es el último") y el documento quedaba borrado sin reinsertarse.
+        if (!"updateDelete_XRb".equals(nombreDelRadioButton) && bloqueadoPorCuentaConInventario()) {
             return false;
         }
 
