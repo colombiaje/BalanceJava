@@ -57,6 +57,18 @@
 
             />
 
+        <!-- ⭐ NUEVO (25-nov, Jorge): la consulta entra directo a toda la cuenta; este botón
+             alterna con la consulta por fechas (📅 → por fechas, 📋 → toda la cuenta). -->
+        <Button
+            android:id="@+id/alternarPorFecha_XBt"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackground"
+            android:text="📅"
+            android:textAllCaps="false"
+            android:textSize="24sp"
+            android:contentDescription="Consultar por fechas"/>
+
         <!-- Solo visible cuando la cuenta consultada es "CxC Enrique": atajo a las gráficas de Indicadores -->
         <Button
             android:id="@+id/graficasIndicadores_XBt"

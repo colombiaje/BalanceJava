@@ -291,7 +291,29 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
 
         // ⭐ CAMBIO CRÍTICO 2: Verificar si viene de Indicadores ANTES del diálogo
         if (!verificarYProcesarDesdeIndicadores()) {
-            dialogoInterface();
+            // ⭐ CAMBIO (25-nov, Jorge): sin el diálogo "¿Consulta por?": entra directo a toda la
+            // cuenta (lo más usado); las fechas, con el botón 📅. Se posterga para que corra
+            // después de armar la pantalla, como corría el diálogo.
+            inflarViews_View.post(() -> {
+                verTransaccionesSoloCuenta();
+                usarTransaccionesPorCuentaParaContenidoPdf();
+            });
+        }
+        android.widget.Button alternarPorFecha = inflarViews_View.findViewById(R.id.alternarPorFecha_XBt);
+        if (alternarPorFecha != null) {
+            if (desdeIndicadores) alternarPorFecha.setVisibility(View.GONE);
+            alternarPorFecha.setOnClickListener(v -> {
+                if (consultasPorCuentaYFecha_XLl.getVisibility() == View.VISIBLE) {
+                    alternarPorFecha.setText("📅");
+                    verTransaccionesSoloCuenta();
+                    usarTransaccionesPorCuentaParaContenidoPdf();
+                } else {
+                    alternarPorFecha.setText("📋");
+                    verTransaccionesPorCuentaYPorFecha();
+                    Toast.makeText(getActivity(), "Consulta por fechas: elige De y A. Toca 📋 para volver a toda la cuenta.",
+                            Toast.LENGTH_LONG).show();
+                }
+            });
         }
 
         listenerCalendario();
