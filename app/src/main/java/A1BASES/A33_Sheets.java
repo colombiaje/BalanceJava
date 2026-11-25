@@ -82,7 +82,7 @@ public class A33_Sheets {
         NOMBRE_LEGIBLE.put("entidad", "Entidad");
         NOMBRE_LEGIBLE.put("tipo_soporte", "Tipo de soporte");
         NOMBRE_LEGIBLE.put("con_historial", "Historial");          // ⭐ (24-nov) editable: 0/1
-        NOMBRE_LEGIBLE.put("historial_desde", "Historial desde");
+        NOMBRE_LEGIBLE.put("historial_desde", "Historial asignado en"); // ⭐ (25-nov, Jorge): semántica
     }
 
     /** Columna real → expresión SQL con su encabezado legible. */
