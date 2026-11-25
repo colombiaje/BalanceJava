@@ -431,7 +431,9 @@ public class B12_DocumentPersistence {
                             .setMessage("\"" + nombreCuentaAVerificarRecortado + "\" maneja " +
                                     "inventario, y este ítem no pasó por el registro de " +
                                     "inventario (artículo/unidades/precio) — no se puede " +
-                                    "guardar así.")
+                                    "guardar así.\n\nSi es una línea anterior a activar el inventario, " +
+                                    "asígnale el artículo en Transacciones › 📦 Pendientes " +
+                                    "(de la más antigua a la más reciente) y vuelve aquí.")
                             .setPositiveButton("Entendido", null)
                             .setCancelable(true)
                             .show();

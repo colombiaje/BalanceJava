@@ -431,6 +431,96 @@ public class A12_InventarioHelper {
      * @throws android.database.sqlite.SQLiteConstraintException si ya existe un artículo con
      *         ese mismo nombre en esa cuenta (UNIQUE cuenta_id + nombre).
      */
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (25-nov, Jorge): REPASO DE INVENTARIO HACIA ATRÁS
+    //  Para cuentas a las que se les activó el inventario después de tener movimientos: se le
+    //  AGREGA el dato de inventario (artículo, unidades, costo) a una línea ya guardada, sin
+    //  tocar la transacción (valor, descripción, documento). El costo se calcula igual que en
+    //  guardarTransaccionConInventario: entrada = |valor| de la línea; salida = costo promedio
+    //  del saldo acumulado. Por eso el repaso va del más antiguo al más reciente.
+    // ─────────────────────────────────────────────
+
+    /** Fecha AAAAMMDD de una línea: Fecha inicial, o la de "Fecha y hora" si está en 0. */
+    public static final String SQL_FECHA_LINEA =
+            "(CASE WHEN IFNULL(t.c8_FechaInicial, 0) BETWEEN 19000101 AND 21001231 THEN t.c8_FechaInicial"
+            + " ELSE IFNULL(CAST(REPLACE(REPLACE(SUBSTR(t.c7_FechaYHora, 1, 10), '.', ''), '-', '') AS INTEGER), 0) END)";
+
+    /** Línea pendiente de inventario (sin fila en transacciones_inventario). */
+    public static class LineaPendiente {
+        public long transaccionId;
+        public String documento;
+        public long valor;
+        public String descripcion;
+        public int fecha;
+    }
+
+    /** Pendientes de una cuenta, de la más antigua a la más reciente (incluye el doc 0). */
+    public List<LineaPendiente> listarPendientes(SQLiteDatabase db, long cuentaId) {
+        List<LineaPendiente> lista = new ArrayList<>();
+        try (Cursor c = db.rawQuery("SELECT t.transaccion_id, t.c1_Documento, IFNULL(t.c5_Valor, 0), t.c6_Descripcion, "
+                + SQL_FECHA_LINEA + " AS f FROM transacciones t WHERE t.cuenta_id = ?"
+                + " AND NOT EXISTS (SELECT 1 FROM transacciones_inventario ti WHERE ti.transaccion_id = t.transaccion_id)"
+                + " ORDER BY f, t.transaccion_id", new String[]{String.valueOf(cuentaId)})) {
+            while (c.moveToNext()) {
+                LineaPendiente l = new LineaPendiente();
+                l.transaccionId = c.getLong(0);
+                l.documento = c.getString(1);
+                l.valor = c.getLong(2);
+                l.descripcion = c.getString(3);
+                l.fecha = c.getInt(4);
+                lista.add(l);
+            }
+        }
+        return lista;
+    }
+
+    /**
+     * null si se puede asignar el inventario a esta línea; si no, el motivo para el usuario:
+     * hay una pendiente más antigua de la misma cuenta, o el artículo ya tiene movimientos con
+     * fecha posterior (su costo promedio dependería de este).
+     */
+    public String motivoNoAsignable(SQLiteDatabase db, long cuentaId, LineaPendiente linea, long itemId) {
+        List<LineaPendiente> pendientes = listarPendientes(db, cuentaId);
+        if (!pendientes.isEmpty() && pendientes.get(0).transaccionId != linea.transaccionId) {
+            LineaPendiente p = pendientes.get(0);
+            return "Primero va la línea más antigua: documento " + p.documento + " del " + p.fecha
+                    + " por " + p.valor + ". El repaso va del más antiguo al más reciente, para que el"
+                    + " costo promedio quede bien.";
+        }
+        try (Cursor c = db.rawQuery("SELECT MAX(" + SQL_FECHA_LINEA + ") FROM transacciones_inventario ti"
+                + " JOIN transacciones t ON t.transaccion_id = ti.transaccion_id WHERE ti.item_id = ?",
+                new String[]{String.valueOf(itemId)})) {
+            if (c.moveToFirst() && !c.isNull(0) && c.getInt(0) > linea.fecha) {
+                return "Este artículo ya tiene movimientos con fecha posterior (" + c.getInt(0) + "). Su costo"
+                        + " promedio dependería de esta línea, así que no se puede agregar antes.";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Agrega el dato de inventario a una línea ya guardada. unidadesMagnitud > 0; el signo lo
+     * da el valor de la línea (positivo = entrada, negativo = salida). Devuelve el costo_total.
+     */
+    public long asignarInventarioALineaExistente(SQLiteDatabase db, LineaPendiente linea, long itemId,
+                                                  long unidadesMagnitud) {
+        if (unidadesMagnitud <= 0) throw new IllegalArgumentException("Las unidades deben ser mayores que 0.");
+        if (linea.valor == 0) throw new IllegalArgumentException("La línea tiene valor 0: no hay movimiento que asignar.");
+        boolean salida = linea.valor < 0;
+        long unidades = salida ? -unidadesMagnitud : unidadesMagnitud;
+        long costoTotal = salida ? -calcularCostoSalida(db, itemId, unidadesMagnitud) : Math.abs(linea.valor);
+        double precio = redondearA3Decimales((double) Math.abs(costoTotal) / (double) unidadesMagnitud);
+        if (precio <= 0) throw new IllegalArgumentException("El precio unitario resultante no es válido.");
+        ContentValues v = new ContentValues();
+        v.put("transaccion_id", linea.transaccionId);
+        v.put("item_id", itemId);
+        v.put("unidades", unidades);
+        v.put("precio_unitario", precio);
+        v.put("costo_total", costoTotal);
+        db.insertOrThrow("transacciones_inventario", null, v);
+        return costoTotal;
+    }
+
     public long insertarItemInventario(SQLiteDatabase db, long cuentaId, String nombre, String unidad) {
         if (nombre == null || nombre.trim().isEmpty()) {
             throw new IllegalArgumentException("El nombre del artículo no puede estar vacío.");

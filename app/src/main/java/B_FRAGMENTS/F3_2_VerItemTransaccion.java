@@ -78,6 +78,11 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
     // grande" (tramo cerrado del historial + tramo abierto en vivo, sin repetir el doc 0). Tocar
     // el saldo alterna con "solo período abierto" (la contable).
     private boolean soloPeriodoAbierto = false;
+    // ⭐ NUEVO (25-nov, Jorge): repaso de inventario hacia atrás (📦 Pendientes).
+    private boolean modoPendientes = false;
+    private Long cuentaInventarioId = null;
+    private final java.util.Map<String, java.util.List<A1BASES.A12_InventarioHelper.LineaPendiente>> pendientesPorDoc =
+            new java.util.HashMap<>();
     private String avisoGemela = null;
     // ⭐ (24-nov): documentos de las líneas cerradas (solo lectura). El 🔒 va en la descripción.
     private final java.util.Set<String> documentosCerrados = new java.util.HashSet<>();
@@ -487,11 +492,15 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 listaFiltrada.add(transaccionReducida);
             }
 
+            // ⭐ NUEVO (25-nov): ¿la cuenta maneja inventario? (muestra 📦 y, en modo pendientes,
+            // cambia la lista por las líneas sin artículo, de la más antigua a la más reciente).
+            String textoPendientes = desdeIndicadores ? null : armarPendientes(listaFiltrada);
+
             // ⭐ NUEVO (23-nov, historial P3): la gemela grande.
-            String textoGemela = desdeIndicadores ? null : armarGemela(listaFiltrada);
+            String textoGemela = desdeIndicadores || textoPendientes != null ? textoPendientes : armarGemela(listaFiltrada);
 
             // ✅ TODO TU CÓDIGO DE ORDENAMIENTO Y ADAPTADOR SIN CAMBIOS
-            Collections.sort(listaFiltrada, new Comparator<A3_2_TipoTransaccionesGetsYSets>() {
+            if (textoPendientes == null) Collections.sort(listaFiltrada, new Comparator<A3_2_TipoTransaccionesGetsYSets>() {
                 @Override
                 public int compare(A3_2_TipoTransaccionesGetsYSets t1, A3_2_TipoTransaccionesGetsYSets t2) {
                     int fechaCompare = Integer.compare(
@@ -510,6 +519,15 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 adaptadorTransaccionesCuentaYoFecha = new D_F3_2_AdaptadorTransaccionesCuentaYoFecha(
                         getActivity(), listaFiltrada,
                         documento -> {
+                            // ⭐ (25-nov): en 📦 Pendientes, tocar abre el diálogo de inventario.
+                            if (modoPendientes && cuentaInventarioId != null) {
+                                java.util.List<A1BASES.A12_InventarioHelper.LineaPendiente> l = pendientesPorDoc.get(documento);
+                                if (l != null && !l.isEmpty()) {
+                                    A1BASES.A38_InventarioPendienteDialogo.mostrar(getActivity(), cuentaInventarioId,
+                                            receivedAccount, l.get(0), this::verTransaccionesSoloCuenta);
+                                }
+                                return;
+                            }
                             // ⭐ (historial P3): las líneas de períodos cerrados son solo lectura.
                             if (documento != null && documentosCerrados.contains(documento)) {
                                 Toast.makeText(getActivity(), "Línea de un período cerrado: solo lectura. "
@@ -527,7 +545,11 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 adaptadorTransaccionesCuentaYoFecha.updateData(listaFiltrada);
                 actualizarContador();
             }
-            if (textoGemela != null && c5_Valor_XTv != null) {
+            if (textoPendientes != null && c5_Valor_XTv != null) {
+                c5_Valor_XTv.setText(textoPendientes);
+                c5_Valor_XTv.setBackgroundResource(R.drawable.bg_opcion_accion);
+                c5_Valor_XTv.setOnClickListener(null);
+            } else if (textoGemela != null && c5_Valor_XTv != null) {
                 // ⭐ (24-nov, Jorge): tamaño normal (agrandado tapaba nombre y valor) y fondo verde
                 // como los botones, para sugerir que se puede tocar.
                 c5_Valor_XTv.setText(textoGemela);
@@ -559,6 +581,55 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
      * historial marcadas con 🔒. Devuelve el texto del saldo con su cotejo, o null si la cuenta
      * no tiene historial.
      */
+    private String armarPendientes(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
+        cuentaInventarioId = null;
+        pendientesPorDoc.clear();
+        android.widget.Button boton = getView() == null ? null : getView().findViewById(R.id.pendientesInventario_XBt);
+        if (receivedAccount == null || getActivity() == null) return null;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        SQLiteDatabase db = ayudante.getReadableDatabase();
+        java.util.List<A1BASES.A12_InventarioHelper.LineaPendiente> pendientes;
+        try {
+            try (android.database.Cursor c = db.rawQuery("SELECT cuenta_id FROM cuentas WHERE Cuenta = ? AND con_inventario = 1",
+                    new String[]{receivedAccount})) {
+                if (c.moveToFirst()) cuentaInventarioId = c.getLong(0);
+            }
+            pendientes = cuentaInventarioId == null ? new java.util.ArrayList<>()
+                    : new A1BASES.A12_InventarioHelper().listarPendientes(db, cuentaInventarioId);
+        } catch (Exception e) {
+            Log.e("F3_2", "Pendientes de inventario: " + e.getMessage(), e);
+            return null;
+        } finally {
+            db.close();
+        }
+        if (boton != null) {
+            boton.setVisibility(cuentaInventarioId != null ? View.VISIBLE : View.GONE);
+            boton.setText(modoPendientes ? "📋" : "📦");
+            boton.setOnClickListener(v -> {
+                modoPendientes = !modoPendientes;
+                if (modoPendientes) {
+                    Toast.makeText(getActivity(), "📦 Líneas sin artículo, de la más antigua a la más reciente. "
+                            + "Toca el documento de la primera para asignarle artículo y unidades. 📋 vuelve a la cuenta.",
+                            Toast.LENGTH_LONG).show();
+                }
+                verTransaccionesSoloCuenta();
+            });
+        }
+        if (cuentaInventarioId == null || !modoPendientes) return null;
+        lista.clear();
+        for (A1BASES.A12_InventarioHelper.LineaPendiente p : pendientes) {
+            lista.add(new A3_2_TipoTransaccionesGetsYSets(p.documento, (int) p.valor,
+                    "📦 " + (p.descripcion == null ? "" : p.descripcion), p.fecha));
+            java.util.List<A1BASES.A12_InventarioHelper.LineaPendiente> l = pendientesPorDoc.get(p.documento);
+            if (l == null) {
+                l = new java.util.ArrayList<>();
+                pendientesPorDoc.put(p.documento, l);
+            }
+            l.add(p);
+        }
+        return pendientes.isEmpty() ? "✓ 0 📦" : pendientes.size() + " 📦";
+    }
+
     private String armarGemela(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
         avisoGemela = null;
         documentosCerrados.clear();

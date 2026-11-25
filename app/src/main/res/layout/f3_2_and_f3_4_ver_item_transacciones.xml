@@ -72,6 +72,19 @@
             android:textSize="24sp"
             android:contentDescription="Consultar por fechas"/>
 
+        <!-- ⭐ NUEVO (25-nov, Jorge): solo en cuentas con inventario. Muestra las líneas sin
+             artículo (de la más antigua a la más reciente) para el repaso hacia atrás. -->
+        <Button
+            android:id="@+id/pendientesInventario_XBt"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackground"
+            android:text="📦"
+            android:textAllCaps="false"
+            android:textSize="24sp"
+            android:visibility="gone"
+            android:contentDescription="Pendientes de inventario"/>
+
         <!-- Solo visible cuando la cuenta consultada es "CxC Enrique": atajo a las gráficas de Indicadores -->
         <Button
             android:id="@+id/graficasIndicadores_XBt"
