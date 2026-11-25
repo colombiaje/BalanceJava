@@ -4,16 +4,21 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_marginTop="80dp"
+    android:layout_marginTop="135dp"
     android:layout_marginLeft="5dp"
     android:layout_marginRight="3dp"
     android:orientation="vertical"
     android:background="#A1EBE4"
     tools:context="B_FRAGMENTS.F3_2_VerItemTransaccion">
 
+    <!-- ⭐ (25-nov, Jorge): la consulta baja (margen superior 80 → 135dp) para que se vean arriba
+         el campo de cuenta y las opciones de F1. La fila de botones se centra con márgenes cortos:
+         antes sumaba más que el ancho del diálogo (370dp) y el botón de salir (peso 1) quedaba
+         aplastado a cero, invisible. -->
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical|center_horizontal"
         android:orientation="horizontal">
 
         <Button
@@ -22,8 +27,7 @@
                 android:textColor="#1F3FA6"
             android:layout_width="100dp"
             android:layout_height="30dp"
-            android:layout_marginLeft="60dp"
-            android:layout_marginRight="40dp"
+            android:layout_marginRight="14dp"
             android:text="Ver Pdf" />
 
         <Button
@@ -31,7 +35,7 @@
             android:layout_width="35dp"
             android:layout_height="35dp"
             android:background="@drawable/ic_share"
-            android:layout_marginRight="40dp" />
+            android:layout_marginRight="14dp" />
 
         <ImageButton
             android:id="@+id/salida_XBt"
@@ -39,8 +43,7 @@
             android:layout_height="35dp"
             android:layout_gravity="start"
             android:layout_marginTop="2dp"
-            android:layout_marginRight="2dp"
-            android:layout_weight="1"
+            android:layout_marginRight="6dp"
             android:background="@drawable/ic_out"
             android:src="@drawable/bg_transparent"
             android:text="Salir" />

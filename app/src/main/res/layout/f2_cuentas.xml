@@ -862,14 +862,16 @@
         android:layout_marginTop="10dp"
         >
 
+        <!-- ⭐ (25-nov, Jorge): fila "Cantidad N cuentas" centrada a lo ancho (antes corrida a la
+             derecha por un margen izquierdo de 80dp y se salía de la pantalla). -->
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_row="1"
             app:layout_column="0"
+            app:layout_gravity="center_horizontal"
             android:gravity="center_horizontal"
-            android:layout_marginRight="2dp"
             >
 
             <TextView
@@ -883,7 +885,6 @@
                 android:textSize="14dp"
                 android:textStyle="bold"
                 android:layout_marginRight="2dp"
-                android:layout_marginLeft="80dp"
 
                 />
 
