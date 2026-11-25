@@ -374,6 +374,9 @@ public class F4_Cierres extends Fragment {
                     + "\nCorte: " + fechaLegible(limites[1]) + ". Se cierran " + miles(rev.documentosACerrar)
                     + " documentos (" + miles(rev.lineasACerrar) + " líneas); quedan " + miles(rev.documentosQuedan)
                     + " posteriores.");
+            if (A1BASES.A37_CierrePeriodo.hoy() < limites[1]) {
+                t.append("\n⚠ Este año aún no termina: podrás cerrarlo desde el ").append(fechaLegible(limites[1])).append(".");
+            }
             if (!rev.mixtos.isEmpty()) t.append("\n⚠ ").append(rev.mixtos.size()).append(" documento(s) mixtos o sin fecha: no se podrá cerrar.");
             t.append("\nCon historial: ").append(rev.cuentasConHistorial.isEmpty() ? "ninguna"
                     : String.join(", ", rev.cuentasConHistorial)).append(" (").append(miles(rev.lineasAlHistorial))
@@ -439,6 +442,15 @@ public class F4_Cierres extends Fragment {
             int anio = anioValido(anio_XEt.getText().toString());
             if (anio < 0) {
                 anio_XEt.setError("Año no válido");
+                return;
+            }
+            // ⭐ NUEVO (25-nov, Jorge): control de fecha. Solo se cierra un año que ya terminó:
+            // hoy debe ser igual o posterior al último día de su año fiscal (el corte).
+            int corteAnio = corteDelAnio(anio);
+            if (A1BASES.A37_CierrePeriodo.hoy() < corteAnio) {
+                new AlertDialog.Builder(getActivity()).setTitle("⚠ El año " + anio + " aún no termina")
+                        .setMessage("Su año fiscal termina el " + fechaLegible(corteAnio) + ". Podrás cerrarlo desde ese día.")
+                        .setPositiveButton("Entendido", null).show();
                 return;
             }
             // ⭐ (23-nov, historial P2): con documentos mixtos no se cierra; se listan.

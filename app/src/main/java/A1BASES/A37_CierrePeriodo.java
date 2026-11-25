@@ -58,6 +58,12 @@ public final class A37_CierrePeriodo {
         public List<String> avisosHistorial = new ArrayList<>();
     }
 
+    /** Hoy como AAAAMMDD. */
+    public static int hoy() {
+        Calendar c = Calendar.getInstance();
+        return c.get(Calendar.YEAR) * 10000 + (c.get(Calendar.MONTH) + 1) * 100 + c.get(Calendar.DAY_OF_MONTH);
+    }
+
     /** Día siguiente a una fecha AAAAMMDD. */
     public static int diaSiguiente(int aaaammdd) {
         Calendar c = Calendar.getInstance();
@@ -112,6 +118,12 @@ public final class A37_CierrePeriodo {
 
     public static Resultado ejecutar(SQLiteDatabase db, int corte) {
         Resultado r = new Resultado();
+        // ⭐ (25-nov, Jorge): segunda barrera del control de fecha (la primera está en el diálogo).
+        if (hoy() < corte) {
+            r.mensaje = "El período termina el " + (corte % 100) + "/" + ((corte / 100) % 100) + "/" + (corte / 10000)
+                    + "; todavía no se puede cerrar.";
+            return r;
+        }
         Revision rev = revisar(db, corte);
         if (!rev.mixtos.isEmpty()) {
             r.mensaje = "Hay " + rev.mixtos.size() + " documento(s) mixtos o sin fecha; no se cerró nada.";
