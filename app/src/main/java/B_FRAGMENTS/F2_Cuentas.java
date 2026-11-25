@@ -455,6 +455,13 @@ public class F2_Cuentas extends DialogFragment {
             salidaEsteFragment_XBt = getView().findViewById(R.id.salidaEsteFragment_XBt);
         }
 
+        // ⭐ (25-nov tarde): como diálogo (desde F1) el botón cierra el diálogo: ✕; desde el menú sale de la app: ⏻.
+        if (outAccounts_XRb != null) {
+            boolean comoDialogo = getDialog() != null;
+            outAccounts_XRb.setText(comoDialogo ? "✕" : "⏻");
+            outAccounts_XRb.setTooltipText(comoDialogo ? "Cerrar" : "Salir de la app");
+            outAccounts_XRb.setContentDescription(comoDialogo ? "Cerrar" : "Salir de la app");
+        }
         if (salidaEsteFragment_XBt != null) {
             // ✅ Si getDialog() existe, estamos en modo Dialog → MOSTRAR botón
             if (getDialog() != null) {
@@ -969,6 +976,30 @@ public class F2_Cuentas extends DialogFragment {
         setvisibilityOcultarAreas();
         area4SeeAccountsXGl.setVisibility(View.VISIBLE);
         todasLasCuentas_XLv.post(this::populateList); // después de armar la pantalla
+        // ⭐ (25-nov tarde, Jorge): la lista llega hasta el final de la pantalla (antes 400dp fijos).
+        todasLasCuentas_XLv.getViewTreeObserver().addOnGlobalLayoutListener(this::ajustarAltoLista);
+    }
+
+    // ⭐ NUEVO (25-nov tarde, Jorge): alto de la lista = desde donde empieza hasta el borde inferior
+    // visible (sin barra de navegación). Solo desde el menú; como diálogo (F1) sigue en 400dp.
+    // Se recalcula en cada layout, pero solo cambia algo si el alto es distinto (no hace bucle).
+    private void ajustarAltoLista() {
+        if (getDialog() != null || !isAdded() || todasLasCuentas_XLv == null
+                || area4SeeAccountsXGl == null || area4SeeAccountsXGl.getVisibility() != View.VISIBLE) return;
+        android.graphics.Rect visible = new android.graphics.Rect();
+        todasLasCuentas_XLv.getWindowVisibleDisplayFrame(visible);
+        int[] pos = new int[2];
+        todasLasCuentas_XLv.getLocationOnScreen(pos);
+        if (pos[1] <= 0) return; // aún sin ubicar
+        float dp = getResources().getDisplayMetrics().density;
+        int alto = visible.bottom - pos[1] - (int) (8 * dp);
+        int minimo = (int) (200 * dp);
+        if (alto < minimo) alto = minimo;
+        ViewGroup.LayoutParams lp = todasLasCuentas_XLv.getLayoutParams();
+        if (lp != null && lp.height != alto) {
+            lp.height = alto;
+            todasLasCuentas_XLv.setLayoutParams(lp);
+        }
     }
 
     // Listener global para manejar la lógica de los CheckBox
@@ -2384,10 +2415,25 @@ public class F2_Cuentas extends DialogFragment {
             }
         });
 
+        // ⭐ (25-nov tarde, Jorge): causa de la pantalla en blanco: desde el menú, Cuentas se abre
+        // como fragment normal (replace en el contenedor) y dismiss() lo quitaba dejando el
+        // contenedor vacío. Ahora: desde el menú, ⏻ sale de la app (con confirmación); abierto
+        // como diálogo desde F1, ✕ cierra el diálogo y vuelve a F1.
         outAccounts_XRb.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dismiss();
+                outAccounts_XRb.setChecked(false);
+                if (getDialog() != null) {
+                    dismiss();
+                    return;
+                }
+                new AlertDialog.Builder(getActivity())
+                        .setTitle("¿Salir de la App?")
+                        .setPositiveButton("Sí", (d, w) -> {
+                            if (getActivity() != null) getActivity().finishAffinity();
+                        })
+                        .setNegativeButton("Continuar", null)
+                        .show();
             }
         });
 

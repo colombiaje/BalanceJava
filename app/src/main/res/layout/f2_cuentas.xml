@@ -11,8 +11,10 @@
     app:rowCount="13"
     app:columnCount="1"
     android:layout_marginLeft="0dp"
-    android:layout_marginTop="60dp"
+    android:layout_marginTop="2dp"
     >
+    <!-- ⭐ (25-nov, Jorge): margen superior 60dp → 2dp; la barra sube al espacio blanco bajo el
+         título (en modo diálogo el margen no aplica, así que no cambia). -->
     <!-- ⭐ (24-nov, Jorge): alto 800 → 870dp por la fila nueva "Historial" (los botones quedaban
          cortados y se veía la pantalla de atrás). -->
     <!-- ⭐ (16-nov, Jorge): ancho = pantalla (antes 450dp fijos, más que el 13T), para que las
@@ -32,6 +34,8 @@
 
     <!-- are 1 inicio-->
 
+            <!-- ⭐ (25-nov tarde, Jorge): solo íconos, más grandes, para que quepan todos; el nombre
+                 sale al mantener presionado (tooltip). -->
             <!-- ⭐ REDISEÑO (25-nov, Jorge): barra con botones verdes de acción, cada uno con ícono y
                  palabra. Salieron el ícono de lista (la lista se ve al entrar; "☰ Lista" aparece
                  solo con un formulario abierto), la sección "Backups y cierre" (⚙ Renta abre directo
@@ -40,13 +44,13 @@
                 app:layout_row="1"
                 app:layout_column="0"
                 android:layout_width="wrap_content"
-                android:layout_height="52dp"
+                android:layout_height="50dp"
                 app:layout_gravity="center_horizontal"
                 android:scrollbars="none">
             <LinearLayout
                 android:id="@+id/area1BotonesVerAreas"
                 android:layout_width="wrap_content"
-                android:layout_height="52dp"
+                android:layout_height="50dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 tools:ignore="MissingConstraints"
@@ -56,22 +60,29 @@
                 <CheckBox
                     android:id="@+id/seeNewXChB"
                     style="@style/BotonBarraF2"
-                    android:text="＋ Nueva" />
+                    android:tooltipText="Nueva cuenta"
+                    android:contentDescription="Nueva cuenta"
+                    android:text="＋" />
 
                 <CheckBox
                     android:id="@+id/seeModifyXChB"
                     style="@style/BotonBarraF2"
-                    android:text="✎ Modificar" />
+                    android:tooltipText="Modificar cuenta"
+                    android:contentDescription="Modificar cuenta"
+                    android:text="✎" />
 
                 <CheckBox
                     android:id="@+id/verCuentas_XChb"
                     style="@style/BotonBarraF2"
                     android:visibility="gone"
-                    android:text="☰ Lista" />
+                    android:tooltipText="Lista de cuentas"
+                    android:contentDescription="Lista de cuentas"
+                    android:text="☰" />
 
                 <FrameLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
+                    android:layout_width="46dp"
+                    android:layout_height="44dp"
+                    android:tooltipText="Consultar cuenta"
                     android:layout_marginLeft="2dp"
                     android:layout_marginRight="2dp">
                     <Spinner
@@ -81,38 +92,39 @@
                         android:background="@drawable/bg_opcion_accion"
                         android:spinnerMode="dialog" />
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:gravity="center"
-                        android:paddingLeft="10dp"
-                        android:paddingRight="10dp"
                         android:clickable="false"
                         android:focusable="false"
-                        android:text="🔍 Consultar"
+                        android:text="🔍"
                         android:textColor="#1F3FA6"
-                        android:textSize="14sp"
+                        android:textSize="22sp"
                         android:textStyle="bold" />
                 </FrameLayout>
 
                 <CheckBox
                     android:id="@+id/verBackupsYCierres_XChb"
                     style="@style/BotonBarraF2"
-                    android:text="⚙ Renta" />
+                    android:tooltipText="Configuración renta fiscal"
+                    android:contentDescription="Configuración renta fiscal"
+                    android:text="⚙" />
 
                 <Button
                     android:id="@+id/calculadoraLibre_XBt"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackground"
+                    style="@style/BotonBarraF2"
+                    android:tooltipText="Calculadora"
+                    android:contentDescription="Calculadora"
+                    android:minHeight="0dp"
                     android:text="🔢"
-                    android:textAllCaps="false"
-                    android:textColor="#1976D2"
-                    android:textSize="24sp" />
+                    android:textAllCaps="false" />
 
                 <RadioButton
                     android:id="@+id/outAccounts_XRb"
                     style="@style/BotonBarraF2"
-                    android:text="✕ Salir" />
+                    android:tooltipText="Salir de la app"
+                    android:contentDescription="Salir de la app"
+                    android:text="⏻" />
 
                 <!-- Se conservan ocultos (el código los usa): salida en modo diálogo y salir de la app. -->
                 <RadioButton
