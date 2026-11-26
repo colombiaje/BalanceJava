@@ -1598,14 +1598,9 @@ public class B12_DocumentPersistence {
     // 8.0), se muestra "8"; si no, se muestra con hasta 3 decimales sin ceros sobrantes al
     // final (p.ej. 7.7, no "7.700"; 7.333, no "7.3330"). Se usa Locale.US al formatear para
     // evitar que un locale con coma decimal (como es-CO) produzca "7,7" en vez de "7.7".
+    // ⭐ (26-nov, Jorge): siempre con 3 decimales, igual que el historial de inventario.
     private static String formatearPrecioInformativo(double valor) {
-        if (valor == Math.rint(valor)) {
-            return String.valueOf((long) valor);
-        }
-        String s = String.format(java.util.Locale.US, "%.3f", valor);
-        while (s.endsWith("0")) s = s.substring(0, s.length() - 1);
-        if (s.endsWith(".")) s = s.substring(0, s.length() - 1);
-        return s;
+        return String.format(java.util.Locale.US, "%.3f", valor);
     }
 
     // ═══════════════════════════════════════════════════════════════

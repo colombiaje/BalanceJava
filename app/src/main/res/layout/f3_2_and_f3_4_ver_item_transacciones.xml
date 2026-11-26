@@ -105,11 +105,12 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackground"
-            android:text="📦"
+            android:text="📜"
             android:textAllCaps="false"
             android:textSize="24sp"
             android:visibility="gone"
             android:contentDescription="Ver historial de inventario"/>
+        <!-- ⭐ (26-nov, Jorge): historial con 📜 para no confundirlo con 📦 Pendientes. -->
 
     </LinearLayout>
 

@@ -143,7 +143,8 @@ public class A13_HistorialInventarioDialogo {
                 A12_InventarioHelper.formatear(f.unidades, f.decimales),
                 A12_InventarioHelper.formatear(f.saldoUnidadesDespues, f.decimales),
                 String.valueOf(f.costoMovimiento),
-                String.valueOf(f.precioInformativo),
+                // ⭐ (26-nov, Jorge): siempre con 3 decimales (antes 3.7 en vez de 3.700).
+                String.format(java.util.Locale.US, "%.3f", f.precioInformativo),
                 String.valueOf(f.saldoCostoDespues)
         };
         for (String valor : valores) {
