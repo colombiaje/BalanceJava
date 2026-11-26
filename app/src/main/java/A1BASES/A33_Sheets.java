@@ -417,11 +417,24 @@ public class A33_Sheets {
                 + " (SELECT MAX(c8_FechaInicial) FROM transacciones t WHERE t.cuenta_id = cu.cuenta_id),"
                 + " (SELECT IFNULL(SUM(c5_Valor), 0) FROM transacciones t WHERE t.cuenta_id = cu.cuenta_id"
                 + "   AND CAST(t.c1_Documento AS INTEGER) = 0),"
-                + " (SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL + " h WHERE h.cuenta_id = cu.cuenta_id)"
+                + " (SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL + " h WHERE h.cuenta_id = cu.cuenta_id),"
+                // ⭐ (26-nov, Jorge): para "Se puede borrar": líneas con movimiento (todo lo que no
+                // sea doc 0 en 0), historial con valor y movimientos de inventario.
+                + " (SELECT COUNT(*) FROM transacciones t WHERE t.cuenta_id = cu.cuenta_id"
+                + "   AND NOT (CAST(t.c1_Documento AS INTEGER) = 0 AND IFNULL(t.c5_Valor, 0) = 0)),"
+                + " (SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL + " h WHERE h.cuenta_id = cu.cuenta_id"
+                + "   AND h.c5_Valor <> 0),"
+                + " (SELECT COUNT(*) FROM transacciones_inventario ti JOIN items_inventario i ON i.item_id = ti.item_id"
+                + "   WHERE i.cuenta_id = cu.cuenta_id)"
                 + " FROM cuentas cu", null)) {
             while (k.moveToNext()) {
+                String borrar;
+                if (k.getLong(6) > 0) borrar = "No · movimiento";
+                else if (k.getLong(7) > 0) borrar = "No · historial";
+                else if (k.getLong(8) > 0) borrar = "No · inventario";
+                else borrar = "Sí";
                 ctx.put(k.getString(0), new String[]{k.getString(1), k.getString(2),
-                        k.isNull(3) ? "" : k.getString(3), k.getString(4), k.getString(5)});
+                        k.isNull(3) ? "" : k.getString(3), k.getString(4), k.getString(5), borrar});
             }
         }
         // Las referencias fijas viejas salen: ahora van por fórmula al final.
@@ -440,7 +453,7 @@ public class A33_Sheets {
                 "Naturaleza (referencia)", "Liquidez (referencia)", "Soporte sugerido (referencia)",
                 "Renglón renta (referencia)", "Saldo (referencia)", "Transacciones (referencia)",
                 "Último movimiento (referencia)", "Saldo inicial (referencia)", "Líneas historial (referencia)",
-                "Revisión (referencia)"};
+                "Revisión (referencia)", "Se puede borrar (referencia)"};
         for (String n : nuevas) {
             h.columnas.add(n);
             h.editable.add(false);
@@ -479,6 +492,9 @@ public class A33_Sheets {
                     + "),\"⚠ soporte ≠ sugerido \",\"\")"
                     + "&IF(OR(AND(" + lNat + r + "=\"DEUDORA\"," + lSaldo + r + "<0),AND(" + lNat + r + "=\"ACREEDORA\","
                     + lSaldo + r + ">0)),\"⚠ saldo contrario a la naturaleza\",\"\")))";
+            // ⭐ (26-nov, Jorge): misma regla que Eliminar en la app (F2). Solo para filtrar; el
+            // borrado se hace en la app, cuenta por cuenta.
+            fila[base + 13] = x == null ? "" : x[5];
             h.filas.add(fila);
         }
         List<A35_Xlsx.Hoja> libro = new ArrayList<>();
