@@ -908,6 +908,8 @@ public class F2_Cuentas extends DialogFragment {
         if (calculadoraLibre_XBt != null) {
             calculadoraLibre_XBt.setOnClickListener(v -> mostrarCalculadoraLibre());
         }
+        View fusionar_XBt = inflarViews_View.findViewById(R.id.fusionarCuentas_XBt);
+        if (fusionar_XBt != null) fusionar_XBt.setOnClickListener(v -> mostrarFusionCuentas());
 
         return inflarViews_View;
     }
@@ -2650,6 +2652,124 @@ public class F2_Cuentas extends DialogFragment {
 
 
     //f2
+
+    // ─────────────────────────────────────────────
+    // ⭐ NUEVO (26-nov, Jorge): ⇄ Fusionar cuentas. Elegir origen (desaparece) y destino (queda)
+    // → revisión sin tocar nada → respaldo completo → fusión en una transacción con cotejo
+    // (A39_FusionCuentas) → respaldo "después" → resultado. Decisiones a–d en A39.
+    // ─────────────────────────────────────────────
+    private void mostrarFusionCuentas() {
+        if (getActivity() == null) return;
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        final List<Object[]> cuentas = A1BASES.A39_FusionCuentas.cuentas(ayudante.getReadableDatabase());
+        List<String> nombres = new ArrayList<>();
+        nombres.add("— elegir —");
+        for (Object[] c : cuentas) nombres.add((String) c[1]);
+
+        LinearLayout caja = new LinearLayout(getActivity());
+        caja.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        caja.setPadding(pad, pad / 2, pad, 0);
+        TextView t1 = new TextView(getActivity());
+        t1.setText("Cuenta origen (desaparece):");
+        Spinner origen = new Spinner(getActivity(), Spinner.MODE_DIALOG);
+        origen.setAdapter(new ArrayAdapter<>(getActivity(), android.R.layout.simple_spinner_dropdown_item, nombres));
+        TextView t2 = new TextView(getActivity());
+        t2.setText("\nCuenta destino (queda con todo):");
+        Spinner destino = new Spinner(getActivity(), Spinner.MODE_DIALOG);
+        destino.setAdapter(new ArrayAdapter<>(getActivity(), android.R.layout.simple_spinner_dropdown_item, nombres));
+        caja.addView(t1);
+        caja.addView(origen);
+        caja.addView(t2);
+        caja.addView(destino);
+
+        new AlertDialog.Builder(getActivity())
+                .setTitle("⇄ Fusionar cuentas")
+                .setView(caja)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Revisar", (d, w) -> {
+                    int io = origen.getSelectedItemPosition(), id = destino.getSelectedItemPosition();
+                    if (io == 0 || id == 0) {
+                        Toast.makeText(getActivity(), "Elige las dos cuentas.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    revisarFusion((Long) cuentas.get(io - 1)[0], (Long) cuentas.get(id - 1)[0]);
+                })
+                .show();
+    }
+
+    private void revisarFusion(long origen, long destino) {
+        A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+        A1BASES.A39_FusionCuentas.Revision r = A1BASES.A39_FusionCuentas.revisar(ayudante.getReadableDatabase(), origen, destino);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Origen (desaparece): ").append(r.nombreOrigen).append("\n  ").append(r.lineasOrigen)
+                .append(" líneas · saldo ").append(r.saldoOrigen).append(" · ").append(r.tipoOrigen).append('\n');
+        sb.append("Destino (queda): ").append(r.nombreDestino).append("\n  ").append(r.lineasDestino)
+                .append(" líneas · saldo ").append(r.saldoDestino).append(" · ").append(r.tipoDestino).append('\n');
+        sb.append("\nSaldo esperado de la destino: ").append(r.saldoOrigen + r.saldoDestino).append('\n');
+        if (r.saldosInicialesOrigen > 0 && r.saldosInicialesDestino > 0) {
+            sb.append("Saldos iniciales: se suman en una sola línea.\n");
+        }
+        if (r.lineasHistorialOrigen > 0) sb.append("Líneas de historial que pasan: ").append(r.lineasHistorialOrigen).append('\n');
+        if (r.lineasPlantillas > 0) sb.append("Líneas de plantillas que pasan: ").append(r.lineasPlantillas).append('\n');
+        if (!r.documentosAmbas.isEmpty()) {
+            sb.append("\nDocumentos con ambas cuentas (quedan con dos líneas de la destino que se anulan): ");
+            int n = Math.min(r.documentosAmbas.size(), 15);
+            sb.append(TextUtils.join(", ", r.documentosAmbas.subList(0, n)));
+            if (r.documentosAmbas.size() > n) sb.append(" …");
+            sb.append('\n');
+        }
+        for (String a : r.avisos) sb.append("\n⚠ ").append(a).append('\n');
+        for (String b : r.bloqueos) sb.append("\n⛔ ").append(b).append('\n');
+        if (r.bloqueos.isEmpty()) {
+            sb.append("\nSe hará: respaldo completo → fusión → cotejo → se borra \"").append(r.nombreOrigen)
+                    .append("\".\nDespués, exporta un Sheets nuevo antes de usar Traer.");
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(getActivity())
+                .setTitle("⇄ Revisión de la fusión")
+                .setMessage(sb.toString())
+                .setNegativeButton(r.bloqueos.isEmpty() ? "Cancelar" : "Entendido", null);
+        if (r.bloqueos.isEmpty()) b.setPositiveButton("Fusionar", (d, w) -> ejecutarFusion(origen, destino));
+        b.show();
+    }
+
+    private void ejecutarFusion(long origen, long destino) {
+        final Context app = requireContext().getApplicationContext();
+        Toast.makeText(getActivity(), "Respaldando y fusionando…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String titulo, texto;
+            A1BASES.A32_Respaldos.Resultado antes = A1BASES.A32_Respaldos.puntoDeRestauracion(app, "antes-fusion");
+            if (!antes.ok) {
+                titulo = "✗ No se hizo ningún cambio";
+                texto = "No se pudo hacer el respaldo completo:\n" + antes.mensaje;
+            } else {
+                A1_1_AyudanteBD ayudante = new A1_1_AyudanteBD(app, balanceSqlite_String_PSF, null, version1BalanceSqlite_int_PSF);
+                A1BASES.A39_FusionCuentas.Resultado res = A1BASES.A39_FusionCuentas.ejecutar(
+                        ayudante.getWritableDatabase(), origen, destino);
+                if (res.ok) {
+                    A1BASES.A32_Respaldos.puntoDeRestauracion(app, "despues-fusion");
+                    titulo = "✓ Cuentas fusionadas";
+                    texto = res.mensaje + "\n\nEl respaldo previo quedó en Respaldos.";
+                } else {
+                    titulo = "✗ No se fusionó";
+                    texto = res.mensaje + "\n\nLa base quedó como estaba.";
+                }
+            }
+            final String t = titulo, m = texto;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (!isAdded()) return;
+                try {
+                    populateList();
+                    listenerOtrosFragments();
+                } catch (Exception ignorada) { }
+                new AlertDialog.Builder(getActivity())
+                        .setTitle(t)
+                        .setMessage(m)
+                        .setPositiveButton("Entendido", null)
+                        .show();
+            });
+        }).start();
+    }
 
     private void mostrarCalculadoraLibre() {
         if (getFragmentManager() == null) return;

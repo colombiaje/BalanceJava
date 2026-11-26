@@ -110,6 +110,16 @@
                     android:contentDescription="Configuración renta fiscal"
                     android:text="⚙" />
 
+                <!-- ⭐ NUEVO (26-nov, Jorge): fusionar dos cuentas (A39). -->
+                <Button
+                    android:id="@+id/fusionarCuentas_XBt"
+                    style="@style/BotonBarraF2"
+                    android:tooltipText="Fusionar cuentas"
+                    android:contentDescription="Fusionar cuentas"
+                    android:minHeight="0dp"
+                    android:text="⇄"
+                    android:textAllCaps="false" />
+
                 <Button
                     android:id="@+id/calculadoraLibre_XBt"
                     style="@style/BotonBarraF2"
