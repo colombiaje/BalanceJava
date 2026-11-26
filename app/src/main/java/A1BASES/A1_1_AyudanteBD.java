@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 32; // v32 historial de cuentas (P1, 23-nov); v31 plantillas (P1); ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
+    public static final int version1BalanceSqlite_int_PSF = 33; // v33 decimales de las unidades por artículo (26-nov); v32 historial de cuentas (P1, 23-nov); v31 plantillas (P1); ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -2383,6 +2383,15 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c7_FechaYHora TEXT, c8_FechaInicial INTEGER, c9_FechaModificacion TEXT)";
 
     /** Idempotente: columnas de cuentas, tabla e índice (instalación nueva y migración v32). */
+    /** ⭐ (26-nov, BD v33) Idempotente: items_inventario.decimales (0 = enteros, hasta 3). */
+    static void asegurarDecimalesInventario(SQLiteDatabase db) {
+        boolean tiene = false;
+        try (Cursor c = db.rawQuery("PRAGMA table_info(items_inventario)", null)) {
+            while (c.moveToNext()) if ("decimales".equals(c.getString(1))) tiene = true;
+        }
+        if (!tiene) db.execSQL("ALTER TABLE items_inventario ADD COLUMN decimales INTEGER NOT NULL DEFAULT 0");
+    }
+
     static void asegurarHistorial(SQLiteDatabase db) {
         java.util.Set<String> cols = new java.util.HashSet<>();
         try (Cursor c = db.rawQuery("PRAGMA table_info(cuentas)", null)) {
@@ -2959,6 +2968,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         db.execSQL(SQL_CREAR_SOPORTE_RENTA_CONCEPTO);
         crearTablasPlantilla(db); // ⭐ NUEVO (15-nov, BD v31, plantillas P1)
         asegurarHistorial(db); // ⭐ NUEVO (23-nov, BD v32, historial P1)
+        asegurarDecimalesInventario(db); // ⭐ NUEVO (26-nov, BD v33)
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -3932,6 +3942,13 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // nueva vacía y dos columnas nuevas en cuentas (0 / NULL en todas).
         if (oldVersion < 32) {
             asegurarHistorial(db);
+        }
+
+        // ⭐ NUEVO (26-nov, Jorge): versión 33 — decimales de las unidades por artículo (0 a 3;
+        // monedas en 3). Aditivo: una columna en 0 en todos los artículos existentes (siguen
+        // en enteros, sin migrar nada).
+        if (oldVersion < 33) {
+            asegurarDecimalesInventario(db);
         }
     }
 

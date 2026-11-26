@@ -28,6 +28,8 @@ import androidx.appcompat.app.AlertDialog;
  */
 public class A14_ListaArticulosDialogo {
 
+    private AlertDialog listaAbierta; // ⭐ (26-nov): para refrescarla tras cambiar decimales
+
     public void mostrar(Context context, long cuentaId, String nombreCuenta) {
         if (context == null) return;
 
@@ -43,7 +45,7 @@ public class A14_ListaArticulosDialogo {
 
         TableLayout tabla = new TableLayout(context);
         tabla.setPadding(12, 12, 12, 12);
-        tabla.addView(fila(context, new String[]{"Artículo", "Unidad", "Saldo unid.",
+        tabla.addView(fila(context, new String[]{"Artículo", "Unidad", "Dec.", "Saldo unid.",
                         "Saldo " + A1_1_AyudanteBD.monedaConfigurada(db)}, // ⭐ (12-nov) antes "Saldo COP" fijo
                 true, false));
 
@@ -65,19 +67,44 @@ public class A14_ListaArticulosDialogo {
                     TableRow filaItem = fila(context, new String[]{
                             item.nombre,
                             item.unidad != null ? item.unidad : "",
-                            String.valueOf(saldo[0]),
+                            String.valueOf(item.decimales),
+                            A12_InventarioHelper.formatear(saldo[0], item.decimales),
                             String.valueOf(saldo[1])
                     }, false, colorAlterno);
                     final long itemId = item.itemId;
                     final String nombreArticulo = item.nombre;
                     filaItem.setClickable(true);
-                    filaItem.setOnClickListener(v -> new A13_HistorialInventarioDialogo()
-                            .mostrar(context, cuentaId, nombreCuenta, itemId, nombreArticulo));
+                    // ⭐ (26-nov, BD v33): un artículo SIN movimientos ofrece también cambiar sus
+                    // decimales (con movimientos cambiaría la escala de lo ya guardado).
+                    final boolean sinMovimientos = !A12_InventarioHelper.tieneMovimientos(db, itemId);
+                    final int decimalesActuales = item.decimales;
+                    filaItem.setOnClickListener(v -> {
+                        if (!sinMovimientos) {
+                            new A13_HistorialInventarioDialogo()
+                                    .mostrar(context, cuentaId, nombreCuenta, itemId, nombreArticulo);
+                            return;
+                        }
+                        new AlertDialog.Builder(context)
+                                .setTitle(nombreArticulo)
+                                .setItems(new String[]{"Ver historial",
+                                        "Cambiar decimales (hoy " + decimalesActuales + ")"}, (d, w) -> {
+                                    if (w == 0) {
+                                        new A13_HistorialInventarioDialogo()
+                                                .mostrar(context, cuentaId, nombreCuenta, itemId, nombreArticulo);
+                                    } else {
+                                        cambiarDecimales(context, itemId, nombreArticulo, decimalesActuales, () -> {
+                                            if (listaAbierta != null) listaAbierta.dismiss();
+                                            mostrar(context, cuentaId, nombreCuenta);
+                                        });
+                                    }
+                                })
+                                .show();
+                    });
                     tabla.addView(filaItem);
                     colorAlterno = !colorAlterno;
                 }
                 TextView pista = new TextView(context);
-                pista.setText("Toca un artículo para ver su historial.");
+                pista.setText("Toca un artículo para ver su historial (o, si no tiene movimientos, cambiar sus decimales).");
                 pista.setTypeface(null, Typeface.ITALIC);
                 pista.setPadding(24, 0, 24, 12);
                 contenedor.addView(pista);
@@ -92,7 +119,7 @@ public class A14_ListaArticulosDialogo {
         ScrollView scrollVertical = new ScrollView(context);
         scrollVertical.addView(contenedor);
 
-        new AlertDialog.Builder(context)
+        listaAbierta = new AlertDialog.Builder(context)
                 .setTitle("Artículos de \"" + nombreCuenta + "\"")
                 .setView(scrollVertical)
                 .setPositiveButton("Cerrar", null)
@@ -118,5 +145,34 @@ public class A14_ListaArticulosDialogo {
             fila.addView(tv);
         }
         return fila;
+    }
+
+    /** ⭐ (26-nov, BD v33): cambia los decimales de un artículo sin movimientos. */
+    private void cambiarDecimales(Context context, long itemId, String nombre, int actuales, Runnable despues) {
+        android.widget.Spinner sp = A38_InventarioPendienteDialogo.spinnerDecimales(context);
+        sp.setSelection(actuales);
+        LinearLayout caja = new LinearLayout(context);
+        int p = (int) (18 * context.getResources().getDisplayMetrics().density);
+        caja.setPadding(p, p / 2, p, 0);
+        caja.addView(sp);
+        new AlertDialog.Builder(context)
+                .setTitle("Decimales de \"" + nombre + "\"")
+                .setView(caja)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Guardar", (d, w) -> {
+                    SQLiteDatabase db = new A1_1_AyudanteBD(context, A1_1_AyudanteBD.balanceSqlite_String_PSF, null,
+                            A1_1_AyudanteBD.version1BalanceSqlite_int_PSF).getWritableDatabase();
+                    try {
+                        A12_InventarioHelper.cambiarDecimales(db, itemId, sp.getSelectedItemPosition());
+                        android.widget.Toast.makeText(context, "✓ " + nombre + ": " + sp.getSelectedItemPosition()
+                                + " decimales", android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        android.widget.Toast.makeText(context, e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                    } finally {
+                        db.close();
+                    }
+                    if (despues != null) despues.run();
+                })
+                .show();
     }
 }

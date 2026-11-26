@@ -85,7 +85,7 @@ public final class A38_InventarioPendienteDialogo {
         lUni.setText("Unidades");
         caja.addView(lUni);
         EditText unidades = new EditText(ctx);
-        unidades.setInputType(InputType.TYPE_CLASS_NUMBER);
+        unidades.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         unidades.setHint("Cantidad (sin signo)");
         caja.addView(unidades);
 
@@ -98,17 +98,26 @@ public final class A38_InventarioPendienteDialogo {
             SQLiteDatabase dbl = abrir(ctx);
             try {
                 long[] s = helper.obtenerSaldoUnidadesYCosto(dbl, it.itemId);
-                StringBuilder t = new StringBuilder("\nSaldo anterior: " + s[0] + " unidades · $ " + s[1]);
+                int dec = it.decimales;
+                StringBuilder t = new StringBuilder("\nSaldo anterior: " + A12_InventarioHelper.formatear(s[0], dec)
+                        + " unidades · $ " + s[1]);
                 long u = 0;
-                try {
-                    u = Long.parseLong(unidades.getText().toString().trim());
-                } catch (NumberFormatException ignored) { }
+                String txt = unidades.getText().toString().trim();
+                if (!txt.isEmpty()) {
+                    try {
+                        u = A12_InventarioHelper.aInterno(txt, dec);
+                    } catch (Exception e) {
+                        t.append("\n⚠ ").append(e.getMessage());
+                    }
+                }
                 if (u > 0) {
                     long costo;
                     try {
                         costo = salida ? -helper.calcularCostoSalida(dbl, it.itemId, u) : Math.abs(linea.valor);
-                        t.append("\nEste movimiento: ").append(salida ? -u : u).append(" unidades · $ ").append(costo);
-                        t.append("\nNuevo saldo: ").append(s[0] + (salida ? -u : u)).append(" unidades · $ ").append(s[1] + costo);
+                        t.append("\nEste movimiento: ").append(A12_InventarioHelper.formatear(salida ? -u : u, dec))
+                                .append(" unidades · $ ").append(costo);
+                        t.append("\nNuevo saldo: ").append(A12_InventarioHelper.formatear(s[0] + (salida ? -u : u), dec))
+                                .append(" unidades · $ ").append(s[1] + costo);
                         if (salida && costo != linea.valor) {
                             t.append("\n(El costo de la salida es ").append(-costo).append("; la línea dice ")
                                     .append(-linea.valor).append(". La línea no se cambia.)");
@@ -145,17 +154,18 @@ public final class A38_InventarioPendienteDialogo {
                 crearArticulo(ctx, cuentaId, nombreCuenta, () -> mostrar(ctx, cuentaId, nombreCuenta, linea, alGuardar));
             });
             dialogo.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                A12_InventarioHelper.ItemInventario it = items.get(articulo.getSelectedItemPosition());
                 long u;
                 try {
-                    u = Long.parseLong(unidades.getText().toString().trim());
-                } catch (NumberFormatException e) {
-                    u = 0;
+                    u = A12_InventarioHelper.aInterno(unidades.getText().toString(), it.decimales);
+                } catch (Exception e) {
+                    Toast.makeText(ctx, e.getMessage(), Toast.LENGTH_SHORT).show();
+                    return;
                 }
                 if (u <= 0) {
                     Toast.makeText(ctx, "Escribe las unidades (mayor que 0).", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                A12_InventarioHelper.ItemInventario it = items.get(articulo.getSelectedItemPosition());
                 SQLiteDatabase dbw = abrir(ctx);
                 try {
                     String motivo = helper.motivoNoAsignable(dbw, cuentaId, linea, it.itemId);
@@ -177,7 +187,8 @@ public final class A38_InventarioPendienteDialogo {
                 } finally {
                     dbw.close();
                 }
-                Toast.makeText(ctx, "✓ Inventario asignado: " + it.nombre + ", " + (salida ? -u : u) + " unidades",
+                Toast.makeText(ctx, "✓ Inventario asignado: " + it.nombre + ", "
+                        + A12_InventarioHelper.formatear(salida ? -u : u, it.decimales) + " unidades",
                         Toast.LENGTH_LONG).show();
                 dialogo.dismiss();
                 if (alGuardar != null) alGuardar.run();
@@ -200,6 +211,8 @@ public final class A38_InventarioPendienteDialogo {
         EditText unidad = new EditText(ctx);
         unidad.setHint("Unidad (ej. acciones, dólares)");
         caja.addView(unidad);
+        Spinner decimales = spinnerDecimales(ctx);
+        caja.addView(decimales);
         new AlertDialog.Builder(ctx)
                 .setTitle("Nuevo artículo de " + nombreCuenta)
                 .setView(caja)
@@ -211,7 +224,8 @@ public final class A38_InventarioPendienteDialogo {
                     }
                     SQLiteDatabase db = abrir(ctx);
                     try {
-                        new A12_InventarioHelper().insertarItemInventario(db, cuentaId, n, unidad.getText().toString().trim());
+                        new A12_InventarioHelper().insertarItemInventario(db, cuentaId, n, unidad.getText().toString().trim(),
+                                decimales.getSelectedItemPosition());
                     } catch (Exception e) {
                         Toast.makeText(ctx, "No se creó: " + e.getMessage(), Toast.LENGTH_LONG).show();
                         return;
@@ -222,5 +236,18 @@ public final class A38_InventarioPendienteDialogo {
                 })
                 .setNegativeButton("Cancelar", null)
                 .show();
+    }
+
+    /**
+     * ⭐ (26-nov, Jorge): selector de decimales de las unidades; la posición es el número de
+     * decimales (0 a 3). Monedas: 3.
+     */
+    public static Spinner spinnerDecimales(Context ctx) {
+        Spinner sp = new Spinner(ctx);
+        ArrayAdapter<String> ad = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, new String[]{
+                "Unidades enteras (0 decimales)", "1 decimal", "2 decimales", "3 decimales (monedas)"});
+        ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        sp.setAdapter(ad);
+        return sp;
     }
 }

@@ -1149,7 +1149,8 @@ public class B12_DocumentPersistence {
         // mismo color de texto ya usado en el formulario para lo no editable.
         EditText unidadesEt = new EditText(f1.getActivity());
         unidadesEt.setHint("Unidades");
-        unidadesEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        unidadesEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL); // ⭐ (26-nov, BD v33) decimales
         unidadesEt.setPadding(padCeldaPx, padCeldaPx, padCeldaPx, padCeldaPx);
         unidadesEt.setBackgroundColor(Color.parseColor("#F4D7F5"));
         unidadesEt.setTextColor(Color.parseColor("#425DF6"));
@@ -1229,14 +1230,18 @@ public class B12_DocumentPersistence {
                 }
 
                 long itemId = items.get(posicionArticulo).itemId;
+                // ⭐ (26-nov, BD v33): unidades en la escala interna del artículo; se muestran
+                // y se digitan con sus decimales, y el precio es por unidad real (× f).
+                final int dec = items.get(posicionArticulo).decimales;
+                final double f = A12_InventarioHelper.factor(dec);
                 long[] saldoAntes = inventarioHelper.obtenerSaldoUnidadesYCosto(dbParaCalculos, itemId);
                 long saldoAntUnidades = saldoAntes[0];
                 long saldoAntValor = saldoAntes[1];
 
-                saldoAntUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                saldoAntUnidadesTv.setText(A12_InventarioHelper.formatear(saldoAntUnidades, dec));
                 saldoAntValorTv.setText(String.valueOf(saldoAntValor));
                 saldoAntPrecioTv.setText(saldoAntUnidades > 0
-                        ? formatearPrecioInformativo((double) saldoAntValor / (double) saldoAntUnidades)
+                        ? formatearPrecioInformativo((double) saldoAntValor * f / (double) saldoAntUnidades)
                         : "—");
 
                 boolean esSalida = tipoMovimientoSpinner.getSelectedItemPosition() == 1;
@@ -1245,15 +1250,17 @@ public class B12_DocumentPersistence {
                 String unidadesTexto = unidadesEt.getText().toString().trim();
                 long unidades;
                 try {
-                    unidades = unidadesTexto.isEmpty() ? 0 : Long.parseLong(unidadesTexto);
-                } catch (NumberFormatException e) {
+                    unidades = unidadesTexto.isEmpty() ? 0 : A12_InventarioHelper.aInterno(unidadesTexto, dec);
+                } catch (IllegalArgumentException e) {
                     unidades = 0;
+                    errorTv.setText(e.getMessage());
+                    errorTv.setVisibility(View.VISIBLE);
                 }
 
                 if (unidades <= 0) {
                     if (esSalida) valorTotalEt.setText("");
                     precioMovimientoTv.setText("—");
-                    nuevoSaldoUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                    nuevoSaldoUnidadesTv.setText(A12_InventarioHelper.formatear(saldoAntUnidades, dec));
                     nuevoSaldoValorTv.setText(String.valueOf(saldoAntValor));
                     nuevoSaldoPrecioTv.setText(saldoAntPrecioTv.getText());
                     return;
@@ -1269,11 +1276,11 @@ public class B12_DocumentPersistence {
                         movValorConSigno = -costoSalida;
                         valorTotalEt.setText("-" + costoSalida);
                         precioMovimientoTv.setText(
-                                formatearPrecioInformativo((double) costoSalida / (double) unidades));
+                                formatearPrecioInformativo((double) costoSalida * f / (double) unidades));
                     } catch (IllegalStateException e) {
                         valorTotalEt.setText("");
                         precioMovimientoTv.setText("—");
-                        nuevoSaldoUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                        nuevoSaldoUnidadesTv.setText(A12_InventarioHelper.formatear(saldoAntUnidades, dec));
                         nuevoSaldoValorTv.setText(String.valueOf(saldoAntValor));
                         nuevoSaldoPrecioTv.setText(saldoAntPrecioTv.getText());
                         errorTv.setText(e.getMessage());
@@ -1290,7 +1297,7 @@ public class B12_DocumentPersistence {
                     }
                     if (valorTotal <= 0) {
                         precioMovimientoTv.setText("—");
-                        nuevoSaldoUnidadesTv.setText(String.valueOf(saldoAntUnidades));
+                        nuevoSaldoUnidadesTv.setText(A12_InventarioHelper.formatear(saldoAntUnidades, dec));
                         nuevoSaldoValorTv.setText(String.valueOf(saldoAntValor));
                         nuevoSaldoPrecioTv.setText(saldoAntPrecioTv.getText());
                         return;
@@ -1298,15 +1305,15 @@ public class B12_DocumentPersistence {
                     movUnidadesConSigno = unidades;
                     movValorConSigno = valorTotal;
                     precioMovimientoTv.setText(
-                            formatearPrecioInformativo((double) valorTotal / (double) unidades));
+                            formatearPrecioInformativo((double) valorTotal * f / (double) unidades));
                 }
 
                 long nuevoSaldoUnidades = saldoAntUnidades + movUnidadesConSigno;
                 long nuevoSaldoValor = saldoAntValor + movValorConSigno;
-                nuevoSaldoUnidadesTv.setText(String.valueOf(nuevoSaldoUnidades));
+                nuevoSaldoUnidadesTv.setText(A12_InventarioHelper.formatear(nuevoSaldoUnidades, dec));
                 nuevoSaldoValorTv.setText(String.valueOf(nuevoSaldoValor));
                 nuevoSaldoPrecioTv.setText(nuevoSaldoUnidades > 0
-                        ? formatearPrecioInformativo((double) nuevoSaldoValor / (double) nuevoSaldoUnidades)
+                        ? formatearPrecioInformativo((double) nuevoSaldoValor * f / (double) nuevoSaldoUnidades)
                         : "—");
             } finally {
                 actualizandoProgramaticamente[0] = false;
@@ -1322,16 +1329,18 @@ public class B12_DocumentPersistence {
             A3_2_TipoTransaccionesGetsYSets itemExistente =
                     f1.listaDocumento_ArrayLTT.get(posicionAEditar);
             long itemIdExistente = itemExistente.tipoTget_19ItemInventarioIdMetodoEnA5();
+            int decimalesExistente = 0;
             for (int i = 0; i < items.size(); i++) {
                 if (items.get(i).itemId == itemIdExistente) {
                     articuloSpinner.setSelection(i);
+                    decimalesExistente = items.get(i).decimales;
                     break;
                 }
             }
             long unidadesConSignoExistente = itemExistente.tipoTget_20UnidadesInventarioMetodoEnA5();
             boolean esSalidaExistente = unidadesConSignoExistente < 0;
             tipoMovimientoSpinner.setSelection(esSalidaExistente ? 1 : 0);
-            unidadesEt.setText(String.valueOf(Math.abs(unidadesConSignoExistente)));
+            unidadesEt.setText(A12_InventarioHelper.formatear(Math.abs(unidadesConSignoExistente), decimalesExistente));
             if (!esSalidaExistente) {
                 // Salida: valorTotalEt la calcula actualizarMatriz (queda deshabilitada) — no
                 // hace falta (ni conviene) prellenarla a mano.
@@ -1466,9 +1475,11 @@ public class B12_DocumentPersistence {
                     }
                     long unidadesMagnitud;
                     try {
-                        unidadesMagnitud = Long.parseLong(unidadesTexto);
-                    } catch (NumberFormatException e) {
-                        Toast.makeText(f1.getActivity(), "Unidades inválidas",
+                        // ⭐ (26-nov, BD v33): con los decimales del artículo elegido.
+                        unidadesMagnitud = A12_InventarioHelper.aInterno(unidadesTexto,
+                                items.get(posicionSeleccionada).decimales);
+                    } catch (IllegalArgumentException e) {
+                        Toast.makeText(f1.getActivity(), e.getMessage(),
                                 Toast.LENGTH_SHORT).show();
                         return;
                     }
@@ -1516,8 +1527,8 @@ public class B12_DocumentPersistence {
                         }
                     }
 
-                    double precioInformativoDouble =
-                            (double) valorTotalMagnitud / (double) unidadesMagnitud;
+                    double precioInformativoDouble = A12_InventarioHelper.precioPorUnidad(
+                            valorTotalMagnitud, unidadesMagnitud, itemElegido.decimales);
 
                     // ⭐ REDISEÑO v16: el valor contable del ítem ya NO viene de f1.valor_XEt (que
                     // a esta altura del nuevo orden ni se ha tocado) — viene del "Valor total" de
@@ -1641,6 +1652,9 @@ public class B12_DocumentPersistence {
         final EditText unidadArticuloEt = new EditText(f1.getActivity());
         unidadArticuloEt.setHint("Unidad (opcional)");
         contenedor.addView(unidadArticuloEt);
+        // ⭐ (26-nov, BD v33): decimales de las unidades (monedas: 3).
+        final Spinner decimalesArticuloSp = A1BASES.A38_InventarioPendienteDialogo.spinnerDecimales(f1.getActivity());
+        contenedor.addView(decimalesArticuloSp);
 
         final TextView yaAgregadosTv = new TextView(f1.getActivity());
         yaAgregadosTv.setVisibility(View.GONE);
@@ -1684,7 +1698,7 @@ public class B12_DocumentPersistence {
                 return;
             }
             String unidad = unidadArticuloEt.getText().toString().trim();
-            if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+            if (!guardarArticuloInventario(cuentaId, nombre, unidad, decimalesArticuloSp.getSelectedItemPosition())) {
                 return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
             }
             articulosAgregados.add(nombre);
@@ -1699,7 +1713,7 @@ public class B12_DocumentPersistence {
             String nombre = nombreArticuloEt.getText().toString().trim();
             if (!nombre.isEmpty()) {
                 String unidad = unidadArticuloEt.getText().toString().trim();
-                if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                if (!guardarArticuloInventario(cuentaId, nombre, unidad, decimalesArticuloSp.getSelectedItemPosition())) {
                     return; // error ya avisado — no cierra, para corregir o borrar y terminar
                 }
             }
@@ -1713,11 +1727,11 @@ public class B12_DocumentPersistence {
     // ⭐ NUEVO (29-oct): extraído de mostrarDialogoNuevoArticulo para reusar el mismo
     // guardado y manejo de errores en "Guardar y agregar otro" y en "Guardar y terminar".
     // Devuelve true si se guardó, false si hubo un error (ya avisado por Toast al usuario).
-    private boolean guardarArticuloInventario(long cuentaId, String nombre, String unidad) {
+    private boolean guardarArticuloInventario(long cuentaId, String nombre, String unidad, int decimales) {
         SQLiteDatabase db = f1.ayudante_Class.getWritableDatabase();
         try {
             new A12_InventarioHelper().insertarItemInventario(
-                    db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
+                    db, cuentaId, nombre, unidad.isEmpty() ? null : unidad, decimales);
             Toast.makeText(f1.getActivity(), "Artículo \"" + nombre + "\" guardado",
                     Toast.LENGTH_SHORT).show();
             return true;

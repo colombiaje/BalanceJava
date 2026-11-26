@@ -380,8 +380,8 @@ public class A12_InventarioHelper {
             costoTotal = -calcularCostoSalida(db, itemId, unidadesVendidas);
         }
 
-        double precioUnitarioInformativo = redondearA3Decimales(
-                (double) Math.abs(costoTotal) / (double) Math.abs(unidades));
+        // ⭐ (26-nov, decimales): unidades viene en la escala interna del artículo.
+        double precioUnitarioInformativo = precioPorUnidad(costoTotal, unidades, decimalesDe(db, itemId));
         if (precioUnitarioInformativo <= 0) {
             throw new IllegalArgumentException(
                     "El precio unitario informativo (costo/unidades) no es válido (" +
@@ -509,7 +509,7 @@ public class A12_InventarioHelper {
         boolean salida = linea.valor < 0;
         long unidades = salida ? -unidadesMagnitud : unidadesMagnitud;
         long costoTotal = salida ? -calcularCostoSalida(db, itemId, unidadesMagnitud) : Math.abs(linea.valor);
-        double precio = redondearA3Decimales((double) Math.abs(costoTotal) / (double) unidadesMagnitud);
+        double precio = precioPorUnidad(costoTotal, unidadesMagnitud, decimalesDe(db, itemId));
         if (precio <= 0) throw new IllegalArgumentException("El precio unitario resultante no es válido.");
         ContentValues v = new ContentValues();
         v.put("transaccion_id", linea.transaccionId);
@@ -522,6 +522,11 @@ public class A12_InventarioHelper {
     }
 
     public long insertarItemInventario(SQLiteDatabase db, long cuentaId, String nombre, String unidad) {
+        return insertarItemInventario(db, cuentaId, nombre, unidad, 0);
+    }
+
+    /** ⭐ (26-nov): con decimales de las unidades (0 a 3). */
+    public long insertarItemInventario(SQLiteDatabase db, long cuentaId, String nombre, String unidad, int decimales) {
         if (nombre == null || nombre.trim().isEmpty()) {
             throw new IllegalArgumentException("El nombre del artículo no puede estar vacío.");
         }
@@ -531,6 +536,7 @@ public class A12_InventarioHelper {
         if (unidad != null && !unidad.trim().isEmpty()) {
             valores.put("unidad", unidad.trim());
         }
+        if (decimales > 0) valores.put("decimales", Math.min(decimales, MAX_DECIMALES));
         return db.insertOrThrow("items_inventario", null, valores);
     }
 
@@ -558,11 +564,17 @@ public class A12_InventarioHelper {
         public final long itemId;
         public final String nombre;
         public final String unidad;
+        public final int decimales; // ⭐ (26-nov): 0 a 3
 
         public ItemInventario(long itemId, String nombre, String unidad) {
+            this(itemId, nombre, unidad, 0);
+        }
+
+        public ItemInventario(long itemId, String nombre, String unidad, int decimales) {
             this.itemId = itemId;
             this.nombre = nombre;
             this.unidad = unidad;
+            this.decimales = decimales;
         }
     }
 
@@ -575,7 +587,7 @@ public class A12_InventarioHelper {
     public List<ItemInventario> listarItemsActivosPorCuenta(SQLiteDatabase db, long cuentaId) {
         List<ItemInventario> items = new ArrayList<>();
         Cursor c = db.rawQuery(
-                "SELECT item_id, nombre, unidad FROM items_inventario " +
+                "SELECT item_id, nombre, unidad, IFNULL(decimales, 0) FROM items_inventario " +
                         "WHERE cuenta_id = ? AND activo = 1 ORDER BY nombre COLLATE NOCASE",
                 new String[]{String.valueOf(cuentaId)});
         try {
@@ -583,11 +595,88 @@ public class A12_InventarioHelper {
                 items.add(new ItemInventario(
                         c.getLong(0),
                         c.getString(1),
-                        c.isNull(2) ? null : c.getString(2)));
+                        c.isNull(2) ? null : c.getString(2),
+                        c.getInt(3)));
             }
         } finally {
             c.close();
         }
         return items;
+    }
+
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (26-nov, Jorge, BD v33): UNIDADES CON DECIMALES
+    //  Cada artículo tiene sus decimales (items_inventario.decimales, 0 a 3; monedas en 3).
+    //  Por dentro las unidades siguen siendo enteros, en la escala del artículo: con 3
+    //  decimales, 3.83 USD se guarda como 3830. El costo promedio sale de razones entre
+    //  unidades (no depende de la escala); solo el precio unitario y lo que se muestra o se
+    //  digita pasan por estos métodos.
+    // ─────────────────────────────────────────────
+    public static final int MAX_DECIMALES = 3;
+
+    public static long factor(int decimales) {
+        long f = 1;
+        for (int i = 0; i < decimales; i++) f *= 10;
+        return f;
+    }
+
+    public static int decimalesDe(SQLiteDatabase db, long itemId) {
+        try (Cursor c = db.rawQuery("SELECT IFNULL(decimales, 0) FROM items_inventario WHERE item_id = ?",
+                new String[]{String.valueOf(itemId)})) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        } catch (Exception e) {
+            return 0; // base sin la columna (antes de la v33)
+        }
+    }
+
+    /**
+     * Texto digitado → unidades internas (sin signo si el texto no lo trae). Acepta punto o
+     * coma decimal. Lanza IllegalArgumentException con un mensaje para el usuario si no es un
+     * número o trae más decimales de los que admite el artículo.
+     */
+    public static long aInterno(String texto, int decimales) {
+        if (texto == null || texto.trim().isEmpty()) throw new IllegalArgumentException("Escribe las unidades.");
+        java.math.BigDecimal n;
+        try {
+            n = new java.math.BigDecimal(texto.trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Las unidades no son un número válido.");
+        }
+        n = n.stripTrailingZeros();
+        if (n.scale() > decimales) {
+            throw new IllegalArgumentException(decimales == 0
+                    ? "Este artículo no admite decimales."
+                    : "Este artículo admite hasta " + decimales + " decimales.");
+        }
+        return n.movePointRight(decimales).longValueExact();
+    }
+
+    /** Unidades internas → texto, con los decimales del artículo (ej. 3830 con 3 → "3.830"). */
+    public static String formatear(long interno, int decimales) {
+        if (decimales <= 0) return String.valueOf(interno);
+        return java.math.BigDecimal.valueOf(interno, decimales).toPlainString();
+    }
+
+    /** Precio informativo por unidad REAL (no interna), con 3 decimales. */
+    public static double precioPorUnidad(long costo, long unidadesInternas, int decimales) {
+        if (unidadesInternas == 0) return 0;
+        return redondearA3Decimales((double) Math.abs(costo) * factor(decimales) / (double) Math.abs(unidadesInternas));
+    }
+
+    public static boolean tieneMovimientos(SQLiteDatabase db, long itemId) {
+        try (Cursor c = db.rawQuery("SELECT COUNT(*) FROM transacciones_inventario WHERE item_id = ?",
+                new String[]{String.valueOf(itemId)})) {
+            return c.moveToFirst() && c.getLong(0) > 0;
+        }
+    }
+
+    /** Cambia los decimales de un artículo SIN movimientos (con movimientos cambiaría su escala). */
+    public static void cambiarDecimales(SQLiteDatabase db, long itemId, int decimales) {
+        if (tieneMovimientos(db, itemId)) {
+            throw new IllegalStateException("El artículo ya tiene movimientos: sus decimales no se pueden cambiar.");
+        }
+        ContentValues v = new ContentValues();
+        v.put("decimales", Math.max(0, Math.min(decimales, MAX_DECIMALES)));
+        db.update("items_inventario", v, "item_id = ?", new String[]{String.valueOf(itemId)});
     }
 }

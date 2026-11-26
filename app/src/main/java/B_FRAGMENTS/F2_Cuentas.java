@@ -1295,6 +1295,10 @@ public class F2_Cuentas extends DialogFragment {
         unidadArticulo_XEt.setHint("Unidad (opcional)");
         contenedor.addView(unidadArticulo_XEt);
 
+        // ⭐ (26-nov, Jorge, BD v33): decimales de las unidades (monedas: 3).
+        final Spinner decimalesArticulo_XSp = A1BASES.A38_InventarioPendienteDialogo.spinnerDecimales(getActivity());
+        contenedor.addView(decimalesArticulo_XSp);
+
         final TextView yaAgregados_XTv = new TextView(getActivity());
         yaAgregados_XTv.setVisibility(View.GONE);
         yaAgregados_XTv.setPadding(0, paddingPx, 0, 0);
@@ -1359,7 +1363,7 @@ public class F2_Cuentas extends DialogFragment {
                 return;
             }
             String unidad = unidadArticulo_XEt.getText().toString().trim();
-            if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+            if (!guardarArticuloInventario(cuentaId, nombre, unidad, decimalesArticulo_XSp.getSelectedItemPosition())) {
                 return; // error ya avisado (ej. nombre repetido) — se deja corregir sin cerrar
             }
             articulosAgregados_List.add(nombre);
@@ -1375,7 +1379,7 @@ public class F2_Cuentas extends DialogFragment {
             String nombre = nombreArticulo_XEt.getText().toString().trim();
             if (!nombre.isEmpty()) {
                 String unidad = unidadArticulo_XEt.getText().toString().trim();
-                if (!guardarArticuloInventario(cuentaId, nombre, unidad)) {
+                if (!guardarArticuloInventario(cuentaId, nombre, unidad, decimalesArticulo_XSp.getSelectedItemPosition())) {
                     return; // error ya avisado — no cierra, para corregir o borrar y terminar
                 }
             }
@@ -1388,13 +1392,13 @@ public class F2_Cuentas extends DialogFragment {
     // ⭐ NUEVO (29-oct): extraído de mostrarDialogoPrimerArticulo para reusar el mismo
     // guardado y manejo de errores en "Guardar y agregar otro" y en "Guardar y terminar".
     // Devuelve true si se guardó, false si hubo un error (ya avisado por Toast al usuario).
-    private boolean guardarArticuloInventario(long cuentaId, String nombre, String unidad) {
+    private boolean guardarArticuloInventario(long cuentaId, String nombre, String unidad, int decimales) {
         A1_1_AyudanteBD ayudanteBD = new A1_1_AyudanteBD(
                 getActivity(), "balance.db", null, version1BalanceSqlite_int_PSF);
         SQLiteDatabase db = ayudanteBD.getWritableDatabase();
         try {
             new A12_InventarioHelper().insertarItemInventario(
-                    db, cuentaId, nombre, unidad.isEmpty() ? null : unidad);
+                    db, cuentaId, nombre, unidad.isEmpty() ? null : unidad, decimales);
             Toast.makeText(getActivity(), "Artículo \"" + nombre + "\" guardado",
                     Toast.LENGTH_SHORT).show();
             return true;

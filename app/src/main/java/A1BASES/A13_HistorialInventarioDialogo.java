@@ -52,6 +52,7 @@ public class A13_HistorialInventarioDialogo {
         double precioInformativo;
         long saldoUnidadesDespues;
         long saldoCostoDespues;
+        int decimales; // ⭐ (26-nov, BD v33)
     }
 
     /**
@@ -139,8 +140,8 @@ public class A13_HistorialInventarioDialogo {
                 f.fecha != null ? f.fecha : "",
                 f.documento != null ? f.documento : "",
                 f.articulo != null ? f.articulo : "",
-                String.valueOf(f.unidades),
-                String.valueOf(f.saldoUnidadesDespues),
+                A12_InventarioHelper.formatear(f.unidades, f.decimales),
+                A12_InventarioHelper.formatear(f.saldoUnidadesDespues, f.decimales),
                 String.valueOf(f.costoMovimiento),
                 String.valueOf(f.precioInformativo),
                 String.valueOf(f.saldoCostoDespues)
@@ -170,7 +171,7 @@ public class A13_HistorialInventarioDialogo {
 
         Cursor c = db.rawQuery(
                 "SELECT t.transaccion_id, t.c7_FechaYhora, t.c1_Documento, " +
-                        "       i.item_id, i.nombre, ti.unidades, ti.costo_total, ti.precio_unitario " +
+                        "       i.item_id, i.nombre, ti.unidades, ti.costo_total, ti.precio_unitario, IFNULL(i.decimales, 0) " +
                         "FROM transacciones_inventario ti " +
                         "JOIN transacciones t ON t.transaccion_id = ti.transaccion_id " +
                         "JOIN items_inventario i ON i.item_id = ti.item_id " +
@@ -193,6 +194,7 @@ public class A13_HistorialInventarioDialogo {
                 f.unidades = c.getLong(5);
                 f.costoMovimiento = c.getLong(6);
                 f.precioInformativo = c.getDouble(7);
+                f.decimales = c.getInt(8);
 
                 saldo.unidades += f.unidades;
                 saldo.costo += f.costoMovimiento;
