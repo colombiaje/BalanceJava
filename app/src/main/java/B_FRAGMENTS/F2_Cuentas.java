@@ -843,6 +843,15 @@ public class F2_Cuentas extends DialogFragment {
                         } else {
                             ejecutarEliminarCuenta(cuentaAEliminar);
                         }
+                    } else if (a3_operacionesBD.soloSaldoInicialEnCero(cuentaAEliminar)) {
+                        // ⭐ (26-nov, Jorge): su única línea es el saldo inicial (doc 0) en 0.
+                        new AlertDialog.Builder(getActivity())
+                                .setTitle("Eliminar \"" + cuentaAEliminar + "\"")
+                                .setMessage("Su única transacción es el saldo inicial (doc 0) en 0, sin movimiento real. "
+                                        + "Se borra junto con la cuenta; el doc 0 sigue cuadrado. ¿Continuar?")
+                                .setPositiveButton("Eliminar", (d, w) -> ejecutarEliminarCuenta(cuentaAEliminar))
+                                .setNegativeButton("Cancelar", null)
+                                .show();
                     } else {
                         mostrarToast("La Cuenta no se puede borrar porque tiene movimiento");
                     }
@@ -2616,8 +2625,9 @@ public class F2_Cuentas extends DialogFragment {
                     " de fecha: " + cuentaConTransacciones_Result_ArrayList.get(0).tipoT_8DateOfDocument_Integer + ". No se puede borrar");
 
             // ⭐ (26-nov, Jorge): una sola línea corta, para que quepan Modificar/Eliminar en el 13T.
-            cuentaConTransacciones_XTv.setText(cuentaConTransacciones_Result_ArrayList.size()
-                    + " transacciones · no se puede borrar");
+            cuentaConTransacciones_XTv.setText(a3_operacionesBD.soloSaldoInicialEnCero(cuentaSeleccionadaAqui)
+                    ? "Solo saldo inicial en 0 · se puede borrar"
+                    : cuentaConTransacciones_Result_ArrayList.size() + " transacciones · no se puede borrar");
             transacciones_XLL.setVisibility(View.VISIBLE);
         }
     }

@@ -299,6 +299,24 @@ public class A1_2_OperacionesBD extends Activity {
      * cuenta. Devuelve cuántas cuentas se borraron (1) o -1 si no se pudo, con el motivo en
      * ultimoErrorEliminarCuenta.
      */
+    /**
+     * ⭐ (26-nov, Jorge): true si TODAS las transacciones de la cuenta son líneas del doc 0
+     * (saldo inicial) en 0 — p. ej. el saldo inicial en cero que deja un cierre. Esas cuentas no
+     * tienen movimiento real y se pueden borrar (la línea en 0 se borra con la cuenta; el doc 0
+     * sigue cuadrado).
+     */
+    public boolean soloSaldoInicialEnCero(String cuenta) {
+        abrirBaseDatos();
+        try (android.database.Cursor c = sqliteDatabase_Abstracta.rawQuery(
+                "SELECT COUNT(*), SUM(CASE WHEN CAST(c1_Documento AS INTEGER) = 0 AND IFNULL(c5_Valor, 0) = 0"
+                        + " THEN 1 ELSE 0 END) FROM transacciones WHERE cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
+                new String[]{cuenta})) {
+            return c.moveToFirst() && c.getLong(0) > 0 && c.getLong(0) == c.getLong(1);
+        } finally {
+            cerrarBaseDatos();
+        }
+    }
+
     public int eliminarCuenta(String cuentaSinMovimiento) {
         ultimoErrorEliminarCuenta = null;
         if (cuentaSinMovimiento == null || cuentaSinMovimiento.trim().isEmpty()) {
@@ -325,6 +343,23 @@ public class A1_2_OperacionesBD extends Activity {
             // borrarla aunque no tuviera nada. Si todas sus líneas de historial están en 0 (el
             // arranque de una cuenta sin saldo), se borran con la cuenta. Si alguna tiene valor,
             // es detalle real de períodos cerrados y la cuenta no se borra.
+            // ⭐ (26-nov, Jorge): las líneas del doc 0 en 0 (saldo inicial en cero) se borran con
+            // la cuenta; cualquier otra transacción impide borrarla.
+            android.database.Cursor t = sqliteDatabase_Abstracta.rawQuery(
+                    "SELECT COUNT(*) FROM transacciones WHERE NOT (CAST(c1_Documento AS INTEGER) = 0 AND IFNULL(c5_Valor, 0) = 0)"
+                            + " AND cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
+                    new String[]{cuentaSinMovimiento});
+            int conMovimiento = t.moveToFirst() ? t.getInt(0) : 0;
+            t.close();
+            if (conMovimiento > 0) {
+                ultimoErrorEliminarCuenta = "La cuenta tiene " + conMovimiento + " transacción(es) con movimiento";
+                return -1;
+            }
+            sqliteDatabase_Abstracta.delete("transacciones",
+                    "CAST(c1_Documento AS INTEGER) = 0 AND IFNULL(c5_Valor, 0) = 0"
+                            + " AND cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
+                    new String[]{cuentaSinMovimiento});
+
             {   // la tabla historial existe desde la v32 (asegurarHistorial en onCreate/onUpgrade)
                 android.database.Cursor h = sqliteDatabase_Abstracta.rawQuery(
                         "SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL + " WHERE c5_Valor <> 0 AND cuenta_id = " +
