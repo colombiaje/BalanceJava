@@ -2611,8 +2611,9 @@ public class F2_Cuentas extends DialogFragment {
                     " transacciones" + ". Con el documento: " + cuentaConTransacciones_Result_ArrayList.get(0).tipoT_1NumberDocument_String +
                     " de fecha: " + cuentaConTransacciones_Result_ArrayList.get(0).tipoT_8DateOfDocument_Integer + ". No se puede borrar");
 
-            cuentaConTransacciones_XTv.setText("La cuenta tiene: " + String.valueOf(cuentaConTransacciones_Result_ArrayList.size()) +
-                    " transacciones" + ". No se puede borrar");
+            // ⭐ (26-nov, Jorge): una sola línea corta, para que quepan Modificar/Eliminar en el 13T.
+            cuentaConTransacciones_XTv.setText(cuentaConTransacciones_Result_ArrayList.size()
+                    + " transacciones · no se puede borrar");
             transacciones_XLL.setVisibility(View.VISIBLE);
         }
     }

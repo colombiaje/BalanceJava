@@ -285,14 +285,18 @@
                 android:layout_marginRight="2dp"
                 android:background="#E91E63"
                 android:ellipsize="none"
-                android:gravity="top|start"
-                android:lines="2"
-                android:maxLines="4"
-                android:padding="8dp"
+                android:gravity="center"
+                android:lines="1"
+                android:maxLines="1"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
                 android:text=""
                 android:textAppearance="?android:attr/textAppearanceSmall"
                 android:textColor="@android:color/white"
-                android:textSize="18dp" />
+                android:textSize="16dp" />
+            <!-- ⭐ (26-nov, Jorge): aviso en una sola línea para ganar alto en el 13T. -->
 
             <!--<CheckBox
                     android:id="@+id/verTransacciones_XChB"
