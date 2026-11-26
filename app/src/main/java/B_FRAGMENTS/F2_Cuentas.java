@@ -167,6 +167,7 @@ public class F2_Cuentas extends DialogFragment {
     // con_inventario = 1 (ver interrelationsAccountsGroups() y cleanClickFieldsAccount()).
     Button verHistorialInventario_XBt;
     Button agregarArticulosInventario_XBt; // ⭐ NUEVO — Tanda 6 (31-oct)
+    View paqueteInventario_XBt; // ⭐ NUEVO (26-nov)
     String itemCuentaNueva_String;
     String cuentaNueva_String;
     String grupo1CuentaNueva_String;
@@ -568,6 +569,16 @@ public class F2_Cuentas extends DialogFragment {
                 mostrarDialogoPrimerArticulo(cuentaIdEnModificar_Long, nombreParaDialogo);
             }
         });
+        // ⭐ NUEVO (26-nov, Jorge, opción A): 📦 en la fila Inventario reemplaza a la vista de los
+        // dos botones (que quedan ocultos); su visibilidad sigue la de "Ver historial inv.".
+        paqueteInventario_XBt = inflarViews_View.findViewById(R.id.paqueteInventario_XBt);
+        paqueteInventario_XBt.setOnClickListener(v -> new AlertDialog.Builder(getActivity())
+                .setTitle("📦 Artículos de inventario")
+                .setItems(new String[]{"Ver historial de inventario", "Agregar artículos"}, (d, w) -> {
+                    if (w == 0) verHistorialInventario_XBt.performClick();
+                    else agregarArticulosInventario_XBt.performClick();
+                })
+                .show());
         //Casting otros fragments
         consultaPorCuentaYFechaEnOtroFragment_XSp = (Spinner)inflarViews_View.findViewById(R.id.consultaPorCuentaYFechaEnOtroFragment_XSp);
         calculadora_Fragment = new F6_Calculadora();
@@ -1674,6 +1685,8 @@ public class F2_Cuentas extends DialogFragment {
                     // ⭐ NUEVO — Tanda 5 (1-oct): el historial es una acción de "Modificar
                     // cuenta" — en modo plantilla no aplica (todavía no hay cuenta_id propio).
                     verHistorialInventario_XBt.setVisibility(View.GONE);
+
+                    if (paqueteInventario_XBt != null) paqueteInventario_XBt.setVisibility(verHistorialInventario_XBt.getVisibility());
                     agregarArticulosInventario_XBt.setVisibility(View.GONE); // ⭐ Tanda 6
                     // ⭐ CAMBIO — Checklist Nivel 1 (plantilla, ajuste sobre el cambio
                     // anterior): el texto "Usar como plantilla →" concatenado al nombre ya
@@ -1712,6 +1725,8 @@ public class F2_Cuentas extends DialogFragment {
                     // inventario, visible solo si esta cuenta ya tiene con_inventario = 1.
                     verHistorialInventario_XBt.setVisibility(
                             conInventarioOriginalEnModificar_boolean ? View.VISIBLE : View.GONE);
+
+                    if (paqueteInventario_XBt != null) paqueteInventario_XBt.setVisibility(verHistorialInventario_XBt.getVisibility());
                     agregarArticulosInventario_XBt.setVisibility( // ⭐ Tanda 6
                             conInventarioOriginalEnModificar_boolean ? View.VISIBLE : View.GONE);
                 }
@@ -2012,6 +2027,8 @@ public class F2_Cuentas extends DialogFragment {
         conInventarioOriginalEnModificar_boolean = false; // ⭐ NUEVO — v12 tanda 3
         conHistorialOriginalEnModificar_boolean = false; // ⭐ historial P1
         verHistorialInventario_XBt.setVisibility(View.GONE); // ⭐ NUEVO — Tanda 5 (1-oct)
+
+        if (paqueteInventario_XBt != null) paqueteInventario_XBt.setVisibility(verHistorialInventario_XBt.getVisibility());
         agregarArticulosInventario_XBt.setVisibility(View.GONE); // ⭐ NUEVO — Tanda 6 (31-oct)
         account_XAct.setError(null);
         habilitarBotonesGuardarModificar(true);
