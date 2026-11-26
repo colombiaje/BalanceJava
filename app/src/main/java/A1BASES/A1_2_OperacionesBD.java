@@ -321,6 +321,27 @@ public class A1_2_OperacionesBD extends Activity {
                 return -1;
             }
 
+            // ⭐ (26-nov, Jorge): el historial apunta a la cuenta (llave foránea) y no dejaba
+            // borrarla aunque no tuviera nada. Si todas sus líneas de historial están en 0 (el
+            // arranque de una cuenta sin saldo), se borran con la cuenta. Si alguna tiene valor,
+            // es detalle real de períodos cerrados y la cuenta no se borra.
+            {   // la tabla historial existe desde la v32 (asegurarHistorial en onCreate/onUpgrade)
+                android.database.Cursor h = sqliteDatabase_Abstracta.rawQuery(
+                        "SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_HISTORIAL + " WHERE c5_Valor <> 0 AND cuenta_id = " +
+                                "(SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
+                        new String[]{cuentaSinMovimiento});
+                int historialConValor = h.moveToFirst() ? h.getInt(0) : 0;
+                h.close();
+                if (historialConValor > 0) {
+                    ultimoErrorEliminarCuenta = "La cuenta tiene " + historialConValor
+                            + " línea(s) de historial de períodos cerrados";
+                    return -1;
+                }
+                sqliteDatabase_Abstracta.delete(A1_1_AyudanteBD.TABLE_HISTORIAL,
+                        "cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
+                        new String[]{cuentaSinMovimiento});
+            }
+
             sqliteDatabase_Abstracta.delete("items_inventario",
                     "cuenta_id = (SELECT cuenta_id FROM cuentas WHERE Cuenta = ?)",
                     new String[]{cuentaSinMovimiento});
