@@ -93,6 +93,12 @@ public final class A38_InventarioPendienteDialogo {
         saldos.setTextSize(14);
         caja.addView(saldos);
 
+        // ⭐ NUEVO (27-nov, Jorge, BD v34): omitir lo pasado ya compensado.
+        android.widget.Button omitir = new android.widget.Button(ctx);
+        omitir.setText("Omitir (sin inventario)…");
+        omitir.setAllCaps(false);
+        caja.addView(omitir);
+
         Runnable recalcular = () -> {
             A12_InventarioHelper.ItemInventario it = items.get(articulo.getSelectedItemPosition());
             SQLiteDatabase dbl = abrir(ctx);
@@ -148,6 +154,38 @@ public final class A38_InventarioPendienteDialogo {
                 .setNeutralButton("Nuevo artículo", null)
                 .setNegativeButton("Cancelar", null)
                 .create();
+        omitir.setOnClickListener(v -> {
+            int anteriores;
+            SQLiteDatabase dbo = abrir(ctx);
+            try {
+                anteriores = helper.pendientesAnteriores(dbo, cuentaId, linea);
+            } finally {
+                dbo.close();
+            }
+            List<String> opciones = new ArrayList<>();
+            opciones.add("Omitir solo esta línea (" + linea.valor + ")");
+            if (anteriores > 0) opciones.add("Omitir las " + anteriores + " pendientes más antiguas que esta");
+            new AlertDialog.Builder(ctx)
+                    .setTitle("Omitir líneas")
+                    .setItems(opciones.toArray(new String[0]), (dd, w) -> {
+                        SQLiteDatabase dbw = abrir(ctx);
+                        int n;
+                        try {
+                            n = helper.omitir(dbw, cuentaId, linea, w == 0);
+                        } catch (Exception e) {
+                            Toast.makeText(ctx, "No se omitió: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            return;
+                        } finally {
+                            dbw.close();
+                        }
+                        Toast.makeText(ctx, "✓ " + n + " línea(s) omitida(s): quedan sin inventario. "
+                                + "Mantén presionado 📦 para restaurarlas.", Toast.LENGTH_LONG).show();
+                        dialogo.dismiss();
+                        if (alGuardar != null) alGuardar.run();
+                    })
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+        });
         dialogo.setOnShowListener(x -> {
             dialogo.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
                 dialogo.dismiss();

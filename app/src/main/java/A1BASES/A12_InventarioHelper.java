@@ -462,6 +462,9 @@ public class A12_InventarioHelper {
                 + " AND NOT EXISTS (SELECT 1 FROM transacciones_inventario ti WHERE ti.transaccion_id = t.transaccion_id)"
                 // ⭐ (26-nov): el ajuste de costo (solo valor, sin unidades) no queda pendiente.
                 + " AND t.c6_Descripcion NOT LIKE '" + AJUSTE_COSTO + "%'"
+                // ⭐ (27-nov, BD v34): ni las líneas omitidas.
+                + " AND NOT EXISTS (SELECT 1 FROM " + A1_1_AyudanteBD.TABLE_INVENTARIO_OMITIDAS
+                + " o WHERE o.transaccion_id = t.transaccion_id)"
                 + " ORDER BY f, t.transaccion_id", new String[]{String.valueOf(cuentaId)})) {
             while (c.moveToNext()) {
                 LineaPendiente l = new LineaPendiente();
@@ -755,5 +758,59 @@ public class A12_InventarioHelper {
         } finally {
             db.endTransaction();
         }
+    }
+
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (27-nov, Jorge, BD v34): OMITIR LÍNEAS en 📦 Pendientes
+    //  Lo pasado que ya se compensó (p. ej. euros comprados y gastados) no se repasa: se marca
+    //  "sin inventario" y el inventario arranca desde los registros que forman el saldo actual.
+    //  No toca ningún documento.
+    // ─────────────────────────────────────────────
+    /** Cuántas pendientes son más antiguas que esta (en el orden de 📦). */
+    public int pendientesAnteriores(SQLiteDatabase db, long cuentaId, LineaPendiente linea) {
+        List<LineaPendiente> l = listarPendientes(db, cuentaId);
+        for (int i = 0; i < l.size(); i++) if (l.get(i).transaccionId == linea.transaccionId) return i;
+        return 0;
+    }
+
+    /** Omite la línea (soloEsta) o todas las pendientes más antiguas que ella. Devuelve cuántas. */
+    public int omitir(SQLiteDatabase db, long cuentaId, LineaPendiente linea, boolean soloEsta) {
+        String ahora = new java.text.SimpleDateFormat("yyyy.MM.dd HH:mm:ss", java.util.Locale.US).format(new java.util.Date());
+        List<Long> ids = new ArrayList<>();
+        if (soloEsta) {
+            ids.add(linea.transaccionId);
+        } else {
+            for (LineaPendiente p : listarPendientes(db, cuentaId)) {
+                if (p.transaccionId == linea.transaccionId) break;
+                ids.add(p.transaccionId);
+            }
+        }
+        db.beginTransaction();
+        try {
+            for (long id : ids) {
+                ContentValues v = new ContentValues();
+                v.put("transaccion_id", id);
+                v.put("fecha_registro", ahora);
+                db.insertWithOnConflict(A1_1_AyudanteBD.TABLE_INVENTARIO_OMITIDAS, null, v, SQLiteDatabase.CONFLICT_IGNORE);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        return ids.size();
+    }
+
+    public int contarOmitidas(SQLiteDatabase db, long cuentaId) {
+        try (Cursor c = db.rawQuery("SELECT COUNT(*) FROM " + A1_1_AyudanteBD.TABLE_INVENTARIO_OMITIDAS + " o"
+                + " JOIN transacciones t ON t.transaccion_id = o.transaccion_id WHERE t.cuenta_id = ?",
+                new String[]{String.valueOf(cuentaId)})) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
+    }
+
+    /** Des-omite todas las líneas omitidas de la cuenta (vuelven a 📦 Pendientes). */
+    public int restaurarOmitidas(SQLiteDatabase db, long cuentaId) {
+        return db.delete(A1_1_AyudanteBD.TABLE_INVENTARIO_OMITIDAS, "transaccion_id IN (SELECT transaccion_id"
+                + " FROM transacciones WHERE cuenta_id = ?)", new String[]{String.valueOf(cuentaId)});
     }
 }

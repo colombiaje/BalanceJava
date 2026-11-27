@@ -197,7 +197,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
     // ⭐ CAMBIO: versión 14 → 15 para disparar onUpgrade en dispositivos existentes — agrega
     // transacciones_inventario.costo_total (ver comentario de clase arriba y la migración
     // "if (oldVersion < 15)" en onUpgrade()).
-    public static final int version1BalanceSqlite_int_PSF = 33; // v33 decimales de las unidades por artículo (26-nov); v32 historial de cuentas (P1, 23-nov); v31 plantillas (P1); ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
+    public static final int version1BalanceSqlite_int_PSF = 34; // v34 líneas omitidas del inventario (27-nov); v33 decimales de las unidades por artículo (26-nov); v32 historial de cuentas (P1, 23-nov); v31 plantillas (P1); ⭐ v16 catálogo tipo_cuenta; v17 liquidez; v18 Cerrable/conciliable 0/1; v19 sin c13; v20 sin c12; v21 sin c4; v22 sin c3; v23 borradores completos; v24 renta fase R1; v25 foto anual de renta (R3); v26 ajustes de renta a años cerrados (R6); v27 R6 rehecho: ajuste fiscal → contable; v28 varias contrapartidas por registro; v29 checklist de soportes (R7); v30 tipo_cuenta sin columnas vacías y nombre de cuenta único
 
     // ─────────────────────────────────────────────
     //  CONSTANTES DE LOS CATÁLOGOS DE GRUPO1/GRUPO2  ⭐ NUEVO v4
@@ -2383,6 +2383,19 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
                     "c7_FechaYHora TEXT, c8_FechaInicial INTEGER, c9_FechaModificacion TEXT)";
 
     /** Idempotente: columnas de cuentas, tabla e índice (instalación nueva y migración v32). */
+    /**
+     * ⭐ (27-nov, BD v34) Idempotente. Líneas de una cuenta con inventario que se marcan "sin
+     * inventario" en 📦 Pendientes (lo pasado que ya se compensó y no vale repasar). Si la
+     * transacción se borra, su marca se va con ella.
+     */
+    public static final String TABLE_INVENTARIO_OMITIDAS = "inventario_omitidas";
+
+    static void asegurarInventarioOmitidas(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_INVENTARIO_OMITIDAS + " ("
+                + "transaccion_id INTEGER PRIMARY KEY REFERENCES transacciones(transaccion_id) ON DELETE CASCADE, "
+                + "fecha_registro TEXT)");
+    }
+
     /** ⭐ (26-nov, BD v33) Idempotente: items_inventario.decimales (0 = enteros, hasta 3). */
     static void asegurarDecimalesInventario(SQLiteDatabase db) {
         boolean tiene = false;
@@ -2969,6 +2982,7 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         crearTablasPlantilla(db); // ⭐ NUEVO (15-nov, BD v31, plantillas P1)
         asegurarHistorial(db); // ⭐ NUEVO (23-nov, BD v32, historial P1)
         asegurarDecimalesInventario(db); // ⭐ NUEVO (26-nov, BD v33)
+        asegurarInventarioOmitidas(db); // ⭐ NUEVO (27-nov, BD v34)
     }
 
     // area_id: 1 = Nuevo | 2 = Plantilla | 3 = Modificar | 4 = Modificar en espera
@@ -3949,6 +3963,11 @@ public class A1_1_AyudanteBD extends SQLiteOpenHelper {
         // en enteros, sin migrar nada).
         if (oldVersion < 33) {
             asegurarDecimalesInventario(db);
+        }
+
+        // ⭐ NUEVO (27-nov, Jorge): versión 34 — líneas omitidas del inventario (aditivo).
+        if (oldVersion < 34) {
+            asegurarInventarioOmitidas(db);
         }
     }
 

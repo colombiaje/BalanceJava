@@ -614,6 +614,40 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                 }
                 verTransaccionesSoloCuenta();
             });
+            // ⭐ NUEVO (27-nov, BD v34): mantener presionado restaura las líneas omitidas.
+            final Long cuentaParaRestaurar = cuentaInventarioId;
+            boton.setOnLongClickListener(v -> {
+                if (cuentaParaRestaurar == null) return true;
+                SQLiteDatabase dbo = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,
+                        version1BalanceSqlite_int_PSF).getWritableDatabase();
+                int n;
+                try {
+                    n = new A1BASES.A12_InventarioHelper().contarOmitidas(dbo, cuentaParaRestaurar);
+                } finally {
+                    dbo.close();
+                }
+                if (n == 0) {
+                    Toast.makeText(getActivity(), "Esta cuenta no tiene líneas omitidas.", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                new androidx.appcompat.app.AlertDialog.Builder(getActivity())
+                        .setTitle("Líneas omitidas")
+                        .setMessage(n + " línea(s) de " + receivedAccount + " están omitidas (sin inventario). "
+                                + "¿Restaurarlas a 📦 Pendientes?")
+                        .setNegativeButton("Cancelar", null)
+                        .setPositiveButton("Restaurar", (d, w) -> {
+                            SQLiteDatabase dbw = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,
+                                    version1BalanceSqlite_int_PSF).getWritableDatabase();
+                            try {
+                                new A1BASES.A12_InventarioHelper().restaurarOmitidas(dbw, cuentaParaRestaurar);
+                            } finally {
+                                dbw.close();
+                            }
+                            verTransaccionesSoloCuenta();
+                        })
+                        .show();
+                return true;
+            });
         }
         if (cuentaInventarioId == null || !modoPendientes) return null;
         lista.clear();
