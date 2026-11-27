@@ -118,8 +118,9 @@ public class A13_HistorialInventarioDialogo {
         fila.setBackgroundColor(Color.parseColor("#AF87F6"));
         String[] titulos = {
                 "Fecha", "Documento", "Artículo", "Unidades",
-                "Saldo unid.", "Costo movto.", "Precio inf.",
-                "Saldo " + A1_1_AyudanteBD.monedaConfigurada(context) // ⭐ (12-nov) antes "Saldo COP" fijo
+                "Saldo unid.", "Costo movto.", "Precio movto.",
+                "Saldo " + A1_1_AyudanteBD.monedaConfigurada(context), // ⭐ (12-nov) antes "Saldo COP" fijo
+                "Precio prom." // ⭐ (26-nov, Jorge): saldo en pesos ÷ saldo en unidades
         };
         for (String titulo : titulos) {
             TextView tv = new TextView(context);
@@ -145,7 +146,11 @@ public class A13_HistorialInventarioDialogo {
                 String.valueOf(f.costoMovimiento),
                 // ⭐ (26-nov, Jorge): siempre con 3 decimales (antes 3.7 en vez de 3.700).
                 String.format(java.util.Locale.US, "%.3f", f.precioInformativo),
-                String.valueOf(f.saldoCostoDespues)
+                String.valueOf(f.saldoCostoDespues),
+                f.saldoUnidadesDespues > 0
+                        ? String.format(java.util.Locale.US, "%.3f", A12_InventarioHelper.precioPorUnidad(
+                                f.saldoCostoDespues, f.saldoUnidadesDespues, f.decimales))
+                        : "—"
         };
         for (String valor : valores) {
             TextView tv = new TextView(context);

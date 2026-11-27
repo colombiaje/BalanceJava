@@ -46,7 +46,8 @@ public class A14_ListaArticulosDialogo {
         TableLayout tabla = new TableLayout(context);
         tabla.setPadding(12, 12, 12, 12);
         tabla.addView(fila(context, new String[]{"Artículo", "Unidad", "Dec.", "Saldo unid.",
-                        "Saldo " + A1_1_AyudanteBD.monedaConfigurada(db)}, // ⭐ (12-nov) antes "Saldo COP" fijo
+                        "Saldo " + A1_1_AyudanteBD.monedaConfigurada(db), // ⭐ (12-nov) antes "Saldo COP" fijo
+                        "Precio prom."}, // ⭐ (26-nov, Jorge)
                 true, false));
 
         try {
@@ -69,7 +70,11 @@ public class A14_ListaArticulosDialogo {
                             item.unidad != null ? item.unidad : "",
                             String.valueOf(item.decimales),
                             A12_InventarioHelper.formatear(saldo[0], item.decimales),
-                            String.valueOf(saldo[1])
+                            String.valueOf(saldo[1]),
+                            saldo[0] > 0
+                                    ? String.format(java.util.Locale.US, "%.3f", A12_InventarioHelper.precioPorUnidad(
+                                            saldo[1], saldo[0], item.decimales))
+                                    : "—"
                     }, false, colorAlterno);
                     final long itemId = item.itemId;
                     final String nombreArticulo = item.nombre;
