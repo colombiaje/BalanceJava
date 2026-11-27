@@ -548,7 +548,11 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             if (textoPendientes != null && c5_Valor_XTv != null) {
                 c5_Valor_XTv.setText(textoPendientes);
                 c5_Valor_XTv.setBackgroundResource(R.drawable.bg_opcion_accion);
-                c5_Valor_XTv.setOnClickListener(null);
+                // ⭐ (27-nov, Jorge): tocar el saldo vuelve a la cuenta con sus registros (como 📋).
+                c5_Valor_XTv.setOnClickListener(v -> {
+                    modoPendientes = false;
+                    verTransaccionesSoloCuenta();
+                });
             } else if (textoGemela != null && c5_Valor_XTv != null) {
                 // ⭐ (24-nov, Jorge): tamaño normal (agrandado tapaba nombre y valor) y fondo verde
                 // como los botones, para sugerir que se puede tocar.
@@ -581,6 +585,8 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
      * historial marcadas con 🔒. Devuelve el texto del saldo con su cotejo, o null si la cuenta
      * no tiene historial.
      */
+    private long saldoCuentaPendientes; // ⭐ (27-nov)
+
     private String armarPendientes(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
         cuentaInventarioId = null;
         pendientesPorDoc.clear();
@@ -596,6 +602,13 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             }
             pendientes = cuentaInventarioId == null ? new java.util.ArrayList<>()
                     : new A1BASES.A12_InventarioHelper().listarPendientes(db, cuentaInventarioId);
+            // ⭐ (27-nov, Jorge): en 📦 la celda muestra el saldo real de la cuenta, no 0.
+            if (cuentaInventarioId != null) {
+                try (android.database.Cursor c = db.rawQuery("SELECT IFNULL(SUM(c5_Valor), 0) FROM transacciones"
+                        + " WHERE cuenta_id = ?", new String[]{String.valueOf(cuentaInventarioId)})) {
+                    saldoCuentaPendientes = c.moveToFirst() ? c.getLong(0) : 0;
+                }
+            }
         } catch (Exception e) {
             Log.e("F3_2", "Pendientes de inventario: " + e.getMessage(), e);
             return null;
@@ -678,7 +691,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                             + (omitidas > 0 ? " (" + omitidas + " omitidas: mantén presionado 📋 para restaurarlas)" : ""),
                     0));
         }
-        return pendientes.isEmpty() ? "✓ 0 📦" : pendientes.size() + " 📦";
+        return "$ " + saldoCuentaPendientes + (pendientes.isEmpty() ? " ✓0📦" : " · " + pendientes.size() + "📦");
     }
 
     private String armarGemela(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
