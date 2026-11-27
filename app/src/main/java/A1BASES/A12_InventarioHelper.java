@@ -460,6 +460,8 @@ public class A12_InventarioHelper {
         try (Cursor c = db.rawQuery("SELECT t.transaccion_id, t.c1_Documento, IFNULL(t.c5_Valor, 0), t.c6_Descripcion, "
                 + SQL_FECHA_LINEA + " AS f FROM transacciones t WHERE t.cuenta_id = ?"
                 + " AND NOT EXISTS (SELECT 1 FROM transacciones_inventario ti WHERE ti.transaccion_id = t.transaccion_id)"
+                // ⭐ (26-nov): el ajuste de costo (solo valor, sin unidades) no queda pendiente.
+                + " AND t.c6_Descripcion NOT LIKE '" + AJUSTE_COSTO + "%'"
                 + " ORDER BY f, t.transaccion_id", new String[]{String.valueOf(cuentaId)})) {
             while (c.moveToNext()) {
                 LineaPendiente l = new LineaPendiente();
@@ -678,5 +680,80 @@ public class A12_InventarioHelper {
         ContentValues v = new ContentValues();
         v.put("decimales", Math.max(0, Math.min(decimales, MAX_DECIMALES)));
         db.update("items_inventario", v, "item_id = ?", new String[]{String.valueOf(itemId)});
+    }
+
+    // ─────────────────────────────────────────────
+    //  ⭐ NUEVO (26-nov, Jorge, opción B): AJUSTE DE COSTO DE INVENTARIO
+    //  Al inventariar lo pasado, una salida descarga del inventario su costo promedio, pero la
+    //  línea contable registró lo recibido; la diferencia (ganancia o pérdida en cambio
+    //  realizada) quedó sin registrar y el saldo contable de la cuenta ≠ costo del inventario.
+    //  El ajuste es un documento nuevo, con fecha de hoy (período abierto): la cuenta por la
+    //  diferencia y la contrapartida (p. ej. "Pat rentabilidad sana") por lo contrario. No
+    //  toca los documentos viejos. Su línea en la cuenta lleva solo valor (sin unidades): se
+    //  reconoce por la descripción y no queda en 📦 Pendientes.
+    // ─────────────────────────────────────────────
+    public static final String AJUSTE_COSTO = "⚖ Ajuste costo inventario";
+
+    /** {saldo contable de la cuenta, costo total del inventario de la cuenta, líneas pendientes}. */
+    public long[] comparacionContableInventario(SQLiteDatabase db, long cuentaId) {
+        String[] id = {String.valueOf(cuentaId)};
+        long contable = 0, inventario = 0;
+        try (Cursor c = db.rawQuery("SELECT IFNULL(SUM(c5_Valor), 0) FROM transacciones WHERE cuenta_id = ?", id)) {
+            if (c.moveToFirst()) contable = c.getLong(0);
+        }
+        try (Cursor c = db.rawQuery("SELECT IFNULL(SUM(ti.costo_total), 0) FROM transacciones_inventario ti"
+                + " JOIN items_inventario i ON i.item_id = ti.item_id WHERE i.cuenta_id = ?", id)) {
+            if (c.moveToFirst()) inventario = c.getLong(0);
+        }
+        return new long[]{contable, inventario, listarPendientes(db, cuentaId).size()};
+    }
+
+    /**
+     * Crea el documento de ajuste (fecha de hoy). Devuelve el número de documento. Lanza
+     * IllegalStateException si hay pendientes o no hay diferencia.
+     */
+    public String crearAjusteCosto(SQLiteDatabase db, long cuentaId, long contrapartidaId) {
+        long[] k = comparacionContableInventario(db, cuentaId);
+        if (k[2] > 0) throw new IllegalStateException("Primero asigna las " + k[2] + " líneas pendientes (📦).");
+        long diferencia = k[0] - k[1];
+        if (diferencia == 0) throw new IllegalStateException("No hay diferencia que ajustar.");
+        if (contrapartidaId == cuentaId) throw new IllegalStateException("La contrapartida debe ser otra cuenta.");
+        String nombre = "";
+        try (Cursor c = db.rawQuery("SELECT Cuenta FROM cuentas WHERE cuenta_id = ?", new String[]{String.valueOf(cuentaId)})) {
+            if (c.moveToFirst()) nombre = c.getString(0);
+        }
+        String descripcion = AJUSTE_COSTO + " " + nombre + ": " + (diferencia > 0 ? "pérdida" : "ganancia")
+                + " en cambio realizada (contable " + k[0] + " → costo " + k[1] + ")";
+        java.util.Date ya = new java.util.Date();
+        String ahora = new java.text.SimpleDateFormat("yyyy.MM.dd HH:mm:ss", java.util.Locale.US).format(ya);
+        int hoy = Integer.parseInt(new java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(ya));
+        db.beginTransaction();
+        try {
+            String doc = A1_1_AyudanteBD.siguienteNumeroDocumento(db);
+            long[][] lineas = {{cuentaId, -diferencia}, {contrapartidaId, diferencia}};
+            int item = 1;
+            for (long[] l : lineas) {
+                ContentValues v = new ContentValues();
+                v.put("c1_Documento", doc);
+                v.put("c2_ItemDoc", String.valueOf(item++));
+                v.put("c5_Valor", l[1]);
+                v.put("c6_Descripcion", descripcion);
+                v.put("c7_FechaYHora", ahora);
+                v.put("c8_FechaInicial", hoy);
+                v.put("c9_FechaModificacion", "n a");
+                v.put("cuenta_id", l[0]);
+                try (Cursor c = db.rawQuery("SELECT tipo_cuenta_id FROM cuentas WHERE cuenta_id = ?",
+                        new String[]{String.valueOf(l[0])})) {
+                    if (c.moveToFirst() && !c.isNull(0)) v.put("tipo_cuenta_id", c.getLong(0));
+                }
+                db.insertOrThrow("transacciones", null, v);
+            }
+            long[] despues = comparacionContableInventario(db, cuentaId);
+            if (despues[0] != despues[1]) throw new IllegalStateException("El ajuste no cuadró; no se hizo nada.");
+            db.setTransactionSuccessful();
+            return doc;
+        } finally {
+            db.endTransaction();
+        }
     }
 }

@@ -103,13 +103,91 @@ public class A13_HistorialInventarioDialogo {
 
         HorizontalScrollView scrollHorizontal = new HorizontalScrollView(context);
         scrollHorizontal.addView(tabla);
-        scrollVertical.addView(scrollHorizontal);
 
-        new AlertDialog.Builder(context)
+        // ⭐ NUEVO (26-nov, Jorge, opción B): saldo contable vs costo del inventario de la cuenta.
+        long[] k;
+        SQLiteDatabase dbk = new A1_1_AyudanteBD(context, A1_1_AyudanteBD.balanceSqlite_String_PSF, null,
+                A1_1_AyudanteBD.version1BalanceSqlite_int_PSF).getReadableDatabase();
+        try {
+            k = new A12_InventarioHelper().comparacionContableInventario(dbk, cuentaId);
+        } finally {
+            dbk.close();
+        }
+        final long diferencia = k[0] - k[1];
+        TextView resumen = new TextView(context);
+        resumen.setPadding(24, 8, 24, 0);
+        resumen.setText("Contable " + k[0] + " · Inventario " + k[1]
+                + (diferencia == 0 ? " · ✓ cuadra" : " · Diferencia " + diferencia)
+                + (k[2] > 0 ? "\n" + k[2] + " líneas pendientes (📦): la diferencia aún no es definitiva." : ""));
+        android.widget.LinearLayout contenido = new android.widget.LinearLayout(context);
+        contenido.setOrientation(android.widget.LinearLayout.VERTICAL);
+        contenido.addView(resumen);
+        contenido.addView(scrollHorizontal);
+        scrollVertical.addView(contenido);
+
+        AlertDialog.Builder b = new AlertDialog.Builder(context)
                 .setTitle("Historial de inventario — " + nombreCuenta
                         + (nombreArticulo != null ? " / " + nombreArticulo : ""))
                 .setView(scrollVertical)
-                .setPositiveButton("Cerrar", null)
+                .setPositiveButton("Cerrar", null);
+        if (diferencia != 0 && k[2] == 0) {
+            b.setNeutralButton("⚖ Ajustar diferencia", (d, w) -> ajustarDiferencia(context, cuentaId, nombreCuenta, k));
+        }
+        b.show();
+    }
+
+    /** ⭐ (26-nov, Jorge, opción B): documento de ajuste de hoy, cuenta vs contrapartida. */
+    private void ajustarDiferencia(Context context, long cuentaId, String nombreCuenta, long[] k) {
+        long diferencia = k[0] - k[1];
+        SQLiteDatabase db = new A1_1_AyudanteBD(context, A1_1_AyudanteBD.balanceSqlite_String_PSF, null,
+                A1_1_AyudanteBD.version1BalanceSqlite_int_PSF).getWritableDatabase();
+        final java.util.List<Long> ids = new java.util.ArrayList<>();
+        java.util.List<String> nombres = new java.util.ArrayList<>();
+        int preferida = 0;
+        try (Cursor c = db.rawQuery("SELECT cuenta_id, Cuenta FROM cuentas WHERE cuenta_id <> ?"
+                + " ORDER BY Cuenta COLLATE NOCASE", new String[]{String.valueOf(cuentaId)})) {
+            while (c.moveToNext()) {
+                if (c.getString(1) != null && c.getString(1).toLowerCase(java.util.Locale.ROOT)
+                        .contains("rentabilidad sana")) preferida = ids.size();
+                ids.add(c.getLong(0));
+                nombres.add(c.getString(1));
+            }
+        }
+        android.widget.Spinner sp = new android.widget.Spinner(context, android.widget.Spinner.MODE_DIALOG);
+        sp.setAdapter(new android.widget.ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, nombres));
+        sp.setSelection(preferida);
+        TextView t = new TextView(context);
+        t.setText("Saldo contable " + k[0] + " y costo del inventario " + k[1] + ".\n\n"
+                + "Se crea un documento con fecha de hoy:\n"
+                + "  • " + nombreCuenta + ": " + (-diferencia) + "\n"
+                + "  • contrapartida: " + diferencia + " (" + (diferencia > 0 ? "pérdida" : "ganancia")
+                + " en cambio realizada)\n\nContrapartida:");
+        android.widget.LinearLayout caja = new android.widget.LinearLayout(context);
+        caja.setOrientation(android.widget.LinearLayout.VERTICAL);
+        caja.setPadding(48, 16, 48, 0);
+        caja.addView(t);
+        caja.addView(sp);
+        new AlertDialog.Builder(context)
+                .setTitle("⚖ Ajustar diferencia — " + nombreCuenta)
+                .setView(caja)
+                .setNegativeButton("Cancelar", (d, w) -> db.close())
+                .setPositiveButton("Crear ajuste", (d, w) -> {
+                    try {
+                        String doc = new A12_InventarioHelper().crearAjusteCosto(db, cuentaId,
+                                ids.get(sp.getSelectedItemPosition()));
+                        new AlertDialog.Builder(context)
+                                .setTitle("✓ Ajuste creado")
+                                .setMessage("Documento " + doc + ": " + nombreCuenta + " " + (-diferencia)
+                                        + " y " + nombres.get(sp.getSelectedItemPosition()) + " " + diferencia
+                                        + ".\nAhora contable = inventario = " + k[1] + ".")
+                                .setPositiveButton("Entendido", null)
+                                .show();
+                    } catch (Exception e) {
+                        android.widget.Toast.makeText(context, e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                    } finally {
+                        db.close();
+                    }
+                })
                 .show();
     }
 
