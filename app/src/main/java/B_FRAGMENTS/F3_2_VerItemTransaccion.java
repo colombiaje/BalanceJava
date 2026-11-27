@@ -661,6 +661,23 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
             }
             l.add(p);
         }
+        // ⭐ (27-nov, Jorge): con 0 pendientes la lista quedaba vacía sin explicación; se muestra
+        // una fila de aviso (no abre nada al tocarla: no está en pendientesPorDoc).
+        if (pendientes.isEmpty()) {
+            int omitidas = 0;
+            SQLiteDatabase dbo = new A1_1_AyudanteBD(getActivity(), balanceSqlite_String_PSF, null,
+                    version1BalanceSqlite_int_PSF).getReadableDatabase();
+            try {
+                omitidas = new A1BASES.A12_InventarioHelper().contarOmitidas(dbo, cuentaInventarioId);
+            } catch (Exception ignorada) {
+            } finally {
+                dbo.close();
+            }
+            lista.add(new A3_2_TipoTransaccionesGetsYSets("", 0,
+                    "✓ Sin registros pendientes de inventariar. 📋 vuelve a la cuenta."
+                            + (omitidas > 0 ? " (" + omitidas + " omitidas: mantén presionado 📋 para restaurarlas)" : ""),
+                    0));
+        }
         return pendientes.isEmpty() ? "✓ 0 📦" : pendientes.size() + " 📦";
     }
 
