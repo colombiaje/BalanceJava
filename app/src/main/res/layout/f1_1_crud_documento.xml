@@ -212,73 +212,75 @@
                 app:layout_gravity="center_horizontal"
                 >
 
-            <RadioGroup
-                android:id="@+id/optionsDoc_XRg"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp"
-                >
-
-                <RadioButton
-                    android:id="@+id/create_XRb"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:text="Adiciona"
-                    android:textSize="0dp"
-                    android:layout_marginLeft="1dp"
-                    android:background="@drawable/ic_add_document"
-                    android:button="@drawable/bg_yelow_square"
-                    />
-
-                <RadioButton
-                    android:id="@+id/template_XRb"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:text="Plantilla"
-                    android:textSize="0dp"
-                    android:layout_marginLeft="1dp"
-                    android:background="@drawable/ic_template_document"
-                    android:button="@drawable/bg_transparent"
-                    />
-
-                <RadioButton
-                    android:id="@+id/updateDelete_XRb"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:text="Modifica"
-                    android:textSize="0dp"
-                    android:layout_marginLeft="1dp"
-                    android:background="@drawable/ic_edit_document"
-                    android:button="@drawable/bg_transparent"
-                    />
-
-            </RadioGroup>
-
+            <!-- ⭐ (27-nov, Jorge): procesos asociados en marcos, como el de inventario:
+                 documentos (＋ plantilla modificar 📅) | 🔢 | revisión (respaldo y auditoría). -->
             <LinearLayout
+                android:id="@+id/grupoDocumentos_XLl"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_turquoise_green_square"
+                android:background="@drawable/bg_grupo_opciones"
                 android:orientation="horizontal"
-                android:visibility="visible"
-                android:gravity="center_horizontal"
-                android:layout_marginLeft="24dp"
-                >
+                android:gravity="center_vertical"
+                android:padding="2dp">
 
-                <!-- ⭐ (14-nov, Jorge): ventana de documentos (número o lista por fecha); único camino
-                     para elegir el documento de Edición, y "Nuevo en esta fecha". A25_ListaDocumentosDialogo. -->
-                <Button
-                    android:id="@+id/listaDocumentosPorFecha_XBt"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:text="📅"
-                    android:textAllCaps="false"
-                    android:textSize="24sp"
-                    android:contentDescription="Documentos" />
+                <RadioGroup
+                    android:id="@+id/optionsDoc_XRg"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    >
 
-                <Button
+                    <RadioButton
+                        android:id="@+id/create_XRb"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:text="Adiciona"
+                        android:textSize="0dp"
+                        android:layout_marginLeft="1dp"
+                        android:background="@drawable/ic_add_document"
+                        android:button="@drawable/bg_yelow_square"
+                        />
+
+                    <RadioButton
+                        android:id="@+id/template_XRb"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:text="Plantilla"
+                        android:textSize="0dp"
+                        android:layout_marginLeft="1dp"
+                        android:background="@drawable/ic_template_document"
+                        android:button="@drawable/bg_transparent"
+                        />
+
+                    <RadioButton
+                        android:id="@+id/updateDelete_XRb"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:text="Modifica"
+                        android:textSize="0dp"
+                        android:layout_marginLeft="1dp"
+                        android:background="@drawable/ic_edit_document"
+                        android:button="@drawable/bg_transparent"
+                        />
+
+                </RadioGroup>
+                    <!-- ⭐ (14-nov, Jorge): ventana de documentos (número o lista por fecha); único camino
+                         para elegir el documento de Edición, y "Nuevo en esta fecha". A25_ListaDocumentosDialogo. -->
+                    <Button
+                        android:id="@+id/listaDocumentosPorFecha_XBt"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:text="📅"
+                        android:textAllCaps="false"
+                        android:textSize="24sp"
+                        android:contentDescription="Documentos" />
+            </LinearLayout>
+
+            <Button
                     android:id="@+id/calculadoraLibre_XBt"
+                    android:layout_marginLeft="6dp"
+                    android:layout_marginRight="6dp"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackground"
@@ -288,6 +290,15 @@
                     android:textSize="24sp"
 
                     />
+
+            <LinearLayout
+                android:id="@+id/grupoRevision_XLl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_grupo_opciones"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="2dp">
 
                 <FrameLayout
                     android:layout_width="40dp"
@@ -386,8 +397,6 @@
                         />
 
                 </FrameLayout>
-
-
             </LinearLayout>
 
             </LinearLayout>
