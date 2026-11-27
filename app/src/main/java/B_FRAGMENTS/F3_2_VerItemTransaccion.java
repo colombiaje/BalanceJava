@@ -587,6 +587,21 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
      */
     private long saldoCuentaPendientes; // ⭐ (27-nov)
 
+    /** ⭐ (27-nov, Jorge): el marco de inventario se ve si alguno de sus botones se ve. */
+    private void actualizarGrupoInventario() {
+        // getView() es null mientras se arma la vista; entonces se usa la raíz del botón.
+        View v = getView() != null ? getView()
+                : historialInventarioDesdeInforme_XBt != null ? historialInventarioDesdeInforme_XBt.getRootView() : null;
+        if (v == null) return;
+        View grupo = v.findViewById(R.id.grupoInventario_XLl);
+        if (grupo == null) return;
+        View b1 = v.findViewById(R.id.pendientesInventario_XBt);
+        View b2 = v.findViewById(R.id.historialInventarioDesdeInforme_XBt);
+        boolean alguno = (b1 != null && b1.getVisibility() == View.VISIBLE)
+                || (b2 != null && b2.getVisibility() == View.VISIBLE);
+        grupo.setVisibility(alguno ? View.VISIBLE : View.GONE);
+    }
+
     private String armarPendientes(ArrayList<A3_2_TipoTransaccionesGetsYSets> lista) {
         cuentaInventarioId = null;
         pendientesPorDoc.clear();
@@ -617,6 +632,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
         }
         if (boton != null) {
             boton.setVisibility(cuentaInventarioId != null ? View.VISIBLE : View.GONE);
+            actualizarGrupoInventario();
             boton.setText(modoPendientes ? "📋" : "📦");
             boton.setOnClickListener(v -> {
                 modoPendientes = !modoPendientes;
@@ -1206,6 +1222,7 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
                     }
                     historialInventarioDesdeInforme_XBt.setVisibility(
                             cuentaIdParaHistorialInventario != null ? View.VISIBLE : View.GONE);
+                    actualizarGrupoInventario();
                 }
 
                 Log.d("BundleRecibido", "Cuenta: " + receivedAccount +

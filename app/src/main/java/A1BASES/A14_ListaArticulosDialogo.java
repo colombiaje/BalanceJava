@@ -92,10 +92,16 @@ public class A14_ListaArticulosDialogo {
                         new AlertDialog.Builder(context)
                                 .setTitle(nombreArticulo)
                                 .setItems(new String[]{"Ver historial",
-                                        "Cambiar decimales (hoy " + decimalesActuales + ")"}, (d, w) -> {
+                                        "Cambiar decimales (hoy " + decimalesActuales + ")",
+                                        "Eliminar artículo"}, (d, w) -> {
                                     if (w == 0) {
                                         new A13_HistorialInventarioDialogo()
                                                 .mostrar(context, cuentaId, nombreCuenta, itemId, nombreArticulo);
+                                    } else if (w == 2) {
+                                        eliminarArticulo(context, itemId, nombreArticulo, () -> {
+                                            if (listaAbierta != null) listaAbierta.dismiss();
+                                            mostrar(context, cuentaId, nombreCuenta);
+                                        });
                                     } else {
                                         cambiarDecimales(context, itemId, nombreArticulo, decimalesActuales, () -> {
                                             if (listaAbierta != null) listaAbierta.dismiss();
@@ -109,7 +115,7 @@ public class A14_ListaArticulosDialogo {
                     colorAlterno = !colorAlterno;
                 }
                 TextView pista = new TextView(context);
-                pista.setText("Toca un artículo para ver su historial (o, si no tiene movimientos, cambiar sus decimales).");
+                pista.setText("Toca un artículo para ver su historial (o, si no tiene movimientos, cambiar sus decimales o eliminarlo).");
                 pista.setTypeface(null, Typeface.ITALIC);
                 pista.setPadding(24, 0, 24, 12);
                 contenedor.addView(pista);
@@ -171,6 +177,32 @@ public class A14_ListaArticulosDialogo {
                         A12_InventarioHelper.cambiarDecimales(db, itemId, sp.getSelectedItemPosition());
                         android.widget.Toast.makeText(context, "✓ " + nombre + ": " + sp.getSelectedItemPosition()
                                 + " decimales", android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        android.widget.Toast.makeText(context, e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                    } finally {
+                        db.close();
+                    }
+                    if (despues != null) despues.run();
+                })
+                .show();
+    }
+
+    /** ⭐ (27-nov, Jorge): elimina un artículo SIN movimientos (p. ej. creado por error). */
+    private void eliminarArticulo(Context context, long itemId, String nombre, Runnable despues) {
+        new AlertDialog.Builder(context)
+                .setTitle("Eliminar \"" + nombre + "\"")
+                .setMessage("No tiene movimientos de inventario. ¿Eliminarlo?")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Eliminar", (d, w) -> {
+                    SQLiteDatabase db = new A1_1_AyudanteBD(context, A1_1_AyudanteBD.balanceSqlite_String_PSF, null,
+                            A1_1_AyudanteBD.version1BalanceSqlite_int_PSF).getWritableDatabase();
+                    try {
+                        if (A12_InventarioHelper.tieneMovimientos(db, itemId)) {
+                            throw new IllegalStateException("El artículo ya tiene movimientos: no se puede eliminar.");
+                        }
+                        db.delete("items_inventario", "item_id = ?", new String[]{String.valueOf(itemId)});
+                        android.widget.Toast.makeText(context, "✓ \"" + nombre + "\" eliminado",
+                                android.widget.Toast.LENGTH_SHORT).show();
                     } catch (Exception e) {
                         android.widget.Toast.makeText(context, e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
                     } finally {

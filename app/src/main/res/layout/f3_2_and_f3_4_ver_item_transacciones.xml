@@ -72,18 +72,43 @@
             android:textSize="24sp"
             android:contentDescription="Consultar por fechas"/>
 
-        <!-- ⭐ NUEVO (25-nov, Jorge): solo en cuentas con inventario. Muestra las líneas sin
-             artículo (de la más antigua a la más reciente) para el repaso hacia atrás. -->
-        <Button
-            android:id="@+id/pendientesInventario_XBt"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackground"
-            android:text="📦"
-            android:textAllCaps="false"
-            android:textSize="24sp"
-            android:visibility="gone"
-            android:contentDescription="Pendientes de inventario"/>
+        <!-- ⭐ NUEVO (27-nov, Jorge): marco que agrupa los botones de inventario; visible solo
+             en cuentas con inventario (F3_2.actualizarGrupoInventario). -->
+        <LinearLayout
+            android:id="@+id/grupoInventario_XLl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/bg_grupo_inventario"
+            android:orientation="horizontal"
+            android:padding="2dp"
+            android:visibility="gone">
+
+            <!-- ⭐ NUEVO (25-nov, Jorge): solo en cuentas con inventario. Muestra las líneas sin
+                 artículo (de la más antigua a la más reciente) para el repaso hacia atrás. -->
+            <Button
+                android:id="@+id/pendientesInventario_XBt"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackground"
+                android:text="📦"
+                android:textAllCaps="false"
+                android:textSize="24sp"
+                android:visibility="gone"
+                android:contentDescription="Pendientes de inventario"/>
+
+            <Button
+                android:id="@+id/historialInventarioDesdeInforme_XBt"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackground"
+                android:text="📜"
+                android:textAllCaps="false"
+                android:textSize="24sp"
+                android:visibility="gone"
+                android:contentDescription="Ver historial de inventario"/>
+            <!-- ⭐ (26-nov, Jorge): historial con 📜 para no confundirlo con 📦 Pendientes. -->
+        </LinearLayout>
 
         <!-- Solo visible cuando la cuenta consultada es "CxC Enrique": atajo a las gráficas de Indicadores -->
         <Button
@@ -97,21 +122,8 @@
             android:visibility="gone"
             android:contentDescription="Ver gráficas de Indicadores"/>
 
-        <!-- ⭐ NUEVO — Tanda 5 (1-oct, pedido de Jorge, punto b): solo visible cuando la cuenta
-             consultada tiene con_inventario = 1 — atajo al historial básico de inventario
-             (A13_HistorialInventarioDialogo), mismo patrón que graficasIndicadores_XBt. -->
-        <Button
-            android:id="@+id/historialInventarioDesdeInforme_XBt"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackground"
-            android:text="📜"
-            android:textAllCaps="false"
-            android:textSize="24sp"
-            android:visibility="gone"
-            android:contentDescription="Ver historial de inventario"/>
-        <!-- ⭐ (26-nov, Jorge): historial con 📜 para no confundirlo con 📦 Pendientes. -->
-
+        <!-- (📜 historial de inventario: Tanda 5, 1-oct; desde el 27-nov va dentro de
+             grupoInventario_XLl, junto a 📦.) -->
     </LinearLayout>
 
     <LinearLayout
