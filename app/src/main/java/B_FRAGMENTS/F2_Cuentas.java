@@ -574,9 +574,11 @@ public class F2_Cuentas extends DialogFragment {
         paqueteInventario_XBt = inflarViews_View.findViewById(R.id.paqueteInventario_XBt);
         paqueteInventario_XBt.setOnClickListener(v -> new AlertDialog.Builder(getActivity())
                 .setTitle("📦 Artículos de inventario")
-                .setItems(new String[]{"Ver historial de inventario", "Agregar artículos"}, (d, w) -> {
+                .setItems(new String[]{"Ver historial de inventario", "Agregar artículos",
+                        "📊 Informe de inventario"}, (d, w) -> {
                     if (w == 0) verHistorialInventario_XBt.performClick();
-                    else agregarArticulosInventario_XBt.performClick();
+                    else if (w == 1) agregarArticulosInventario_XBt.performClick();
+                    else A1BASES.A40_InformeInventario.mostrar(getActivity()); // ⭐ (27-nov)
                 })
                 .show());
         //Casting otros fragments

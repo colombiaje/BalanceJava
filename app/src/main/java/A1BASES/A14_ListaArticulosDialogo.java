@@ -84,29 +84,32 @@ public class A14_ListaArticulosDialogo {
                     final boolean sinMovimientos = !A12_InventarioHelper.tieneMovimientos(db, itemId);
                     final int decimalesActuales = item.decimales;
                     filaItem.setOnClickListener(v -> {
-                        if (!sinMovimientos) {
-                            new A13_HistorialInventarioDialogo()
-                                    .mostrar(context, cuentaId, nombreCuenta, itemId, nombreArticulo);
-                            return;
+                        // ⭐ (27-nov, Jorge): siempre un menú. Renombrar sirve con o sin movimientos
+                        // (el informe 📊 "por artículo" agrupa por nombre); decimales y eliminar,
+                        // solo sin movimientos.
+                        List<String> opciones = new java.util.ArrayList<>();
+                        opciones.add("Ver historial");
+                        opciones.add("Renombrar");
+                        if (sinMovimientos) {
+                            opciones.add("Cambiar decimales (hoy " + decimalesActuales + ")");
+                            opciones.add("Eliminar artículo");
                         }
+                        Runnable refrescar = () -> {
+                            if (listaAbierta != null) listaAbierta.dismiss();
+                            mostrar(context, cuentaId, nombreCuenta);
+                        };
                         new AlertDialog.Builder(context)
                                 .setTitle(nombreArticulo)
-                                .setItems(new String[]{"Ver historial",
-                                        "Cambiar decimales (hoy " + decimalesActuales + ")",
-                                        "Eliminar artículo"}, (d, w) -> {
+                                .setItems(opciones.toArray(new String[0]), (d, w) -> {
                                     if (w == 0) {
                                         new A13_HistorialInventarioDialogo()
                                                 .mostrar(context, cuentaId, nombreCuenta, itemId, nombreArticulo);
+                                    } else if (w == 1) {
+                                        renombrarArticulo(context, itemId, nombreArticulo, refrescar);
                                     } else if (w == 2) {
-                                        eliminarArticulo(context, itemId, nombreArticulo, () -> {
-                                            if (listaAbierta != null) listaAbierta.dismiss();
-                                            mostrar(context, cuentaId, nombreCuenta);
-                                        });
+                                        cambiarDecimales(context, itemId, nombreArticulo, decimalesActuales, refrescar);
                                     } else {
-                                        cambiarDecimales(context, itemId, nombreArticulo, decimalesActuales, () -> {
-                                            if (listaAbierta != null) listaAbierta.dismiss();
-                                            mostrar(context, cuentaId, nombreCuenta);
-                                        });
+                                        eliminarArticulo(context, itemId, nombreArticulo, refrescar);
                                     }
                                 })
                                 .show();
@@ -115,7 +118,7 @@ public class A14_ListaArticulosDialogo {
                     colorAlterno = !colorAlterno;
                 }
                 TextView pista = new TextView(context);
-                pista.setText("Toca un artículo para ver su historial (o, si no tiene movimientos, cambiar sus decimales o eliminarlo).");
+                pista.setText("Toca un artículo: historial, renombrar (y, si no tiene movimientos, decimales o eliminar).");
                 pista.setTypeface(null, Typeface.ITALIC);
                 pista.setPadding(24, 0, 24, 12);
                 contenedor.addView(pista);
@@ -205,6 +208,43 @@ public class A14_ListaArticulosDialogo {
                                 android.widget.Toast.LENGTH_SHORT).show();
                     } catch (Exception e) {
                         android.widget.Toast.makeText(context, e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                    } finally {
+                        db.close();
+                    }
+                    if (despues != null) despues.run();
+                })
+                .show();
+    }
+
+    /** ⭐ (27-nov, Jorge): renombra un artículo (no cambia sus movimientos). */
+    private void renombrarArticulo(Context context, long itemId, String actual, Runnable despues) {
+        android.widget.EditText et = new android.widget.EditText(context);
+        et.setText(actual);
+        et.setSelectAllOnFocus(true);
+        LinearLayout caja = new LinearLayout(context);
+        int p = (int) (18 * context.getResources().getDisplayMetrics().density);
+        caja.setPadding(p, p / 2, p, 0);
+        caja.addView(et, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        new AlertDialog.Builder(context)
+                .setTitle("Renombrar \"" + actual + "\"")
+                .setMessage("En 📊 Informe \"por artículo\" se agrupan los artículos con el mismo nombre.")
+                .setView(caja)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Guardar", (d, w) -> {
+                    String nuevo = et.getText().toString().trim();
+                    if (nuevo.isEmpty() || nuevo.equals(actual)) return;
+                    SQLiteDatabase db = new A1_1_AyudanteBD(context, A1_1_AyudanteBD.balanceSqlite_String_PSF, null,
+                            A1_1_AyudanteBD.version1BalanceSqlite_int_PSF).getWritableDatabase();
+                    try {
+                        android.content.ContentValues v = new android.content.ContentValues();
+                        v.put("nombre", nuevo);
+                        db.update("items_inventario", v, "item_id = ?", new String[]{String.valueOf(itemId)});
+                        android.widget.Toast.makeText(context, "✓ Ahora se llama \"" + nuevo + "\"",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (android.database.sqlite.SQLiteConstraintException e) {
+                        android.widget.Toast.makeText(context, "Ya hay un artículo \"" + nuevo + "\" en esta cuenta.",
+                                android.widget.Toast.LENGTH_LONG).show();
                     } finally {
                         db.close();
                     }

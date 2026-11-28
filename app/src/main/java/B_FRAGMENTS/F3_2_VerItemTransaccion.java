@@ -256,6 +256,11 @@ public class F3_2_VerItemTransaccion extends DialogFragment {
         calculadoraLibre_XBt = inflarViews_View.findViewById(R.id.calculadoraLibre_XBt);
         graficasIndicadores_XBt = inflarViews_View.findViewById(R.id.graficasIndicadores_XBt);
         historialInventarioDesdeInforme_XBt = inflarViews_View.findViewById(R.id.historialInventarioDesdeInforme_XBt);
+        // ⭐ NUEVO (27-nov, Jorge): 📊 Informe de inventario, dentro del marco de inventario.
+        View informeInventario_XBt = inflarViews_View.findViewById(R.id.informeInventario_XBt);
+        if (informeInventario_XBt != null) {
+            informeInventario_XBt.setOnClickListener(v -> A1BASES.A40_InformeInventario.mostrar(getActivity()));
+        }
 
         // TODO TU CASTING EXISTENTE (sin cambios)
         limpiarChecks_XBt = inflarViews_View.findViewById(R.id.limpiarChecks_XBt);

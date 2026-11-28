@@ -34,6 +34,9 @@ public final class A35_Xlsx {
         // ⭐ (23-nov, Jorge): columnas cuyas celdas son fórmulas (en inglés y sin el "=": Sheets
         // las traduce al idioma de la cuenta, p. ej. VLOOKUP → BUSCARV).
         public java.util.Set<Integer> formulas = new java.util.HashSet<>();
+        // ⭐ (27-nov, Jorge): en informes (no en hojas que se traen de vuelta), los números con
+        // punto decimal ("3.830") se escriben como número, para poder sumar y graficar.
+        public boolean decimalesComoNumero = false;
     }
 
     // Estilos (cellXfs): 0 normal · 1 encabezado · 2 dato fijo (azul rey) · 3 dato editable (fucsia)
@@ -181,7 +184,13 @@ public final class A35_Xlsx {
                     sb.append("<c r=\"").append(letra(c)).append(r).append("\" s=\"").append(estilo)
                             .append("\"><f>").append(xml(v)).append("</f></c>");
                 } else {
-                    celda(sb, c, r, v == null ? "" : v, estilo, true);
+                    String val = v == null ? "" : v;
+                    if (h.decimalesComoNumero && esDecimal(val)) {
+                        sb.append("<c r=\"").append(letra(c) + r).append("\" s=\"").append(estilo).append("\"><v>")
+                                .append(val).append("</v></c>");
+                    } else {
+                        celda(sb, c, r, val, estilo, true);
+                    }
                 }
             }
             sb.append("</row>");
@@ -202,6 +211,10 @@ public final class A35_Xlsx {
             sb.append("<c r=\"").append(ref).append("\" s=\"").append(estilo).append("\" t=\"inlineStr\"><is><t xml:space=\"preserve\">")
                     .append(xml(v)).append("</t></is></c>");
         }
+    }
+
+    private static boolean esDecimal(String v) {
+        return v != null && v.matches("-?(0|[1-9][0-9]{0,14})\\.[0-9]{1,6}");
     }
 
     private static boolean esEntero(String v) {
