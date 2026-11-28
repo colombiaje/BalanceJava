@@ -336,9 +336,10 @@ public final class A40_InformeInventario {
                 .setTitle("Excel")
                 .setItems(new String[]{
                         "Igual a la vista (" + (porArticulo ? "por artículo" : "por cuenta") + ")",
-                        "Base de datos (para tabla dinámica o gráficas)"}, (d, w) -> {
+                        "Base de datos " + (porArticulo ? "por artículo" : "por cuenta")
+                                + " (para tabla dinámica o gráficas)"}, (d, w) -> {
                     if (w == 0) exportarExcelVista(ctx, porArticulo);
-                    else exportarExcelBaseDatos(ctx);
+                    else exportarExcelBaseDatos(ctx, porArticulo);
                 })
                 .setNegativeButton("Cancelar", null)
                 .show();
@@ -386,14 +387,16 @@ public final class A40_InformeInventario {
      * Hoja "Saldos" (cuenta × artículo) y hoja "Movimientos" (cada movimiento de inventario, con
      * año y mes para agrupar en el tiempo).
      */
-    static void exportarExcelBaseDatos(Context ctx) {
+    // ⭐ (28-nov, Jorge): también sigue la vista — por artículo: columna Artículo primero y
+    // orden artículo › cuenta (› fecha); por cuenta: Cuenta primero y orden cuenta › artículo.
+    static void exportarExcelBaseDatos(Context ctx, boolean porArticulo) {
         try {
             A35_Xlsx.Hoja saldos = new A35_Xlsx.Hoja();
             saldos.nombre = "Saldos";
             saldos.decimalesComoNumero = true;
             saldos.inmovilizarColumnaA = false;
-            for (String c : new String[]{"Cuenta", "Artículo", "Unidad", "Unidades", "Saldo $", "Precio prom.",
-                    "Movimientos", "Último movimiento"}) {
+            for (String c : new String[]{porArticulo ? "Artículo" : "Cuenta", porArticulo ? "Cuenta" : "Artículo",
+                    "Unidad", "Unidades", "Saldo $", "Precio prom.", "Movimientos", "Último movimiento"}) {
                 saldos.columnas.add(c);
                 saldos.editable.add(false);
             }
@@ -401,17 +404,27 @@ public final class A40_InformeInventario {
             movs.nombre = "Movimientos";
             movs.decimalesComoNumero = true;
             movs.inmovilizarColumnaA = false;
-            for (String c : new String[]{"Fecha", "Año", "Mes", "Documento", "Cuenta", "Artículo", "Unidad",
-                    "Tipo", "Unidades", "Costo $", "Precio movto.", "Descripción"}) {
+            for (String c : new String[]{porArticulo ? "Artículo" : "Cuenta", porArticulo ? "Cuenta" : "Artículo",
+                    "Fecha", "Año", "Mes", "Documento", "Unidad", "Tipo", "Unidades", "Costo $", "Precio movto.",
+                    "Descripción"}) {
                 movs.columnas.add(c);
                 movs.editable.add(false);
             }
             SQLiteDatabase db = abrir(ctx);
             try {
-                for (Fila f : consultar(db)) {
+                List<Fila> filas = consultar(db);
+                if (porArticulo) {
+                    java.util.Collections.sort(filas, (a, b) -> {
+                        int x = a.articulo.trim().compareToIgnoreCase(b.articulo.trim());
+                        return x != 0 ? x : a.cuenta.compareToIgnoreCase(b.cuenta);
+                    });
+                }
+                for (Fila f : filas) {
                     BigDecimal u = real(f.unidades, f.decimales);
                     String pr = precio(f.costo, u);
-                    saldos.filas.add(new String[]{f.cuenta, f.articulo.trim(), f.unidad, u.toPlainString(),
+                    String a1 = porArticulo ? f.articulo.trim() : f.cuenta;
+                    String a2 = porArticulo ? f.cuenta : f.articulo.trim();
+                    saldos.filas.add(new String[]{a1, a2, f.unidad, u.toPlainString(),
                             String.valueOf(f.costo), "—".equals(pr) ? "" : pr, String.valueOf(f.movimientos), iso(f.ultimo)});
                 }
                 try (Cursor c = db.rawQuery("SELECT " + A12_InventarioHelper.SQL_FECHA_LINEA + ", t.c1_Documento,"
@@ -420,16 +433,20 @@ public final class A40_InformeInventario {
                         + " FROM transacciones_inventario ti JOIN items_inventario i ON i.item_id = ti.item_id"
                         + " JOIN cuentas cu ON cu.cuenta_id = i.cuenta_id"
                         + " JOIN transacciones t ON t.transaccion_id = ti.transaccion_id"
-                        + " ORDER BY 1, t.transaccion_id", null)) {
+                        + (porArticulo ? " ORDER BY TRIM(i.nombre) COLLATE NOCASE, cu.Cuenta COLLATE NOCASE, 1, t.transaccion_id"
+                                : " ORDER BY cu.Cuenta COLLATE NOCASE, TRIM(i.nombre) COLLATE NOCASE, 1, t.transaccion_id"),
+                        null)) {
                     while (c.moveToNext()) {
                         int fecha = c.getInt(0);
                         BigDecimal u = real(c.getLong(6), c.getInt(5));
                         long costo = c.getLong(7);
                         String pr = precio(costo, u);
                         String iso = iso(fecha);
-                        movs.filas.add(new String[]{iso, iso.isEmpty() ? "" : iso.substring(0, 4),
-                                iso.isEmpty() ? "" : iso.substring(0, 7), c.getString(1), c.getString(2),
-                                c.getString(3).trim(), c.getString(4), u.signum() < 0 ? "Salida" : "Entrada",
+                        String cuenta = c.getString(2), articulo = c.getString(3).trim();
+                        movs.filas.add(new String[]{porArticulo ? articulo : cuenta, porArticulo ? cuenta : articulo,
+                                iso, iso.isEmpty() ? "" : iso.substring(0, 4),
+                                iso.isEmpty() ? "" : iso.substring(0, 7), c.getString(1),
+                                c.getString(4), u.signum() < 0 ? "Salida" : "Entrada",
                                 u.toPlainString(), String.valueOf(costo), "—".equals(pr) ? "" : pr, c.getString(8)});
                     }
                 }
@@ -439,7 +456,7 @@ public final class A40_InformeInventario {
             List<A35_Xlsx.Hoja> hojas = new ArrayList<>();
             hojas.add(saldos);
             hojas.add(movs);
-            String t = titulo(false, "Base de datos");
+            String t = titulo(porArticulo, porArticulo ? "Base de datos por articulo" : "Base de datos por cuenta");
             File f = new File(carpeta(ctx), archivo(t) + ".xlsx");
             A35_Xlsx.escribir(f, hojas);
             compartir(ctx, f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", t);
