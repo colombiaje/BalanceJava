@@ -188,7 +188,13 @@ public final class A40_InformeInventario {
         LinearLayout barra = new LinearLayout(ctx);
         barra.setOrientation(LinearLayout.HORIZONTAL);
         barra.setGravity(Gravity.CENTER);
-        Button alternar = boton(ctx, "⇄ Por artículo");
+        // ⭐ (28-nov, Jorge): la vista actual queda escrita; el botón dice a cuál cambia.
+        TextView vistaActual = new TextView(ctx);
+        vistaActual.setTypeface(Typeface.DEFAULT_BOLD);
+        vistaActual.setGravity(Gravity.CENTER);
+        vistaActual.setPadding(0, (int) (4 * d), 0, 0);
+        raiz.addView(vistaActual);
+        Button alternar = boton(ctx, "⇄ Ver por artículo");
         Button pdf = boton(ctx, "PDF");
         Button excel = boton(ctx, "Excel");
         barra.addView(alternar);
@@ -232,7 +238,9 @@ public final class A40_InformeInventario {
                 }
                 tabla.addView(r);
             }
-            alternar.setText(porArticulo[0] ? "⇄ Por cuenta" : "⇄ Por artículo");
+            alternar.setText(porArticulo[0] ? "⇄ Ver por cuenta" : "⇄ Ver por artículo");
+            vistaActual.setText("Vista: " + (porArticulo[0] ? "POR ARTÍCULO" : "POR CUENTA")
+                    + " · PDF y Excel salen de esta vista");
         };
         alternar.setOnClickListener(x -> {
             porArticulo[0] = !porArticulo[0];

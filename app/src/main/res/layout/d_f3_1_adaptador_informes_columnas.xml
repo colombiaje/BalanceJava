@@ -9,12 +9,12 @@
 
     <LinearLayout
         android:id="@+id/relativeLayout1"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
         android:background="@drawable/bg_green_square"
         android:layout_marginTop="5dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/informeInventario_XTv"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         android:orientation="horizontal"
@@ -84,20 +84,25 @@
             android:singleLine="true"
             android:text="" />
 
-        <!-- ⭐ NUEVO (28-nov, Jorge): 3.ª columna — 📊 abre el Informe de inventario (A40); solo
-             en cuentas con inventario (en las demás queda invisible, para no correr columnas). -->
-        <TextView
-            android:id="@+id/informeInventario_XTv"
-            android:layout_width="40dp"
-            android:layout_height="match_parent"
-            android:layout_weight="0"
-            android:background="@drawable/bg_grupo_inventario"
-            android:gravity="center"
-            android:text="📊"
-            android:textSize="18sp"
-            android:visibility="invisible" />
 
     </LinearLayout>
 
+    <!-- ⭐ NUEVO (28-nov, Jorge): 3.ª columna, FUERA del marco verde de la fila — 📊 abre el
+         Informe de inventario (A40); solo en cuentas con inventario (en las demás queda
+         invisible: deja el mismo margen sin dibujar nada, y las columnas no se corren). -->
+    <TextView
+        android:id="@+id/informeInventario_XTv"
+        android:layout_width="40dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginStart="2dp"
+        android:background="@drawable/bg_grupo_inventario"
+        android:gravity="center"
+        android:text="📊"
+        android:textSize="18sp"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
