@@ -30,7 +30,21 @@ public class D_F3_1_AdaptadorTransaccionesInformes extends ArrayAdapter<A3_2_Tip
         this.contexto = context;
         this.arrayListTipoPersonalizado = arrayListTipoPersonalizado;
         this.copyDelArrayList.addAll(arrayListTipoPersonalizado);
+        // ⭐ (28-nov, Jorge): cuentas con inventario, para la 3.ª columna 📊.
+        try {
+            android.database.sqlite.SQLiteDatabase db = new A1BASES.A1_1_AyudanteBD(context,
+                    A1BASES.A1_1_AyudanteBD.balanceSqlite_String_PSF, null,
+                    A1BASES.A1_1_AyudanteBD.version1BalanceSqlite_int_PSF).getReadableDatabase();
+            try (android.database.Cursor c = db.rawQuery("SELECT Cuenta FROM cuentas WHERE con_inventario = 1", null)) {
+                while (c.moveToNext()) cuentasConInventario.add(c.getString(0));
+            } finally {
+                db.close();
+            }
+        } catch (Exception ignorada) {
+        }
     }
+
+    private final java.util.Set<String> cuentasConInventario = new java.util.HashSet<>();
 
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
@@ -74,6 +88,17 @@ public class D_F3_1_AdaptadorTransaccionesInformes extends ArrayAdapter<A3_2_Tip
         // cada grupo y Total abajo, en negrita, sin signo, con tonos AZULES (distintos del lila
         // del resumen de liquidez, para que no se asocien): más oscuro cuanto más alto el nivel
         // (tipo < clasificación < clase).
+        // ⭐ (28-nov, Jorge): 📊 en las cuentas con inventario abre el Informe de inventario.
+        TextView informe_XTv = (TextView) inflarViews_View.findViewById(R.id.informeInventario_XTv);
+        if (informe_XTv != null) {
+            boolean conInventario = !registroTD.esFilaSubtotal()
+                    && cuentasConInventario.contains(registroTD.tipoTget_3CuentaMetodoEnA5());
+            informe_XTv.setVisibility(conInventario ? View.VISIBLE : View.INVISIBLE);
+            if (conInventario) {
+                informe_XTv.setOnClickListener(v -> A1BASES.A40_InformeInventario.mostrar(contexto));
+            }
+        }
+
         if (registroTD.esFilaSubtotal()) {
             vTlistItem_4.setText("");
             vTlistItem_3.setTypeface(null, android.graphics.Typeface.BOLD);

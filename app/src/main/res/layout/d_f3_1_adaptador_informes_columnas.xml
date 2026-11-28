@@ -84,6 +84,19 @@
             android:singleLine="true"
             android:text="" />
 
+        <!-- ⭐ NUEVO (28-nov, Jorge): 3.ª columna — 📊 abre el Informe de inventario (A40); solo
+             en cuentas con inventario (en las demás queda invisible, para no correr columnas). -->
+        <TextView
+            android:id="@+id/informeInventario_XTv"
+            android:layout_width="40dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="@drawable/bg_grupo_inventario"
+            android:gravity="center"
+            android:text="📊"
+            android:textSize="18sp"
+            android:visibility="invisible" />
+
     </LinearLayout>
 
 

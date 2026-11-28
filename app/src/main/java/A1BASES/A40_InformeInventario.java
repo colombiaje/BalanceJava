@@ -238,8 +238,9 @@ public final class A40_InformeInventario {
             porArticulo[0] = !porArticulo[0];
             pintar.run();
         });
-        pdf.setOnClickListener(x -> exportarPdf(ctx));
-        excel.setOnClickListener(x -> exportarExcel(ctx));
+        // ⭐ (28-nov, Jorge): se exporta la vista que se está viendo.
+        pdf.setOnClickListener(x -> exportarPdf(ctx, porArticulo[0]));
+        excel.setOnClickListener(x -> elegirExcel(ctx, porArticulo[0]));
         pintar.run();
 
         new AlertDialog.Builder(ctx)
@@ -289,18 +290,26 @@ public final class A40_InformeInventario {
     // ─────────────────────────────────────────────
     //  Exportar y compartir
     // ─────────────────────────────────────────────
-    private static String sello() {
-        return new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new java.util.Date());
+    // ⭐ (28-nov, Jorge): nombre con la vista y la fecha, también como asunto/título (Drive
+    // lo usa como nombre del archivo).
+    private static String titulo(boolean porArticulo, String extra) {
+        String f = new java.text.SimpleDateFormat("yyyy-MM-dd HHmm", Locale.ROOT).format(new java.util.Date());
+        return "Informe de inventario - " + (extra != null ? extra : porArticulo ? "Por articulo" : "Por cuenta") + " - " + f;
     }
 
-    private static void compartir(Context ctx, File archivo, String tipo) {
+    private static String archivo(String titulo) {
+        return titulo.replace(" - ", "_").replace(' ', '_');
+    }
+
+    private static void compartir(Context ctx, File archivo, String tipo, String titulo) {
         Uri uri = FileProvider.getUriForFile(ctx, "com.jj.appbalancev31.fileprovider", archivo);
         Intent i = new Intent(Intent.ACTION_SEND);
         i.setType(tipo);
         i.putExtra(Intent.EXTRA_STREAM, uri);
-        i.putExtra(Intent.EXTRA_SUBJECT, "Informe de inventario");
+        i.putExtra(Intent.EXTRA_SUBJECT, titulo);
+        i.putExtra(Intent.EXTRA_TITLE, titulo);
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        ctx.startActivity(Intent.createChooser(i, "Compartir informe de inventario"));
+        ctx.startActivity(Intent.createChooser(i, "Compartir " + titulo));
     }
 
     private static File carpeta(Context ctx) {
@@ -309,23 +318,33 @@ public final class A40_InformeInventario {
         return dir;
     }
 
-    static void exportarExcel(Context ctx) {
+    private static List<Linea> lineasDeLaVista(Context ctx, boolean porArticulo) {
+        return armar(ctx, porArticulo);
+    }
+
+    /** ⭐ (28-nov, Jorge): Excel igual a la vista, o como base de datos (tabla dinámica, gráficas). */
+    static void elegirExcel(Context ctx, boolean porArticulo) {
+        new AlertDialog.Builder(ctx)
+                .setTitle("Excel")
+                .setItems(new String[]{
+                        "Igual a la vista (" + (porArticulo ? "por artículo" : "por cuenta") + ")",
+                        "Base de datos (para tabla dinámica o gráficas)"}, (d, w) -> {
+                    if (w == 0) exportarExcelVista(ctx, porArticulo);
+                    else exportarExcelBaseDatos(ctx);
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    static void exportarExcelVista(Context ctx, boolean porArticulo) {
         try {
-            SQLiteDatabase db = abrir(ctx);
-            List<Linea> pc, pa;
-            try {
-                List<Fila> filas = consultar(db);
-                pc = porCuenta(db, filas);
-                pa = porArticulo(filas);
-            } finally {
-                db.close();
-            }
+            String t = titulo(porArticulo, null);
             List<A35_Xlsx.Hoja> hojas = new ArrayList<>();
-            hojas.add(hoja("Por cuenta", "Cuenta / artículo", pc));
-            hojas.add(hoja("Por artículo", "Artículo / cuenta", pa));
-            File f = new File(carpeta(ctx), "informe_inventario_" + sello() + ".xlsx");
+            hojas.add(hoja(porArticulo ? "Por artículo" : "Por cuenta",
+                    porArticulo ? "Artículo / cuenta" : "Cuenta / artículo", lineasDeLaVista(ctx, porArticulo)));
+            File f = new File(carpeta(ctx), archivo(t) + ".xlsx");
             A35_Xlsx.escribir(f, hojas);
-            compartir(ctx, f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            compartir(ctx, f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", t);
         } catch (Exception e) {
             Toast.makeText(ctx, "No se generó el Excel: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
@@ -349,18 +368,83 @@ public final class A40_InformeInventario {
         return h;
     }
 
-    static void exportarPdf(Context ctx) {
-        PdfDocument pdf = new PdfDocument();
+    private static String iso(int f) {
+        if (f < 19000101) return "";
+        return String.format(Locale.ROOT, "%04d-%02d-%02d", f / 10000, (f / 100) % 100, f % 100);
+    }
+
+    /**
+     * Formato base de datos: una fila por registro, sin grupos ni totales, encabezados simples.
+     * Hoja "Saldos" (cuenta × artículo) y hoja "Movimientos" (cada movimiento de inventario, con
+     * año y mes para agrupar en el tiempo).
+     */
+    static void exportarExcelBaseDatos(Context ctx) {
         try {
+            A35_Xlsx.Hoja saldos = new A35_Xlsx.Hoja();
+            saldos.nombre = "Saldos";
+            saldos.decimalesComoNumero = true;
+            saldos.inmovilizarColumnaA = false;
+            for (String c : new String[]{"Cuenta", "Artículo", "Unidad", "Unidades", "Saldo $", "Precio prom.",
+                    "Movimientos", "Último movimiento"}) {
+                saldos.columnas.add(c);
+                saldos.editable.add(false);
+            }
+            A35_Xlsx.Hoja movs = new A35_Xlsx.Hoja();
+            movs.nombre = "Movimientos";
+            movs.decimalesComoNumero = true;
+            movs.inmovilizarColumnaA = false;
+            for (String c : new String[]{"Fecha", "Año", "Mes", "Documento", "Cuenta", "Artículo", "Unidad",
+                    "Tipo", "Unidades", "Costo $", "Precio movto.", "Descripción"}) {
+                movs.columnas.add(c);
+                movs.editable.add(false);
+            }
             SQLiteDatabase db = abrir(ctx);
-            List<Linea> pc, pa;
             try {
-                List<Fila> filas = consultar(db);
-                pc = porCuenta(db, filas);
-                pa = porArticulo(filas);
+                for (Fila f : consultar(db)) {
+                    BigDecimal u = real(f.unidades, f.decimales);
+                    String pr = precio(f.costo, u);
+                    saldos.filas.add(new String[]{f.cuenta, f.articulo.trim(), f.unidad, u.toPlainString(),
+                            String.valueOf(f.costo), "—".equals(pr) ? "" : pr, String.valueOf(f.movimientos), iso(f.ultimo)});
+                }
+                try (Cursor c = db.rawQuery("SELECT " + A12_InventarioHelper.SQL_FECHA_LINEA + ", t.c1_Documento,"
+                        + " cu.Cuenta, i.nombre, IFNULL(i.unidad, ''), IFNULL(i.decimales, 0), ti.unidades, ti.costo_total,"
+                        + " IFNULL(t.c6_Descripcion, '')"
+                        + " FROM transacciones_inventario ti JOIN items_inventario i ON i.item_id = ti.item_id"
+                        + " JOIN cuentas cu ON cu.cuenta_id = i.cuenta_id"
+                        + " JOIN transacciones t ON t.transaccion_id = ti.transaccion_id"
+                        + " ORDER BY 1, t.transaccion_id", null)) {
+                    while (c.moveToNext()) {
+                        int fecha = c.getInt(0);
+                        BigDecimal u = real(c.getLong(6), c.getInt(5));
+                        long costo = c.getLong(7);
+                        String pr = precio(costo, u);
+                        String iso = iso(fecha);
+                        movs.filas.add(new String[]{iso, iso.isEmpty() ? "" : iso.substring(0, 4),
+                                iso.isEmpty() ? "" : iso.substring(0, 7), c.getString(1), c.getString(2),
+                                c.getString(3).trim(), c.getString(4), u.signum() < 0 ? "Salida" : "Entrada",
+                                u.toPlainString(), String.valueOf(costo), "—".equals(pr) ? "" : pr, c.getString(8)});
+                    }
+                }
             } finally {
                 db.close();
             }
+            List<A35_Xlsx.Hoja> hojas = new ArrayList<>();
+            hojas.add(saldos);
+            hojas.add(movs);
+            String t = titulo(false, "Base de datos");
+            File f = new File(carpeta(ctx), archivo(t) + ".xlsx");
+            A35_Xlsx.escribir(f, hojas);
+            compartir(ctx, f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", t);
+        } catch (Exception e) {
+            Toast.makeText(ctx, "No se generó el Excel: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    static void exportarPdf(Context ctx, boolean porArticulo) {
+        PdfDocument pdf = new PdfDocument();
+        try {
+            List<Linea> lineas = lineasDeLaVista(ctx, porArticulo);
+            String t = titulo(porArticulo, null);
             final int ancho = 595, alto = 842, margen = 32, linea = 15;
             final int[] xCol = {margen, 250, 320, 395, 470, 563}; // derecha de cada columna (excepto la 0)
             Paint texto = new Paint();
@@ -375,49 +459,50 @@ public final class A40_InformeInventario {
             PdfDocument.Page[] p = {null};
             Canvas[] c = {null};
             String hoy = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ROOT).format(new java.util.Date());
+            Runnable encabezado = () -> {
+                for (int k = 0; k < ENCABEZADOS.length; k++) {
+                    String e = ENCABEZADOS[k];
+                    c[0].drawText(e, k == 0 ? margen : xCol[k] - negrita.measureText(e), y[0], negrita);
+                }
+                y[0] += 4;
+                c[0].drawLine(margen, y[0], ancho - margen, y[0], texto);
+                y[0] += linea;
+            };
             Runnable nueva = () -> {
                 if (p[0] != null) pdf.finishPage(p[0]);
                 pagina[0]++;
                 p[0] = pdf.startPage(new PdfDocument.PageInfo.Builder(ancho, alto, pagina[0]).create());
                 c[0] = p[0].getCanvas();
                 y[0] = margen + 12;
+                if (pagina[0] == 1) {
+                    c[0].drawText("Informe de inventario — " + (porArticulo ? "por artículo" : "por cuenta"),
+                            margen, y[0], grande);
+                    y[0] += 20;
+                }
                 c[0].drawText("Informe de inventario · " + hoy + " · página " + pagina[0], margen, alto - margen + 14, texto);
+                encabezado.run();
             };
             nueva.run();
-            for (int s = 0; s < 2; s++) {
-                List<Linea> lineas = s == 0 ? pc : pa;
-                if (y[0] > alto - margen - 80) nueva.run();
-                c[0].drawText(s == 0 ? "Por cuenta" : "Por artículo", margen, y[0], grande);
-                y[0] += 18;
-                for (int k = 0; k < ENCABEZADOS.length; k++) {
-                    String t = ENCABEZADOS[k];
-                    c[0].drawText(t, k == 0 ? margen : xCol[k] - negrita.measureText(t), y[0], negrita);
-                }
-                y[0] += 4;
-                c[0].drawLine(margen, y[0], ancho - margen, y[0], texto);
-                y[0] += linea;
-                for (Linea li : lineas) {
-                    if (y[0] > alto - margen - 10) nueva.run();
-                    Paint pinta = "A".equals(li.tipo) ? texto : negrita;
-                    for (int k = 0; k < li.celdas.length; k++) {
-                        String t = li.celdas[k];
-                        if (k == 0) {
-                            while (t.length() > 3 && pinta.measureText(t) > xCol[1] - 70 - margen) t = t.substring(0, t.length() - 2);
-                            c[0].drawText(t, margen, y[0], pinta);
-                        } else {
-                            c[0].drawText(t, xCol[k] - pinta.measureText(t), y[0], pinta);
-                        }
+            for (Linea li : lineas) {
+                if (y[0] > alto - margen - 10) nueva.run();
+                Paint pinta = "A".equals(li.tipo) ? texto : negrita;
+                for (int k = 0; k < li.celdas.length; k++) {
+                    String v = li.celdas[k];
+                    if (k == 0) {
+                        while (v.length() > 3 && pinta.measureText(v) > xCol[1] - 70 - margen) v = v.substring(0, v.length() - 2);
+                        c[0].drawText(v, margen, y[0], pinta);
+                    } else {
+                        c[0].drawText(v, xCol[k] - pinta.measureText(v), y[0], pinta);
                     }
-                    y[0] += linea;
                 }
-                y[0] += 14;
+                y[0] += linea;
             }
             pdf.finishPage(p[0]);
-            File f = new File(carpeta(ctx), "informe_inventario_" + sello() + ".pdf");
+            File f = new File(carpeta(ctx), archivo(t) + ".pdf");
             try (FileOutputStream out = new FileOutputStream(f)) {
                 pdf.writeTo(out);
             }
-            compartir(ctx, f, "application/pdf");
+            compartir(ctx, f, "application/pdf", t);
         } catch (Exception e) {
             Toast.makeText(ctx, "No se generó el PDF: " + e.getMessage(), Toast.LENGTH_LONG).show();
         } finally {
