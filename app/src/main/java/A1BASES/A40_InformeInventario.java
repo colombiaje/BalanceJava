@@ -247,8 +247,15 @@ public final class A40_InformeInventario {
             pintar.run();
         });
         // ⭐ (28-nov, Jorge): se exporta la vista que se está viendo.
-        pdf.setOnClickListener(x -> exportarPdf(ctx, porArticulo[0]));
-        excel.setOnClickListener(x -> elegirExcel(ctx, porArticulo[0]));
+        // ⭐ (28-nov, Jorge): bifurcación explícita — un camino por vista.
+        pdf.setOnClickListener(x -> {
+            if (porArticulo[0]) exportarPdfPorArticulo(ctx);
+            else exportarPdfPorCuenta(ctx);
+        });
+        excel.setOnClickListener(x -> {
+            if (porArticulo[0]) elegirExcelPorArticulo(ctx);
+            else elegirExcelPorCuenta(ctx);
+        });
         pintar.run();
 
         new AlertDialog.Builder(ctx)
@@ -330,6 +337,14 @@ public final class A40_InformeInventario {
         return armar(ctx, porArticulo);
     }
 
+    static void exportarPdfPorCuenta(Context ctx) { exportarPdf(ctx, false); }
+
+    static void exportarPdfPorArticulo(Context ctx) { exportarPdf(ctx, true); }
+
+    static void elegirExcelPorCuenta(Context ctx) { elegirExcel(ctx, false); }
+
+    static void elegirExcelPorArticulo(Context ctx) { elegirExcel(ctx, true); }
+
     /** ⭐ (28-nov, Jorge): Excel igual a la vista, o como base de datos (tabla dinámica, gráficas). */
     static void elegirExcel(Context ctx, boolean porArticulo) {
         new AlertDialog.Builder(ctx)
@@ -392,7 +407,7 @@ public final class A40_InformeInventario {
     static void exportarExcelBaseDatos(Context ctx, boolean porArticulo) {
         try {
             A35_Xlsx.Hoja saldos = new A35_Xlsx.Hoja();
-            saldos.nombre = "Saldos";
+            saldos.nombre = porArticulo ? "Saldos por artículo" : "Saldos por cuenta";
             saldos.decimalesComoNumero = true;
             saldos.inmovilizarColumnaA = false;
             for (String c : new String[]{porArticulo ? "Artículo" : "Cuenta", porArticulo ? "Cuenta" : "Artículo",
@@ -401,7 +416,7 @@ public final class A40_InformeInventario {
                 saldos.editable.add(false);
             }
             A35_Xlsx.Hoja movs = new A35_Xlsx.Hoja();
-            movs.nombre = "Movimientos";
+            movs.nombre = porArticulo ? "Movimientos por artículo" : "Movimientos por cuenta";
             movs.decimalesComoNumero = true;
             movs.inmovilizarColumnaA = false;
             for (String c : new String[]{porArticulo ? "Artículo" : "Cuenta", porArticulo ? "Cuenta" : "Artículo",
